@@ -2,22 +2,30 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabaseAdmin'; // Gunakan admin untuk query
 
 // Kode mentah dari GoPay Bos
-const BASE_STATIC_QRIS = "00020101021126610014COM.GO-JEK.WWW01189360091431052743690210G1052743690303UMI51440014ID.CO.QRIS.WWW0215ID10264886471930303UMI5204481453033605802ID5923DaPay, Pulsa & Internet6006BATANG61055125262070703A016304075D";
+const BASE_STATIC_QRIS = process.env.QRIS_BASE_STATIC || "";
 
-// Mesin Injector CRC16
 function generateDynamicQRIS(staticQRIS: string, nominal: number) {
-  let qris = staticQRIS.replace("010211", "010212");
-  qris = qris.slice(0, -8);
+  // Ubah status jadi dinamis (010212) [cite: 2026-03-06]
+  let payload = staticQRIS.replace("010211", "010212");
+  
+  // Cari posisi Tag 6304 (CRC) agar pemotongan presisi [cite: 2026-03-06]
+  const crcTagIndex = payload.indexOf("6304");
+  if (crcTagIndex !== -1) {
+    payload = payload.substring(0, crcTagIndex);
+  }
 
+  // Inject Tag 54 (Amount)
   const amountStr = nominal.toString();
   const amountLen = amountStr.length.toString().padStart(2, '0');
   const tag54 = `54${amountLen}${amountStr}`;
 
-  qris += tag54 + "6304";
+  // Gabungkan payload + Tag 54 + Tag 6304 [cite: 2026-03-06]
+  payload += tag54 + "6304";
 
+  // Hitung CRC16-CCITT
   let crc = 0xFFFF;
-  for (let i = 0; i < qris.length; i++) {
-    crc ^= qris.charCodeAt(i) << 8;
+  for (let i = 0; i < payload.length; i++) {
+    crc ^= payload.charCodeAt(i) << 8;
     for (let j = 0; j < 8; j++) {
       if ((crc & 0x8000) !== 0) {
         crc = (crc << 1) ^ 0x1021;
@@ -28,7 +36,7 @@ function generateDynamicQRIS(staticQRIS: string, nominal: number) {
   }
   
   const crcHex = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-  return qris + crcHex;
+  return payload + crcHex;
 }
 
 export async function POST(request: Request) {

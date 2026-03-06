@@ -17,10 +17,11 @@ function escapeHtml(text: string) {
     .replace(/'/g, "&#039;");
 }
 
-// --- 2. FUNGSI KIRIM TELEGRAM ---
+const WEBHOOK_SECRET = String(process.env.MACRODROID_SECRET || '');
+
 async function sendTelegram(message: string) {
-  const token = "8509565310:AAH5_KFnk1QaqpEt2e5Uw7FR7ZPYPo2Uyt8";
-  const chatId = "5225711089";
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
@@ -44,11 +45,25 @@ export async function GET(req: Request) {
       return NextResponse.json(data || []);
     }
 
-    const cookieStore = req.headers.get('cookie');
-    const isAdminCookie = cookieStore?.includes('isAdmin=true');
+    // Gunakan sistem token yang sama dengan PATCH agar lebih aman [cite: 2026-03-06]
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    const isAdminCookie = req.headers.get('cookie')?.includes('isAdmin=true');
 
-    if (!isAdminCookie) {
-      return NextResponse.json({ error: "Akses Ditolak! Silakan Login sebagai Admin." }, { status: 403 });
+    let hasAccess = isAdminCookie; // Fallback ke cookie jika token tidak ada
+
+    if (token) {
+      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+      if (user) {
+        const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', user.id).maybeSingle();
+        if (profile?.role?.toLowerCase() === 'admin' || profile?.role?.toLowerCase() === 'manager') {
+          hasAccess = true;
+        }
+      }
+    }
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau bukan Admin." }, { status: 403 });
     }
 
     const { data, error } = await supabaseAdmin.from('orders').select('*').order('created_at', { ascending: false });
@@ -275,7 +290,10 @@ export async function PATCH(req: Request) {
        console.log(`🚀 [ADMIN ACTION] Order #${oldOrder.order_id} diteruskan ke Digiflazz...`);
        
        try {
-           const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+           // Otomatis menggunakan URL Vercel yang aktif demi kecepatan website [cite: 2026-03-06]
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL 
+  ? `https://${process.env.NEXT_PUBLIC_SITE_URL}` 
+  : `https://${process.env.VERCEL_URL}`;
            const kategoriLengkap = (oldOrder.category || "").toLowerCase();
            
            let apiEndpoint = `${baseUrl}/api/prabayar/checkout`;
@@ -283,14 +301,17 @@ export async function PATCH(req: Request) {
                apiEndpoint = `${baseUrl}/api/pascabayar/checkout`; 
            }
 
-           fetch(apiEndpoint, {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({
-                   order_id: oldOrder.order_id,
-                   email: user_email,
-                   use_koin: false 
-               })
+      fetch(apiEndpoint, {
+          method: 'POST',
+          headers: { 
+              'Content-Type': 'application/json',
+              'x-webhook-secret': WEBHOOK_SECRET // Gunakan secret untuk verifikasi internal [cite: 2026-03-06]
+          },
+          body: JSON.stringify({
+              order_id: oldOrder.order_id,
+              email: user_email,
+              use_koin: false 
+          })
            }).catch(e => console.error("Gagal trigger API Checkout:", e));
            
        } catch (apiErr) {
@@ -308,11 +329,17 @@ export async function PATCH(req: Request) {
 // --- 5. DELETE: MENGHAPUS PESANAN ---
 export async function DELETE(req: Request) {
   try {
-    const cookieStore = req.headers.get('cookie');
-    const isAdminCookie = cookieStore?.includes('isAdmin=true');
+    // Gunakan pengecekan Authorization yang ketat untuk fungsi hapus [cite: 2026-03-06]
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    
+    if (!token) return NextResponse.json({ error: "Token diperlukan!" }, { status: 401 });
 
-    if (!isAdminCookie) {
-      return NextResponse.json({ error: "Akses Ditolak!" }, { status: 403 });
+    const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+    const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', user?.id).maybeSingle();
+
+    if (profile?.role?.toLowerCase() !== 'admin') {
+      return NextResponse.json({ error: "Hanya Admin yang boleh hapus data!" }, { status: 403 });
     }
 
     const body = await req.json();

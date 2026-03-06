@@ -152,8 +152,8 @@ await Promise.all([
       `🔄 Status: <b>DIPROSES (NEMBAK VENDOR)</b>\n\n` + 
       `<i>*Catatan: Menunggu laporan sukses dari Digiflazz.</i>`;
 
-    const botToken = "8509565310:AAH5_KFnk1QaqpEt2e5Uw7FR7ZPYPo2Uyt8";
-    const chatId = "5225711089";
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
 
     fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
@@ -170,7 +170,12 @@ await Promise.all([
        console.log(`🚀 [FULL KOIN] Mode Live Aktif. Meneruskan Order #${order.order_id} ke Digiflazz...`);
        
        try {
-           const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+           // Gunakan URL dinamis agar render tetap di bawah 200ms
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL 
+            ? `https://${process.env.NEXT_PUBLIC_SITE_URL}` 
+            : `https://${process.env.VERCEL_URL}`;
+
+        const WEBHOOK_SECRET = String(process.env.MACRODROID_SECRET || ''); // Kunci internal
            const kategoriLengkap = (order.category || "").toLowerCase();
            
            // Default arahkan ke Prabayar
@@ -186,7 +191,10 @@ await Promise.all([
            // Eksekusi tembakan ke API tanpa memblokir response ke user (berjalan di background)
            fetch(apiEndpoint, {
                method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
+               headers: { 
+              'Content-Type': 'application/json',
+              'x-webhook-secret': WEBHOOK_SECRET // Proteksi agar hanya server kita yang bisa nembak
+          },
                body: JSON.stringify({
                    order_id: order.order_id,
                    email: email,

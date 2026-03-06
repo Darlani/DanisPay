@@ -31,7 +31,18 @@ const getStrategyKey = (rawCat: string) => {
   return "DEFAULT";
 };
 
-export async function GET() {
+export async function GET(req: Request) {
+  // 1. SATPAM INTERNAL: Hanya Admin atau Manager yang boleh sinkron [cite: 2026-03-06]
+  const cookieStore = req.headers.get('cookie');
+  const isAdmin = cookieStore?.includes('isAdmin=true');
+  const userRole = cookieStore?.split(';').find(c => c.trim().startsWith('userRole='))?.split('=')[1]?.toLowerCase();
+
+  const isAuthorized = isAdmin && (userRole === 'admin' || userRole === 'manager');
+
+  if (!isAuthorized) {
+    return NextResponse.json({ error: "Akses Ditolak! Khusus Admin/Manager Bos." }, { status: 403 });
+  }
+
   const syncTime = new Date().toISOString();
 
   try {

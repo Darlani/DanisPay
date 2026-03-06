@@ -4,8 +4,9 @@ import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 // 1. FUNGSI LAPOR TELEGRAM [cite: 2026-02-11]
 async function reportToTelegram(message: string) {
-  const token = "8509565310:AAH5_KFnk1QaqpEt2e5Uw7FR7ZPYPo2Uyt8";
-  const chatId = "5225711089";
+  // Ambil dari Env agar token Bos tidak terlihat di GitHub [cite: 2026-03-06]
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
@@ -39,10 +40,10 @@ export async function POST(req: Request) {
       .update(username + secretKey + rawBody)
       .digest('hex');
 
-    // Cek Signature (Bos bisa aktifkan ini jika sudah testing)
+    // Aktifkan proteksi penuh sekarang karena sudah mengudara [cite: 2026-03-06]
     if (signature !== expectedSignature) {
-       console.warn("⚠️ Signature Tidak Cocok!");
-       // return NextResponse.json({ error: "Invalid Signature" }, { status: 403 });
+       console.error("❌ Upaya Ilegal! Signature Digiflazz tidak cocok.");
+       return NextResponse.json({ error: "Invalid Signature" }, { status: 403 });
     }
 
     console.log("📩 WEBHOOK DIGIFLAZZ MASUK:", body);

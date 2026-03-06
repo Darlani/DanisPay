@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
-const WEBHOOK_SECRET = "DANISH_STORE_SECRET_777";
+const WEBHOOK_SECRET = process.env.MACRODROID_SECRET;
 
 // --- 1. FUNGSI PEMBERSIH TEKS (WAJIB) ---
 function escapeHtml(text: string) {
@@ -16,8 +16,8 @@ function escapeHtml(text: string) {
 
 // --- 2. FUNGSI KIRIM TELEGRAM ---
 async function sendTelegram(message: string) {
-  const token = "8509565310:AAH5_KFnk1QaqpEt2e5Uw7FR7ZPYPo2Uyt8";
-  const chatId = "5225711089";
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
 
   console.log("📨 [WEBHOOK] Mencoba lapor Telegram..."); 
 
@@ -386,7 +386,10 @@ async function processFulfillment(order: any) {
    console.log(`🚀 [WEBHOOK BANK] Meneruskan Order #${order.order_id} ke Digiflazz...`);
    
    try {
-       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+       // Otomatis menggunakan URL Vercel yang sedang aktif [cite: 2026-03-06]
+       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL 
+         ? `https://${process.env.NEXT_PUBLIC_SITE_URL}` 
+         : `https://${process.env.VERCEL_URL}`;
        const kategoriLengkap = (order.category || "").toLowerCase();
        
        // Default arahkan ke Prabayar
@@ -399,16 +402,19 @@ async function processFulfillment(order: any) {
 
        console.log(`➡️ [ROUTE WEBHOOK BANK] Mengirim ke Endpoint: ${apiEndpoint}`);
 
-       // Eksekusi tembakan ke API (pakai catch biar jalan di background tanpa bikin webhook lemot)
-       fetch(apiEndpoint, {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({
-               order_id: order.order_id,
-               email: order.email,
-               use_koin: false // Karena ini dibayar pakai transfer bank asli
-           })
-       }).catch(e => console.error("Gagal trigger API Checkout dari Webhook:", e));
+// Tambahkan header Authorization sederhana jika API Checkout Bos butuh proteksi tambahan
+fetch(apiEndpoint, {
+    method: 'POST',
+    headers: { 
+        'Content-Type': 'application/json',
+        'x-webhook-secret': String(WEBHOOK_SECRET || '') // Pakai String() agar TS yakin ini bukan undefined
+    },
+    body: JSON.stringify({
+        order_id: order.order_id,
+        email: order.email,
+        use_koin: false
+    })
+}).catch(e => console.error("Gagal trigger API Checkout dari Webhook:", e));
        
        return "Diproses";
    } catch (apiErr) {

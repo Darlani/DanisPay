@@ -4,22 +4,59 @@ import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  try {
-// Kita tambahkan .trim() biar kalau ada spasi gak sengaja di .env langsung dibuang bos! [cite: 2026-02-11]
-    const username = process.env.DIGIFLAZZ_USERNAME?.trim();
-    const apiKey = process.env.DIGIFLAZZ_API_KEY?.trim(); 
+// --- 1. FUNGSI PEMBANTU: LAPOR TELEGRAM ---
+async function reportToTelegram(message: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  
+  if (!token || !chatId) {
+    console.error("❌ Variabel Env Telegram Belum Disetting!");
+    return;
+  }
 
-    // 1. CEK ENV
-    if (!username || !apiKey) {
-      console.error("❌ ERROR: ENV KOSONG!");
-      return NextResponse.json({ success: false, error: "Cek file .env Bos, Username/API Key kosong!" });
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        chat_id: chatId, 
+        text: message, 
+        parse_mode: 'HTML',
+        disable_web_page_preview: true 
+      })
+    });
+  } catch (err) {
+    console.error("💀 Gagal kirim notif saldo ke Telegram:", err);
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    // --- 2. SATPAM INTERNAL (Hanya Admin atau Manager) ---
+    const cookieStore = req.headers.get('cookie') || "";
+    const isAdmin = cookieStore.includes('isAdmin=true');
+    const userRole = cookieStore.split(';').find(c => c.trim().startsWith('userRole='))?.split('=')[1]?.toLowerCase();
+
+    if (!isAdmin || (userRole !== 'admin' && userRole !== 'manager')) {
+      return NextResponse.json({ error: "Akses Ditolak! Khusus Admin/Manager Bos." }, { status: 403 });
     }
 
-    // Pastikan urutannya: USERNAME + API_KEY + "depo"
+    // --- 3. AMBIL CREDENTIAL DARI ENV ---
+    const username = process.env.DIGIFLAZZ_USERNAME?.trim();
+    const apiKey = process.env.DIGIFLAZZ_API_KEY?.trim(); 
+    const storeId = process.env.NEXT_PUBLIC_STORE_ID; // Kunci Toko dari bensin .env [cite: 2026-03-06]
+
+    if (!username || !apiKey || !storeId) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "Data .env (Username/Key/StoreID) belum lengkap Bos!" 
+      });
+    }
+
+    // --- 4. GENERATE SIGNATURE (MD5: USERNAME + API_KEY + 'depo') ---
     const sign = crypto.createHash('md5').update(username + apiKey + "depo").digest('hex'); 
 
-    // 2. CEK KE DIGIFLAZZ
+    // --- 5. TEMBAK API DIGIFLAZZ ---
     const response = await fetch('https://api.digiflazz.com/v1/cek-saldo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -28,36 +65,50 @@ export async function GET() {
     });
 
     const data = await response.json();
-    console.log("🔍 RESPONS DIGIFLAZZ:", data); // Intip ini di terminal Bos!
+    console.log("🔍 RESPONS DIGIFLAZZ:", data);
 
     if (data.data) {
       const newBalance = data.data.deposit;
-      const storeId = 'f2caefe6-7bf4-49d8-b37c-c210a7d93562';
 
-      // 3. UPDATE DATABASE
-      const { data: updateRes, error: dbError } = await supabaseAdmin
+      // --- 6. UPDATE DATABASE SUPABASE (Pakai ID dari .env) ---
+      const { error: dbError } = await supabaseAdmin
         .from('store_settings')
         .update({ balance_digiflazz: newBalance })
-        .eq('id', storeId)
-        .select();
+        .eq('id', storeId);
 
       if (dbError) {
         console.error("❌ ERROR SUPABASE:", dbError.message);
-        return NextResponse.json({ success: true, balance: newBalance, warning: "Saldo ditarik tapi gagal simpan ke DB" });
+        return NextResponse.json({ 
+          success: true, 
+          balance: newBalance, 
+          warning: "Saldo ditarik tapi gagal update database" 
+        });
+      }
+
+      // --- 7. RADAR SALDO TIRIS (NOTIFIKASI TELEGRAM) ---
+      if (newBalance < 100000) {
+        const msgAlert = `<b>⚠️ PERINGATAN SALDO TIPIS!</b>\n\n` +
+                         `Bensin Digiflazz Bos tinggal dikit nih.\n` +
+                         `💰 Sisa Saldo: <b>Rp ${newBalance.toLocaleString('id-ID')}</b>\n\n` +
+                         `<i>Segera Top Up ya Bos biar pelanggan nggak kabur! 🚀</i>`;
+        
+        // Kirim ke Telegram tanpa await agar API tetap kencang di bawah 200ms
+        reportToTelegram(msgAlert).catch(e => console.error("Alert Telegram Gagal:", e));
       }
 
       return NextResponse.json({ success: true, balance: newBalance });
+
     } else {
-      // Kita bongkar semua pesan error dari Digiflazz biar kelihatan Bos! [cite: 2026-02-11]
       console.error("❌ DIGIFLAZZ REJECTED:", data);
       return NextResponse.json({ 
         success: false, 
-        message: data.data?.message || data.message || "Gagal tarik data dari Digiflazz",
-        raw: data // Kita kirim data mentah buat debug
-      });
+        message: data.data?.message || data.message || "Ditolak Digiflazz",
+        raw: data 
+      }, { status: 400 });
     }
+
   } catch (error: any) {
-    console.error("❌ CRASH API:", error.message);
+    console.error("❌ CRASH API BALANCE:", error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
