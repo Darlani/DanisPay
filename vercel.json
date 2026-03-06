@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/digiflazz/sync",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/orders/cleanup",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
