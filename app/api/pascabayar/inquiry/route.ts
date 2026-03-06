@@ -63,22 +63,21 @@ export async function POST(req: Request) {
     const result = res.data; 
     console.log("🔍 CEK RESPON LENGKAP:", JSON.stringify(result, null, 2));
 
-    if (result.data?.status === "Gagal") {
+if (result.data?.status === "Gagal") {
       let pesanUser = "Gagal cek tagihan, Bos!";
       
+      // Tangkap RC 02 sesuai tabel Digiflazz [cite: 2026-03-06]
       if (result.data?.rc === '02') {
-        pesanUser = "Tagihan ID ini sudah Lunas atau tidak ada tagihan bulan ini, Mantap!";
-      } else if (result.data?.rc === '43') {
-        pesanUser = "Produk sedang gangguan/off di pusat, coba bentar lagi ya Bos.";
+        pesanUser = "Tagihan ID ini sudah Lunas atau tidak ada tagihan aktif. Mantap!";
       } else if (result.data?.rc === '54') {
-        pesanUser = "Nomor ID Pelanggan tidak ditemukan, coba cek lagi kodenya.";
+        pesanUser = "Nomor ID Pelanggan salah, coba cek lagi kodenya.";
       }
 
       return NextResponse.json({ 
         success: false, 
         message: pesanUser,
         rc: result.data?.rc 
-      }, { status: 400 });
+      }, { status: 400 }); // Gunakan 400 (Bad Request) agar tidak terbaca 500 (Crash)
     }
 
     // 4. PARSING DATA UNTUK FRONTEND [cite: 2026-02-11]
