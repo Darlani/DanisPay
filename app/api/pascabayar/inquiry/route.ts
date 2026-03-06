@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import crypto from 'crypto';
+import axios from 'axios';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { customer_id, sku, category } = body;
 
-    // Validasi data masuk agar tidak kosong [cite: 2026-02-11]
+    // 1. VALIDASI DATA [cite: 2026-02-11]
     if (!customer_id || !sku) {
       return NextResponse.json({ message: "Data tidak lengkap Bos!" }, { status: 400 });
     }
@@ -18,12 +19,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Konfigurasi server belum lengkap Bos!" }, { status: 500 });
     }
 
-// --- LOGIKA MAPPING SKU MASTER (VERSI DINAMIS) ---
+    // 2. LOGIKA MAPPING SKU MASTER (VERSI DINAMIS)
     let inquirySku = sku; 
     const lowerCat = category?.toLowerCase() || "";
     const lowerName = sku.toLowerCase();
 
-    // Kita pakai logika: "Kalau bukan Token PLN, dan ada kata kuncinya, arahkan ke Master SKU"
     if (lowerCat.includes('pln') || lowerName.includes('pln')) {
       inquirySku = 'pln'; 
     } else if (lowerCat.includes('pdam') || lowerName.includes('pdam')) {
@@ -33,35 +33,37 @@ export async function POST(req: Request) {
     } else if (lowerCat.includes('internet') || lowerCat.includes('telkom') || lowerName.includes('indihome')) {
       inquirySku = 'internet';
     } else if (lowerCat.includes('hp') || lowerCat.includes('halo')) {
-      inquirySku = 'hp'; // Master SKU untuk HP pascabayar
+      inquirySku = 'hp'; 
     }
-    // -------------------------------------------------
 
-// -------------------------------------------------
-
-    // EKSEKUSI PASCABAYAR (Struktur Sesuai Dokumen Digiflazz) [cite: 2026-02-11]
+    // 3. EKSEKUSI PASCABAYAR DIRECT [cite: 2026-03-06]
     const ref_id = `INQ-${Date.now()}`;
+
+    // TRIK PANCINGAN: Intip IP Vercel yang lagi dipakai Bos! [cite: 2026-03-06]
+    try {
+      const ipCheck = await axios.get('https://api.ipify.org?format=json');
+      console.log("🚀 IP VERCEL SAAT INI:", ipCheck.data.ip);
+    } catch (e) {
+      console.error("Gagal intip IP");
+    }
     const sign = crypto.createHash('md5').update(username + apiKey + ref_id).digest('hex');
 
-    // Gunakan "inq-pasca" dan "inquirySku" hasil mapping
-const res = await fetch("https://api.digiflazz.com/v1/transaction", {
-      method: "POST",
-      body: JSON.stringify({
-        commands: "inq-pasca",
-        username: username,
-        // Kita paksa huruf kecil ya bos biar sama persis kayak di dokumen [cite: 2026-02-11]
-        buyer_sku_code: inquirySku.toLowerCase(), 
-        customer_no: customer_id,
-        ref_id: ref_id,
-        sign: sign
-      }),
+    const res = await axios.post("https://api.digiflazz.com/v1/transaction", {
+      commands: "inq-pasca",
+      username: username,
+      buyer_sku_code: inquirySku.toLowerCase(),
+      customer_no: customer_id,
+      ref_id: ref_id,
+      sign: sign
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 15000 
     });
 
-    const result = await res.json();
+    const result = res.data; 
     console.log("🔍 CEK RESPON LENGKAP:", JSON.stringify(result, null, 2));
 
     if (result.data?.status === "Gagal") {
-      // Logika penanganan kode respon (RC) Digiflazz
       let pesanUser = "Gagal cek tagihan, Bos!";
       
       if (result.data?.rc === '02') {
@@ -79,7 +81,7 @@ const res = await fetch("https://api.digiflazz.com/v1/transaction", {
       }, { status: 400 });
     }
 
-    // Parsing data sukses untuk dikirim ke frontend [cite: 2026-02-11]
+    // 4. PARSING DATA UNTUK FRONTEND [cite: 2026-02-11]
     return NextResponse.json({
       success: true,
       data: {
@@ -87,12 +89,12 @@ const res = await fetch("https://api.digiflazz.com/v1/transaction", {
         amount: result.data.price || 0,
         adminSupplier: result.data.admin || 0,
         period: result.data.periode || "Tagihan Aktif",
-        desc: result.data.desc // Membawa detail tarif/daya jika ada
+        desc: result.data.desc 
       }
     });
 
-  } catch (error) {
-    console.error("❌ ERROR API:", error);
+  } catch (error: any) {
+    console.error("❌ ERROR API:", error.message);
     return NextResponse.json({ message: "Server Error Bos! Hubungi IT." }, { status: 500 });
   }
 }
