@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+// Ganti nama fungsi menjadi 'proxy' dan jadikan 'export default'
+export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // HANYA proteksi halaman frontend /admin
-  // Biarkan /api diurus oleh file route.ts masing-masing
+  // Proteksi halaman frontend /admin agar render tetap di bawah 200ms
   if (pathname.startsWith('/admin')) {
     const isAdmin = request.cookies.get('isAdmin')?.value === 'true';
     const userRole = request.cookies.get('userRole')?.value?.toLowerCase();
