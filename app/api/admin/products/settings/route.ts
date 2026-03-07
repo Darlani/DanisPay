@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const { strategies, cashback } = body;
-    const storeId = process.env.NEXT_PUBLIC_STORE_ID; // Ambil dari bensin .env [cite: 2026-03-06]
+    const storeId = process.env.STORE_ID; // Ambil dari bensin .env [cite: 2026-03-06]
 
     if (!storeId) {
       return NextResponse.json({ success: false, error: "StoreID di .env belum disetting!" });

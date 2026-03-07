@@ -44,7 +44,7 @@ export async function GET(req: Request) {
     // --- 3. AMBIL CREDENTIAL DARI ENV ---
     const username = process.env.DIGIFLAZZ_USERNAME?.trim();
     const apiKey = process.env.DIGIFLAZZ_API_KEY?.trim(); 
-    const storeId = process.env.NEXT_PUBLIC_STORE_ID; // Kunci Toko dari bensin .env [cite: 2026-03-06]
+    const storeId = process.env.STORE_ID; // Kunci Toko dari bensin .env [cite: 2026-03-06]
 
     if (!username || !apiKey || !storeId) {
       return NextResponse.json({ 
