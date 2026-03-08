@@ -71,7 +71,13 @@ export async function POST(req: Request) {
         } 
     });
 
-  } catch (error) {
-    return NextResponse.json({ message: "Server Error Bos!" }, { status: 500 });
+  } catch (error: any) {
+    const errorData = error.response?.data;
+    const errorMessage = errorData?.data?.message || "Koneksi ke server pusat gagal Bos!";
+    
+    // Log error di VPS biar kita gampang lacaknya [cite: 2026-03-06]
+    console.error("❌ ERROR DIGIFLAZZ:", JSON.stringify(errorData, null, 2));
+    
+    return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }
