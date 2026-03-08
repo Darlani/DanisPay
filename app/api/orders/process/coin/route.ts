@@ -128,10 +128,13 @@ export async function POST(req: Request) {
       }
     }
 
-// 4. EKSEKUSI FINAL (GANTI STATUS KE 'DIPROSES' AGAR UI TIDAK GLITCH)
+// 4. EKSEKUSI FINAL (DENGAN TANDA WAKTU BARU) [cite: 2026-03-06]
 await Promise.all([
   supabaseAdmin.from('profiles').update({ balance: finalBalance }).eq('id', profile.id),
-  supabaseAdmin.from('orders').update({ status: 'Diproses' }).eq('order_id', order_id),
+  supabaseAdmin.from('orders').update({ 
+    status: 'Diproses',
+    updated_at: new Date().toISOString() 
+  }).eq('order_id', order_id),
   supabaseAdmin.from('balance_logs').insert([{ 
     user_id: profile.id, 
     user_email: email, 
@@ -176,13 +179,12 @@ await Promise.all([
         const WEBHOOK_SECRET = String(process.env.MACRODROID_SECRET || ''); // Kunci internal
            const kategoriLengkap = (order.category || "").toLowerCase();
            
-           // Default arahkan ke Prabayar
-           let apiEndpoint = `${baseUrl}/api/prabayar/checkout`; 
-           
-           // Belokkan ke Pascabayar jika ada kata kuncinya
-           if (kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('ppob')) {
-               apiEndpoint = `${baseUrl}/api/pascabayar/checkout`; 
-           }
+// Arahkan ke rute baru yang sudah dipindah ke folder digiflazz [cite: 2026-03-06]
+           let apiEndpoint = `${baseUrl}/api/digiflazz/prabayar/checkout`; 
+           
+           if (kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('ppob')) {
+               apiEndpoint = `${baseUrl}/api/digiflazz/pascabayar/checkout`; 
+           }
 
            console.log(`➡️ [ROUTE FULL KOIN] Mengirim ke Endpoint: ${apiEndpoint}`);
 

@@ -122,12 +122,17 @@ export async function PATCH(req: Request) {
 
     const oldStatusRaw = oldOrder.status || 'Pending';
 
-    if (oldStatusRaw === currentStatus) {
-      return NextResponse.json({ message: "Status sudah sama." });
-    }
+if (oldStatusRaw === currentStatus) {
+      return NextResponse.json({ message: "Status sudah sama." });
+    }
 
-    const { error: updateError } = await supabaseAdmin.from('orders').update({ status: currentStatus }).eq('id', id);
-    if (updateError) throw updateError;
+    // Tambahkan updated_at agar Robot Auto-Check tahu ada perubahan manual dari Admin [cite: 2026-03-06]
+    const { error: updateError } = await supabaseAdmin.from('orders').update({ 
+      status: currentStatus,
+      updated_at: new Date().toISOString() 
+    }).eq('id', id);
+    
+    if (updateError) throw updateError;
 
     await supabaseAdmin.from('admin_logs').insert([{
       admin_email: adminEmail,
@@ -293,12 +298,13 @@ try {
            // Jalur tol internal VPS: Super cepat & anti-nyasar [cite: 2026-03-06]
            const baseUrl = "http://127.0.0.1:3000"; 
            
-           const kategoriLengkap = (oldOrder.category || "").toLowerCase();
-           
-           let apiEndpoint = `${baseUrl}/api/prabayar/checkout`;
-           if (kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('ppob')) {
-               apiEndpoint = `${baseUrl}/api/pascabayar/checkout`; 
-           }
+const kategoriLengkap = (oldOrder.category || "").toLowerCase();
+           
+           // Gunakan rute baru yang sudah kita rapikan ke dalam folder digiflazz [cite: 2026-03-08]
+           let apiEndpoint = `${baseUrl}/api/digiflazz/prabayar/checkout`;
+           if (kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('ppob')) {
+               apiEndpoint = `${baseUrl}/api/digiflazz/pascabayar/checkout`; 
+           }
 
       fetch(apiEndpoint, {
           method: 'POST',

@@ -96,7 +96,7 @@ export default function ProductSection({ title, category, id }: ProductSectionPr
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
         {!mounted ? (
           [...Array(6)].map((_, i) => (
-            <div key={`skel-${i}`} className="aspect-[3/4] bg-slate-800 rounded-xl animate-pulse border border-slate-700" />
+            <div key={`skel-${i}`} className="aspect-3/4 bg-slate-800 rounded-xl animate-pulse border border-slate-700" />
           ))
         ) : (
           visibleProducts.map((product: any, index: number) => (

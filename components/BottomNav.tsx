@@ -25,7 +25,7 @@ export default function BottomNav() {
   return (
     // Class md:hidden akan menyembunyikan div ini di layar tablet/desktop
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#0f172a] border-t border-slate-800 z-50 pb-safe shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.5)]">
-      <div className="flex justify-around items-center h-[72px] px-2">
+      <div className="flex justify-around items-center h-18 px-2">
         
         <Link href="/" className={`relative flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${pathname === '/' ? 'text-blue-500' : 'text-slate-400 hover:text-slate-200'}`}>
           {pathname === '/' && <div className="absolute top-0 w-8 h-1 bg-blue-500 rounded-b-full"></div>}

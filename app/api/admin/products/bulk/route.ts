@@ -79,15 +79,16 @@ export async function POST(req: Request) {
      const chunkSize = 50;
      for (let i = 0; i < updates.length; i += chunkSize) {
          const chunk = updates.slice(i, i + chunkSize);
-         const promises = chunk.map(upd => 
-             supabaseAdmin.from('products').update({
-                 margin_item: upd.margin_item,
-                 discount: upd.discount, // <-- Eksekusi update diskon di database
-                 price: upd.price,
-                 cashback: upd.cashback,
-                 updated_at: upd.updated_at
-             }).eq('id', upd.id)
-         );
+// Kita pastikan 'updated_at' benar-benar terekam agar sinkron dengan sistem Trigger SQL [cite: 2026-03-08]
+         const promises = chunk.map(upd => 
+             supabaseAdmin.from('products').update({
+                 margin_item: upd.margin_item,
+                 discount: upd.discount,
+                 price: upd.price,
+                 cashback: upd.cashback,
+                 updated_at: new Date().toISOString() // Pakai waktu eksekusi terbaru [cite: 2026-03-06]
+             }).eq('id', upd.id)
+         );
          await Promise.all(promises);
      }
 

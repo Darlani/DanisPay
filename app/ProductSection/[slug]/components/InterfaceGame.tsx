@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect, useMemo } from "react";
 import { 
   Info, ChevronRight, CheckCircle2, ShoppingCart,
-  ShieldCheck, CircleDollarSign, Zap
+  ShieldCheck, CircleDollarSign, Zap, Loader2
 } from "lucide-react";
 
 // IMPORT KOMPONEN SHARED
@@ -63,8 +63,42 @@ export default function InterfaceGame(props: InterfaceGameProps) {
     usedCoinsAmount, isMaintenanceDigiflazz, isAdmin, dbPayments
   } = props;
 
-  const [isProcessing, setIsProcessing] = useState(false); 
-  const [activeTab, setActiveTab] = useState("");
+const [isProcessing, setIsProcessing] = useState(false); 
+  const [activeTab, setActiveTab] = useState("");
+
+  // Tambahkan state untuk Cek ID Game [cite: 2026-03-06]
+  const [isChecking, setIsChecking] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleInquiryGame = async () => {
+    if (!accId || accId.length < 3) { setErrorMsg("ID terlalu pendek!"); return; }
+    setIsChecking(true);
+    setErrorMsg("");
+    setCustomerName("");
+
+    try {
+      const res = await fetch('/api/digiflazz/prabayar/inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          customer_id: zoneId ? `${accId}${zoneId}` : accId, 
+          sku: product.items?.[0]?.sku || 'game' 
+        })
+      });
+      const result = await res.json();
+      if (res.ok && result.data?.customer_name) {
+        setCustomerName(result.data.customer_name);
+        scrollToNext(step3Ref);
+      } else {
+        setErrorMsg("ID tidak ditemukan atau sedang gangguan.");
+      }
+    } catch (err) {
+      setErrorMsg("Gagal verifikasi ID.");
+    } finally {
+      setIsChecking(false);
+    }
+  };
 
   const step2Ref = useRef<HTMLDivElement>(null);
   const step3Ref = useRef<HTMLDivElement>(null);
@@ -441,22 +475,34 @@ export default function InterfaceGame(props: InterfaceGameProps) {
               <div className="p-4 sm:p-8">
                 <div className="flex flex-col md:flex-row gap-6">
                   
-                  <div className="flex-1 space-y-3">
-                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#00796B]" />
-                      {getDynamicLabel()}
-                    </label>
-                    <input 
-                      type="text" 
-                      value={accId} 
-                      onChange={(e) => { 
-                        setAccId(e.target.value); 
-                        if(!product.name.toLowerCase().includes('legends') && e.target.value.length >= 10) scrollToNext(step3Ref); 
-                      }} 
-                      placeholder={`Masukkan ${getDynamicLabel()}`} 
-                      className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white p-5 rounded-2xl outline-none text-base font-bold text-slate-700 transition-all placeholder:text-slate-300" 
-                    />
-                  </div>
+<div className="flex-1 space-y-3">
+                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#00796B]" />
+                      {getDynamicLabel()}
+                    </label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={accId} 
+                        onChange={(e) => { setAccId(e.target.value); setCustomerName(""); }} 
+                        placeholder={`Masukkan ${getDynamicLabel()}`} 
+                        className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white p-5 pr-20 rounded-2xl outline-none text-base font-bold text-slate-700 transition-all placeholder:text-slate-300" 
+                      />
+                      <button 
+                        onClick={handleInquiryGame}
+                        disabled={isChecking}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 bg-[#00796B] text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-[#004D40] transition-all"
+                      >
+                        {isChecking ? <Loader2 size={16} className="animate-spin" /> : "CEK"}
+                      </button>
+                    </div>
+                    {customerName && (
+                      <p className="text-[10px] font-black text-emerald-600 bg-emerald-50 p-2 rounded-lg animate-in zoom-in uppercase">
+                        ✅ Nama: {customerName}
+                      </p>
+                    )}
+                    {errorMsg && <p className="text-[10px] font-black text-rose-500 italic">{errorMsg}</p>}
+                  </div>
 
                   {isMLBB && (
                     <div className="w-full md:w-1/3 space-y-3 animate-in fade-in slide-in-from-left-4 duration-500">

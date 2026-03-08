@@ -214,10 +214,13 @@ if (needsPenalty) {
         });
     }
 
-// --- 4. UPDATE STATUS KE 'DIPROSES' (AGAR UI TAMPIL LOADING) ---
+// --- 4. UPDATE STATUS & WAKTU (AGAR ROBOT PATROLI SIAGA) [cite: 2026-03-06] ---
     const { error: errUpdatePaid } = await supabaseAdmin
       .from('orders')
-      .update({ status: 'Diproses' }) 
+      .update({ 
+        status: 'Diproses',
+        updated_at: new Date().toISOString() 
+      }) 
       .eq('id', currentOrder.id);
 
     if (errUpdatePaid) throw errUpdatePaid;
@@ -392,13 +395,12 @@ async function processFulfillment(order: any) {
        
        const kategoriLengkap = (order.category || "").toLowerCase();
        
-       // Default arahkan ke Prabayar
-       let apiEndpoint = `${baseUrl}/api/prabayar/checkout`; 
-       
-       // Belokkan ke Pascabayar jika ada kata kuncinya
-       if (kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('ppob')) {
-           apiEndpoint = `${baseUrl}/api/pascabayar/checkout`; 
-       }
+// Arahkan ke rute baru yang sudah kita satukan di folder digiflazz [cite: 2026-03-06]
+       let apiEndpoint = `${baseUrl}/api/digiflazz/prabayar/checkout`; 
+       
+       if (kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('ppob')) {
+           apiEndpoint = `${baseUrl}/api/digiflazz/pascabayar/checkout`; 
+       }
 
        console.log(`➡️ [ROUTE WEBHOOK BANK] Mengirim ke Jalur Internal: ${apiEndpoint}`);
 

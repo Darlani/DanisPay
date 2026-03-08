@@ -77,15 +77,15 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
   const isPLN = product?.name?.toLowerCase().includes('pln') || product?.category?.toLowerCase().includes('pln');
 
 const checkPlnInquiry = async (plnId: string) => {
-    setIsInquiring(true);
-    setErrorOp("");
-    setCustomerName("");
+    setIsInquiring(true);
+    setErrorOp("");
+    setCustomerName("");
 
-    // Pakai safeFetch biar aman dari error JSON/HTML
-    const result = await safeFetch('/api/prabayar/inquiry', { // <--- UBAH JADI PRABAYAR BOS!
-      method: 'POST',
-      body: JSON.stringify({ customer_id: plnId, sku: 'pln', category: 'pln' })
-    });
+    // Sekarang nembak ke folder baru yang lebih rapi [cite: 2026-03-06]
+    const result = await safeFetch('/api/digiflazz/prabayar/inquiry', { 
+      method: 'POST',
+      body: JSON.stringify({ customer_id: plnId, sku: 'pln', category: 'pln' })
+    });
 
     if (result.success) {
       setCustomerName(result.data.data?.customerName || result.data.customerName);

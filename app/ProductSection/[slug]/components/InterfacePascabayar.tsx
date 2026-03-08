@@ -92,7 +92,7 @@ const isReadyToCheckout = Boolean(
     setInquiryData(null);
 
     try {
-      const res = await fetch('/api/pascabayar/inquiry', { 
+      const res = await fetch('/api/digiflazz/pascabayar/inquiry', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

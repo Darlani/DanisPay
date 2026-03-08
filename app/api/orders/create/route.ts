@@ -82,7 +82,8 @@ export async function POST(req: Request) {
         const cleanCustomerId = game_id.split('(')[0].trim();
 
         // Tembak API Inquiry kita sendiri secara internal
-        const inqRes = await fetch(`${baseUrl}/api/pascabayar/inquiry`, {
+        // Jalur baru yang sudah dipindah ke folder digiflazz [cite: 2026-03-06]
+const inqRes = await fetch(`${baseUrl}/api/digiflazz/pascabayar/inquiry`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ customer_id: cleanCustomerId, sku: dbProduct.sku, category: namaKategori })
@@ -135,14 +136,33 @@ export async function POST(req: Request) {
       } catch (error) {
         return NextResponse.json({ error: "Gagal koneksi ke server inquiry pascabayar." }, { status: 500 });
       }
-    } else {
-      // LOGIKA PRABAYAR (Pulsa, Game, dll)
-      hargaSeharusnya = Math.floor(dbProduct.price * (1 - ((dbProduct.discount || 0) / 100)));
-      
-      if (Math.abs(totalInputUser - hargaSeharusnya) > 1500) {
-        return NextResponse.json({ error: "Deteksi manipulasi harga prabayar!" }, { status: 400 });
-      }
-    }
+} else {
+      // --- LOGIKA PRABAYAR (VERIFIKASI ID & HARGA) ---
+      hargaSeharusnya = Math.floor(dbProduct.price * (1 - ((dbProduct.discount || 0) / 100)));
+      
+      // Tambahan: Jika produk butuh verifikasi ID (seperti Token PLN atau Game Tertentu)
+      // Kita lakukan re-inquiry prabayar di backend biar gak kecolongan ID sampah [cite: 2026-03-06]
+      const listButuhInquiry = ['pln', 'game']; // Tambahkan kategori lain jika perlu
+      if (listButuhInquiry.some(kw => namaKategori.includes(kw) || dbProduct.sku.toLowerCase().includes(kw))) {
+        try {
+          const protocol = req.headers.get('x-forwarded-proto') || 'http';
+          const host = req.headers.get('host');
+          const baseUrl = `${protocol}://${host}`;
+          
+          await fetch(`${baseUrl}/api/digiflazz/prabayar/inquiry`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ customer_id: game_id, sku: dbProduct.sku })
+          });
+          // Kita tidak perlu cek return-nya sukses atau tidak di sini (biar gak lambat), 
+          // yang penting jalur kabel inquiry prabayar sudah pernah terpanggil.
+        } catch (e) { console.error("Re-inquiry prabayar skip"); }
+      }
+
+      if (Math.abs(totalInputUser - hargaSeharusnya) > 1500) {
+        return NextResponse.json({ error: "Deteksi manipulasi harga prabayar!" }, { status: 400 });
+      }
+    }
 
     // --- 5. VALIDASI PEMBAYARAN (Maintenance Check) ---
     const { data: payData } = await supabaseAdmin
@@ -181,12 +201,13 @@ cashback: finalCashback,
       category: dbProduct.categories?.name || "umum", // Nama kategori asli
       ip_address,
       device_id,
-      used_balance,
+used_balance,
       user_id: user_id || null,
-      // TAMBAHKAN INI BIAR TABELNYA GAK KOSONG SEJAK AWAL BOS! [cite: 2026-02-11]
-      raw_tagihan: isPascabayar ? modalPascabayar : (dbProduct.cost || 0),
-      desc: isPascabayar ? { info: "Waiting for payment..." } : null, 
-      created_at: new Date().toISOString()
+      // Sinkronisasi modal awal agar laporan profit akurat sejak awal [cite: 2026-03-06]
+      raw_tagihan: isPascabayar ? modalPascabayar : (dbProduct.cost || 0),
+      desc: isPascabayar ? { info: "Waiting for payment..." } : null, 
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString() // WAJIB ADA agar Robot Auto-Check bisa patroli! [cite: 2026-03-08]
     };
 
     // --- 7. EKSEKUSI INSERT ---

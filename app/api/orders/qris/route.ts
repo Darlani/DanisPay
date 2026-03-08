@@ -68,13 +68,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Order is not pending" }, { status: 400 });
     }
 
-    // Generate string QRIS Dinamis pakai data dari database
-    const dynamicString = generateDynamicQRIS(BASE_STATIC_QRIS, order.total_amount);
+// Generate string QRIS Dinamis pakai data dari database [cite: 2026-03-06]
+    const dynamicString = generateDynamicQRIS(BASE_STATIC_QRIS, order.total_amount);
 
-    return NextResponse.json({ 
-      success: true, 
-      qrisString: dynamicString 
-    });
+    // Sentuhan tipis: Update 'updated_at' agar Robot Patroli tahu user sedang aktif bayar [cite: 2026-03-08]
+    await supabaseAdmin
+      .from('orders')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('order_id', orderId);
+
+    return NextResponse.json({ 
+      success: true, 
+      qrisString: dynamicString 
+    });
 
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

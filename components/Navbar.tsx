@@ -151,7 +151,7 @@ export default function Navbar({ isSidebarOpen = false }: NavbarProps) {
 
             {/* DROPDOWN HASIL (Tetap sama) */}
             {showDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-[999]">
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-999">
                 <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
                   {isSearching ? (
                     <div className="p-4 text-center text-slate-400 text-[10px] font-bold uppercase italic">Mencari...</div>
@@ -218,7 +218,7 @@ export default function Navbar({ isSidebarOpen = false }: NavbarProps) {
 
       {/* --- MODAL SARAN (Sama seperti sebelumnya) --- */}
       {isSuggestionOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-1000 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
               <h3 className="text-lg font-black text-slate-800 uppercase italic">Kasih saran produk</h3>

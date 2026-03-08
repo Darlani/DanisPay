@@ -184,7 +184,7 @@ let ordersQuery = supabase
                 <div
                   key={order.id}
                   // UPDATE LEBAR: Dipangkas drastis ke w-[165px] di HP agar seimbang dengan grid produk
-                  className="group shrink-0 w-[165px] sm:w-[220px] bg-[#1e293b]/90 backdrop-blur-md border border-slate-700 p-2.5 rounded-2xl text-left hover:border-blue-500 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] transition-all snap-start flex flex-col justify-between"
+                  className="group shrink-0 w-41.25 sm:w-55 bg-[#1e293b]/90 backdrop-blur-md border border-slate-700 p-2.5 rounded-2xl text-left hover:border-blue-500 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] transition-all snap-start flex flex-col justify-between"
                 >
                   {/* Bagian Atas: Logo & Info Produk */}
                   <div className="flex gap-2 items-center mb-2">
