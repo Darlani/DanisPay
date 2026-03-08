@@ -71,6 +71,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
   const [errorOp, setErrorOp] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [isInquiring, setIsInquiring] = useState(false);
+  const [detectedLogo, setDetectedLogo] = useState<string | null>(null);
 
   // Deklarasi dipindah ke atas agar bisa dibaca oleh semua fungsi di bawahnya [cite: 2026-03-06]
   const isPLN = product?.name?.toLowerCase().includes('pln') || product?.category?.toLowerCase().includes('pln');
@@ -107,15 +108,25 @@ const checkPlnInquiry = async (plnId: string) => {
   };
 
   const OPERATOR_LOGOS: Record<string, string> = {
-    TRI: "/logos/tri.jpg",
-    TELKOMSEL: "/logos/telkomsel-1.jpg",
-    BYU: "/logos/byu.jpg",
-    INDOSAT: "/logos/indosat-1.jpg",
-    XL: "/logos/xl.jpg",
-    AXIS: "/logos/axis.jpg",
-    SMARTFREN: "/logos/smartfren.jpg"
+    TRI: "/logos/tri.png",
+    TELKOMSEL: "/logos/telkomsel.png",
+    BYU: "/logos/byU.png",
+    INDOSAT: "/logos/indosat.png",
+    XL: "/logos/xl.png",
+    AXIS: "/logos/axis.png",
+    SMARTFREN: "/logos/smartfren.png"
   };
-
+// Fungsi pencari operator yang super ringan [cite: 2026-03-06]
+  const getOperatorLogo = (number: string) => {
+    if (isPLN || number.length < 4) return null;
+    const prefix = number.slice(0, 4);
+    for (const [op, prefixes] of Object.entries(OPERATOR_PREFIX)) {
+      if (prefixes.includes(prefix)) {
+        return { name: op, logoUrl: OPERATOR_LOGOS[op] };
+      }
+    }
+    return null;
+  };
   const availableSubBrands = useMemo(() => {
     if (!product?.items) return [];
     const brands = [...new Set(product.items.map((item: any) => item.sub_brand).filter(Boolean))];
@@ -141,15 +152,6 @@ const checkPlnInquiry = async (plnId: string) => {
       setActiveTab("");
     }
   }, [mainCategory, menuData]);
-
-  const detectedOperator = useMemo(() => {
-    if (isPLN || accId.length < 4) return null;
-    const prefix = accId.slice(0, 4);
-    for (const [op, prefixes] of Object.entries(OPERATOR_PREFIX)) {
-      if (prefixes.includes(prefix)) return op;
-    }
-    return null;
-  }, [accId, isPLN]);
 
   const filteredItems = useMemo(() => {
     if (!product?.items) return [];
@@ -556,13 +558,7 @@ const checkPlnInquiry = async (plnId: string) => {
                       </div>
                       {!isPLN && accId.length >= 4 && (
                         <span className="text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-lg animate-in fade-in">
-                          Deteksi: {(() => {
-                            const prefix = accId.slice(0, 4);
-                            for (const [op, prefixes] of Object.entries(OPERATOR_PREFIX)) {
-                              if (prefixes.includes(prefix)) return op;
-                            }
-                            return "Operator Tidak Dikenal";
-                          })()}
+                          Deteksi: {getOperatorLogo(accId)?.name || "Operator Tidak Dikenal"}
                         </span>
                       )}
                       {isPLN && accId.length >= 11 && (
@@ -574,13 +570,13 @@ const checkPlnInquiry = async (plnId: string) => {
                     
                     <div className="relative">
                       <div className="relative flex items-center">
-                        {detectedOperator && (
+                        {detectedLogo && (
                           <div className="absolute left-4 z-10 animate-in fade-in zoom-in duration-300">
                             <img 
-                              src={OPERATOR_LOGOS[detectedOperator]} 
-                              alt={detectedOperator}
+                              src={detectedLogo} 
+                              alt="Logo Operator"
                               className="w-10 h-10 object-contain bg-white rounded-lg p-1 shadow-sm border border-slate-100"
-                              onError={(e) => (e.currentTarget.style.display = 'none')}
+                              // onError dikosongkan agar icon error default browser muncul jika nama file salah ketik
                             />
                           </div>
                         )}
@@ -591,6 +587,14 @@ const checkPlnInquiry = async (plnId: string) => {
                           onChange={(e) => { 
                             const val = e.target.value.replace(/\D/g, ''); 
                             setAccId(val); 
+                            
+                            // SET LOGO SECARA REALTIME [cite: 2026-03-06]
+                            const operatorMatch = getOperatorLogo(val);
+                            if (operatorMatch) {
+                               setDetectedLogo(operatorMatch.logoUrl);
+                            } else {
+                               setDetectedLogo(null);
+                            }
 
                             if (isPLN) {
                               setErrorOp("");
@@ -613,7 +617,7 @@ const checkPlnInquiry = async (plnId: string) => {
                                   setErrorOp(`❌ Ini Nomor ${detectedOp}, Bos! Jangan salah lapak.`);
                                 } else {
                                   setErrorOp("");
-                                  if(val.length >= 10) scrollToNext(step3Ref); 
+                                  if(val.length >= 12) scrollToNext(step3Ref); 
                                 }
                               } else {
                                 setErrorOp("");
@@ -621,7 +625,7 @@ const checkPlnInquiry = async (plnId: string) => {
                             }
                           }}
                           placeholder={`Masukkan ${getDynamicLabel()}`} 
-                          className={`w-full bg-[#F5FBFA] border-2 p-5 ${detectedOperator ? 'pl-16' : 'pl-5'} rounded-2xl outline-none text-base font-bold transition-all placeholder:text-slate-300 ${
+                          className={`w-full bg-[#F5FBFA] border-2 p-5 ${detectedLogo ? 'pl-16' : 'pl-5'} rounded-2xl outline-none text-base font-bold transition-all placeholder:text-slate-300 ${
                             errorOp ? "border-rose-500 bg-rose-50 text-rose-700" : "border-[#E0F2F1] focus:border-[#00796B] text-slate-700"
                           }`} 
                         />
