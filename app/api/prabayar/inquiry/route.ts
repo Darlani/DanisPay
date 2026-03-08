@@ -47,37 +47,65 @@ export async function POST(req: Request) {
       });
     }
 
-    // 3. EKSEKUSI CEK ID KE DIGIFLAZZ (HANYA PLN, GAME, E-WALLET) [cite: 2026-03-06]
-    const ref_id = `CEKID-${Date.now()}`;
-    // Rumus wajib Digiflazz untuk semua transaksi: md5(username + apikey + ref_id)
-    const sign = crypto.createHash('md5').update(username + apiKey + ref_id).digest('hex');
+    // 3. EKSEKUSI CEK ID KE DIGIFLAZZ [cite: 2026-03-06]
+    let result;
 
-    const payload = {
-      commands: "plg-id",
-      username: username,
-      buyer_sku_code: inquirySku, // Akan otomatis mengisi "PLN" atau SKU Game (seperti "ML10")
-      customer_no: customer_id,
-      ref_id: ref_id,
-      sign: sign
-    };
+    if (inquirySku === "PLN") {
+      // 3A. JALUR KHUSUS PLN (Sesuai Dokumentasi Resmi)
+      // Rumus: md5(username + apiKey + customer_no)
+      const signPln = crypto.createHash('md5').update(username + apiKey + customer_id).digest('hex');
+      
+      const payloadPln = {
+        username: username,
+        customer_no: customer_id,
+        sign: signPln
+      };
 
-    const res = await axios.post("https://api.digiflazz.com/v1/transaction", payload, {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 15000
-    });
+      const resPln = await axios.post("https://api.digiflazz.com/v1/inquiry-pln", payloadPln, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 15000
+      });
+      
+      result = resPln.data;
+      console.log("🔍 RESPONS INQUIRY PLN:", JSON.stringify(result, null, 2));
 
-    const result = res.data;
-    console.log("🔍 CEK RESPON PLN PRABAYAR:", JSON.stringify(result, null, 2));
+    } else {
+      // 3B. JALUR GAME & E-WALLET (Pakai Endpoint Transaksi Umum)
+      const ref_id = `CEKID-${Date.now()}`;
+      // Rumus: md5(username + apikey + ref_id)
+      const signGame = crypto.createHash('md5').update(username + apiKey + ref_id).digest('hex');
 
-    if (result.data?.status === "Gagal") {
-      let pesanUser = result.data?.message || "Gagal cek ID PLN, Bos!";
-      if (result.data?.rc === '54') pesanUser = "Nomor ID Pelanggan PLN salah/tidak ditemukan.";
+      const payloadGame = {
+        commands: "plg-id",
+        username: username,
+        buyer_sku_code: inquirySku, 
+        customer_no: customer_id,
+        ref_id: ref_id,
+        sign: signGame
+      };
+
+      const resGame = await axios.post("https://api.digiflazz.com/v1/transaction", payloadGame, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 15000
+      });
+
+      result = resGame.data;
+      console.log("🔍 RESPONS INQUIRY GAME:", JSON.stringify(result, null, 2));
+    }
+
+    // TANGANI JIKA GAGAL
+    if (result.data?.status === "Gagal" || result.data?.rc !== "00") {
+      let pesanUser = result.data?.message || "Gagal mengecek ID, Bos!";
+      
+      // RC 54: Nomor Tujuan Salah, RC 43: SKU Non Aktif
+      if (result.data?.rc === '54') pesanUser = "Nomor ID Pelanggan salah/tidak ditemukan.";
+      else if (result.data?.rc === '43') pesanUser = "Produk ini tidak mendukung fitur cek nama otomatis.";
 
       return NextResponse.json({
         success: false,
         message: pesanUser,
         rc: result.data?.rc
-      }, { status: 400 }); // Status 400 agar frontend menangkapnya sebagai peringatan biasa, bukan Crash/Error 500
+      }, { status: 400 }); 
     }
 
     // 4. PARSING DATA JIKA SUKSES [cite: 2026-02-11]
