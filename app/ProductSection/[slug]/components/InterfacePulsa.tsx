@@ -108,13 +108,13 @@ const checkPlnInquiry = async (plnId: string) => {
   };
 
   const OPERATOR_LOGOS: Record<string, string> = {
-    TRI: "/logos/tri.png",
-    TELKOMSEL: "/logos/telkomsel.png",
-    BYU: "/logos/byU.png",
-    INDOSAT: "/logos/indosat.png",
-    XL: "/logos/xl.png",
-    AXIS: "/logos/axis.png",
-    SMARTFREN: "/logos/smartfren.png"
+    TRI: "/pulsa-data/tri.png",
+    TELKOMSEL: "/pulsa-data/telkomsel.png",
+    BYU: "/pulsa-data/byU.png", // Mengikuti huruf U besar sesuai file kamu
+    INDOSAT: "/pulsa-data/indosat.png",
+    XL: "/pulsa-data/xl.png",
+    AXIS: "/pulsa-data/axis.png",
+    SMARTFREN: "/pulsa-data/smartfren.png"
   };
 // Fungsi pencari operator yang super ringan [cite: 2026-03-06]
   const getOperatorLogo = (number: string) => {
