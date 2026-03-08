@@ -60,14 +60,16 @@ export async function POST(req: Request) {
       const digiData = await digiRes.json();
 
       // PENANGANAN RESPON DIGIFLAZZ
-      if (digiData.data && (digiData.data.status === 'Sukses' || digiData.data.status === 'Pending')) {
-        const isSuccess = digiData.data.status === 'Sukses';
-        
-        await supabaseAdmin.from('orders').update({ 
-          // Jika Digiflazz Pending, kita tetap pasang 'Diproses' di DB kita agar UI tetap loading
-          status: isSuccess ? 'Berhasil' : 'Diproses',
-          sn: digiData.data.sn || 'Proses di Vendor'
-        }).eq('order_id', order_id);
+if (digiData.data && (digiData.data.status === 'Sukses' || digiData.data.status === 'Pending')) {
+        const isSuccess = digiData.data.status === 'Sukses';
+        
+        // Biarkan raw_tagihan dan desc tetap kosong/NULL dulu Bos. 
+        // Nanti diisi otomatis sama Webhook atau Auto-Check biar akurat 100%. [cite: 2026-03-06]
+        await supabaseAdmin.from('orders').update({ 
+          status: isSuccess ? 'Berhasil' : 'Diproses',
+          sn: digiData.data.sn || 'Proses di Vendor',
+          updated_at: new Date().toISOString() // Penting agar Auto-Check tidak bingung
+        }).eq('order_id', order_id);
 
         return NextResponse.json({ 
           success: true, 

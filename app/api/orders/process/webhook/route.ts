@@ -192,7 +192,8 @@ export async function POST(request: Request) {
       (lowerContent.includes("transfer") && !lowerContent.includes("sesama") && !lowerContent.includes("ke kamu"));
     
     // VALIDASI KEJUJURAN: User pilih 'Sesama' tapi notifnya format 'External'
-    const needsPenalty = isExternalTransfer && payMethod.includes("sesama");
+    // TAPI kalau methodnya 'qris', biarkan lolos karena QRIS memang dari luar [cite: 2026-03-06]
+    const needsPenalty = isExternalTransfer && payMethod.includes("sesama") && !payMethod.includes("qris");
 
 if (needsPenalty) {
         console.log(`⚠️ [PENALTI] Order ${currentOrder.order_id}: Deteksi Transfer Luar/Potongan Bank.`);
@@ -386,10 +387,9 @@ async function processFulfillment(order: any) {
    console.log(`🚀 [WEBHOOK BANK] Meneruskan Order #${order.order_id} ke Digiflazz...`);
    
    try {
-       // Otomatis menggunakan URL Vercel yang sedang aktif [cite: 2026-03-06]
-       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL 
-         ? `https://${process.env.NEXT_PUBLIC_SITE_URL}` 
-         : `https://${process.env.VERCEL_URL}`;
+       // PENTING: Gunakan jalur dalam server (localhost) agar tembakan API super cepat & anti-gagal [cite: 2026-03-06]
+       const baseUrl = "http://127.0.0.1:3000"; 
+       
        const kategoriLengkap = (order.category || "").toLowerCase();
        
        // Default arahkan ke Prabayar
@@ -400,25 +400,28 @@ async function processFulfillment(order: any) {
            apiEndpoint = `${baseUrl}/api/pascabayar/checkout`; 
        }
 
-       console.log(`➡️ [ROUTE WEBHOOK BANK] Mengirim ke Endpoint: ${apiEndpoint}`);
+       console.log(`➡️ [ROUTE WEBHOOK BANK] Mengirim ke Jalur Internal: ${apiEndpoint}`);
 
-// Tambahkan header Authorization sederhana jika API Checkout Bos butuh proteksi tambahan
-fetch(apiEndpoint, {
-    method: 'POST',
-    headers: { 
-        'Content-Type': 'application/json',
-        'x-webhook-secret': String(WEBHOOK_SECRET || '') // Pakai String() agar TS yakin ini bukan undefined
-    },
-    body: JSON.stringify({
-        order_id: order.order_id,
-        email: order.email,
-        use_koin: false
-    })
-}).catch(e => console.error("Gagal trigger API Checkout dari Webhook:", e));
+       // Kita tambahkan AWAIT agar prosesnya ditunggu dan kita bisa lihat hasil/errornya [cite: 2026-03-06]
+       const response = await fetch(apiEndpoint, {
+           method: 'POST',
+           headers: { 
+               'Content-Type': 'application/json',
+               'x-webhook-secret': String(WEBHOOK_SECRET || '') 
+           },
+           body: JSON.stringify({
+               order_id: order.order_id,
+               email: order.email,
+               use_koin: false
+           })
+       });
+
+       const responseData = await response.json().catch(() => ({}));
+       console.log(`📥 [RESPONS CHECKOUT] HTTP ${response.status}:`, JSON.stringify(responseData));
        
        return "Diproses";
    } catch (apiErr) {
-       console.error("Gagal mengeksekusi rute Digiflazz:", apiErr);
+       console.error("❌ Gagal mengeksekusi rute Digiflazz:", apiErr);
        return "Gagal";
    }
 }

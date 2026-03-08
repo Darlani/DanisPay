@@ -59,10 +59,11 @@ export async function POST(req: Request) {
       if (digiData.data && (digiData.data.status === 'Sukses' || digiData.data.status === 'Pending')) {
         const isSuccess = digiData.data.status === 'Sukses';
         
+        // Kita hanya update status & SN. Modal (raw_tagihan) biar diurus Webhook Callback [cite: 2026-03-06]
         await supabaseAdmin.from('orders').update({ 
-          // Pakai status 'Diproses' untuk jembatan UI loading
           status: isSuccess ? 'Berhasil' : 'Diproses',
-          sn: digiData.data.sn || 'Proses di Vendor'
+          sn: digiData.data.sn || 'Proses di Vendor',
+          updated_at: new Date().toISOString()
         }).eq('order_id', order_id);
 
         return NextResponse.json({ success: true, status: digiData.data.status, sn: digiData.data.sn });

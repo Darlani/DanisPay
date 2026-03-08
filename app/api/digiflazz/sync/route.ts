@@ -32,22 +32,25 @@ const getStrategyKey = (rawCat: string) => {
 };
 
 export async function GET(req: Request) {
-  // 1. SATPAM INTERNAL: Hanya Admin atau Manager yang boleh sinkron [cite: 2026-03-06]
-  const cookieStore = req.headers.get('cookie');
-  const isAdmin = cookieStore?.includes('isAdmin=true');
-  const userRole = cookieStore?.split(';').find(c => c.trim().startsWith('userRole='))?.split('=')[1]?.toLowerCase();
+// 1. SATPAM DUAL JALUR (Cookie untuk Admin, Secret untuk Robot VPS) [cite: 2026-03-06]
+  const { searchParams } = new URL(req.url);
+  const querySecret = searchParams.get('secret');
+  const WEBHOOK_SECRET = process.env.MACRODROID_SECRET;
 
-  const isAuthorized = isAdmin && (userRole === 'admin' || userRole === 'manager');
+  const cookieStore = req.headers.get('cookie');
+  const isAdmin = cookieStore?.includes('isAdmin=true');
 
-  if (!isAuthorized) {
-    return NextResponse.json({ error: "Akses Ditolak! Khusus Admin/Manager Bos." }, { status: 403 });
-  }
+  const isAuthorized = (isAdmin) || (querySecret === WEBHOOK_SECRET && WEBHOOK_SECRET);
+
+  if (!isAuthorized) {
+    return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau Kunci Salah." }, { status: 403 });
+  }
 
   const syncTime = new Date().toISOString();
 
   try {
     const username = process.env.DIGIFLAZZ_USERNAME as string;
-    const apiKey = process.env.DIGIFLAZZ_DEV_KEY as string;
+    const apiKey = process.env.DIGIFLAZZ_API_KEY as string;
 
     // 1. AMBIL SETTINGS & MASTER DATA
     const { data: settingsData } = await supabaseAdmin
@@ -214,12 +217,14 @@ export async function GET(req: Request) {
             if (errItems) throw new Error("Gagal upsert Items: " + errItems.message);
         }
 
-        // Chunking untuk tabel PRODUCTS
-        for (let i = 0; i < productsToUpsert.length; i += chunkSize) {
-            const chunk = productsToUpsert.slice(i, i + chunkSize);
-            const { error: errProducts } = await supabaseAdmin.from('products').upsert(chunk, { onConflict: 'sku' });
-            if (errProducts) throw new Error("Gagal upsert Products: " + errProducts.message);
-        }
+// Chunking untuk tabel PRODUCTS dengan Audit Log [cite: 2026-03-06]
+        for (let i = 0; i < productsToUpsert.length; i += chunkSize) {
+            const chunk = productsToUpsert.slice(i, i + chunkSize);
+            console.log(`📦 [SYNC] Mengirim Kloter ${i / chunkSize + 1}... (${i} / ${productsToUpsert.length} Produk)`);
+            
+            const { error: errProducts } = await supabaseAdmin.from('products').upsert(chunk, { onConflict: 'sku' });
+            if (errProducts) throw new Error("Gagal upsert Products: " + errProducts.message);
+        }
 
         const { error: errorDelete } = await supabaseAdmin.from('products')
             .delete()

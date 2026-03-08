@@ -3,11 +3,11 @@ import Navbar from "@/components/Navbar";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { 
-  LayoutDashboard, RefreshCw, Trash2, Check, 
-  ShoppingBag, Search, Trophy, Crown, 
-  Phone, Clock, X, Send,
-  Package, FileText, Settings, AlertCircle, RotateCcw, Mail,
-  TrendingUp, User
+  LayoutDashboard, RefreshCw, Trash2, Check, 
+  ShoppingBag, Search, Trophy, Crown, 
+  Phone, Clock, X, Send,
+  Package, FileText, Settings, AlertCircle, RotateCcw, Mail,
+  TrendingUp, User, Loader2
 } from "lucide-react";
 import SidebarAdmin from "./SidebarAdmin";
 import { supabase } from "@/utils/supabaseClient";
@@ -40,6 +40,8 @@ export default function AdminDashboard() {
   const isFirstRender = useRef(true);
   const [allLogs, setAllLogs] = useState<any[]>([]);
   const [withdraws, setWithdraws] = useState<any[]>([]); 
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [cooldown, setCooldown] = useState(0); // State hitung mundur [cite: 2026-03-06] // State untuk loading detektif [cite: 2026-03-06] 
 
   const fetchData = async () => {
     setLoading(true);
@@ -197,11 +199,39 @@ export default function AdminDashboard() {
       body: JSON.stringify({ id, status: newStatus, email: userEmail }),
     });
 
-    if (!res.ok) {
-      // Jika ternyata koneksi gagal, kembalikan UI seperti semula dan beri peringatan
-      const errorData = await res.json();
-      alert(errorData.error || "Gagal update status!");
-      fetchData(); 
+if (!res.ok) {
+      const errorData = await res.json();
+      alert(errorData.error || "Gagal update status!");
+      fetchData(); 
+    }
+  };
+
+  // --- LOGIKA JEMPUT BOLA (CEK STATUS DIGIFLAZZ) --- [cite: 2026-03-06]
+const handleCheckStatus = async (orderId: string) => {
+    setIsCheckingStatus(true);
+    try {
+      // Alamat baru setelah pindah folder [cite: 2026-03-06]
+      const res = await fetch('/api/digiflazz/check-status', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId })
+      });
+
+      const result = await res.json();
+      
+      if (res.ok) {
+        // Beri tahu hasil detektif lewat notifikasi sederhana (alert)
+        alert(`🕵️ Detektif Lapor: Status di Supplier adalah [${result.status}]. Database sudah diperbarui!`);
+        fetchData(); // Segarkan tabel agar status terbaru muncul
+        setSelectedOrder(null); // Tutup modal
+      } else {
+        alert("❌ Detektif Gagal: " + (result.error || "Server Busy"));
+      }
+    } catch (err) {
+      alert("💀 Koneksi Terputus saat cek status!");
+    } finally {
+      setIsCheckingStatus(false);
+      setCooldown(60); // Mulai hitung mundur 60 detik setelah aksi selesai [cite: 2026-03-06]
     }
   };
 
@@ -210,6 +240,14 @@ export default function AdminDashboard() {
     const res = await fetch('/api/orders', { method: 'DELETE', body: JSON.stringify({ id }) });
     if (res.ok) { setSelectedOrder(null); fetchData(); }
   };
+
+  // --- LOGIKA TIMER COOLDOWN --- [cite: 2026-03-06]
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
 
   return (
     <div className="flex bg-[#F8FAFC] min-h-screen font-sans text-slate-600">
@@ -324,10 +362,40 @@ export default function AdminDashboard() {
                       </button>
 
                       <button onClick={() => handleUpdateStatus(selectedOrder.id, 'Gagal', selectedOrder.email)} className="flex flex-col items-center justify-center gap-1.5 p-4 bg-rose-500 text-white rounded-[25px] hover:bg-rose-600 transition-all shadow-lg font-black italic uppercase">
-                        <div className="flex items-center gap-2"><AlertCircle size={18} /> GAGAL</div>
-                        <span className="text-[9px] font-medium normal-case tracking-widest opacity-90">(Tolak Transaksi)</span>
+<div className="flex items-center gap-2"><AlertCircle size={18} /> GAGAL</div>
+                        <span className="text-[9px] font-medium normal-case tracking-widest opacity-90">(Tolak Transaksi)</span>
+                      </button>
+                    </div>
+
+{/* TOMBOL CEK STATUS (DETEKTIF) */}
+                    {(selectedOrder.status === 'Diproses' || selectedOrder.status === 'Pending') && (
+                      <button 
+                        onClick={() => handleCheckStatus(selectedOrder.order_id)}
+                        disabled={isCheckingStatus || cooldown > 0}
+                        className={`w-full mt-4 flex items-center justify-center gap-3 p-4 rounded-[25px] transition-all border font-black italic uppercase text-xs ${
+                          cooldown > 0 
+                          ? "bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed" 
+                          : "bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 border-slate-200 hover:border-blue-200"
+                        }`}
+                      >
+                        {isCheckingStatus ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 size={18} className="animate-spin" />
+                            <span>MENGHUBUNGI SUPPLIER...</span>
+                          </div>
+                        ) : cooldown > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <Clock size={18} className="animate-pulse" />
+                            <span>COOLDOWN ({cooldown}S)</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <RotateCcw size={18} />
+                            <span>JEMPUT BOLA (CEK STATUS SUPPLIER)</span>
+                          </div>
+                        )}
                       </button>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

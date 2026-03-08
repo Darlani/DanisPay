@@ -47,6 +47,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Order ID missing" }, { status: 400 });
     }
 
+    // Pagar Pengaman: Pastikan kunci QRIS di .env sudah diisi [cite: 2026-03-06]
+    if (!BASE_STATIC_QRIS) {
+      console.error("❌ Error: QRIS_BASE_STATIC belum diisi di .env VPS!");
+      return NextResponse.json({ error: "Sistem QRIS belum siap" }, { status: 500 });
+    }
+
     // Ambil nominal asli dari database (Anti-cheat)
     const { data: order, error } = await supabaseAdmin
       .from('orders')

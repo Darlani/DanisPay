@@ -19,9 +19,13 @@ async function reportToTelegram(message: string) {
 }
 
 export async function POST(req: Request) {
-  try {
-    // Ambil text mentah (raw) terlebih dahulu untuk memastikan validasi signature akurat
-    const rawBody = await req.text(); 
+  try {
+    // 0. LOG AKSES MASUK (Untuk pantauan PM2) [cite: 2026-03-06]
+    const clientIp = req.headers.get('x-forwarded-for') || "Unknown IP";
+    console.log(`📡 [DIGIFLAZZ CALLBACK] Incoming request from: ${clientIp}`);
+
+    // Ambil text mentah (raw) terlebih dahulu untuk memastikan validasi signature akurat
+    const rawBody = await req.text();
     const body = JSON.parse(rawBody);
     const signature = req.headers.get('X-Digiflazz-Delivery');
     
@@ -56,15 +60,21 @@ export async function POST(req: Request) {
     const sn = eventData.sn || "NO-SN";
     const message = eventData.message;
 
-    // 3. LOGIKA UPDATE DATABASE BERDASARKAN STATUS [cite: 2026-02-11]
-    if (status === 'Sukses') {
+// 3. LOGIKA UPDATE DATABASE BERDASARKAN STATUS [cite: 2026-02-11]
+    console.log(`📝 [DIGIFLAZZ UPDATE] RefID: ${refId} | Status: ${status} | SN: ${sn}`);
+
+    if (status === 'Sukses') {
+      // Kita ambil harga modal asli dari Digiflazz untuk laporan laba rugi yang akurat [cite: 2026-03-06]
+      const modalAsli = eventData.price || 0;
+
       await supabaseAdmin
         .from('orders')
         .update({ 
           status: 'Berhasil', 
           sn: sn,
-          raw_tagihan: eventData.price || 0,
+          raw_tagihan: modalAsli, // Pastikan ini terisi saat benar-benar sukses
           desc: eventData.desc || null,
+          notes: 'Transaksi diselesaikan oleh Webhook Supplier',
           updated_at: new Date().toISOString() 
         })
         .eq('order_id', refId);

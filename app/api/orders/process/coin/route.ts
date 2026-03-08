@@ -170,10 +170,8 @@ await Promise.all([
        console.log(`🚀 [FULL KOIN] Mode Live Aktif. Meneruskan Order #${order.order_id} ke Digiflazz...`);
        
        try {
-           // Gunakan URL dinamis agar render tetap di bawah 200ms
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL 
-            ? `https://${process.env.NEXT_PUBLIC_SITE_URL}` 
-            : `https://${process.env.VERCEL_URL}`;
+// Pakai localhost VPS sendiri agar anti-rto dan hemat bandwidth [cite: 2026-03-06]
+        const baseUrl = "http://127.0.0.1:3000";
 
         const WEBHOOK_SECRET = String(process.env.MACRODROID_SECRET || ''); // Kunci internal
            const kategoriLengkap = (order.category || "").toLowerCase();

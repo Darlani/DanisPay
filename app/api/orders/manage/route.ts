@@ -289,12 +289,11 @@ export async function PATCH(req: Request) {
     if (currentStatus === 'Diproses' && settings?.is_digiflazz_active) {
        console.log(`🚀 [ADMIN ACTION] Order #${oldOrder.order_id} diteruskan ke Digiflazz...`);
        
-       try {
-           // Otomatis menggunakan URL Vercel yang aktif demi kecepatan website [cite: 2026-03-06]
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL 
-  ? `https://${process.env.NEXT_PUBLIC_SITE_URL}` 
-  : `https://${process.env.VERCEL_URL}`;
-           const kategoriLengkap = (oldOrder.category || "").toLowerCase();
+try {
+           // Jalur tol internal VPS: Super cepat & anti-nyasar [cite: 2026-03-06]
+           const baseUrl = "http://127.0.0.1:3000"; 
+           
+           const kategoriLengkap = (oldOrder.category || "").toLowerCase();
            
            let apiEndpoint = `${baseUrl}/api/prabayar/checkout`;
            if (kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('ppob')) {
