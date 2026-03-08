@@ -72,6 +72,9 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
   const [customerName, setCustomerName] = useState("");
   const [isInquiring, setIsInquiring] = useState(false);
 
+  // Deklarasi dipindah ke atas agar bisa dibaca oleh semua fungsi di bawahnya [cite: 2026-03-06]
+  const isPLN = product?.name?.toLowerCase().includes('pln') || product?.category?.toLowerCase().includes('pln');
+
 const checkPlnInquiry = async (plnId: string) => {
     setIsInquiring(true);
     setErrorOp("");
@@ -103,6 +106,16 @@ const checkPlnInquiry = async (plnId: string) => {
     SMARTFREN: ["0881", "0882", "0883", "0884", "0885", "0886", "0887", "0888", "0889"]
   };
 
+  const OPERATOR_LOGOS: Record<string, string> = {
+    TRI: "/logos/tri.jpg",
+    TELKOMSEL: "/logos/telkomsel-1.jpg",
+    BYU: "/logos/byu.jpg",
+    INDOSAT: "/logos/indosat-1.jpg",
+    XL: "/logos/xl.jpg",
+    AXIS: "/logos/axis.jpg",
+    SMARTFREN: "/logos/smartfren.jpg"
+  };
+
   const availableSubBrands = useMemo(() => {
     if (!product?.items) return [];
     const brands = [...new Set(product.items.map((item: any) => item.sub_brand).filter(Boolean))];
@@ -128,6 +141,15 @@ const checkPlnInquiry = async (plnId: string) => {
       setActiveTab("");
     }
   }, [mainCategory, menuData]);
+
+  const detectedOperator = useMemo(() => {
+    if (isPLN || accId.length < 4) return null;
+    const prefix = accId.slice(0, 4);
+    for (const [op, prefixes] of Object.entries(OPERATOR_PREFIX)) {
+      if (prefixes.includes(prefix)) return op;
+    }
+    return null;
+  }, [accId, isPLN]);
 
   const filteredItems = useMemo(() => {
     if (!product?.items) return [];
@@ -182,8 +204,6 @@ const checkPlnInquiry = async (plnId: string) => {
   const step2Ref = useRef<HTMLDivElement>(null);
   const step3Ref = useRef<HTMLDivElement>(null);
   const step4Ref = useRef<HTMLDivElement>(null);
-
-  const isPLN = product?.name?.toLowerCase().includes('pln') || product?.category?.toLowerCase().includes('pln');
 
   const isReadyToCheckout = !!selectedItemId && 
                             (isPLN ? !!customerName : accId.length >= 10) && 
@@ -553,48 +573,59 @@ const checkPlnInquiry = async (plnId: string) => {
                     </label>
                     
                     <div className="relative">
-                      <input 
-                        type="text" 
-                        value={accId} 
-                        disabled={isInquiring}
+                      <div className="relative flex items-center">
+                        {detectedOperator && (
+                          <div className="absolute left-4 z-10 animate-in fade-in zoom-in duration-300">
+                            <img 
+                              src={OPERATOR_LOGOS[detectedOperator]} 
+                              alt={detectedOperator}
+                              className="w-10 h-10 object-contain bg-white rounded-lg p-1 shadow-sm border border-slate-100"
+                              onError={(e) => (e.currentTarget.style.display = 'none')}
+                            />
+                          </div>
+                        )}
+                        <input 
+                          type="text" 
+                          value={accId} 
+                          disabled={isInquiring}
+                          onChange={(e) => { 
+                            const val = e.target.value.replace(/\D/g, ''); 
+                            setAccId(val); 
 
-                        onChange={(e) => { 
-                          const val = e.target.value.replace(/\D/g, ''); 
-                          setAccId(val); 
-
-                          if (isPLN) {
-                            setErrorOp("");
-                            setCustomerName("");
-                            if (val.length >= 11 && val.length <= 12) {
-                               checkPlnInquiry(val);
-                            }
-                          } else {
-                            if (val.length >= 4) {
-                              const prefix = val.slice(0, 4);
-                              let detectedOp = "";
-                              
-                              for (const [op, prefixes] of Object.entries(OPERATOR_PREFIX)) {
-                                if (prefixes.includes(prefix)) detectedOp = op;
-                              }
-
-                              const productNameClean = product.name.toUpperCase().replace(/\./g, ''); 
-                              
-                              if (detectedOp && !productNameClean.includes(detectedOp) && activeTab.toUpperCase() !== 'UMUM' && activeTab.toUpperCase() !== 'DATA-UMUM') {
-                                setErrorOp(`❌ Ini Nomor ${detectedOp}, Bos! Jangan salah lapak.`);
-                              } else {
-                                setErrorOp("");
-                                if(val.length >= 10) scrollToNext(step3Ref); 
+                            if (isPLN) {
+                              setErrorOp("");
+                              setCustomerName("");
+                              if (val.length >= 11 && val.length <= 12) {
+                                 checkPlnInquiry(val);
                               }
                             } else {
-                              setErrorOp("");
+                              if (val.length >= 4) {
+                                const prefix = val.slice(0, 4);
+                                let detectedOp = "";
+                                
+                                for (const [op, prefixes] of Object.entries(OPERATOR_PREFIX)) {
+                                  if (prefixes.includes(prefix)) detectedOp = op;
+                                }
+
+                                const productNameClean = product.name.toUpperCase().replace(/\./g, ''); 
+                                
+                                if (detectedOp && !productNameClean.includes(detectedOp) && activeTab.toUpperCase() !== 'UMUM' && activeTab.toUpperCase() !== 'DATA-UMUM') {
+                                  setErrorOp(`❌ Ini Nomor ${detectedOp}, Bos! Jangan salah lapak.`);
+                                } else {
+                                  setErrorOp("");
+                                  if(val.length >= 10) scrollToNext(step3Ref); 
+                                }
+                              } else {
+                                setErrorOp("");
+                              }
                             }
-                          }
-                        }}
-                        placeholder={`Masukkan ${getDynamicLabel()}`} 
-                        className={`w-full bg-[#F5FBFA] border-2 p-5 rounded-2xl outline-none text-base font-bold transition-all placeholder:text-slate-300 ${
-                          errorOp ? "border-rose-500 bg-rose-50 text-rose-700" : "border-[#E0F2F1] focus:border-[#00796B] text-slate-700"
-                        }`} 
-                      />
+                          }}
+                          placeholder={`Masukkan ${getDynamicLabel()}`} 
+                          className={`w-full bg-[#F5FBFA] border-2 p-5 ${detectedOperator ? 'pl-16' : 'pl-5'} rounded-2xl outline-none text-base font-bold transition-all placeholder:text-slate-300 ${
+                            errorOp ? "border-rose-500 bg-rose-50 text-rose-700" : "border-[#E0F2F1] focus:border-[#00796B] text-slate-700"
+                          }`} 
+                        />
+                      </div>
                       {isInquiring ? (
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[#00796B]">
                           <Loader2 size={20} className="animate-spin" />
