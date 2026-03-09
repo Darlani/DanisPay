@@ -235,68 +235,66 @@ const onConfirmCheckout = () => {
               </div>
             </section>
             
-            {/* STEP 2: RINCIAN TAGIHAN */}
-            <section className={`bg-white rounded-[2.5rem] shadow-sm border border-[#B2DFDB]/40 overflow-hidden relative transition-all duration-500 ${inquiryData ? "opacity-100" : "hidden pointer-events-none"}`}>
-              <div className="p-4 sm:p-8 border-b border-[#E0F2F1] bg-[#F5FBFA]">
-                <div className="flex items-center gap-5">
-                  <div className="bg-linear-to-br from-[#00695C] to-[#004D40] text-white w-12 h-12 rounded-2xl flex items-center justify-center font-black shadow-lg shadow-teal-900/10 text-xl">
-                    2
-                  </div>
-                  <div>
-                    <h2 className="font-black text-2xl tracking-tight text-slate-800 leading-none uppercase">Rincian Tagihan</h2>
-                    <p className="text-[10px] font-bold text-slate-400 tracking-wider mt-1.5 lowercase first-letter:uppercase">Detail informasi tagihan Anda</p>
-                  </div>
+{/* STEP 2: RINCIAN TAGIHAN (RIBBON STYLE) */}
+            <section className={`bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-all duration-500 border border-[#B2DFDB]/40 overflow-hidden relative ${inquiryData ? "opacity-100" : "hidden pointer-events-none"}`}>
+              <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
+                <div className="bg-[#00695C] w-12 sm:w-16 flex items-center justify-center text-white font-black text-xl sm:text-2xl shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
+                  2
+                </div>
+                <div className="py-3 px-4 sm:py-5 sm:px-6 flex flex-col justify-center">
+                  <h2 className="font-black text-[16px] sm:text-xl tracking-tight text-slate-800 leading-none">Rincian Tagihan</h2>
+                  <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 tracking-wider mt-1 lowercase first-letter:uppercase">Detail informasi tagihan Anda</p>
                 </div>
               </div>
 
               {inquiryData && (
                 <div className="p-4 sm:p-8 space-y-3 animate-in fade-in zoom-in duration-500">
                    
-                   <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                       <div className="bg-slate-200 p-2.5 rounded-xl text-slate-600"><ReceiptText size={20} /></div>
+                   <div className="flex items-center gap-3 sm:gap-4 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100">
+                       <div className="bg-slate-200 p-2 sm:p-2.5 rounded-xl text-slate-600"><ReceiptText size={18} /></div>
                        <div>
-                           <p className="text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">ID Pelanggan (ID Pel)</p>
-                           <p className="text-sm font-black text-slate-800">{accId}</p>
+                           <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">ID Pelanggan (ID Pel)</p>
+                           <p className="text-xs sm:text-sm font-black text-slate-800">{accId}</p>
                        </div>
                    </div>
 
-                   <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                       <div className="bg-slate-200 p-2.5 rounded-xl text-slate-600"><User size={20} /></div>
+                   <div className="flex items-center gap-3 sm:gap-4 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100">
+                       <div className="bg-slate-200 p-2 sm:p-2.5 rounded-xl text-slate-600"><User size={18} /></div>
                        <div>
-                           <p className="text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Nama</p>
-                           <p className="text-sm font-black text-slate-800 uppercase">{inquiryData.customerName}</p>
+                           <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Nama</p>
+                           <p className="text-xs sm:text-sm font-black text-slate-800 uppercase">{inquiryData.customerName}</p>
                        </div>
                    </div>
 
-                   <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                       <div className="bg-slate-200 p-2.5 rounded-xl text-slate-600"><ReceiptText size={20} /></div>
+                   <div className="flex items-center gap-3 sm:gap-4 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100">
+                       <div className="bg-slate-200 p-2 sm:p-2.5 rounded-xl text-slate-600"><ReceiptText size={18} /></div>
                        <div>
-                           <p className="text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Total Lembar Tagihan</p>
-                           <p className="text-sm font-black text-slate-800">{inquiryData.desc?.lembar_tagihan || "1"} Bulan</p>
+                           <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Total Lembar Tagihan</p>
+                           <p className="text-xs sm:text-sm font-black text-slate-800">{inquiryData.desc?.lembar_tagihan || "1"} Bulan</p>
                        </div>
                    </div>
 
-                   <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                       <div className="bg-slate-200 p-2.5 rounded-xl text-slate-600"><CalendarDays size={20} /></div>
+                   <div className="flex items-center gap-3 sm:gap-4 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100">
+                       <div className="bg-slate-200 p-2 sm:p-2.5 rounded-xl text-slate-600"><CalendarDays size={18} /></div>
                        <div>
-                           <p className="text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Periode (BL/TH)</p>
-                           <p className="text-sm font-black text-slate-800">{inquiryData.period || "-"}</p>
+                           <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Periode (BL/TH)</p>
+                           <p className="text-xs sm:text-sm font-black text-slate-800">{inquiryData.period || "-"}</p>
                        </div>
                    </div>
 
-                   <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                       <div className="bg-slate-800 p-2.5 rounded-xl text-white"><CircleDollarSign size={20} /></div>
+                   <div className="flex items-center gap-3 sm:gap-4 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100">
+                       <div className="bg-slate-800 p-2 sm:p-2.5 rounded-xl text-white"><CircleDollarSign size={18} /></div>
                        <div>
-                           <p className="text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Total Tagihan (Rp Tag PLN)</p>
-                           <p className="text-sm font-black text-slate-800">{formatRupiah(rawTagihan)}</p>
+                           <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Total Tagihan (Rp Tag PLN)</p>
+                           <p className="text-xs sm:text-sm font-black text-slate-800">{formatRupiah(rawTagihan)}</p>
                        </div>
                    </div>
 
-                   <div className="flex items-center gap-4 bg-[#E0F2F1] p-4 rounded-2xl border border-[#B2DFDB]">
-                       <div className="bg-[#00796B] p-2.5 rounded-xl text-white"><ShieldCheck size={20} /></div>
+                   <div className="flex items-center gap-3 sm:gap-4 bg-[#E0F2F1] p-3 sm:p-4 rounded-2xl border border-[#B2DFDB]">
+                       <div className="bg-[#00796B] p-2 sm:p-2.5 rounded-xl text-white"><ShieldCheck size={18} /></div>
                        <div>
-                           <p className="text-[10px] font-bold text-[#00695C] lowercase first-letter:uppercase tracking-wide">Biaya Admin</p>
-                           <p className="text-sm font-black text-[#004D40]">{formatRupiah(adminToko)}</p>
+                           <p className="text-[9px] sm:text-[10px] font-bold text-[#00695C] lowercase first-letter:uppercase tracking-wide">Biaya Admin</p>
+                           <p className="text-xs sm:text-sm font-black text-[#004D40]">{formatRupiah(adminToko)}</p>
                        </div>
                    </div>
 
