@@ -104,9 +104,27 @@ function InvoiceContent() {
       }
     };
 
-    fetchTransaction();
+fetchTransaction();
 
-    const channel = supabase
+    // --- SATPAM POLLING (Backup Realtime) [cite: 2026-03-06] ---
+    const polling = setInterval(async () => {
+      if (dbStatus === "Pending" || dbStatus === "Diproses") {
+        const { data } = await supabase
+          .from("orders")
+          .select("status, sn")
+          .eq("order_id", invoiceId)
+          .maybeSingle();
+        
+        if (data && data.status !== dbStatus) {
+          setDbStatus(data.status);
+          setTrx((prev: any) => ({ ...prev, status: data.status, sn: data.sn }));
+        }
+      } else {
+        clearInterval(polling);
+      }
+    }, 5000); // Cek setiap 5 detik [cite: 2026-03-08]
+
+    const channel = supabase
       .channel(`status-${invoiceId}`)
       .on(
         "postgres_changes",
@@ -123,7 +141,10 @@ function InvoiceContent() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { 
+      supabase.removeChannel(channel);
+      clearInterval(polling); // Bersihkan satpam [cite: 2026-03-06]
+    };
   }, [invoiceId]);
 
   // --- 2. TIMER LOGIC ---
@@ -402,10 +423,22 @@ function InvoiceContent() {
         ) : isGagal ? (
           <div className="space-y-5 py-6 animate-in zoom-in text-center">
             <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto shadow-inner"><XCircle size={32} className="text-rose-600" /></div>
-            <div className="space-y-1.5">
-              <h2 className="text-2xl font-bold text-rose-600">Gagal</h2>
-              <p className="text-[11px] text-slate-500 font-medium">ID <span className="font-bold text-slate-900">{trx.order_id}</span> dibatalkan.</p>
-            </div>
+        <div className="space-y-1.5">
+              <h2 className="text-2xl font-bold text-rose-600">Transaksi Gagal</h2>
+              <p className="text-[11px] text-slate-500 font-medium px-6">
+                {trx.user_id 
+                  ? "Saldo koin Bos sudah dikembalikan otomatis." 
+                  : "Uang Bos aman. Silakan klik tombol di bawah untuk refund manual ke Admin."}
+              </p>
+            </div>
+            {!trx.user_id && (
+              <a 
+                href={`https://wa.me/6285545213952?text=Halo Admin, pesanan saya ${trx.order_id} GAGAL. Mohon bantu refund manual.`}
+                className="block w-full py-3.5 bg-emerald-500 text-white rounded-xl font-bold text-[11px] uppercase shadow-lg shadow-emerald-200"
+              >
+                Hubungi Admin (Refund)
+              </a>
+            )}
             <Link href="/" className="block w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold text-[11px] uppercase shadow-lg">Ke Beranda</Link>
           </div>
         ) : (

@@ -186,41 +186,52 @@ const onConfirmCheckout = () => {
               </div>
             )}
 
-            {/* STEP 1: INPUT ID */}
-            <section className={`bg-white rounded-[2.5rem] shadow-sm border border-[#B2DFDB]/40 overflow-hidden relative transition-opacity ${isBlocked ? 'opacity-60' : 'opacity-100'}`}>
-              <div className="p-4 sm:p-8 border-b border-[#E0F2F1] bg-[#F5FBFA]">
-                <div className="flex items-center gap-5">
-                  <div className="bg-linear-to-br from-[#00695C] to-[#004D40] text-white w-12 h-12 rounded-2xl flex items-center justify-center font-black shadow-lg shadow-teal-900/10 text-xl">
-                    1
-                  </div>
-                  <div>
-                    <h2 className="font-black text-2xl tracking-tight text-slate-800 leading-none uppercase">Cek Tagihan</h2>
-                    <p className="text-[10px] font-bold text-slate-400 tracking-wider mt-1.5 lowercase first-letter:uppercase">Masukkan nomor pelanggan Anda</p>
-                  </div>
+           {/* STEP 1: INPUT ID (RIBBON STYLE) */}
+            <section className={`bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 border border-[#B2DFDB]/40 overflow-hidden relative ${isBlocked ? 'opacity-60' : 'opacity-100'}`}>
+              <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
+                <div className="bg-[#00695C] w-12 sm:w-16 flex items-center justify-center text-white font-black text-xl sm:text-2xl shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
+                  1
+                </div>
+                <div className="py-3 px-4 sm:py-5 sm:px-6 flex flex-col justify-center">
+                  <h2 className="font-black text-[16px] sm:text-xl tracking-tight text-slate-800 leading-none">Cek Tagihan</h2>
+                  <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 tracking-wider mt-1 lowercase first-letter:uppercase">Masukkan nomor pelanggan Anda</p>
                 </div>
               </div>
               
               <div className="p-4 sm:p-8">
-                <div className="relative group">
-                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400"><User size={24} /></div>
-                  <input 
-                    type="text" disabled={isBlocked || inquiryData}
-                    value={accId} onChange={(e) => setAccId(e.target.value.replace(/\D/g, ''))} 
-                    placeholder={`Masukkan ${getDynamicLabel()}`} 
-                    className={`w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white pl-14 pr-24 py-5 rounded-2xl outline-none text-base font-bold transition-all ${isBlocked || inquiryData ? 'cursor-not-allowed opacity-70' : 'cursor-text text-slate-700'}`} 
-                  />
-                  {!inquiryData ? (
-                    <button 
-                      onClick={handleInquiry} disabled={isChecking || isBlocked}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 bg-[#00796B] text-white p-3 rounded-xl hover:bg-[#004D40] transition-all shadow-md active:scale-95 disabled:opacity-50"
-                    >
-                      {isChecking ? <Loader2 size={20} className="animate-spin" /> : <Search size={20} />}
-                    </button>
-                  ) : (
-                    <button onClick={() => setInquiryData(null)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-rose-100 text-rose-600 px-4 py-2.5 rounded-xl hover:bg-rose-200 transition-all text-[10px] font-black uppercase shadow-sm">Ganti ID</button>
-                  )}
+                <div className="flex flex-col gap-4">
+                  <div className="flex-1 space-y-3">
+                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-2 justify-start">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#00796B]" />
+                      <span>{getDynamicLabel()}</span>
+                    </label>
+
+                    <div className="relative">
+                      <input 
+                        type="text" disabled={isBlocked || inquiryData}
+                        value={accId} onChange={(e) => setAccId(e.target.value.replace(/\D/g, ''))} 
+                        placeholder={`Masukkan ${getDynamicLabel()}`} 
+                        className={`w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white p-3.5 sm:p-4 pr-20 sm:pr-24 rounded-xl outline-none text-sm sm:text-base font-bold transition-all placeholder:text-slate-300 ${isBlocked || inquiryData ? 'cursor-not-allowed opacity-70 text-slate-500' : 'cursor-text text-slate-700'}`} 
+                      />
+                      {!inquiryData ? (
+                        <button 
+                          onClick={handleInquiry} disabled={isChecking || isBlocked}
+                          className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 bg-[#00796B] text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase hover:bg-[#004D40] transition-all disabled:opacity-50"
+                        >
+                          {isChecking ? <Loader2 size={16} className="animate-spin" /> : "CEK"}
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => setInquiryData(null)} 
+                          className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 bg-rose-100 text-rose-600 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase hover:bg-rose-200 transition-all shadow-sm"
+                        >
+                          GANTI ID
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                {errorMsg && <p className="mt-4 text-rose-500 text-xs font-black uppercase flex items-center gap-2"><AlertTriangle size={14} /> {errorMsg}</p>}
+                {errorMsg && <p className="mt-3 text-rose-500 text-[10px] font-black uppercase flex items-center gap-1.5"><AlertTriangle size={14} /> {errorMsg}</p>}
               </div>
             </section>
             

@@ -159,10 +159,10 @@ export async function POST(request: Request) {
       brandLogo = "🏪 [INDOMARET]";
     }
 
-    // --- PENCARIAN ORDER PENDING ---
+// Tambahkan buy_price dan cashback untuk hitung cuan bersih [cite: 2026-03-09]
     const { data: orders, error: fetchError } = await supabaseAdmin
       .from('orders')
-      .select('*')
+      .select('id, order_id, status, payment_method, used_balance, user_id, email, total_amount, unique_code, product_name, item_label, category, buy_price, cashback')
       .eq('total_amount', amount) 
       .ilike('status', 'pending') 
       .order('created_at', { ascending: false });
@@ -361,11 +361,17 @@ const { data: refProfile } = await supabaseAdmin.from('profiles').select('id, ba
         `🧾 Total Pesanan: <b>Rp ${grandTotal.toLocaleString('id-ID')}</b>\n`
       : `💰 Nominal Transfer: <b>Rp ${nominalTransfer.toLocaleString('id-ID')}</b>\n`;
 
-const message = `<b>DANA DITERIMA (WEBHOOK)!</b> 🤑\n\n` +
-      `📢 Notif Dari: <b>${brandLogo}</b>\n` +
-      `📦 Produk: <b>${safeProductName} - ${safeItemLabel}</b>\n` +
-      detailPembayaran +
-      `👤 User: ${safeEmail}\n` +
+// --- LOGIKA PROFIT ALERT (Cuan Bersih) [cite: 2026-03-09] ---
+    // Rumus: (Terima Bersih + Saldo Terpakai) - Modal Digiflazz - Cashback Member
+    const revenueMurni = (currentOrder.total_amount || 0) - (currentOrder.unique_code || 0) + (currentOrder.used_balance || 0);
+    const cuanBersih = revenueMurni - (currentOrder.buy_price || 0) - (currentOrder.cashback || 0);
+
+    const message = `<b>DANA DITERIMA (WEBHOOK)!</b> 🤑\n\n` +
+      `📢 Notif Dari: <b>${brandLogo}</b>\n` +
+      `📦 Produk: <b>${safeProductName} - ${safeItemLabel}</b>\n` +
+      detailPembayaran +
+      `📈 Cuan Bersih: <b>+ Rp ${cuanBersih.toLocaleString('id-ID')}</b>\n` +
+      `👤 User: ${safeEmail}\n` +
       `🆔 Invoice: <b>${currentOrder.order_id}</b>\n` +
       `🔄 Status: <b>DIPROSES (PROSES VENDOR)</b> ⏳\n\n` +
       `<i>*Sistem otomatis via MacroDroid.</i>`;
@@ -405,18 +411,19 @@ async function processFulfillment(order: any) {
        console.log(`➡️ [ROUTE WEBHOOK BANK] Mengirim ke Jalur Internal: ${apiEndpoint}`);
 
        // Kita tambahkan AWAIT agar prosesnya ditunggu dan kita bisa lihat hasil/errornya [cite: 2026-03-06]
-       const response = await fetch(apiEndpoint, {
-           method: 'POST',
-           headers: { 
-               'Content-Type': 'application/json',
-               'x-webhook-secret': String(WEBHOOK_SECRET || '') 
-           },
-           body: JSON.stringify({
-               order_id: order.order_id,
-               email: order.email,
-               use_koin: false
-           })
-       });
+  const response = await fetch(apiEndpoint, {
+           method: 'POST',
+           headers: { 
+               'Content-Type': 'application/json',
+               'x-webhook-secret': String(WEBHOOK_SECRET || '') 
+           },
+           body: JSON.stringify({
+               id: order.id, // Tambahkan ID Utama (UUID) agar database mencarinya secepat kilat
+               order_id: order.order_id,
+               email: order.email,
+               use_koin: false
+           })
+       });
 
        const responseData = await response.json().catch(() => ({}));
        console.log(`📥 [RESPONS CHECKOUT] HTTP ${response.status}:`, JSON.stringify(responseData));

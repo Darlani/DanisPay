@@ -60,50 +60,59 @@ export async function POST(req: Request) {
     const sn = eventData.sn || "NO-SN";
     const message = eventData.message;
 
-// 3. LOGIKA UPDATE DATABASE BERDASARKAN STATUS [cite: 2026-02-11]
+// 3. LOGIKA UPDATE DATABASE & REFUND [cite: 2026-03-09]
     console.log(`📝 [DIGIFLAZZ UPDATE] RefID: ${refId} | Status: ${status} | SN: ${sn}`);
 
-    if (status === 'Sukses') {
-      // Kita ambil harga modal asli dari Digiflazz untuk laporan laba rugi yang akurat [cite: 2026-03-06]
-      const modalAsli = eventData.price || 0;
+// A. Ambil data spesifik (Optimasi < 200ms & ganti ke kolom balance) [cite: 2026-03-09]
+    const { data: order } = await supabaseAdmin
+      .from('orders')
+      .select('id, user_id, total_amount, status, profiles(id, balance)')
+      .eq('order_id', refId)
+      .single();
 
-      await supabaseAdmin
-        .from('orders')
-        .update({ 
-          status: 'Berhasil', 
-          sn: sn,
-          raw_tagihan: modalAsli, // Pastikan ini terisi saat benar-benar sukses
-          desc: eventData.desc || null,
+    if (!order) {
+      console.error("❌ Order tidak ditemukan di database!");
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    if (status === 'Sukses') {
+      const modalAsli = eventData.price || 0;
+      await supabaseAdmin.from('orders').update({ 
+          status: 'Berhasil', sn, raw_tagihan: modalAsli,
           notes: 'Transaksi diselesaikan oleh Webhook Supplier',
           updated_at: new Date().toISOString() 
-        })
-        .eq('order_id', refId);
-        
-      await reportToTelegram(`✅ <b>TRANSAKSI SUKSES!</b>\n\n🆔 Inv: <code>${refId}</code>\n📦 SN: <code>${sn}</code>\n💰 Status: Sukses di Supplier`);
+        }).eq('id', order.id);
+      await reportToTelegram(`✅ <b>SUKSES!</b>\n🆔 Inv: <code>${refId}</code>\n📦 SN: <code>${sn}</code>`);
 
     } else if (status === 'Pending') {
-      // Update SN saja agar user tahu proses sedang berjalan [cite: 2026-02-17]
-      await supabaseAdmin
-        .from('orders')
-        .update({ 
-          sn: sn,
-          updated_at: new Date().toISOString() 
-        })
-        .eq('order_id', refId);
-        
-      await reportToTelegram(`⏳ <b>TRANSAKSI PENDING!</b>\n\n🆔 Inv: <code>${refId}</code>\n📦 SN: <code>${sn}</code>\n⚠️ Status: Sedang diproses supplier`);
+      await supabaseAdmin.from('orders').update({ sn, updated_at: new Date().toISOString() }).eq('id', order.id);
+      await reportToTelegram(`⏳ <b>PENDING!</b>\n🆔 Inv: <code>${refId}</code>\n📦 SN: <code>${sn}</code>`);
 
-    } else if (status === 'Gagal') {
-      await supabaseAdmin
-        .from('orders')
-        .update({ 
-          status: 'Gagal', 
-          notes: message,
-          updated_at: new Date().toISOString() 
-        })
-        .eq('order_id', refId);
+    } else if (status === 'Gagal' && order.status !== 'Gagal') {
+      // B. EKSEKUSI LOGIKA REFUND (Harga + Kode Unik) [cite: 2026-03-08]
+      const refundValue = order.total_amount; 
+
+    if (order.user_id) {
+        // SKENARIO MEMBER: Refund ke Saldo Balance (Sesuai database lama) [cite: 2026-03-09]
+        const currentBalance = (order.profiles as any)?.balance || 0;
+        await supabaseAdmin.from('profiles').update({ balance: currentBalance + refundValue }).eq('id', order.user_id);
         
-      await reportToTelegram(`❌ <b>TRANSAKSI GAGAL!</b>\n\n🆔 Inv: <code>${refId}</code>\n⚠️ Alasan: ${message}`);
+        await supabaseAdmin.from('orders').update({ 
+          status: 'Gagal', 
+          notes: `Otomatis Refund Balance: Rp ${refundValue.toLocaleString('id-ID')}`,
+          updated_at: new Date().toISOString() 
+        }).eq('id', order.id);
+      } 
+      
+      else {
+        // SKENARIO GUEST: Tandai Admin untuk Transfer Manual [cite: 2026-03-06]
+        await supabaseAdmin.from('orders').update({ 
+          status: 'Gagal', 
+          notes: `Gagal - WAJIB REFUND MANUAL: Rp ${refundValue.toLocaleString('id-ID')} (GUEST)`,
+          updated_at: new Date().toISOString() 
+        }).eq('id', order.id);
+      }
+      await reportToTelegram(`❌ <b>GAGAL!</b>\n🆔 Inv: <code>${refId}</code>\n⚠️ Refund: ${order.user_id ? 'Koin Otomatis' : 'Manual (Guest)'}\n💬 Pesan: ${message}`);
     }
 
     return NextResponse.json({ success: true });

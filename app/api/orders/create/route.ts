@@ -26,12 +26,16 @@ export async function POST(req: Request) {
       voucher_code
     } = body;
 
-    // --- 2. AMBIL DATA PRODUK + JOIN NAMA KATEGORI ---
-    // Kita ambil 'name' dari tabel categories biar gak muncul UUID lagi bos!
+    // --- 2. AMBIL DATA PRODUK SPESIFIK (Anti select *, render < 200ms) [cite: 2026-03-09]
     const { data: dbProduct, error: pError } = await supabaseAdmin
       .from('products')
       .select(`
-        *,
+        sku, 
+        name, 
+        price, 
+        cost, 
+        discount, 
+        cashback, 
         categories (
           name
         )
@@ -46,7 +50,6 @@ export async function POST(req: Request) {
     // --- 3. LOGIKA CASHBACK (KHUSUS MEMBER SPECIAL) ---
     let finalCashback = 0;
 
-    // Cek apakah user login (punya user_id)
     if (user_id) {
       const { data: userProfile } = await supabaseAdmin
         .from('profiles')
@@ -54,36 +57,31 @@ export async function POST(req: Request) {
         .eq('id', user_id)
         .maybeSingle();
 
-      // Hanya Member Special yang dapet cashback sesuai tabel product
       if (userProfile?.member_type?.toLowerCase() === 'special') {
         finalCashback = dbProduct.cashback || 0;
       }
     } 
-    // Jika user_id kosong, berarti dia GUEST, cashback tetap 0.
 
     // --- 4. VALIDASI HARGA SERVER-SIDE (Anti-Cheat) ---
     let hargaSeharusnya = 0;
     let modalPascabayar = 0;
     let hargaJualPascabayar = 0;
-    let kodeUnikUser = 0; // Kita kenalkan di sini biar bisa dipakai di bawah
+    let kodeUnikUser = 0; 
     
     const totalInputUser = total_amount + used_balance + (voucher_amount || 0);
-    const namaKategori = dbProduct.categories?.name?.toLowerCase() || "";
+    // Gunakan as any untuk akses nama kategori (Solusi error TypeScript) [cite: 2026-03-09]
+    const namaKategori = (dbProduct.categories as any)?.name?.toLowerCase() || "";
     const isPascabayar = namaKategori.includes('pascabayar') || dbProduct.sku.toLowerCase() === 'pln';
 
     if (isPascabayar) {
-      // LOGIKA PASCABAYAR (RE-INQUIRY KE BACKEND INTERNAL)
       try {
         const protocol = req.headers.get('x-forwarded-proto') || 'http';
         const host = req.headers.get('host');
         const baseUrl = `${protocol}://${host}`;
         
-        // Ekstrak ID Pelanggan murni (hilangkan zoneId jika formatnya accId(zoneId))
         const cleanCustomerId = game_id.split('(')[0].trim();
 
-        // Tembak API Inquiry kita sendiri secara internal
-        // Jalur baru yang sudah dipindah ke folder digiflazz [cite: 2026-03-06]
-const inqRes = await fetch(`${baseUrl}/api/digiflazz/pascabayar/inquiry`, {
+        const inqRes = await fetch(`${baseUrl}/api/digiflazz/pascabayar/inquiry`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ customer_id: cleanCustomerId, sku: dbProduct.sku, category: namaKategori })
@@ -94,40 +92,19 @@ const inqRes = await fetch(`${baseUrl}/api/digiflazz/pascabayar/inquiry`, {
           return NextResponse.json({ error: "Gagal memverifikasi ulang tagihan ke pusat." }, { status: 400 });
         }
 
-        // 1. Ambil Nilai Tagihan murni dari hasil inquiry (Misal: 118.976)
         const tagihanMurni = Number(inqData.data.desc?.detail?.[0]?.nilai_tagihan || 0);
-        
-        // 2. Ambil Admin Digiflazz (Modal admin dari pusat, misal: 5000)
         const adminDigiflazz = Number(inqData.data.admin || 5000);
-        
-        // 3. Ambil Admin Toko dari kolom 'price' Supabase (Admin Bos, misal: 5100)
         const adminToko = Number(dbProduct.price || 0); 
         
-        // 4. Set Modal Real (Tagihan + Admin Pusat) -> Ini untuk hitung profit bersih
         modalPascabayar = tagihanMurni + adminDigiflazz;
-
-        // 5. Set Harga Jual ke Customer (Tagihan + Admin Toko Bos)
         hargaJualPascabayar = tagihanMurni + adminToko;
-        
-        // PENTING: Pindahkan ini ke SINI agar saat dihitung di bawah, nilainya sudah bukan 0!
         hargaSeharusnya = hargaJualPascabayar;
         
-        // FIX: Hitung selisih murni dengan pembulatan ke bawah untuk menghindari error desimal JavaScript
         const selisihMurni = Math.floor(totalInputUser - hargaSeharusnya);
-        
-        // Kode unik adalah selisih tersebut (harus di bawah 1000)
         kodeUnikUser = (selisihMurni > 0 && selisihMurni < 1000) ? selisihMurni : 0;
         
-        // Sekarang kurangi (Misal: 152883 - 550 = 152333)
         const totalUserTanpaKodeUnik = totalInputUser - kodeUnikUser;
 
-        // DEBUG: Aktifkan ini kalau masih 400 biar kelihatan di terminal angkanya
-        console.log("--- DEBUG PASCABAYAR ---");
-        console.log("Total Input (Tanpa Kode Unik):", totalUserTanpaKodeUnik);
-        console.log("Harga Seharusnya (Tagihan + Admin):", hargaSeharusnya);
-        console.log("Selisih:", Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya));
-
-        // FIX: Toleransi dilebarkan ke 1000 karena kode unik bisa sampai 999
         if (Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya) > 1000) {
           return NextResponse.json({ 
             error: `Deteksi manipulasi! DB: ${hargaSeharusnya}, Input: ${totalUserTanpaKodeUnik}` 
@@ -136,35 +113,31 @@ const inqRes = await fetch(`${baseUrl}/api/digiflazz/pascabayar/inquiry`, {
       } catch (error) {
         return NextResponse.json({ error: "Gagal koneksi ke server inquiry pascabayar." }, { status: 500 });
       }
-} else {
-      // --- LOGIKA PRABAYAR (VERIFIKASI ID & HARGA) ---
-      hargaSeharusnya = Math.floor(dbProduct.price * (1 - ((dbProduct.discount || 0) / 100)));
-      
-      // Tambahan: Jika produk butuh verifikasi ID (seperti Token PLN atau Game Tertentu)
-      // Kita lakukan re-inquiry prabayar di backend biar gak kecolongan ID sampah [cite: 2026-03-06]
-      const listButuhInquiry = ['pln', 'game']; // Tambahkan kategori lain jika perlu
-      if (listButuhInquiry.some(kw => namaKategori.includes(kw) || dbProduct.sku.toLowerCase().includes(kw))) {
-        try {
-          const protocol = req.headers.get('x-forwarded-proto') || 'http';
-          const host = req.headers.get('host');
-          const baseUrl = `${protocol}://${host}`;
-          
-          await fetch(`${baseUrl}/api/digiflazz/prabayar/inquiry`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ customer_id: game_id, sku: dbProduct.sku })
-          });
-          // Kita tidak perlu cek return-nya sukses atau tidak di sini (biar gak lambat), 
-          // yang penting jalur kabel inquiry prabayar sudah pernah terpanggil.
-        } catch (e) { console.error("Re-inquiry prabayar skip"); }
-      }
+    } else {
+      // LOGIKA PRABAYAR
+      hargaSeharusnya = Math.floor(dbProduct.price * (1 - ((dbProduct.discount || 0) / 100)));
+      
+      const listButuhInquiry = ['pln', 'game']; 
+      if (listButuhInquiry.some(kw => namaKategori.includes(kw) || dbProduct.sku.toLowerCase().includes(kw))) {
+        try {
+          const protocol = req.headers.get('x-forwarded-proto') || 'http';
+          const host = req.headers.get('host');
+          const baseUrl = `${protocol}://${host}`;
+          
+          await fetch(`${baseUrl}/api/digiflazz/prabayar/inquiry`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ customer_id: game_id, sku: dbProduct.sku })
+          });
+        } catch (e) { console.error("Re-inquiry prabayar skip"); }
+      }
 
-      if (Math.abs(totalInputUser - hargaSeharusnya) > 1500) {
-        return NextResponse.json({ error: "Deteksi manipulasi harga prabayar!" }, { status: 400 });
-      }
-    }
+      if (Math.abs(totalInputUser - hargaSeharusnya) > 1500) {
+        return NextResponse.json({ error: "Deteksi manipulasi harga prabayar!" }, { status: 400 });
+      }
+    }
 
-    // --- 5. VALIDASI PEMBAYARAN (Maintenance Check) ---
+    // --- 5. VALIDASI PEMBAYARAN ---
     const { data: payData } = await supabaseAdmin
       .from('payment_accounts')
       .select('is_maintenance, start_hour, end_hour, min_price')
@@ -183,39 +156,34 @@ const inqRes = await fetch(`${baseUrl}/api/digiflazz/pascabayar/inquiry`, {
       product_name: dbProduct.name,
       item_label,
       game_id,
-      // PENTING: Gunakan harga dinamis untuk Pascabayar, harga statis untuk Prabayar
       buy_price: isPascabayar ? modalPascabayar : (dbProduct.cost || 0), 
       price: isPascabayar ? hargaJualPascabayar : (dbProduct.price || 0),
       discount: isPascabayar ? 0 : (dbProduct.discount || 0),
       voucher_code: voucher_code || null,
       voucher_amount: voucher_amount || 0,
-cashback: finalCashback, 
-      // Kita masukkan variabel kodeUnikUser yang sudah dihitung presisi di atas tadi
-      unique_code: isPascabayar ? kodeUnikUser : (Number(total_amount) % 1000),
-      total_amount,
+      cashback: finalCashback, 
+      unique_code: isPascabayar ? kodeUnikUser : (Number(total_amount) % 1000),
+      total_amount,
       payment_method,
       status: 'Pending',
       user_contact,
       email: email || null,
       referred_by: referred_by || null,
-      category: dbProduct.categories?.name || "umum", // Nama kategori asli
+      category: (dbProduct.categories as any)?.name || "umum",
       ip_address,
       device_id,
-used_balance,
-      user_id: user_id || null,
-      // Sinkronisasi modal awal agar laporan profit akurat sejak awal [cite: 2026-03-06]
-      raw_tagihan: isPascabayar ? modalPascabayar : (dbProduct.cost || 0),
-      desc: isPascabayar ? { info: "Waiting for payment..." } : null, 
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString() // WAJIB ADA agar Robot Auto-Check bisa patroli! [cite: 2026-03-08]
-    };
+      used_balance,
+      user_id: user_id || null,
+      raw_tagihan: isPascabayar ? modalPascabayar : (dbProduct.cost || 0),
+      desc: isPascabayar ? { info: "Waiting for payment..." } : null, 
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString() 
+    };
 
     // --- 7. EKSEKUSI INSERT ---
-    const { data, error: insertError } = await supabaseAdmin
+    const { error: insertError } = await supabaseAdmin
       .from('orders')
-      .insert([orderData]) 
-      .select('id')
-      .single();
+      .insert([orderData]); 
     
     if (insertError) {
       console.error("❌ Gagal Simpan Order:", insertError.message);

@@ -41,76 +41,89 @@ export default function ContactAndPromoSection(props: ContactAndPromoProps) {
     }
   };
 
-  return (
+return (
     <div ref={step4Ref} className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
-      <div className="bg-white p-6 rounded-4xl border border-[#B2DFDB]/40 shadow-sm">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-linear-to-br from-[#00695C] to-[#004D40] text-white flex items-center justify-center font-black text-xs shadow-md shadow-teal-900/10">
+      
+      {/* STEP 4: KONTAK WHATSAPP [cite: 2026-03-09] */}
+      <section className="bg-white rounded-2xl sm:rounded-3xl shadow-md border border-[#B2DFDB]/40 overflow-hidden relative h-fit">
+        {/* Header diperkecil: w-10 (mobile) / w-12 (desktop) [cite: 2026-03-09] */}
+        <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
+          <div className="bg-[#00695C] w-10 sm:w-12 flex items-center justify-center text-white font-black text-lg sm:text-xl shrink-0 z-10 shadow-[1px_0_5px_rgba(0,0,0,0.1)]">
             4
           </div>
-          <p className="text-[11px] font-black text-slate-500 tracking-wider lowercase first-letter:uppercase">Masukkan info kontak (Opsional)</p>
+          <div className="py-2 px-3 sm:py-3 sm:px-5 flex flex-col justify-center">
+            <h2 className="font-black text-[14px] sm:text-lg tracking-tight text-slate-800 leading-none">Nomor WhatsApp</h2>
+            <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 tracking-wider mt-0.5 lowercase first-letter:uppercase">Info kontak untuk status pesanan</p>
+          </div>
         </div>
-        <input 
-          type="text" 
-          value={waNumber} 
-          onChange={(e) => setWaNumber(e.target.value)} 
-          placeholder="Nomor WhatsApp (08xxxx)" 
-          className="w-full bg-[#F5FBFA] border border-[#E0F2F1] focus:border-[#00796B] p-4 rounded-xl outline-none font-bold text-sm text-slate-700 transition-all placeholder:text-slate-300" 
-        />
-        <p className="mt-2 ml-1 text-[10px] font-medium text-slate-400">
-          *Nomor ini digunakan untuk mengirim status pesanan.
-        </p>
-      </div>
+        <div className="p-4 sm:p-8">
+          <input 
+            type="text" 
+            value={waNumber} 
+            onChange={(e) => setWaNumber(e.target.value)} 
+            placeholder="Nomor WhatsApp (08xxxx)" 
+            className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white p-3.5 sm:p-4 rounded-xl outline-none font-bold text-sm text-slate-700 transition-all placeholder:text-slate-300" 
+          />
+          <p className="mt-2 ml-1 text-[9px] sm:text-[10px] font-bold text-slate-400 italic">
+            *Wajib diisi agar kami bisa mengirim bukti transaksi.
+          </p>
+        </div>
+      </section>
 
-      <div className="bg-white p-6 rounded-4xl border border-[#B2DFDB]/40 shadow-sm">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-linear-to-br from-[#00695C] to-[#004D40] text-white flex items-center justify-center font-black text-xs shadow-md shadow-teal-900/10">
+      {/* STEP 5: KODE PROMO [cite: 2026-03-09] */}
+      <section className="bg-white rounded-2xl sm:rounded-3xl shadow-md border border-[#B2DFDB]/40 overflow-hidden relative h-fit">
+        {/* Header diperkecil sesuai standar Step 4 baru [cite: 2026-03-09] */}
+        <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
+          <div className="bg-[#00695C] w-10 sm:w-12 flex items-center justify-center text-white font-black text-lg sm:text-xl shrink-0 z-10 shadow-[1px_0_5px_rgba(0,0,0,0.1)]">
             5
           </div>
-          <p className="text-[11px] font-black text-slate-500 tracking-wider lowercase first-letter:uppercase">Masukkan kode promo (Opsional)</p>
-        </div>
-        
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <input 
-              type="text" 
-              value={promoCode} 
-              onChange={(e) => {
-                setPromoCode(e.target.value.toUpperCase());
-                setIsPromoApplied(false);
-                setIsShake(false);
-              }}
-              placeholder="KODE PROMO" 
-              className={`w-full p-4 rounded-xl outline-none font-black text-sm text-slate-700 uppercase tracking-widest transition-all ${
-                isShake 
-                  ? "animate-shake border border-rose-500 bg-rose-50" 
-                  : isPromoApplied 
-                    ? "border border-emerald-500 bg-emerald-50" 
-                    : "bg-[#F5FBFA] border border-[#E0F2F1] focus:border-[#00796B]"
-              }`} 
-            />
-            {isPromoApplied && (
-              <CheckCircle2 size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-600 animate-in zoom-in" />
-            )}
+          <div className="py-2 px-3 sm:py-3 sm:px-5 flex flex-col justify-center">
+            <h2 className="font-black text-[14px] sm:text-lg tracking-tight text-slate-800 leading-none">Punya Kode Promo?</h2>
+            <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 tracking-wider mt-0.5 lowercase first-letter:uppercase">Dapatkan harga lebih hemat (Opsional)</p>
           </div>
-          
-          <button 
-            type="button"
-            onClick={handleApplyPromo}
-            className="bg-[#3bb5a7] text-white px-5 rounded-xl font-black text-[10px] uppercase hover:bg-[#079f86] transition-all active:scale-95 shadow-lg shadow-teal-900/10 shrink-0"
-          >
-            Gunakan
-          </button>
         </div>
-        
-        <p className={`mt-2 ml-1 text-[10px] font-medium ${isShake ? "text-rose-500" : "text-slate-400"}`}>
-          {isShake 
-            ? "❌ Kode promo tidak valid, coba lagi!" 
-            : isPromoApplied 
-              ? "✅ Promo Berhasil: Diskon diterapkan!" 
-              : "*Dapatkan potongan harga dengan kode promo."}
-        </p>
-      </div>
+        <div className="p-4 sm:p-8">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input 
+                type="text" 
+                value={promoCode} 
+                onChange={(e) => {
+                  setPromoCode(e.target.value.toUpperCase());
+                  setIsPromoApplied(false);
+                  setIsShake(false);
+                }}
+                placeholder="KODE PROMO" 
+                className={`w-full p-3.5 sm:p-4 rounded-xl outline-none font-black text-sm text-slate-700 uppercase tracking-widest transition-all border-2 ${
+                  isShake 
+                    ? "animate-shake border-rose-500 bg-rose-50" 
+                    : isPromoApplied 
+                      ? "border-emerald-500 bg-emerald-50" 
+                      : "bg-[#F5FBFA] border-[#E0F2F1] focus:border-[#00796B] focus:bg-white"
+                }`} 
+              />
+              {isPromoApplied && (
+                <CheckCircle2 size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-600 animate-in zoom-in" />
+              )}
+            </div>
+            <button 
+              type="button"
+              onClick={handleApplyPromo}
+              className="bg-[#00796B] text-white px-4 sm:px-6 rounded-xl font-black text-[10px] sm:text-[11px] uppercase hover:bg-[#004D40] transition-all active:scale-95 shadow-md shadow-teal-900/10 shrink-0"
+            >
+              Gunakan
+            </button>
+          </div>
+          <p className={`mt-2 ml-1 text-[9px] sm:text-[10px] font-bold ${isShake ? "text-rose-500" : isPromoApplied ? "text-emerald-600" : "text-slate-400"}`}>
+            {isShake 
+              ? "❌ Kode promo tidak valid!" 
+              : isPromoApplied 
+                ? "✅ Mantap! Diskon telah dipasang." 
+                : "*Masukkan kode promo jika ada."}
+          </p>
+        </div>
+      </section>
+
     </div> 
   );
 }

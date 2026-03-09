@@ -73,19 +73,17 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
   const [isInquiring, setIsInquiring] = useState(false);
   const [detectedLogo, setDetectedLogo] = useState<string | null>(null);
 
-  // Deklarasi dipindah ke atas agar bisa dibaca oleh semua fungsi di bawahnya [cite: 2026-03-06]
   const isPLN = product?.name?.toLowerCase().includes('pln') || product?.category?.toLowerCase().includes('pln');
 
-const checkPlnInquiry = async (plnId: string) => {
-    setIsInquiring(true);
-    setErrorOp("");
-    setCustomerName("");
+  const checkPlnInquiry = async (plnId: string) => {
+    setIsInquiring(true);
+    setErrorOp("");
+    setCustomerName("");
 
-    // Sekarang nembak ke folder baru yang lebih rapi [cite: 2026-03-06]
-    const result = await safeFetch('/api/digiflazz/prabayar/inquiry', { 
-      method: 'POST',
-      body: JSON.stringify({ customer_id: plnId, sku: 'pln', category: 'pln' })
-    });
+    const result = await safeFetch('/api/digiflazz/prabayar/inquiry', { 
+      method: 'POST',
+      body: JSON.stringify({ customer_id: plnId, sku: 'pln', category: 'pln' })
+    });
 
     if (result.success) {
       setCustomerName(result.data.data?.customerName || result.data.customerName);
@@ -110,13 +108,13 @@ const checkPlnInquiry = async (plnId: string) => {
   const OPERATOR_LOGOS: Record<string, string> = {
     TRI: "/pulsa-data/tri.png",
     TELKOMSEL: "/pulsa-data/telkomsel.png",
-    BYU: "/pulsa-data/byU.png", // Mengikuti huruf U besar sesuai file kamu
+    BYU: "/pulsa-data/byU.png",
     INDOSAT: "/pulsa-data/indosat.png",
     XL: "/pulsa-data/xl.png",
     AXIS: "/pulsa-data/axis.png",
     SMARTFREN: "/pulsa-data/smartfren.png"
   };
-// Fungsi pencari operator yang super ringan [cite: 2026-03-06]
+
   const getOperatorLogo = (number: string) => {
     if (isPLN || number.length < 4) return null;
     const prefix = number.slice(0, 4);
@@ -127,6 +125,7 @@ const checkPlnInquiry = async (plnId: string) => {
     }
     return null;
   };
+
   const availableSubBrands = useMemo(() => {
     if (!product?.items) return [];
     const brands = [...new Set(product.items.map((item: any) => item.sub_brand).filter(Boolean))];
@@ -168,13 +167,11 @@ const checkPlnInquiry = async (plnId: string) => {
         const nameA = String(a.name || a.label || "").toLowerCase();
         const nameB = String(b.name || b.label || "").toLowerCase();
 
-        // 1. Ekstrak Hari
         const getDays = (name: string) => {
           const match = name.match(/(\d+)\s*hari/i);
           return match ? parseInt(match[1], 10) : 999;
         };
 
-        // 2. Ekstrak & Normalisasi Kuota (ke MB)
         const getDataValue = (name: string) => {
           const gbMatch = name.match(/(\d+(?:\.\d+)?)\s*gb/i);
           if (gbMatch) return parseFloat(gbMatch[1]) * 1024;
@@ -186,16 +183,12 @@ const checkPlnInquiry = async (plnId: string) => {
         const daysA = getDays(nameA);
         const daysB = getDays(nameB);
 
-        // Sort Pertama: Berdasarkan Hari
         if (daysA !== daysB) return daysA - daysB;
 
-        // Sort Kedua: Berdasarkan Jumlah Kuota (MB/GB)
         const valA = getDataValue(nameA);
         const valB = getDataValue(nameB);
         if (valA !== valB) return valA - valB;
       }
-      
-      // Fallback: Berdasarkan Harga
       return a.price - b.price;
     });
   }, [product?.items, activeTab, mainCategory, isMaintenanceDigiflazz, isAdmin]);
@@ -254,13 +247,13 @@ const checkPlnInquiry = async (plnId: string) => {
           
           {/* KOLOM KIRI (INFO PRODUK & PANDUAN) */}
           <div className="lg:col-span-1 space-y-4">
-            <div className="bg-white p-4 sm:p-8 rounded-3xl sm:rounded-4xl shadow-xl shadow-blue-900/10 border border-slate-100 sticky top-24">
+            <div className="bg-white p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-900/10 border border-slate-100 sticky top-24">
               <div className="flex flex-col items-center text-center lg:items-start lg:text-left gap-4 mb-10">
                 <div className="relative w-full lg:w-fit flex justify-center">
-                  <div className="absolute inset-0 bg-blue-500/5 blur-3xl rounded-full lg:block hidden" />
+                  <div className="absolute inset-0 bg-blue-500/10 blur-3xl rounded-full lg:block hidden" />
                   <img 
                     src={product.img} 
-                    className="relative w-full aspect-square sm:w-70 sm:h-70 rounded-3xl sm:rounded-4xl object-cover shadow-2xl border-4 border-white transition-all duration-500" 
+                    className="relative w-full aspect-square sm:w-70 sm:h-70 lg:w-70 lg:h-70 rounded-3xl sm:rounded-4xl object-cover shadow-2xl border-4 border-white transition-all duration-500" 
                     alt={product.name} 
                   />
                 </div>
@@ -269,7 +262,7 @@ const checkPlnInquiry = async (plnId: string) => {
                     <span className="bg-[#4ADE80] text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm">TOP UP</span>
                   </div>
                   <h1 className="text-lg font-black leading-tight text-slate-800 tracking-tight uppercase wrap-break-word italic">{product.name}</h1>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic text-center lg:text-left">Proses Instan & Terverifikasi Aman</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic">Proses Instan & Terverifikasi Aman</p>
                 </div>
               </div>
 
@@ -321,73 +314,80 @@ const checkPlnInquiry = async (plnId: string) => {
           {/* KOLOM KANAN (FORM TRANSAKSI) */}
           <div className="lg:col-span-2 space-y-8">
             
-            {/* STEP 1: PILIH NOMINAL */}
-            <section className="bg-white rounded-[2.5rem] shadow-sm border border-[#B2DFDB]/40 overflow-hidden relative">
-              <div className="p-4 sm:p-8 border-b border-[#E0F2F1] bg-[#F5FBFA]">
-                <div className="flex items-center gap-5">
-                  <div className="bg-linear-to-br from-[#00695C] to-[#004D40] text-white w-12 h-12 rounded-2xl flex items-center justify-center font-black shadow-lg shadow-teal-900/10 text-xl">
-                    1
-                  </div>
-                  <div>
-                    <h2 className="font-black text-2xl tracking-tight text-slate-800 leading-none">Pilih Nominal</h2>
-                    <p className="text-[10px] font-bold text-slate-400 tracking-wider mt-1.5 lowercase first-letter:uppercase">Item tersedia untuk top-up instan</p>
-                  </div>
+            {/* STEP 1: PILIH NOMINAL (STYLE INTERFACE GAME TERBARU) */}
+            <section className="bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-[#B2DFDB]/40 overflow-hidden relative">
+              <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
+                <div className="bg-[#00695C] w-12 sm:w-16 flex items-center justify-center text-white font-black text-xl sm:text-2xl shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
+                  1
+                </div>
+                <div className="py-3 px-4 sm:py-5 sm:px-6 flex flex-col justify-center">
+                  <h2 className="font-black text-[16px] sm:text-xl tracking-tight text-slate-800 leading-none">Pilih Nominal</h2>
+                  <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 tracking-wider mt-1 lowercase first-letter:uppercase">Item tersedia untuk top-up instan</p>
                 </div>
               </div>
 
-              <div className="space-y-6 px-4 sm:px-8 pb-4">
-                {!isPLN && (
-                  <div className="flex gap-3 pt-6">
-                    {['PULSA', 'DATA'].map((cat) => (
+<div className="p-2 sm:p-8 space-y-5 sm:space-y-6">
+                
+                {/* PEMBUNGKUS TABS: Mengontrol jarak antara Main Tab & Sub Tab agar lebih rapat */}
+                <div className="flex flex-col gap-2 sm:gap-3">
+                  
+                  {/* MAIN TABS (PULSA / DATA) */}
+                  {!isPLN && (
+                    <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 hide-scrollbar select-none scroll-smooth">
+                      {['PULSA', 'DATA'].map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            setMainCategory(cat);
+                            setShowAllItems(false);
+                          }}
+                          className={`px-2.5 sm:px-4 h-7 sm:h-10 flex items-center justify-center rounded-xl sm:rounded-2xl text-[9px] sm:text-[12px] font-black capitalize tracking-tight sm:tracking-normal transition-all border sm:border-2 shrink-0 whitespace-nowrap cursor-pointer ${
+                            mainCategory === cat
+                              ? "bg-[#64d1c4] border-[#63cdc1] text-white shadow-md sm:shadow-lg shadow-teal-900/20 flex-1"
+                              : "bg-white border-[#E0F2F1] text-slate-400 hover:border-[#80CBC4] flex-1"
+                          }`}
+                        >
+                          <span className="text-sm mr-1">{cat === 'PULSA' ? '📱' : '🌐'}</span>
+                          {cat === 'PULSA' ? 'Pulsa' : 'Data internet'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* SUB TABS (PULSA BIASA, COMBO DATA, DLL) */}
+                  <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 hide-scrollbar select-none scroll-smooth">
+                    {isPLN 
+                      ? availableSubBrands.map((tab: string) => (
+                        <button
+                          key={tab}
+                          onClick={() => { setActiveTab(tab); setShowAllItems(false); }}
+                          className={`px-2.5 sm:px-4 h-7 sm:h-10 flex items-center justify-center rounded-xl sm:rounded-2xl text-[9px] sm:text-[12px] font-black capitalize tracking-tight sm:tracking-normal transition-all border sm:border-2 shrink-0 whitespace-nowrap cursor-pointer ${
+                            activeTab === tab 
+                              ? "bg-[#64d1c4] border-[#63cdc1] text-white shadow-md sm:shadow-lg shadow-teal-900/20" 
+                              : "bg-white border-[#E0F2F1] text-slate-400 hover:border-[#80CBC4]"
+                          }`}
+                        >
+                          {tab.replace(/-/g, ' ')}
+                        </button>
+                      ))
+                      : menuData[mainCategory as keyof typeof menuData]?.map((tab: string) => (
                       <button
-                        key={cat}
-                        onClick={() => setMainCategory(cat)}
-                        className={`flex-1 py-3 rounded-2xl text-[12px] font-black capitalize tracking-normal transition-all border-2 flex items-center justify-center gap-2 ${
-                          mainCategory === cat
-                            ? "bg-[#02bea8] border-[#28cbb8] text-white shadow-lg shadow-teal-900/20"
-                            : "bg-white border-[#E0F2F1] text-[#00796B] hover:border-[#B2DFDB]"
+                        key={tab}
+                        onClick={() => { setActiveTab(tab); setShowAllItems(false); }}
+                        className={`px-2.5 sm:px-4 h-7 sm:h-10 flex items-center justify-center rounded-xl sm:rounded-2xl text-[9px] sm:text-[12px] font-black capitalize tracking-tight sm:tracking-normal transition-all border sm:border-2 shrink-0 whitespace-nowrap cursor-pointer ${
+                          activeTab === tab 
+                            ? "bg-[#64d1c4] border-[#63cdc1] text-white shadow-md sm:shadow-lg shadow-teal-900/20" 
+                            : "bg-white border-[#E0F2F1] text-slate-400 hover:border-[#80CBC4]"
                         }`}
                       >
-                        <span className="text-sm">{cat === 'PULSA' ? '📱' : '🌐'}</span>
-                        {cat === 'PULSA' ? 'Pulsa' : 'Data internet'}
+                        {tab.toLowerCase() === 'umum' || tab.toLowerCase() === 'pulsa-reguler' ? 'Pulsa biasa' : tab.toLowerCase() === 'data-umum' ? 'Umum' : tab.replace(/-/g, ' ')}
                       </button>
                     ))}
                   </div>
-                )}
-              </div>
-
-              <div className={`flex gap-2 overflow-x-auto px-4 sm:px-8 pb-4 hide-scrollbar select-none scroll-smooth ${isPLN ? 'pt-6' : ''}`}>
-                {isPLN 
-                  ? availableSubBrands.map((tab: string) => (
-                    <button
-                      key={tab}
-                      onClick={() => { setActiveTab(tab); setShowAllItems(false); }}
-                      className={`px-4 h-10 flex items-center justify-center rounded-2xl text-[12px] font-black capitalize tracking-normal transition-all border-2 shrink-0 whitespace-nowrap cursor-pointer ${
-                        activeTab === tab 
-                          ? "bg-[#61d4c6] border-[#58ccbf] text-white shadow-lg shadow-teal-900/20" 
-                          : "bg-white border-[#E0F2F1] text-slate-400 hover:border-[#B2DFDB]"
-                      }`}
-                    >
-                      {tab.replace(/-/g, ' ')}
-                    </button>
-                  ))
-                  : menuData[mainCategory as keyof typeof menuData]?.map((tab: string) => (
-                  <button
-                    key={tab}
-                    onClick={() => { setActiveTab(tab); setShowAllItems(false); }}
-                    className={`px-3 h-10 flex items-center justify-center rounded-2xl text-[12px] font-black capitalize tracking-normal transition-all border-2 shrink-0 whitespace-nowrap cursor-pointer ${
-                      activeTab === tab 
-                        ? "bg-[#61d4c6] border-[#58ccbf] text-white shadow-lg shadow-teal-900/20" 
-                        : "bg-white border-[#E0F2F1] text-slate-400 hover:border-[#B2DFDB]"
-                    }`}
-                  >
-                    {tab.toLowerCase() === 'umum' || tab.toLowerCase() === 'pulsa-reguler' ? 'Pulsa biasa' : tab.toLowerCase() === 'data-umum' ? 'Umum' : tab.replace(/-/g, ' ')}
-                  </button>
-                ))}
-              </div>
-              
-              <div className="p-4 sm:p-8 space-y-6 pt-0">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                </div>
+                
+                {/* GRID ITEM (NOMINAL) */}
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-1 sm:gap-4 px-0">
                   {filteredItems.map((opt: any, index: number) => {
                     const isEnabled = opt.is_active ?? true;
                     const promoLabel = opt.promo_label;
@@ -415,22 +415,22 @@ const checkPlnInquiry = async (plnId: string) => {
                         key={opt.id} 
                         disabled={!isEnabled} 
                         onClick={() => { setSelectedItemId(opt.id); scrollToNext(step2Ref); }} 
-                        className="relative group h-auto min-h-55 w-full text-left animate-in fade-in zoom-in"
+                        className="relative group h-auto sm:min-h-55 w-full text-left animate-in fade-in zoom-in cursor-pointer"
                       >
                         {discountPersen > 0 && (
-                          <div className="absolute -top-4 -left-2 z-20 animate-bounce duration-1000">
-                             <div className="bg-[#FFC107] text-[#D32F2F] px-3 py-1 rounded-lg border-2 border-white shadow-lg relative top-0 active:top-0.5 transition-all">
-                                <div className="absolute inset-0 border-b-4 border-[#FF8F00] rounded-lg pointer-events-none"></div>
-                                <div className="relative z-10 flex flex-col items-center leading-none pb-1">
-                                   <span className="font-black text-lg">{discountPersen}%</span>
-                                   <span className="text-[7px] font-black uppercase tracking-tighter">OFF</span>
+                          <div className="absolute -top-2 -left-1 sm:-top-4 sm:-left-2 z-20 animate-bounce duration-1000">
+                             <div className="bg-[#FFC107] text-[#D32F2F] px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-lg border-2 border-white shadow-md sm:shadow-lg relative top-0 active:top-0.5 transition-all">
+                                <div className="absolute inset-0 border-b-2 sm:border-b-4 border-[#FF8F00] rounded-md sm:rounded-lg pointer-events-none"></div>
+                                <div className="relative z-10 flex flex-col items-center leading-none pb-0.5 sm:pb-1">
+                                   <span className="font-black text-xs sm:text-lg">{discountPersen}%</span>
+                                   <span className="text-[6px] sm:text-[7px] font-black uppercase tracking-tighter">OFF</span>
                                 </div>
                              </div>
-                             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-black/20 blur-sm rounded-full"></div>
+                             <div className="absolute -bottom-1.5 sm:-bottom-2 left-1/2 -translate-x-1/2 w-5 sm:w-8 h-1 bg-black/20 blur-sm rounded-full"></div>
                           </div>
                         )}
 
-                        <div className={`relative w-full h-full rounded-3xl overflow-hidden border-2 flex flex-col justify-between transition-all duration-300 shadow-sm hover:shadow-xl ${
+                        <div className={`relative w-full h-full rounded-2xl overflow-hidden border-2 flex flex-col justify-between transition-all duration-300 shadow-sm hover:shadow-xl ${
                           !isEnabled 
                             ? 'opacity-50 cursor-not-allowed border-slate-200 bg-slate-50 grayscale' 
                             : selectedItemId === opt.id 
@@ -438,10 +438,10 @@ const checkPlnInquiry = async (plnId: string) => {
                               : 'border-[#E0F2F1] bg-white hover:border-[#80CBC4] hover:shadow-teal-100'
                         }`}>
 
-                            <div className={`relative h-10 w-full flex items-center justify-center px-3 overflow-hidden transition-colors ${
+                            <div className={`relative h-7 sm:h-10 w-full flex items-center justify-center px-3 overflow-hidden transition-colors ${
                                 selectedItemId === opt.id ? 'bg-[#B2DFDB]' : 'bg-[#dddfde]'
                             }`}>
-                               <span className="text-slate-400/50 font-black text-[10px] uppercase tracking-wider absolute z-0 text-center leading-tight">
+                               <span className="text-slate-400/50 font-black text-[8px] sm:text-[10px] uppercase tracking-wider absolute z-0 text-center leading-tight">
                                   {isPLN ? "PLN Token" : product.name}
                                </span>
                                {isEnabled && promoLabel && (
@@ -451,45 +451,50 @@ const checkPlnInquiry = async (plnId: string) => {
                                )}
                             </div>
 
-                            <div className="px-3 py-2 flex flex-col items-center justify-center text-center flex-1">
-                              <h3 className={`font-black text-[15px] leading-tight tracking-tight wrap-break-words w-full transition-colors ${
+                            <div className="px-1 sm:px-3 pt-4 pb-6 sm:py-2 flex flex-col items-center justify-start sm:justify-center text-center flex-1 relative overflow-hidden">
+                              <h3 className={`font-black text-[8px] sm:text-[14px] leading-tight tracking-tight wrap-break-words w-full transition-colors ${
                                   selectedItemId === opt.id ? 'text-[#004D40]' : 'text-slate-800'
                               }`}>
                                 {cleanLabel}
                               </h3>
-                              <p className="text-slate-400 text-[9px] font-bold mt-1 uppercase tracking-wide">
-                                {isPLN ? "Token Otomatis" : "Top Up Instan"}
-                              </p>
+                              
+                              <div className="absolute bottom-1 right-1 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded-md border border-slate-100 shadow-sm flex items-center gap-1 scale-95 sm:scale-110 origin-bottom-right">
+                                <Zap size={10} className="text-[#00796B] fill-[#00796B]" />
+                                <div className="flex flex-col items-start leading-[0.7]">
+                                  <span className="text-[#00796B] text-[5px] font-bold uppercase tracking-tighter">Proses</span>
+                                  <span className="text-[#00796B] text-[7px] font-black italic uppercase tracking-tighter">Instan</span>
+                                </div>
+                              </div>
                             </div>
 
-                            <div className={`px-3 py-3 border-t flex flex-col gap-2 transition-colors ${
+                            <div className={`px-1.5 sm:px-3 py-1.5 sm:py-3 border-t flex flex-col gap-1 sm:gap-2 transition-colors ${
                                 selectedItemId === opt.id ? 'bg-[#cbf0ea] border-[#00796B]/20' : 'bg-[#cbf0ea] border-[#E0F2F1]'
                             }`}>
                                 <div className="flex flex-col w-full">
                                    <div className="flex justify-between items-center mb-0.5">
-                                      <span className="text-slate-400 font-bold text-[10px]">Harga</span>
+                                      <span className="text-slate-400 font-bold text-[7px] sm:text-[10px]">Harga</span>
                                       {discountPersen > 0 && (
-                                         <span className="text-[#D32F2F] font-bold text-[10px] line-through decoration-[#D32F2F]/60">
+                                         <span className="text-[#D32F2F] font-bold text-[7px] sm:text-[10px] line-through decoration-[#D32F2F]/60">
                                             {formatRupiah(hargaAsli)}
                                          </span>
                                       )}
                                    </div>
-                                   <span className={`font-black text-[15px] leading-none tracking-tight text-left transition-colors ${
+                                   <span className={`font-black text-[8px] sm:text-[14px] leading-none tracking-tight text-left transition-colors ${
                                        selectedItemId === opt.id ? 'text-[#00796B]' : 'text-[#00695C]'
                                    }`}>
                                       {formatRupiah(hargaSetelahDiskon)}
                                    </span>
                                 </div>
 
-                                <div className="bg-[#B2DFDB]/60 rounded-xl py-1.5 px-2 flex items-center justify-center gap-2 w-full border border-[#00796B]/10 shadow-sm">
-                                   <div className="bg-[#FFC107] w-4 h-4 rounded-full flex items-center justify-center shadow-sm shrink-0">
-                                      <Zap size={10} className="text-slate-900 fill-current" />
+                                <div className="bg-[#B2DFDB]/60 rounded-xl py-1 px-1.5 sm:py-1.5 sm:px-2 flex items-center justify-center gap-1 sm:gap-2 w-full border border-[#00796B]/10 shadow-sm">
+                                   <div className="bg-[#FFC107] w-3 h-3 sm:w-4 sm:h-4 rounded-full flex items-center justify-center shadow-sm shrink-0">
+                                      <Zap className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-slate-900 fill-current" />
                                    </div>
-                                   <div className="flex items-center gap-1 leading-none overflow-hidden">
-                                      <span className="text-[#025f54] font-bold text-[10px] truncate" suppressHydrationWarning>
+                                   <div className="flex items-center gap-0.5 sm:gap-1 leading-none overflow-hidden">
+                                      <span className="text-[#025f54] font-bold text-[8px] sm:text-[10px] truncate" suppressHydrationWarning>
                                         {isMounted ? `+${itemCashback.toLocaleString('id-ID')}` : ""} 
                                       </span>
-                                      <span className="font-black text-[10px] italic shrink-0">
+                                      <span className="font-black text-[8px] sm:text-[10px] italic shrink-0">
                                         <span className="text-[#F57F17]">Da</span><span className="text-blue-600">Pay</span>
                                       </span>
                                    </div>
@@ -502,13 +507,13 @@ const checkPlnInquiry = async (plnId: string) => {
                 </div>
 
                 {filteredItems.length === 0 && (
-                  <div className="col-span-full py-12 flex flex-col items-center justify-center text-center bg-[#F5FBFA] rounded-[2.5rem] border-2 border-dashed border-[#B2DFDB] animate-in fade-in zoom-in duration-500 mb-6 mt-4">
+                  <div className="col-span-full py-12 flex flex-col items-center justify-center text-center bg-[#F5FBFA] rounded-[2.5rem] border-2 border-dashed border-[#B2DFDB] animate-in fade-in zoom-in duration-500 mb-6">
                     <div className="bg-[#E0F2F1] p-5 rounded-full mb-4 shadow-sm">
                       <Info className="text-[#00796B]" size={40} />
                     </div>
                     <h3 className="text-[#004D40] font-black text-lg uppercase italic leading-none">Layanan Sedang Dioptimasi</h3>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2 max-w-62.5 leading-relaxed text-center">
-                      Stok otomatis untuk kategori ini sedang diperbarui.
+                      Stok otomatis untuk kategori ini sedang diperbarui. Silakan pilih layanan lain atau kembali nanti.
                     </p>
                   </div>
                 )}
@@ -516,9 +521,9 @@ const checkPlnInquiry = async (plnId: string) => {
                 {!showAllItems && filteredItems.length > 8 && (
                   <button 
                     onClick={() => setShowAllItems(true)}
-                    className="w-full mt-6 py-4 bg-[#F5FBFA] hover:bg-[#004D40] border-2 border-dashed border-[#B2DFDB] hover:border-[#004D40] rounded-3xl transition-all duration-300 group shadow-sm"
+                    className="w-full py-3 sm:py-4 bg-[#F5FBFA] hover:bg-[#004D40] border-2 border-dashed border-[#B2DFDB] hover:border-[#004D40] rounded-3xl transition-all duration-300 group shadow-sm mt-1! sm:mt-4! cursor-pointer"
                   >
-                    <div className="flex items-center justify-center gap-3">
+                    <div className="flex items-center justify-center">
                       <span className="font-black text-[11px] capitalize tracking-normal text-[#00796B] group-hover:text-white transition-colors">
                         Lihat {filteredItems.length - 8} nominal lainnya
                       </span>
@@ -530,20 +535,18 @@ const checkPlnInquiry = async (plnId: string) => {
             </section>
 
             {/* STEP 2: DETAIL AKUN */}
-            <section ref={step2Ref} className="bg-white rounded-[2.5rem] shadow-sm border border-[#B2DFDB]/40 overflow-hidden relative">
-              <div className="p-4 sm:p-8 border-b border-[#E0F2F1] bg-[#F5FBFA]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-5">
-                    <div className="bg-linear-to-br from-[#00695C] to-[#004D40] text-white w-12 h-12 rounded-2xl flex items-center justify-center font-black shadow-lg shadow-teal-900/10 text-xl">
-                      2
-                    </div>
-                    <div>
-                      <h2 className="font-black text-2xl tracking-tight text-slate-800 leading-none">Masukan Detail Akun</h2>
-                      <p className="text-[10px] font-bold text-slate-400 tracking-wider mt-1.5 lowercase first-letter:uppercase">Pastikan data yang anda masukkan benar</p>
-                    </div>
+            <section ref={step2Ref} className="bg-white rounded-2xl sm:rounded-3xl shadow-md border border-[#B2DFDB]/40 overflow-hidden relative">
+              <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
+                <div className="bg-[#00695C] w-12 sm:w-16 flex items-center justify-center text-white font-black text-xl sm:text-2xl shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
+                  2
+                </div>
+                <div className="py-3 px-4 sm:py-5 sm:px-6 flex flex-1 items-center justify-between">
+                  <div className="flex flex-col justify-center">
+                    <h2 className="font-black text-[16px] sm:text-xl tracking-tight text-slate-800 leading-none">Masukan Detail Akun</h2>
+                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 tracking-wider mt-1 lowercase first-letter:uppercase">Pastikan data yang anda masukkan benar</p>
                   </div>
-                  <button className="flex items-center gap-2 bg-[#E0F2F1] text-[#00695C] px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#B2DFDB] transition-all border border-[#B2DFDB]">
-                    <Info size={14} /> Panduan
+                  <button className="hidden sm:flex items-center gap-1.5 bg-[#E0F2F1] text-[#00695C] px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-[#B2DFDB] transition-all border border-[#B2DFDB]">
+                    <Info size={12} /> Panduan
                   </button>
                 </div>
               </div>
@@ -576,7 +579,6 @@ const checkPlnInquiry = async (plnId: string) => {
                               src={detectedLogo} 
                               alt="Logo Operator"
                               className="w-10 h-10 object-contain bg-white rounded-lg p-1 shadow-sm border border-slate-100"
-                              // onError dikosongkan agar icon error default browser muncul jika nama file salah ketik
                             />
                           </div>
                         )}
@@ -588,7 +590,6 @@ const checkPlnInquiry = async (plnId: string) => {
                             const val = e.target.value.replace(/\D/g, ''); 
                             setAccId(val); 
                             
-                            // SET LOGO SECARA REALTIME [cite: 2026-03-06]
                             const operatorMatch = getOperatorLogo(val);
                             if (operatorMatch) {
                                setDetectedLogo(operatorMatch.logoUrl);
@@ -625,7 +626,7 @@ const checkPlnInquiry = async (plnId: string) => {
                             }
                           }}
                           placeholder={`Masukkan ${getDynamicLabel()}`} 
-                          className={`w-full bg-[#F5FBFA] border-2 p-5 ${detectedLogo ? 'pl-16' : 'pl-5'} rounded-2xl outline-none text-base font-bold transition-all placeholder:text-slate-300 ${
+                          className={`w-full bg-[#F5FBFA] border-2 p-3.5 sm:p-5 ${detectedLogo ? 'pl-16' : 'pl-5'} rounded-xl sm:rounded-2xl outline-none text-sm sm:text-base font-bold transition-all placeholder:text-slate-300 ${
                             errorOp ? "border-rose-500 bg-rose-50 text-rose-700" : "border-[#E0F2F1] focus:border-[#00796B] text-slate-700"
                           }`} 
                         />

@@ -39,8 +39,10 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const email = searchParams.get('email'); 
 
-    if (email) {
-      const { data, error } = await supabaseAdmin.from('orders').select('*').eq('email', email).order('created_at', { ascending: false });
+if (email) {
+      // Kita list kolom yang mau ditampilkan di tabel riwayat saja [cite: 2026-03-09]
+      const userColumns = 'id, order_id, created_at, status, product_name, item_label, total_amount, payment_method, sn';
+      const { data, error } = await supabaseAdmin.from('orders').select(userColumns).eq('email', email).order('created_at', { ascending: false });
       if (error) throw error;
       return NextResponse.json(data || []);
     }
@@ -66,7 +68,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau bukan Admin." }, { status: 403 });
     }
 
-    const { data, error } = await supabaseAdmin.from('orders').select('*').order('created_at', { ascending: false });
+// Kolom lengkap untuk Admin Dashboard (ditambah Notes & Email) [cite: 2026-03-09]
+    const adminColumns = 'id, order_id, created_at, status, email, product_name, item_label, total_amount, payment_method, sn, notes';
+    const { data, error } = await supabaseAdmin.from('orders').select(adminColumns).order('created_at', { ascending: false });
     if (error) throw error;
     return NextResponse.json(data || []);
 
@@ -117,7 +121,13 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const { id, status: currentStatus, email: user_email } = body;
 
-    const { data: oldOrder } = await supabaseAdmin.from('orders').select('*').eq('id', id).single();
+// Kita tambahkan 'category' ke dalam rombongan select agar tidak error di bawah [cite: 2026-03-09]
+    const { data: oldOrder } = await supabaseAdmin
+      .from('orders')
+      .select('id, status, order_id, product_name, item_label, user_id, used_balance, total_amount, unique_code, cashback, buy_price, referred_by, category')
+      .eq('id', id)
+      .single();
+
     if (!oldOrder) throw new Error("Order tidak ditemukan di Database.");
 
     const oldStatusRaw = oldOrder.status || 'Pending';
