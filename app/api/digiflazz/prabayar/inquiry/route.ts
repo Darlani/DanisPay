@@ -108,12 +108,25 @@ export async function POST(req: Request) {
       }, { status: 400 }); 
     }
 
-    // 4. PARSING DATA JIKA SUKSES [cite: 2026-02-11]
+// 4. PARSING DATA JIKA SUKSES [cite: 2026-02-11]
+    const digiData = result.data;
+    
+    // Ambil data dasar
+    let customerName = digiData?.customer_name || digiData?.name || "Pelanggan Valid";
+    let segmentPower = "";
+
+    // KHUSUS PLN PRABAYAR: Digiflazz biasanya kirim tarif/daya di field 'segment_power'
+    if (inquirySku === "PLN") {
+       segmentPower = digiData?.segment_power || ""; 
+       // Jika di dashboard Bosku nanti mau digabung: "BUDI - R1/900"
+    }
+
     return NextResponse.json({
       success: true,
       data: {
-        customerName: result.data?.customer_name || result.data?.name || "Pelanggan PLN Valid",
-        amount: 0,
+        customerName: customerName,
+        segmentPower: segmentPower, // Tambahkan ini agar UI bisa nampilin Daya (misal: R1/900VA)
+        amount: 0, // Prabayar amount selalu 0 saat cek ID
         period: "Pengecekan Berhasil"
       }
     });

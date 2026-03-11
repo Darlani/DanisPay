@@ -52,57 +52,112 @@ export async function POST(req: Request) {
 
     console.log("📩 WEBHOOK DIGIFLAZZ MASUK:", body);
 
-    const eventData = body.data;
-    if (!eventData) return NextResponse.json({ message: "No Data" }, { status: 400 });
+    const eventData = body.data;
+    if (!eventData) return NextResponse.json({ message: "No Data" }, { status: 400 });
 
-    const refId = eventData.ref_id;
-    const status = eventData.status; // 'Sukses', 'Gagal', 'Pending'
-    const sn = eventData.sn || "NO-SN";
-    const message = eventData.message;
+    const rawRefId = eventData.ref_id;
+    
+    // --- MAGIS AUTO-FALLBACK: Bersihaan embel-embel -R2, -R3, dst ---
+    // Regex ini akan mencari "-R" yang diikuti angka di paling ujung string, lalu menghapusnya
+    const cleanOrderId = rawRefId.replace(/-R\d+$/, '');
+    const refId = cleanOrderId; // <--- TAMBAHKAN BARIS INI BOSKU!
+    // ---------------------------------------------------------------
+
+    const status = eventData.status; // 'Sukses', 'Gagal', 'Pending'
+    const sn = eventData.sn || "NO-SN";
+    const message = eventData.message;
 
 // 3. LOGIKA UPDATE DATABASE & REFUND [cite: 2026-03-09]
-    console.log(`📝 [DIGIFLAZZ UPDATE] RefID: ${refId} | Status: ${status} | SN: ${sn}`);
+    console.log(`📝 [DIGIFLAZZ UPDATE] RefID Asli: ${cleanOrderId} (Dari vendor: ${rawRefId}) | Status: ${status} | SN: ${sn}`);
 
-// A. Ambil data spesifik (Optimasi < 200ms & ganti ke kolom balance) [cite: 2026-03-09]
-    const { data: order } = await supabaseAdmin
-      .from('orders')
-      .select('id, user_id, total_amount, status, profiles(id, balance)')
-      .eq('order_id', refId)
-      .single();
+// A. Ambil data spesifik (Anti select *, hemat resource < 200ms) [cite: 2026-03-09]
+    const { data: order } = await supabaseAdmin
+      .from('orders')
+      .select('id, order_id, user_id, email, total_amount, status, category, profiles(id, balance, email)')
+      .eq('order_id', cleanOrderId) // <--- PASTIKAN MENCARI PAKAI cleanOrderId YANG SUDAH BERSIH
+      .single();
 
     if (!order) {
       console.error("❌ Order tidak ditemukan di database!");
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    if (status === 'Sukses') {
-      const modalAsli = eventData.price || 0;
-      await supabaseAdmin.from('orders').update({ 
-          status: 'Berhasil', sn, raw_tagihan: modalAsli,
-          notes: 'Transaksi diselesaikan oleh Webhook Supplier',
-          updated_at: new Date().toISOString() 
-        }).eq('id', order.id);
+if (status === 'Sukses') {
+      const kategori = (order.category || "").toLowerCase();
+      const isPostpaid = kategori.includes('pascabayar') || kategori.includes('ppob');
+      const isTokenPLN = kategori.includes('pln') || kategori.includes('token'); // <--- PENTING: Deteksi Token PLN
+
+      // Siapkan update dasar untuk KEDUANYA (Prabayar & Pascabayar)
+      const updatePayload: any = {
+        status: 'Berhasil',
+        sn: sn,
+        notes: 'Transaksi diselesaikan oleh Webhook Supplier',
+        updated_at: new Date().toISOString()
+      };
+
+      // JIKA PASCABAYAR ATAU TOKEN PLN: Tambahkan struk desc
+      if (isPostpaid || isTokenPLN) {
+        
+        // Biarkan Supabase menyimpan object asli untuk tipe JSONB
+        updatePayload.desc = eventData.desc || null;
+
+        // --- MAGIS EKSTRAKSI DATA PASCABAYAR & TOKEN PLN ---
+        if (eventData.desc && typeof eventData.desc === 'object') {
+          // Ekstrak Nama
+          updatePayload.customer_name = eventData.desc.nama || eventData.desc.nama_pelanggan || null;
+          
+          // Ekstrak Tarif & Daya
+          const tarif = eventData.desc.tarif || "";
+          const daya = eventData.desc.daya || "";
+          if (tarif || daya) updatePayload.segment_power = `${tarif}${daya ? '/' + daya : ''}`;
+          
+          // Ekstrak Stand Meter (HANYA ADA DI PASCABAYAR)
+          const detailTagihan = eventData.desc.tagihan?.detail?.[0];
+          if (detailTagihan && detailTagihan.meter_awal && detailTagihan.meter_akhir) {
+            updatePayload.stand_meter = `${detailTagihan.meter_awal} - ${detailTagihan.meter_akhir}`;
+          } else if (eventData.desc.stand_meter) {
+            updatePayload.stand_meter = String(eventData.desc.stand_meter);
+          }
+        }
+      }
+
+      await supabaseAdmin.from('orders').update(updatePayload).eq('id', order.id);
       await reportToTelegram(`✅ <b>SUKSES!</b>\n🆔 Inv: <code>${refId}</code>\n📦 SN: <code>${sn}</code>`);
 
     } else if (status === 'Pending') {
       await supabaseAdmin.from('orders').update({ sn, updated_at: new Date().toISOString() }).eq('id', order.id);
       await reportToTelegram(`⏳ <b>PENDING!</b>\n🆔 Inv: <code>${refId}</code>\n📦 SN: <code>${sn}</code>`);
 
-    } else if (status === 'Gagal' && order.status !== 'Gagal') {
-      // B. EKSEKUSI LOGIKA REFUND (Harga + Kode Unik) [cite: 2026-03-08]
+  } else if (status === 'Gagal' && order.status !== 'Gagal') {
+      // B. EKSEKUSI LOGIKA REFUND AKURAT (Sesuai kolom balance Bos) [cite: 2026-03-09]
       const refundValue = order.total_amount; 
 
-    if (order.user_id) {
-        // SKENARIO MEMBER: Refund ke Saldo Balance (Sesuai database lama) [cite: 2026-03-09]
+      if (order.user_id) {
         const currentBalance = (order.profiles as any)?.balance || 0;
-        await supabaseAdmin.from('profiles').update({ balance: currentBalance + refundValue }).eq('id', order.user_id);
+        const newBalance = currentBalance + refundValue;
+        const userEmail = (order.profiles as any)?.email || order.email;
+
+        // 1. Update Saldo Utama
+        await supabaseAdmin.from('profiles').update({ balance: newBalance }).eq('id', order.user_id);
         
+        // 2. Catat Sejarah Mutasi (Sesuai gambar tabel balance_logs Bos) [cite: 2026-03-09]
+        await supabaseAdmin.from('balance_logs').insert([{
+          user_id: order.user_id,
+          user_email: userEmail,
+          amount: refundValue,
+          type: 'Refund',
+          description: `Refund Gagal Order #${order.order_id}`,
+          initial_balance: currentBalance,
+          final_balance: newBalance
+        }]);
+
+        // 3. Update Status Order
         await supabaseAdmin.from('orders').update({ 
           status: 'Gagal', 
           notes: `Otomatis Refund Balance: Rp ${refundValue.toLocaleString('id-ID')}`,
           updated_at: new Date().toISOString() 
         }).eq('id', order.id);
-      } 
+      }
       
       else {
         // SKENARIO GUEST: Tandai Admin untuk Transfer Manual [cite: 2026-03-06]

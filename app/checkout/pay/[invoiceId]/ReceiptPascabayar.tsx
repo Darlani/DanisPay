@@ -29,6 +29,11 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
 
   if (!order || order.status !== "Berhasil") return null;
 
+  // --- LOGIKA HITUNGAN REAL DARI DATABASE ---
+  const totalBayar = (order.total_amount || 0) + (order.used_balance || 0);
+  const tagihanMurni = order.raw_tagihan || 0;
+  const biayaAdmin = totalBayar - tagihanMurni;
+
   return (
     <div className="flex flex-col items-center gap-3 w-full animate-in fade-in zoom-in duration-500">
       
@@ -53,7 +58,7 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
         <div className="space-y-2 text-[11px]">
           <div className="flex justify-between">
             <span>TANGGAL</span> 
-            <span className="font-bold text-right">{new Date(order.created_at).toLocaleString('id-ID')}</span>
+            <span className="font-bold text-right">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span>
           </div>
           <div className="flex justify-between">
             <span>NO. INVOICE</span> 
@@ -70,9 +75,18 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
             <div>
               <p className="text-slate-400">PRODUK</p>
               <p className="font-bold uppercase text-[12px] leading-tight">
-                {order.product_name} - {order.item_label}
+                {order.product_name}
               </p>
             </div>
+            
+            {/* MENAMPILKAN NAMA PELANGGAN DARI DB */}
+            {order.customer_name && (
+               <div>
+                 <p className="text-slate-400 uppercase text-[9px]">Nama Pelanggan</p>
+                 <p className="font-bold uppercase text-[12px]">{order.customer_name}</p>
+               </div>
+            )}
+
             <div>
               <p className="text-slate-400">NOMOR TUJUAN / ID PEL</p>
               <p className="font-bold text-[14px] tracking-widest">{order.game_id}</p>
@@ -81,30 +95,26 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-2 mt-2">
               <p className="text-[10px] text-slate-500 font-black uppercase text-center border-b border-slate-200 pb-2 mb-2">Detail Tagihan</p>
               
-              {order.sku?.toLowerCase() === 'pln' && (
-                <>
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-slate-500">TARIF/DAYA</span>
-                    <span className="font-bold">900 VA</span>
-                  </div>
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-slate-500">METER AWAL</span>
-                    <span className="font-bold">00031587</span>
-                  </div>
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-slate-500">METER AKHIR</span>
-                    <span className="font-bold">00031686</span>
-                  </div>
-                </>
+              {/* DATA DI BAWAH INI SEKARANG DIAMBIL DARI DATABASE (TIDAK NEBAK) */}
+              <div className="flex justify-between text-[10px]">
+                <span className="text-slate-500 uppercase">Tarif/Daya</span>
+                <span className="font-bold">{order.segment_power || "-"}</span>
+              </div>
+              
+              {order.stand_meter && (
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-slate-500 uppercase">Stand Meter</span>
+                  <span className="font-bold">{order.stand_meter}</span>
+                </div>
               )}
 
               <div className="flex justify-between text-[10px] mt-1 pt-1 border-t border-slate-200">
-                <span className="text-slate-500">TAGIHAN PLN</span>
-                <span className="font-bold">Rp {(order.raw_tagihan || 147233).toLocaleString('id-ID')}</span>
+                <span className="text-slate-500 uppercase">Tagihan Tagihan</span>
+                <span className="font-bold">Rp {tagihanMurni.toLocaleString('id-ID')}</span>
               </div>
               <div className="flex justify-between text-[10px]">
-                <span className="text-slate-500">BIAYA ADMIN</span>
-                <span className="font-bold">Rp {((order.total_amount + (order.used_balance || 0)) - (order.raw_tagihan || 147233)).toLocaleString('id-ID')}</span>
+                <span className="text-slate-500 uppercase">Biaya Admin</span>
+                <span className="font-bold">Rp {biayaAdmin.toLocaleString('id-ID')}</span>
               </div>
             </div>
 
@@ -118,9 +128,9 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
 
           <div className="border-t-2 border-dashed border-slate-200 my-4 pt-4">
             <div className="flex justify-between items-center bg-blue-600 text-white p-3 rounded-xl shadow-lg shadow-blue-200">
-              <span className="font-bold italic">TOTAL BAYAR</span>
+              <span className="font-bold italic uppercase">Total Lunas</span>
               <span className="text-lg font-black italic">
-                Rp {(order.total_amount + (order.used_balance || 0)).toLocaleString('id-ID')}
+                Rp {totalBayar.toLocaleString('id-ID')}
               </span>
             </div>
           </div>
@@ -132,7 +142,7 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
         </div>
       </div>
 
-      {/* ACTION BUTTONS */}
+      {/* ACTION BUTTONS TETAP SAMA */}
       <div className="flex flex-col sm:flex-row gap-2 w-full max-w-md mx-auto no-print">
         <button 
           onClick={() => window.print()}

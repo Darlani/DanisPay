@@ -13,9 +13,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id">
+    <html lang="id" className="bg-[#0f172a]">
       <head />
-      <body className="antialiased">
+      <body className="antialiased bg-[#0f172a] text-slate-200">
         {/* Pindahkan semua logic Client (pathname, maintenance) ke sini */}
         <ClientLayout>{children}</ClientLayout>
       </body>

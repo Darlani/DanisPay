@@ -125,81 +125,117 @@ export async function GET(req: Request) {
     const { data: updatedBrands } = await supabaseAdmin.from('brands').select('id, slug, category_id');
     const brandIdMap = new Map(updatedBrands?.map((b: any) => [b.slug, { id: b.id, category_id: b.category_id }]));
 
-    // 5. SMART FILTERING & IRON GUARD LOGIC
-    const sortedItems = digiItems.sort((a: any, b: any) => (a.price || a.admin || 0) - (b.price || b.admin || 0));
-    const selectedMap = new Map();
-
-    sortedItems.forEach((item: any) => {
-      const key = item.product_name.toLowerCase().trim();
-      const isHealthy = item.buyer_product_status && item.seller_product_status;
-      if (isHealthy && !selectedMap.has(key)) selectedMap.set(key, item);
-    });
+// 5. SMART FILTERING, ZONASI, & IRON GUARD LOGIC
+    const itemsData: any[] = [];
+    const productGroups = new Map();
 
     // AMBIL DATA PRODUK LAMA UNTUK CEK STATUS GEMBOK
     const { data: existingProducts } = await supabaseAdmin.from('products').select('sku, lock_margin, price, margin_item, discount');
     const existingProductMap = new Map(existingProducts?.map((p: any) => [p.sku, p]));
 
-    const itemsData: any[] = [];
-    const productsToUpsert: any[] = [];
+    digiItems.forEach((item: any) => {
+      const isHealthy = item.buyer_product_status && item.seller_product_status;
+      if (!isHealthy) return; // Skip yang lagi gangguan
 
-    Array.from(selectedMap.values()).forEach((item: any) => {
-      const slugBrand = slugify(item.brand);
-      const bInfo = brandIdMap.get(slugBrand);
-      if (!bInfo) return;
-
-      // KUNCI PERBAIKAN: Deteksi Pasca & Prabayar [cite: 2026-02-11]
-      const isPasca = item.type === 'Pasca' || !item.price;
-      const modal = isPasca ? (item.admin || 0) : item.price;
-      const subBrandSlug = isPasca ? 'PASCABAYAR' : getSubBrandSlug(item.brand, item.product_name, item.category, item.type || "");
+      // --- DETEKSI ZONASI DARI DESKRIPSI & NAMA ---
+      const descStr = (item.desc || "").toUpperCase();
+      const nameStr = (item.product_name || "").toUpperCase();
       
-      let finalPrice = 0;
-      let marginInfo = 0;
-
-      const existing = existingProductMap.get(item.buyer_sku_code);
-      const isLocked = existing?.lock_margin === true || String(existing?.lock_margin).toLowerCase() === 'true';
-
-      if (isLocked) {
-        // JIKA DIGEMBOK: Ambil harga dan margin lama dari database, hiraukan kalkulasi baru
-        finalPrice = existing.price || 0;
-        marginInfo = existing.margin_item || 0;
-      } else {
-        // JIKA TIDAK DIGEMBOK: Hitung ulang normal
-        if (isPasca) {
-          finalPrice = modal + MY_ADMIN_PROFIT;
-          marginInfo = MY_ADMIN_PROFIT;
-        } else {
-          const sKey = getStrategyKey(item.category);
-          const strategy = ACTIVE_STRATEGIES[sKey] || ACTIVE_STRATEGIES.DEFAULT;
-          const range = strategy.find((s: any) => modal >= s.minCost && modal <= s.maxCost) || strategy[0];
-          const margin = range.min || 10;
-          finalPrice = Math.ceil((modal * (1 + margin / 100)) / 100) * 100;
-          marginInfo = margin;
-        }
+      let zonaTag = "NASIONAL";
+      if (descStr.includes("ZONA") || descStr.includes("ZONASI") || descStr.includes("LOKAL") || nameStr.includes("ZONA") || nameStr.includes("JATIM") || nameStr.includes("JABAR")) {
+        zonaTag = "ZONASI";
       }
 
+      // SETTING MODAL & BRAND
+      const isPasca = item.type === 'Pasca' || !item.price;
+      const modal = isPasca ? (item.admin || 0) : item.price;
+      const slugBrand = slugify(item.brand || "");
+      const subBrandSlug = isPasca ? 'PASCABAYAR' : getSubBrandSlug(item.brand, item.product_name, item.category, item.type || "");
+
+      // NAMA PRODUK UNTUK DI WEB (Contoh: "Telkomsel 2000 (ZONASI)")
+      const nominalMatch = item.product_name.match(/\d+([.,]\d+)?/);
+      const cleanNominal = nominalMatch ? nominalMatch[0] : item.product_name;
+      const webProductName = isPasca ? item.product_name : `${item.brand} ${cleanNominal} (${zonaTag})`;
+
+      // --- 1. SIMPAN SEMUA VARIASI KE TABEL ITEMS (Gudang Amunisi Auto-Fallback) ---
       itemsData.push({
         sku: item.buyer_sku_code,
         brand_slug: slugBrand,
-        name: item.product_name,
+        name: item.product_name, // Tetap pakai nama asli dari Digiflazz untuk tabel items
         modal: modal,
         sub_brand_slug: subBrandSlug,
+        // desc: item.desc, // UNCOMMENT INI JIKA BOSKU SUDAH NAMBAH KOLOM 'desc' DI TABEL ITEMS SUPABASE
+        // zona_type: zonaTag, // UNCOMMENT INI JIKA BOSKU SUDAH NAMBAH KOLOM 'zona_type' DI TABEL ITEMS SUPABASE
         is_active: true,
         last_sync: syncTime
       });
 
+      // --- 2. KELOMPOKKAN UNTUK TABEL PRODUCTS (Cari Modal Termahal) ---
+      const groupKey = webProductName.toLowerCase().trim();
+
+      if (!productGroups.has(groupKey)) {
+        productGroups.set(groupKey, { 
+          ...item, 
+          webName: webProductName, 
+          maxModal: modal, 
+          baseSku: item.buyer_sku_code, 
+          subBrandSlug, 
+          isPasca, 
+          slugBrand 
+        });
+      } else {
+        const existingGroup = productGroups.get(groupKey);
+        // Jika nemu yang namanya sama tapi harganya lebih MAHAL, update acuan modalnya!
+        if (modal > existingGroup.maxModal) {
+          existingGroup.maxModal = modal;
+          existingGroup.baseSku = item.buyer_sku_code;
+        }
+      }
+    });
+
+    const productsToUpsert: any[] = [];
+
+    Array.from(productGroups.values()).forEach((group: any) => {
+      const bInfo = brandIdMap.get(group.slugBrand);
+      if (!bInfo) return;
+
+      let finalPrice = 0;
+      let marginInfo = 0;
+
+      const existing = existingProductMap.get(group.baseSku);
+      const isLocked = existing?.lock_margin === true || String(existing?.lock_margin).toLowerCase() === 'true';
+
+      if (isLocked) {
+        finalPrice = existing.price || 0;
+        marginInfo = existing.margin_item || 0;
+      } else {
+        if (group.isPasca) {
+          finalPrice = group.maxModal + MY_ADMIN_PROFIT;
+          marginInfo = MY_ADMIN_PROFIT;
+        } else {
+          const sKey = getStrategyKey(group.category);
+          const strategy = ACTIVE_STRATEGIES[sKey] || ACTIVE_STRATEGIES.DEFAULT;
+          const range = strategy.find((s: any) => group.maxModal >= s.minCost && group.maxModal <= s.maxCost) || strategy[0];
+          const margin = range.min || 10;
+          
+          finalPrice = Math.ceil((group.maxModal * (1 + margin / 100)) / 100) * 100;
+          marginInfo = margin;
+        }
+      }
+
       productsToUpsert.push({
-        sku: item.buyer_sku_code,
-        name: item.product_name || `Produk ${item.buyer_sku_code}`, 
-        brand: item.brand || "Umum", 
-        sub_brand: subBrandSlug,
+        sku: group.baseSku,
+        name: group.webName, 
+        brand: group.brand || "Umum", 
+        sub_brand: group.subBrandSlug,
         brand_id: bInfo.id,
         category_id: bInfo.category_id,
-        cost: modal, 
+        cost: group.maxModal, 
         price: finalPrice, 
         stock: 999, 
         margin_item: marginInfo,
-        discount: existing?.discount || 0, // Amankan diskon lama biar promo gak hilang
-        lock_margin: isLocked, // Pastikan gembok tetap tertutup saat di-upsert
+        discount: existing?.discount || 0, 
+        lock_margin: isLocked, 
         is_active: true,
         provider: 'DIGIFLAZZ',
         updated_at: syncTime

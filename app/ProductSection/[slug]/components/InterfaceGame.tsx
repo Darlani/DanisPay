@@ -71,8 +71,8 @@ const [isProcessing, setIsProcessing] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleInquiryGame = async () => {
-    if (!accId || accId.length < 3) { setErrorMsg("ID terlalu pendek!"); return; }
+const handleInquiryGame = async () => {
+    if (!accId || accId.length < 3) { setErrorMsg("ID terlalu pendek!"); return false; }
     setIsChecking(true);
     setErrorMsg("");
     setCustomerName("");
@@ -89,12 +89,14 @@ const [isProcessing, setIsProcessing] = useState(false);
       const result = await res.json();
       if (res.ok && result.data?.customer_name) {
         setCustomerName(result.data.customer_name);
-        scrollToNext(step3Ref);
+        return true; // Beri sinyal sukses
       } else {
         setErrorMsg("ID tidak ditemukan atau sedang gangguan.");
+        return false; // Beri sinyal gagal
       }
     } catch (err) {
       setErrorMsg("Gagal verifikasi ID.");
+      return false; // Beri sinyal gagal
     } finally {
       setIsChecking(false);
     }
@@ -279,12 +281,12 @@ const [isProcessing, setIsProcessing] = useState(false);
 <section className="bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-[#B2DFDB]/40 overflow-hidden relative">
 {/* Header Step 1 Ribbon Design persis seperti gambar [cite: 2026-03-09] */}
               <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
-                <div className="bg-[#00695C] w-12 sm:w-16 flex items-center justify-center text-white font-black text-xl sm:text-2xl shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
+                <div className="bg-[#00695C] w-8 sm:w-10 flex items-center justify-center text-white font-black text-base sm:text-lg shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
                   1
                 </div>
-                <div className="py-3 px-4 sm:py-5 sm:px-6 flex flex-col justify-center">
-                  <h2 className="font-black text-[16px] sm:text-xl tracking-tight text-slate-800 leading-none">Pilih Nominal</h2>
-                  <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 tracking-wider mt-1 lowercase first-letter:uppercase">Item tersedia untuk top-up instan</p>
+                <div className="py-2 px-3 sm:py-2.5 sm:px-4 flex flex-col justify-center">
+                  <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">Pilih Nominal</h2>
+                  <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">Item tersedia untuk top-up instan</p>
                 </div>
               </div>
               
@@ -312,7 +314,7 @@ const [isProcessing, setIsProcessing] = useState(false);
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-1 sm:gap-4 px-0">
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 px-0">
                   {filteredItems.map((opt: any, index: number) => {
                     const isEnabled = opt.is_active ?? true;
                     const promoLabel = opt.promo_label;
@@ -340,7 +342,7 @@ const [isProcessing, setIsProcessing] = useState(false);
                         key={opt.id} 
                         disabled={!isEnabled} 
                         onClick={() => { setSelectedItemId(opt.id); scrollToNext(step2Ref); }} 
-                        className="relative group h-auto sm:min-h-55 w-full text-left animate-in fade-in zoom-in cursor-pointer"
+                        className="relative group h-auto sm:min-h-48 w-full text-left animate-in fade-in zoom-in cursor-pointer"
                       >
                     {discountPersen > 0 && (
                           <div className="absolute -top-2 -left-1 sm:-top-4 sm:-left-2 z-20 animate-bounce duration-1000">
@@ -378,7 +380,7 @@ const [isProcessing, setIsProcessing] = useState(false);
                             </div>
 
                         {/* pt-4 untuk menurunkan teks dari header, pb-6 untuk menjaga jarak dengan badge instan [cite: 2026-03-09] */}
-                        <div className="px-1 sm:px-3 pt-4 pb-6 sm:py-2 flex flex-col items-center justify-start sm:justify-center text-center flex-1 relative overflow-hidden">
+                        <div className="px-1 sm:px-3 pt-4 pb-6 sm:pt-4 sm:pb-8 flex flex-col items-center justify-start sm:justify-center text-center flex-1 relative overflow-hidden">
                                <h3 className={`font-black text-[8px] sm:text-[14px] leading-tight tracking-tight wrap-break-words w-full transition-colors ${
                                    selectedItemId === opt.id ? 'text-[#004D40]' : 'text-slate-800'
                                }`}>
@@ -419,7 +421,7 @@ const [isProcessing, setIsProcessing] = useState(false);
                                    
                                    {/* Kontainer Ikon Zap: w-3 h-3 (mobile), w-4 h-4 (desktop) */}
                                    <div className="bg-[#FFC107] w-3 h-3 sm:w-4 sm:h-4 rounded-full flex items-center justify-center shadow-sm shrink-0">
-                                      <Zap className="w-[8px] h-[8px] sm:w-[10px] sm:h-[10px] text-slate-900 fill-current" />
+                                      <Zap className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-slate-900 fill-current" />
                                    </div>
                                    
                                    {/* Kontainer Teks: gap-0.5 (mobile), gap-1 (desktop) */}
@@ -458,7 +460,7 @@ const [isProcessing, setIsProcessing] = useState(false);
                 {!showAllItems && filteredItems.length > 8 && (
 <button 
   onClick={() => setShowAllItems(true)}
-  className="w-full py-3 sm:py-4 bg-[#F5FBFA] hover:bg-[#004D40] border-2 border-dashed border-[#B2DFDB] hover:border-[#004D40] rounded-3xl transition-all duration-300 group shadow-sm !mt-1 sm:!mt-4 cursor-pointer"
+  className="w-full py-3 sm:py-4 bg-[#F5FBFA] hover:bg-[#004D40] border-2 border-dashed border-[#B2DFDB] hover:border-[#004D40] rounded-3xl transition-all duration-300 group shadow-sm mt-1! sm:mt-4! cursor-pointer"
 >
                     <div className="flex items-center justify-center">
                       <span className="font-black text-[11px] capitalize tracking-normal text-[#00796B] group-hover:text-white transition-colors">
@@ -475,16 +477,16 @@ const [isProcessing, setIsProcessing] = useState(false);
             <section ref={step2Ref} className="bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-[#B2DFDB]/40 overflow-hidden relative">
 {/* Header Step 2 Ribbon Design persis seperti gambar [cite: 2026-03-09] */}
               <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
-                <div className="bg-[#00695C] w-12 sm:w-16 flex items-center justify-center text-white font-black text-xl sm:text-2xl shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
+                <div className="bg-[#00695C] w-8 sm:w-10 flex items-center justify-center text-white font-black text-base sm:text-lg shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
                   2
                 </div>
-                <div className="py-3 px-4 sm:py-5 sm:px-6 flex flex-1 items-center justify-between">
+                <div className="py-2 px-3 sm:py-2.5 sm:px-4 flex flex-1 items-center justify-between">
                   <div className="flex flex-col justify-center">
-                    <h2 className="font-black text-[16px] sm:text-xl tracking-tight text-slate-800 leading-none">Masukan Detail Akun</h2>
-                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 tracking-wider mt-1 lowercase first-letter:uppercase">Pastikan data yang anda masukkan benar</p>
+                    <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">Masukan Detail Akun</h2>
+                    <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">Pastikan data yang anda masukkan benar</p>
                   </div>
                   {/* Tombol panduan */}
-                  <button className="hidden sm:flex items-center gap-1.5 bg-[#E0F2F1] text-[#00695C] px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-[#B2DFDB] transition-all border border-[#B2DFDB]">
+                  <button className="hidden sm:flex items-center gap-1 bg-[#E0F2F1] text-[#00695C] px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-[#B2DFDB] transition-all border border-[#B2DFDB]">
                     <Info size={12} /> Panduan
                   </button>
                 </div>
@@ -505,17 +507,8 @@ const [isProcessing, setIsProcessing] = useState(false);
                         value={accId} 
                         onChange={(e) => { setAccId(e.target.value); setCustomerName(""); }} 
                         placeholder={`Masukkan ${getDynamicLabel()}`} 
-                        className={`w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white p-3.5 sm:p-4 rounded-xl outline-none text-sm sm:text-base font-bold text-slate-700 transition-all placeholder:text-slate-300 ${!isMLBB ? 'pr-16 sm:pr-24' : ''}`} 
+                        className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white py-2.5 px-4 sm:py-3 sm:px-5 rounded-xl outline-none text-sm sm:text-base font-bold text-slate-700 transition-all placeholder:text-slate-400" 
                       />
-                      {!isMLBB && (
-                        <button 
-                          onClick={handleInquiryGame}
-                          disabled={isChecking}
-                          className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 bg-[#00796B] text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase hover:bg-[#004D40] transition-all"
-                        >
-                          {isChecking ? <Loader2 size={16} className="animate-spin" /> : "CEK"}
-                        </button>
-                      )}
                     </div>
                     {customerName && (
                       <p className="text-[10px] font-black text-emerald-600 bg-emerald-50 p-2 rounded-lg animate-in zoom-in uppercase">
@@ -540,15 +533,8 @@ const [isProcessing, setIsProcessing] = useState(false);
                               if(e.target.value.length >= 4) scrollToNext(step3Ref);
                             }}
                             placeholder="1234" 
-                            className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white p-3.5 sm:p-4 pr-16 sm:pr-24 rounded-xl outline-none text-sm sm:text-base font-bold text-slate-700 transition-all placeholder:text-slate-300" 
+                            className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white py-2.5 px-4 sm:py-3 sm:px-5 rounded-xl outline-none text-sm sm:text-base font-bold text-slate-700 transition-all placeholder:text-slate-400" 
                         />
-                        <button 
-                          onClick={handleInquiryGame}
-                          disabled={isChecking}
-                          className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 bg-[#00796B] text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase hover:bg-[#004D40] transition-all"
-                        >
-                          {isChecking ? <Loader2 size={16} className="animate-spin" /> : "CEK"}
-                        </button>
                       </div>
                     </div>
                   )}
@@ -605,6 +591,8 @@ const [isProcessing, setIsProcessing] = useState(false);
           currentUser={currentUser}
           memberType={memberType}
           isMounted={isMounted}
+          onCheckInquiry={handleInquiryGame}
+          isChecking={isChecking}
         />
 
         {/* MODAL KONFIRMASI */}

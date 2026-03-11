@@ -31,18 +31,12 @@ export async function POST(req: Request) {
          
          if (!cfg) continue; // Safety net terakhir
 
-         // --- BAGIAN BARU: SETTING MARGIN & DISKON SESUAI STRATEGI ---
-         const newMargin = cfg.min; 
-         
-         // Logika diskon pakai ?? biar angka 0 tetap dihormati
-         const minD = cfg.minDisc ?? 0;
-         const maxD = cfg.maxDisc ?? 0;
-         
-         let newDiscount = minD;
-         if (maxD > 0 && maxD >= minD) {
-             newDiscount = Math.floor(Math.random() * (maxD - minD + 1)) + minD;
-         }
-         // -----------------------------------------------------------
+        // --- BAGIAN BARU: SETTING MARGIN & DISKON SESUAI STRATEGI ---
+         const newMargin = cfg.min; 
+         
+         // MATIKAN AUTO PROMO: Pertahankan diskon manual yang sudah ada di database, atau 0 jika tidak ada
+         const newDiscount = product.discount || 0;
+         // -----------------------------------------------------------
 
          const newPrice = Math.ceil((currentCost * (1 + newMargin / 100)) / 100) * 100;
          

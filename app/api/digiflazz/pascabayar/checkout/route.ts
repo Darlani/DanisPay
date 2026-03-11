@@ -10,45 +10,40 @@ const supabaseAdmin = createClient(
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { order_id, email, use_koin } = body;
+    const { order_id } = body;
 
-    // 1. AMBIL VARIABEL DARI .ENV (SESUAIKAN NAMA VARIABEL BOS)
     const username = process.env.DIGIFLAZZ_USERNAME!;
-    const apiKey = process.env.DIGIFLAZZ_API_KEY!; // Menggunakan API_KEY sesuai .env Bos
+    const apiKey = process.env.DIGIFLAZZ_API_KEY!;
 
-    // Proteksi jika lupa isi .env
     if (!username || !apiKey) {
       return NextResponse.json({ error: "Konfigurasi Digiflazz di .env belum lengkap!" }, { status: 500 });
     }
 
-    // 2. VALIDASI ORDER & AMBIL SAKLAR SETTINGS
+    // 1. AMBIL DATA ORDER & CEK SAKLAR LIVE
     const [orderRes, settingsRes] = await Promise.all([
       supabaseAdmin.from('orders').select('*').eq('order_id', order_id).single(),
       supabaseAdmin.from('store_settings').select('is_digiflazz_active').single()
     ]);
 
     const order = orderRes.data;
-    const isLiveMode = settingsRes.data?.is_digiflazz_active === true; // CEK SAKLAR BOS!
+    const isLiveMode = settingsRes.data?.is_digiflazz_active === true;
 
     if (orderRes.error || !order) return NextResponse.json({ error: "Pesanan tidak ditemukan!" }, { status: 404 });
-    // Izinkan status 'Pending' (dari Web) dan 'Diproses' (dari Admin/Koin/Webhook)
     if (order.status !== 'Pending' && order.status !== 'Diproses') {
       return NextResponse.json({ error: "Pesanan sudah diproses!" }, { status: 400 });
     }
 
-    // 3. CABANG LOGIKA: LIVE VS SIMULASI
+    // 2. CABANG LOGIKA
     if (isLiveMode) {
-      console.log(`🚀 [MODE LIVE] Menembak API Digiflazz untuk Order #${order_id}...`);
+      console.log(`🚀 [PASCABAYAR LIVE] Mengeksekusi Pembayaran Order #${order_id}...`);
       
-      // LOGIKA TANDA TANGAN (SIGNATURE) MD5 DIGIFLAZZ
       const sign = crypto.createHash('md5').update(username + apiKey + order_id).digest('hex');
 
-      // TEMBAK API DIGIFLAZZ
       const digiRes = await fetch('https://api.digiflazz.com/v1/transaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          commands: "pay-pasca", // WAJIB ADA untuk lunasin tagihan pascabayar bos!
+          commands: "pay-pasca", // Kunci utama Pembayaran LIVE
           username,
           buyer_sku_code: order.sku,
           customer_no: order.game_id,
@@ -57,51 +52,58 @@ export async function POST(req: Request) {
         })
       });
 
-      const digiData = await digiRes.json();
+      const result = await digiRes.json();
+      const digiData = result.data;
 
-      // PENANGANAN RESPON DIGIFLAZZ
-if (digiData.data && (digiData.data.status === 'Sukses' || digiData.data.status === 'Pending')) {
-        const isSuccess = digiData.data.status === 'Sukses';
-        
-        // Biarkan raw_tagihan dan desc tetap kosong/NULL dulu Bos. 
-        // Nanti diisi otomatis sama Webhook atau Auto-Check biar akurat 100%. [cite: 2026-03-06]
-        await supabaseAdmin.from('orders').update({ 
-          status: isSuccess ? 'Berhasil' : 'Diproses',
-          sn: digiData.data.sn || 'Proses di Vendor',
-          updated_at: new Date().toISOString() // Penting agar Auto-Check tidak bingung
-        }).eq('order_id', order_id);
+      // 3. PENANGANAN RESPON SUKSES/PENDING
+      if (digiData && (digiData.status === 'Sukses' || digiData.status === 'Pending')) {
+        const isSuccess = digiData.status === 'Sukses';
+        
+        // Siapkan Payload Update
+        const updatePayload: any = { 
+          status: isSuccess ? 'Berhasil' : 'Diproses',
+          sn: digiData.sn || 'Proses di Vendor',
+          api_ref_id: order_id, // Tetap simpan agar Webhook/Auto-check sinkron
+          vendor_sku: order.sku,
+          updated_at: new Date().toISOString()
+        };
 
-        return NextResponse.json({ 
-          success: true, 
-          status: digiData.data.status,
-          sn: digiData.data.sn 
-        });
+        // --- EKSTRAKSI DATA LANGSUNG (Agar pelanggan senang data langsung muncul) ---
+        if (digiData.desc && typeof digiData.desc === 'object') {
+            updatePayload.raw_tagihan = digiData.price || 0;
+            updatePayload.desc = JSON.stringify(digiData.desc);
+            updatePayload.customer_name = digiData.desc.nama || digiData.desc.nama_pelanggan || null;
+            
+            const tarif = digiData.desc.tarif || "";
+            const daya = digiData.desc.daya || "";
+            if (tarif || daya) updatePayload.segment_power = `${tarif}${daya ? '/' + daya : ''}`;
+            
+            const detail = digiData.desc.tagihan?.detail?.[0];
+            if (detail?.meter_awal && detail?.meter_akhir) {
+                updatePayload.stand_meter = `${detail.meter_awal} - ${detail.meter_akhir}`;
+            }
+        }
+
+        await supabaseAdmin.from('orders').update(updatePayload).eq('order_id', order_id);
+
+        return NextResponse.json({ success: true, status: digiData.status, sn: digiData.sn });
+
       } else {
-        return NextResponse.json({ 
-          error: digiData.data?.message || "Gagal diproses oleh Vendor",
-          raw: digiData.data 
-        }, { status: 500 });
+        // GAGAL DARI DIGIFLAZZ
+        return NextResponse.json({ error: digiData?.message || "Gagal diproses oleh Vendor" }, { status: 500 });
       }
 
     } else {
-      // ==========================================================
-      // 🛠️ MODE SIMULASI (AMAN DARI POTONGAN SALDO)
-      // ==========================================================
-      console.log(`🛠️ [MODE SIMULASI] Order #${order_id} diskip dari Digiflazz. Saldo AMAN!`);
-      
+      // 🛠️ MODE SIMULASI
+      console.log(`🛠️ [MODE SIMULASI] Saldo aman, hanya simulasi.`);
       const dummySN = `SIM-${Math.floor(Math.random() * 999999)}`;
-      
       await supabaseAdmin.from('orders').update({ 
-        status: 'Berhasil', // Langsung anggap sukses di web kita
-        sn: dummySN
+        status: 'Berhasil', 
+        sn: dummySN,
+        updated_at: new Date().toISOString()
       }).eq('order_id', order_id);
 
-      return NextResponse.json({ 
-        success: true, 
-        status: 'Sukses',
-        sn: dummySN,
-        message: "Simulasi berhasil, tidak ada saldo Digiflazz yang terpotong."
-      });
+      return NextResponse.json({ success: true, status: 'Sukses', sn: dummySN });
     }
 
   } catch (err: any) {

@@ -101,7 +101,7 @@ let ordersQuery = supabase
   };
 
   return (
-    <main className="min-h-screen bg-[#0f172a] pb-20">
+    <main className="min-h-screen bg-[#0f172a]">
       <BannerCarousel />
       <CategoryShortcut categories={shortcutCategories} />
 

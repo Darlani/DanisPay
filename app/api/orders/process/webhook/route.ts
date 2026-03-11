@@ -162,7 +162,7 @@ export async function POST(request: Request) {
 // Tambahkan buy_price dan cashback untuk hitung cuan bersih [cite: 2026-03-09]
     const { data: orders, error: fetchError } = await supabaseAdmin
       .from('orders')
-      .select('id, order_id, status, payment_method, used_balance, user_id, email, total_amount, unique_code, product_name, item_label, category, buy_price, cashback')
+      .select('id, order_id, status, payment_method, used_balance, user_id, email, total_amount, unique_code, product_name, item_label, category, buy_price, cashback, raw_tagihan')
       .eq('total_amount', amount) 
       .ilike('status', 'pending') 
       .order('created_at', { ascending: false });
@@ -304,7 +304,16 @@ if (needsPenalty) {
           if (finalReferrerCode) {
             // Tambahkan 'id' di dalam select biar TypeScript nggak marah
 const { data: refProfile } = await supabaseAdmin.from('profiles').select('id, balance, email').eq('referral_code', finalReferrerCode).maybeSingle();
-            const profitMurni = realRevenue - (currentOrder.buy_price || 0) - (currentOrder.cashback || 0);
+            // --- REVISI PERHITUNGAN PROFIT REFERRAL (ANTI-BONCOS) ---
+            const kategoriRef = (currentOrder.category || "").toLowerCase();
+            const isPascaRef = kategoriRef.includes('pascabayar') || kategoriRef.includes('pln');
+            
+            // Modal = (Tagihan Murni + Admin Digi) untuk Pasca, atau cuma (Admin Digi/Cost) untuk Prabayar
+            const modalRef = isPascaRef 
+              ? ((currentOrder.raw_tagihan || 0) + (currentOrder.buy_price || 0)) 
+              : (currentOrder.buy_price || 0);
+
+            const profitMurni = realRevenue - modalRef - (currentOrder.cashback || 0);
 
             if (refProfile && profitMurni > 0) {
               const refRate = isFirstTransaction ? (settings.first_referral_percent || 7) : (settings.next_referral_percent || 5);
@@ -361,10 +370,18 @@ const { data: refProfile } = await supabaseAdmin.from('profiles').select('id, ba
         `🧾 Total Pesanan: <b>Rp ${grandTotal.toLocaleString('id-ID')}</b>\n`
       : `💰 Nominal Transfer: <b>Rp ${nominalTransfer.toLocaleString('id-ID')}</b>\n`;
 
-// --- LOGIKA PROFIT ALERT (Cuan Bersih) [cite: 2026-03-09] ---
-    // Rumus: (Terima Bersih + Saldo Terpakai) - Modal Digiflazz - Cashback Member
+    // --- LOGIKA PROFIT ALERT (CUAN BERSIH REAL) ---
+    const kategoriNotif = (currentOrder.category || "").toLowerCase();
+    const isPascaNotif = kategoriNotif.includes('pascabayar') || kategoriNotif.includes('pln');
+
     const revenueMurni = (currentOrder.total_amount || 0) - (currentOrder.unique_code || 0) + (currentOrder.used_balance || 0);
-    const cuanBersih = revenueMurni - (currentOrder.buy_price || 0) - (currentOrder.cashback || 0);
+    
+    // Gunakan logika modal yang sama agar laporan Telegram sinkron dengan database
+    const modalNotif = isPascaNotif 
+      ? ((currentOrder.raw_tagihan || 0) + (currentOrder.buy_price || 0)) 
+      : (currentOrder.buy_price || 0);
+
+    const cuanBersih = revenueMurni - modalNotif - (currentOrder.cashback || 0);
 
     const message = `<b>DANA DITERIMA (WEBHOOK)!</b> 🤑\n\n` +
       `📢 Notif Dari: <b>${brandLogo}</b>\n` +

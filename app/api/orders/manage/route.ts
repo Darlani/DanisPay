@@ -124,7 +124,7 @@ export async function PATCH(req: Request) {
 // Kita tambahkan 'category' ke dalam rombongan select agar tidak error di bawah [cite: 2026-03-09]
     const { data: oldOrder } = await supabaseAdmin
       .from('orders')
-      .select('id, status, order_id, product_name, item_label, user_id, used_balance, total_amount, unique_code, cashback, buy_price, referred_by, category')
+      .select('id, status, order_id, product_name, item_label, user_id, used_balance, total_amount, unique_code, cashback, buy_price, referred_by, category, raw_tagihan')
       .eq('id', id)
       .single();
 
@@ -239,8 +239,22 @@ if (oldStatusRaw === currentStatus) {
              }
 
              if (referrer && oldOrder.referred_by) {
-               const profitMurni = realRevenue - (oldOrder.buy_price || 0) - (oldOrder.cashback || 0);
-               if (profitMurni > 0) {
+            const kategori = (oldOrder.category || "").toLowerCase();
+            const isPascabayar = kategori.includes('pascabayar') || kategori.includes('pln');
+
+            let profitMurni = 0;
+            const realRevenue = (oldOrder.total_amount || 0) - (oldOrder.unique_code || 0) + (oldOrder.used_balance || 0);
+
+            if (isPascabayar) {
+              // Profit Pascabayar = (Total User Bayar) - (Tagihan Murni + Admin Digiflazz) - Cashback
+              const modalReal = (oldOrder.raw_tagihan || 0) + (oldOrder.buy_price || 0);
+              profitMurni = realRevenue - modalReal - (oldOrder.cashback || 0);
+            } else {
+              // Profit Prabayar = Revenue - Modal Supplier - Cashback
+              profitMurni = realRevenue - (oldOrder.buy_price || 0) - (oldOrder.cashback || 0);
+            }
+
+            if (profitMurni > 0) {
                  const rate = isFirstTransaction ? refSettings.first_referral_percent : refSettings.next_referral_percent;
                  const commission = Math.floor(profitMurni * (rate / 100));
 
@@ -269,11 +283,20 @@ if (oldStatusRaw === currentStatus) {
     const nominalTransfer = oldOrder.total_amount || 0;
     const grandTotal = usedCoin + nominalTransfer;
 
+    // --- HITUNG LABA BERSIH UNTUK LAPORAN TELEGRAM ---
+    const kategoriNotif = (oldOrder.category || "").toLowerCase();
+    const isPascaNotif = kategoriNotif.includes('pascabayar') || kategoriNotif.includes('pln');
+    // Modal = (Tagihan Murni + Admin Digi) untuk Pasca, atau cuma (Admin Digi/Cost) untuk Prabayar
+    const modalNotif = isPascaNotif ? ((oldOrder.raw_tagihan || 0) + (oldOrder.buy_price || 0)) : (oldOrder.buy_price || 0);
+    const untungBersih = (oldOrder.total_amount + oldOrder.used_balance) - modalNotif - (oldOrder.cashback || 0);
+
     const detailPembayaran = usedCoin > 0 
       ? `🪙 Koin DaPay: <b>- Rp ${usedCoin.toLocaleString('id-ID')}</b>\n` +
         `💰 Nominal Transfer: <b>Rp ${nominalTransfer.toLocaleString('id-ID')}</b>\n` +
-        `🧾 Total Pesanan: <b>Rp ${grandTotal.toLocaleString('id-ID')}</b>\n`
-      : `💰 Nominal Transfer: <b>Rp ${nominalTransfer.toLocaleString('id-ID')}</b>\n`;
+        `🧾 Total Pesanan: <b>Rp ${grandTotal.toLocaleString('id-ID')}</b>\n` +
+        `💵 Laba Bersih: <b>Rp ${untungBersih.toLocaleString('id-ID')}</b>\n`
+      : `💰 Nominal Transfer: <b>Rp ${nominalTransfer.toLocaleString('id-ID')}</b>\n` +
+        `💵 Laba Bersih: <b>Rp ${untungBersih.toLocaleString('id-ID')}</b>\n`;
 
     let telegramMessage = null;
 

@@ -67,6 +67,7 @@ export async function POST(req: Request) {
     let modalPascabayar = 0;
     let hargaJualPascabayar = 0;
     let kodeUnikUser = 0; 
+    let tagihanMurni = 0; // <--- Tambahkan ini buat nyimpen nilai tagihan aslinya 
     
     const totalInputUser = total_amount + used_balance + (voucher_amount || 0);
     // Gunakan as any untuk akses nama kategori (Solusi error TypeScript) [cite: 2026-03-09]
@@ -92,7 +93,8 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: "Gagal memverifikasi ulang tagihan ke pusat." }, { status: 400 });
         }
 
-        const tagihanMurni = Number(inqData.data.desc?.detail?.[0]?.nilai_tagihan || 0);
+        // Hapus const agar dia menimpa variabel global yang kita buat di atas
+        tagihanMurni = Number(inqData.data.desc?.detail?.[0]?.nilai_tagihan || 0);
         const adminDigiflazz = Number(inqData.data.admin || 5000);
         const adminToko = Number(dbProduct.price || 0); 
         
@@ -144,13 +146,33 @@ export async function POST(req: Request) {
       .eq('name', payment_method)
       .maybeSingle();
 
-    const allowed = isPaymentAllowed(payment_method, product_name || "General", total_amount, payData);
+const allowed = isPaymentAllowed(payment_method, product_name || "General", total_amount, payData);
     if (!allowed) {
       return NextResponse.json({ error: "Metode pembayaran tidak tersedia (Maintenance/Limit)." }, { status: 403 });
     }
 
+    // --- 5.5 LOGIKA SMART UNIQUE CODE (RANGE DINAMIS) ---
+    const limaMenitLalu = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { count: trafik } = await supabaseAdmin
+      .from('orders')
+      .select('id', { count: 'exact', head: true }) // Hemat resource, tanya ID saja
+      .eq('status', 'Pending')
+      .gte('created_at', limaMenitLalu);
+
+    const jumlahPending = trafik || 0;
+    let maxRange = 200; // Default Sepi
+
+    if (jumlahPending > 15) {
+      maxRange = 999; // Ramai
+    } else if (jumlahPending > 5) {
+      maxRange = 500; // Sedang
+    }
+
+    // Selalu mulai dari 001 sampai maxRange
+    const kodeUnikPusat = Math.floor(Math.random() * maxRange) + 1;
+
     // --- 6. PEMETAAN DATA KE TABEL ORDERS ---
-    const orderData = {
+const orderData = {
       order_id,
       sku: dbProduct.sku,
       product_name: dbProduct.name,
@@ -162,8 +184,10 @@ export async function POST(req: Request) {
       voucher_code: voucher_code || null,
       voucher_amount: voucher_amount || 0,
       cashback: finalCashback, 
-      unique_code: isPascabayar ? kodeUnikUser : (Number(total_amount) % 1000),
-      total_amount,
+      // Kode unik untuk prabayar sekarang pakai hasil hitungan trafik dinamis
+      unique_code: isPascabayar ? kodeUnikUser : kodeUnikPusat,
+      // Total bayar prabayar = Harga + Kode Unik Trafik
+      total_amount: isPascabayar ? total_amount : (hargaSeharusnya + kodeUnikPusat),
       payment_method,
       status: 'Pending',
       user_contact,
@@ -174,7 +198,8 @@ export async function POST(req: Request) {
       device_id,
       used_balance,
       user_id: user_id || null,
-      raw_tagihan: isPascabayar ? modalPascabayar : (dbProduct.cost || 0),
+      // HANYA TERISI JIKA PASCABAYAR, PRABAYAR TETAP 0
+      raw_tagihan: isPascabayar ? tagihanMurni : 0,
       desc: isPascabayar ? { info: "Waiting for payment..." } : null, 
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString() 

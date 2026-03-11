@@ -79,8 +79,9 @@ export default function ProductSection({ title, category, id }: ProductSectionPr
   }
 
   return (
-    <section id={id} className="max-w-7xl mx-auto px-6 py-8 min-h-100" style={{ scrollMarginTop: '120px' }}>
-      <div className="flex items-center justify-between mb-8 text-white">
+    // Ubah py-8 menjadi pt-8 pb-4 agar jarak ke kategori bawahnya tidak dobel/terlalu jauh
+    <section id={id} className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 pb-4" style={{ scrollMarginTop: '120px' }}>
+      <div className="flex items-center justify-between mb-6 text-white">
         <div className="flex items-center gap-2">
           <div className={`${category === 'popular' ? 'bg-orange-500' : 'bg-blue-600'} p-1.5 rounded-lg`}>
             {category === 'popular' ? <Flame size={20} fill="currentColor" /> : <LayoutGrid size={20} />}
@@ -135,7 +136,8 @@ export default function ProductSection({ title, category, id }: ProductSectionPr
       </div>
 
       {mounted && products.length > initialLimit && (
-        <div className="mt-10 flex justify-center">
+        // Turunkan margin top dari mt-10 ke mt-6 agar serasi
+        <div className="mt-6 flex justify-center">
           <button 
             onClick={() => setLimit(limit === initialLimit ? products.length : initialLimit)}
             className="px-8 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white hover:bg-slate-800 hover:border-blue-500 transition-all text-[12px] font-medium shadow-lg"

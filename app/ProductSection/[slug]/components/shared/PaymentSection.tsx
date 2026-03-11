@@ -44,16 +44,16 @@ export default function PaymentSection(props: PaymentSectionProps) {
     <section ref={step3Ref} className="bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-[#B2DFDB]/40 overflow-hidden relative">
       {/* Header Model Ribbon Sidebar sesuai Step 1 & 2 [cite: 2026-03-09] */}
       <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
-        <div className="bg-[#00695C] w-12 sm:w-16 flex items-center justify-center text-white font-black text-xl sm:text-2xl shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
+        <div className="bg-[#00695C] w-8 sm:w-10 flex items-center justify-center text-white font-black text-base sm:text-lg shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
           3
         </div>
-        <div className="py-3 px-4 sm:py-5 sm:px-6 flex flex-col justify-center">
-          <h2 className="font-black text-[16px] sm:text-xl tracking-tight text-slate-800 leading-none">Pilih Metode Bayar</h2>
-          <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 tracking-wider mt-1 lowercase first-letter:uppercase">Pilih metode pembayaran favoritmu</p>
+        <div className="py-2 px-3 sm:py-2.5 sm:px-4 flex flex-col justify-center">
+          <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">Pilih Metode Bayar</h2>
+          <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">Pilih metode pembayaran favoritmu</p>
         </div>
       </div>
       
-      <div className="p-4 sm:p-8 space-y-8">
+      <div className="p-3 sm:p-6 space-y-6">
 {/* Kontainer Koin: Posisi Wajib Login di Tengah [cite: 2026-03-09] */}
         <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-3 shadow-md animate-in fade-in mb-6 relative overflow-hidden border transition-all ${!currentUser?.id ? 'bg-slate-50 border-slate-200' : 'bg-[#F3F4FF] border-indigo-100'}`}>
           

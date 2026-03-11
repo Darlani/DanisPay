@@ -189,12 +189,12 @@ const onConfirmCheckout = () => {
            {/* STEP 1: INPUT ID (RIBBON STYLE) */}
             <section className={`bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-all duration-300 border border-[#B2DFDB]/40 overflow-hidden relative ${isBlocked ? 'opacity-60' : 'opacity-100'}`}>
               <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
-                <div className="bg-[#00695C] w-12 sm:w-16 flex items-center justify-center text-white font-black text-xl sm:text-2xl shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
+                <div className="bg-[#00695C] w-8 sm:w-10 flex items-center justify-center text-white font-black text-base sm:text-lg shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
                   1
                 </div>
-                <div className="py-3 px-4 sm:py-5 sm:px-6 flex flex-col justify-center">
-                  <h2 className="font-black text-[16px] sm:text-xl tracking-tight text-slate-800 leading-none">Cek Tagihan</h2>
-                  <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 tracking-wider mt-1 lowercase first-letter:uppercase">Masukkan nomor pelanggan Anda</p>
+                <div className="py-2 px-3 sm:py-2.5 sm:px-4 flex flex-col justify-center">
+                  <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">Cek Tagihan</h2>
+                  <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">Masukkan nomor pelanggan Anda</p>
                 </div>
               </div>
               
@@ -211,7 +211,7 @@ const onConfirmCheckout = () => {
                         type="text" disabled={isBlocked || inquiryData}
                         value={accId} onChange={(e) => setAccId(e.target.value.replace(/\D/g, ''))} 
                         placeholder={`Masukkan ${getDynamicLabel()}`} 
-                        className={`w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white p-3.5 sm:p-4 pr-20 sm:pr-24 rounded-xl outline-none text-sm sm:text-base font-bold transition-all placeholder:text-slate-300 ${isBlocked || inquiryData ? 'cursor-not-allowed opacity-70 text-slate-500' : 'cursor-text text-slate-700'}`} 
+                        className={`w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white py-2.5 px-4 sm:py-3 sm:px-5 pr-20 sm:pr-24 rounded-xl outline-none text-sm sm:text-base font-bold transition-all placeholder:text-slate-400 ${isBlocked || inquiryData ? 'cursor-not-allowed opacity-70 text-slate-500' : 'cursor-text text-slate-700'}`} 
                       />
                       {!inquiryData ? (
                         <button 
@@ -238,12 +238,12 @@ const onConfirmCheckout = () => {
 {/* STEP 2: RINCIAN TAGIHAN (RIBBON STYLE) */}
             <section className={`bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-all duration-500 border border-[#B2DFDB]/40 overflow-hidden relative ${inquiryData ? "opacity-100" : "hidden pointer-events-none"}`}>
               <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
-                <div className="bg-[#00695C] w-12 sm:w-16 flex items-center justify-center text-white font-black text-xl sm:text-2xl shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
+                <div className="bg-[#00695C] w-8 sm:w-10 flex items-center justify-center text-white font-black text-base sm:text-lg shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
                   2
                 </div>
-                <div className="py-3 px-4 sm:py-5 sm:px-6 flex flex-col justify-center">
-                  <h2 className="font-black text-[16px] sm:text-xl tracking-tight text-slate-800 leading-none">Rincian Tagihan</h2>
-                  <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 tracking-wider mt-1 lowercase first-letter:uppercase">Detail informasi tagihan Anda</p>
+                <div className="py-2 px-3 sm:py-2.5 sm:px-4 flex flex-col justify-center">
+                  <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">Rincian Tagihan</h2>
+                  <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">Detail informasi tagihan Anda</p>
                 </div>
               </div>
 
@@ -338,8 +338,8 @@ const onConfirmCheckout = () => {
                 />
 
                 {/* STEP 6: CAPTCHA SECURITY */}
-                <div className="bg-white p-6 rounded-[2.5rem] border border-[#B2DFDB]/40 shadow-sm flex flex-col items-center justify-center animate-in slide-in-from-bottom-4">
-                   <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Verifikasi Keamanan</p>
+                <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[2.5rem] border border-[#B2DFDB]/40 shadow-sm flex flex-col items-center justify-center animate-in slide-in-from-bottom-4">
+                   <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 sm:mb-4">Verifikasi Keamanan</p>
                    <Turnstile 
                      siteKey="0x4AAAAAACkQAA6L_WPQSSms" 
                      onSuccess={(token) => setCaptchaToken(token)}

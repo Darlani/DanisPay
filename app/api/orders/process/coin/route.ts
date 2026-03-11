@@ -60,8 +60,19 @@ export async function POST(req: Request) {
         const settings = settingsRes.data;
         const refProfile = refProfileRes.data;
 
-        // 🔥 PERBAIKAN UTAMA: Gunakan order.used_balance karena order.price terekam 0 saat bayar full koin
-        const profitMurni = (order.used_balance || 0) - (order.buy_price || 0) - (order.cashback || 0);
+        // --- REVISI PERHITUNGAN PROFIT FULL KOIN (PASCABAYAR & PRABAYAR) ---
+        const kategori = (order.category || "").toLowerCase();
+        const isPascabayar = kategori.includes('pascabayar') || kategori.includes('pln');
+
+        let profitMurni = 0;
+        if (isPascabayar) {
+          // Modal Real = Tagihan Murni + Admin Digiflazz
+          const modalReal = (order.raw_tagihan || 0) + (order.buy_price || 0);
+          profitMurni = (order.used_balance || 0) - modalReal - (order.cashback || 0);
+        } else {
+          // Produk Prabayar Biasa
+          profitMurni = (order.used_balance || 0) - (order.buy_price || 0) - (order.cashback || 0);
+        }
 
         if (refProfile && settings && profitMurni > 0) {
       // Pakai profile.id biar lebih akurat nyari riwayatnya

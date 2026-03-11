@@ -7,7 +7,6 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { customer_id, sku, category } = body;
 
-    // 1. VALIDASI DATA [cite: 2026-02-11]
     if (!customer_id || !sku) {
       return NextResponse.json({ message: "Data tidak lengkap Bos!" }, { status: 400 });
     }
@@ -19,7 +18,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Konfigurasi server belum lengkap Bos!" }, { status: 500 });
     }
 
-    // 2. LOGIKA MAPPING SKU MASTER (VERSI DINAMIS)
+    // 1. LOGIKA MAPPING SKU (Tetap Aman)
     let inquirySku = sku; 
     const lowerCat = category?.toLowerCase() || "";
     const lowerName = sku.toLowerCase();
@@ -36,16 +35,7 @@ export async function POST(req: Request) {
       inquirySku = 'hp'; 
     }
 
-    // 3. EKSEKUSI PASCABAYAR DIRECT [cite: 2026-03-06]
     const ref_id = `INQ-${Date.now()}`;
-
-    // TRIK PANCINGAN: Intip IP Vercel yang lagi dipakai Bos! [cite: 2026-03-06]
-    try {
-      const ipCheck = await axios.get('https://api.ipify.org?format=json');
-      console.log("🚀 IP VERCEL SAAT INI:", ipCheck.data.ip);
-    } catch (e) {
-      console.error("Gagal intip IP");
-    }
     const sign = crypto.createHash('md5').update(username + apiKey + ref_id).digest('hex');
 
     const res = await axios.post("https://api.digiflazz.com/v1/transaction", {
@@ -60,35 +50,51 @@ export async function POST(req: Request) {
       timeout: 15000 
     });
 
-    const result = res.data; 
-    console.log("🔍 CEK RESPON LENGKAP:", JSON.stringify(result, null, 2));
+    const result = res.data;
+    const digiData = result.data;
 
-if (result.data?.status === "Gagal") {
+    if (digiData?.status === "Gagal") {
       let pesanUser = "Gagal cek tagihan, Bos!";
-      
-      // Tangkap RC 02 sesuai tabel Digiflazz [cite: 2026-03-06]
-      if (result.data?.rc === '02') {
-        pesanUser = "Tagihan ID ini sudah Lunas atau tidak ada tagihan aktif. Mantap!";
-      } else if (result.data?.rc === '54') {
+      if (digiData?.rc === '02') {
+        pesanUser = "Tagihan ID ini sudah Lunas atau tidak ada tagihan aktif.";
+      } else if (digiData?.rc === '54') {
         pesanUser = "Nomor ID Pelanggan salah, coba cek lagi kodenya.";
       }
-
-      return NextResponse.json({ 
-        success: false, 
-        message: pesanUser,
-        rc: result.data?.rc 
-      }, { status: 400 }); // Gunakan 400 (Bad Request) agar tidak terbaca 500 (Crash)
+      return NextResponse.json({ success: false, message: pesanUser, rc: digiData?.rc }, { status: 400 });
     }
 
-    // 4. PARSING DATA UNTUK FRONTEND [cite: 2026-02-11]
+    // 2. MAGIS EKSTRAKSI DATA (Sesuai kodingan Webhook/Auto-Check) [cite: 2026-03-11]
+    let customerName = digiData.customer_name || digiData.name || "Pelanggan";
+    let segmentPower = "";
+    let standMeter = "";
+
+    if (digiData.desc && typeof digiData.desc === 'object') {
+      // Ambil Nama dari desc jika di field utama kosong
+      customerName = digiData.desc.nama || digiData.desc.nama_pelanggan || customerName;
+      
+      // Ambil Tarif/Daya
+      const tarif = digiData.desc.tarif || "";
+      const daya = digiData.desc.daya || "";
+      if (tarif || daya) segmentPower = `${tarif}${daya ? '/' + daya : ''}`;
+
+      // Ambil Stand Meter
+      const detail = digiData.desc.tagihan?.detail?.[0];
+      if (detail?.meter_awal && detail?.meter_akhir) {
+        standMeter = `${detail.meter_awal} - ${detail.meter_akhir}`;
+      }
+    }
+
+    // 3. KIRIM KE FRONTEND DENGAN FORMAT LENGKAP
     return NextResponse.json({
       success: true,
       data: {
-        customerName: result.data.customer_name || result.data.name,
-        amount: result.data.price || 0,
-        adminSupplier: result.data.admin || 0,
-        period: result.data.periode || "Tagihan Aktif",
-        desc: result.data.desc 
+        customerName: customerName,
+        segmentPower: segmentPower, // Baru! Munculkan di UI (Contoh: R1/450)
+        standMeter: standMeter,     // Baru! Munculkan di UI
+        amount: digiData.price || 0,
+        adminSupplier: digiData.admin || 0,
+        period: digiData.periode || "Bulan ini",
+        desc: digiData.desc 
       }
     });
 

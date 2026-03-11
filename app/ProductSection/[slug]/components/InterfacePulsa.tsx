@@ -317,12 +317,12 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
             {/* STEP 1: PILIH NOMINAL (STYLE INTERFACE GAME TERBARU) */}
             <section className="bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-[#B2DFDB]/40 overflow-hidden relative">
               <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
-                <div className="bg-[#00695C] w-12 sm:w-16 flex items-center justify-center text-white font-black text-xl sm:text-2xl shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
+                <div className="bg-[#00695C] w-8 sm:w-10 flex items-center justify-center text-white font-black text-base sm:text-lg shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
                   1
                 </div>
-                <div className="py-3 px-4 sm:py-5 sm:px-6 flex flex-col justify-center">
-                  <h2 className="font-black text-[16px] sm:text-xl tracking-tight text-slate-800 leading-none">Pilih Nominal</h2>
-                  <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 tracking-wider mt-1 lowercase first-letter:uppercase">Item tersedia untuk top-up instan</p>
+                <div className="py-2 px-3 sm:py-2.5 sm:px-4 flex flex-col justify-center">
+                  <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">Pilih Nominal</h2>
+                  <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">Item tersedia untuk top-up instan</p>
                 </div>
               </div>
 
@@ -386,9 +386,9 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                   </div>
                 </div>
                 
-                {/* GRID ITEM (NOMINAL) */}
-                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-1 sm:gap-4 px-0">
-                  {filteredItems.map((opt: any, index: number) => {
+                {/* Grid Item Nominal - Layout dikembalikan agar proporsional di desktop */}
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 px-0">
+                {filteredItems.map((opt: any, index: number) => {
                     const isEnabled = opt.is_active ?? true;
                     const promoLabel = opt.promo_label;
                     const discountPersen = opt.discount || 0; 
@@ -415,7 +415,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                         key={opt.id} 
                         disabled={!isEnabled} 
                         onClick={() => { setSelectedItemId(opt.id); scrollToNext(step2Ref); }} 
-                        className="relative group h-auto sm:min-h-55 w-full text-left animate-in fade-in zoom-in cursor-pointer"
+                        className="relative group h-auto sm:min-h-48 w-full text-left animate-in fade-in zoom-in cursor-pointer"
                       >
                         {discountPersen > 0 && (
                           <div className="absolute -top-2 -left-1 sm:-top-4 sm:-left-2 z-20 animate-bounce duration-1000">
@@ -451,7 +451,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                                )}
                             </div>
 
-                            <div className="px-1 sm:px-3 pt-4 pb-6 sm:py-2 flex flex-col items-center justify-start sm:justify-center text-center flex-1 relative overflow-hidden">
+                            <div className="px-1 sm:px-3 pt-4 pb-6 sm:pt-4 sm:pb-8 flex flex-col items-center justify-start sm:justify-center text-center flex-1 relative overflow-hidden">
                               <h3 className={`font-black text-[8px] sm:text-[14px] leading-tight tracking-tight wrap-break-words w-full transition-colors ${
                                   selectedItemId === opt.id ? 'text-[#004D40]' : 'text-slate-800'
                               }`}>
@@ -537,15 +537,15 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
             {/* STEP 2: DETAIL AKUN */}
             <section ref={step2Ref} className="bg-white rounded-2xl sm:rounded-3xl shadow-md border border-[#B2DFDB]/40 overflow-hidden relative">
               <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
-                <div className="bg-[#00695C] w-12 sm:w-16 flex items-center justify-center text-white font-black text-xl sm:text-2xl shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
+                <div className="bg-[#00695C] w-8 sm:w-10 flex items-center justify-center text-white font-black text-base sm:text-lg shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
                   2
                 </div>
-                <div className="py-3 px-4 sm:py-5 sm:px-6 flex flex-1 items-center justify-between">
+                <div className="py-2 px-3 sm:py-2.5 sm:px-4 flex flex-1 items-center justify-between">
                   <div className="flex flex-col justify-center">
-                    <h2 className="font-black text-[16px] sm:text-xl tracking-tight text-slate-800 leading-none">Masukan Detail Akun</h2>
-                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 tracking-wider mt-1 lowercase first-letter:uppercase">Pastikan data yang anda masukkan benar</p>
+                    <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">Masukan Detail Akun</h2>
+                    <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">Pastikan data yang anda masukkan benar</p>
                   </div>
-                  <button className="hidden sm:flex items-center gap-1.5 bg-[#E0F2F1] text-[#00695C] px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-[#B2DFDB] transition-all border border-[#B2DFDB]">
+                  <button className="hidden sm:flex items-center gap-1 bg-[#E0F2F1] text-[#00695C] px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-[#B2DFDB] transition-all border border-[#B2DFDB]">
                     <Info size={12} /> Panduan
                   </button>
                 </div>
@@ -571,66 +571,66 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                       )}
                     </label>
                     
-                    <div className="relative">
-                      <div className="relative flex items-center">
-                        {detectedLogo && (
-                          <div className="absolute left-4 z-10 animate-in fade-in zoom-in duration-300">
-                            <img 
-                              src={detectedLogo} 
-                              alt="Logo Operator"
-                              className="w-10 h-10 object-contain bg-white rounded-lg p-1 shadow-sm border border-slate-100"
-                            />
-                          </div>
-                        )}
-                        <input 
-                          type="text" 
-                          value={accId} 
-                          disabled={isInquiring}
-                          onChange={(e) => { 
-                            const val = e.target.value.replace(/\D/g, ''); 
-                            setAccId(val); 
-                            
-                            const operatorMatch = getOperatorLogo(val);
-                            if (operatorMatch) {
-                               setDetectedLogo(operatorMatch.logoUrl);
-                            } else {
-                               setDetectedLogo(null);
-                            }
+<div className="relative">
+  <div className="relative flex items-center">
+    {detectedLogo && (
+      <div className="absolute left-3 z-10 animate-in fade-in zoom-in duration-300 flex items-center">
+        <img 
+          src={detectedLogo} 
+          alt="Logo Operator"
+          className="w-7 h-7 sm:w-8 sm:h-8 object-contain bg-white rounded-md p-0.5 shadow-sm border border-slate-100"
+        />
+      </div>
+    )}
+    <input 
+      type="text" 
+      value={accId} 
+      disabled={isInquiring}
+      onChange={(e) => { 
+        const val = e.target.value.replace(/\D/g, ''); 
+        setAccId(val); 
+        
+        const operatorMatch = getOperatorLogo(val);
+        if (operatorMatch) {
+           setDetectedLogo(operatorMatch.logoUrl);
+        } else {
+           setDetectedLogo(null);
+        }
 
-                            if (isPLN) {
-                              setErrorOp("");
-                              setCustomerName("");
-                              if (val.length >= 11 && val.length <= 12) {
-                                 checkPlnInquiry(val);
-                              }
-                            } else {
-                              if (val.length >= 4) {
-                                const prefix = val.slice(0, 4);
-                                let detectedOp = "";
-                                
-                                for (const [op, prefixes] of Object.entries(OPERATOR_PREFIX)) {
-                                  if (prefixes.includes(prefix)) detectedOp = op;
-                                }
-
-                                const productNameClean = product.name.toUpperCase().replace(/\./g, ''); 
-                                
-                                if (detectedOp && !productNameClean.includes(detectedOp) && activeTab.toUpperCase() !== 'UMUM' && activeTab.toUpperCase() !== 'DATA-UMUM') {
-                                  setErrorOp(`❌ Ini Nomor ${detectedOp}, Bos! Jangan salah lapak.`);
-                                } else {
-                                  setErrorOp("");
-                                  if(val.length >= 12) scrollToNext(step3Ref); 
-                                }
-                              } else {
-                                setErrorOp("");
-                              }
-                            }
-                          }}
-                          placeholder={`Masukkan ${getDynamicLabel()}`} 
-                          className={`w-full bg-[#F5FBFA] border-2 p-3.5 sm:p-5 ${detectedLogo ? 'pl-16' : 'pl-5'} rounded-xl sm:rounded-2xl outline-none text-sm sm:text-base font-bold transition-all placeholder:text-slate-300 ${
-                            errorOp ? "border-rose-500 bg-rose-50 text-rose-700" : "border-[#E0F2F1] focus:border-[#00796B] text-slate-700"
-                          }`} 
-                        />
-                      </div>
+        if (isPLN) {
+          setErrorOp("");
+          setCustomerName("");
+          if (val.length >= 11 && val.length <= 12) {
+             checkPlnInquiry(val);
+          }
+        } else {
+          if (val.length >= 4) {
+            const prefix = val.slice(0, 4);
+            let detectedOp = "";
+            for (const [op, prefixes] of Object.entries(OPERATOR_PREFIX)) {
+              if (prefixes.includes(prefix)) detectedOp = op;
+            }
+            const productNameClean = product.name.toUpperCase().replace(/\./g, ''); 
+            if (detectedOp && !productNameClean.includes(detectedOp) && activeTab.toUpperCase() !== 'UMUM' && activeTab.toUpperCase() !== 'DATA-UMUM') {
+              setErrorOp(`❌ Ini Nomor ${detectedOp}, Bos! Jangan salah lapak.`);
+            } else {
+              setErrorOp("");
+              if(val.length >= 12) scrollToNext(step3Ref); 
+            }
+          } else {
+            setErrorOp("");
+          }
+        }
+      }}
+      placeholder={`Masukkan ${getDynamicLabel()}`} 
+      // PERBAIKAN PADA CLASSNAME DI BAWAH INI
+      className={`w-full bg-[#F5FBFA] border-2 py-2.5 px-4 sm:py-3 sm:px-5 rounded-xl outline-none text-sm sm:text-base font-bold transition-all placeholder:text-slate-400 ${
+        detectedLogo ? 'pl-12 sm:pl-14' : 'pl-4 sm:pl-5'
+      } ${
+        errorOp ? "border-rose-500 bg-rose-50 text-rose-700" : "border-[#E0F2F1] focus:border-[#00796B] text-slate-700"
+      }`} 
+    />
+  </div>
                       {isInquiring ? (
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[#00796B]">
                           <Loader2 size={20} className="animate-spin" />
