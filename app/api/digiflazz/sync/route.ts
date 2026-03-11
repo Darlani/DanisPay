@@ -137,13 +137,25 @@ export async function GET(req: Request) {
       const isHealthy = item.buyer_product_status && item.seller_product_status;
       if (!isHealthy) return; // Skip yang lagi gangguan
 
-      // --- DETEKSI ZONASI DARI DESKRIPSI & NAMA ---
+      // --- DETEKSI ZONASI (Khusus Pulsa & Data) ---
+      const rawCat = (item.category || "").toLowerCase();
       const descStr = (item.desc || "").toUpperCase();
       const nameStr = (item.product_name || "").toUpperCase();
       
-      let zonaTag = "NASIONAL";
-      if (descStr.includes("ZONA") || descStr.includes("ZONASI") || descStr.includes("LOKAL") || nameStr.includes("ZONA") || nameStr.includes("JATIM") || nameStr.includes("JABAR")) {
-        zonaTag = "ZONASI";
+      // Inisialisasi sebagai null sesuai permintaan Bos
+      let zonaTag = null;
+
+      // Scan zonasi HANYA untuk kategori Pulsa, Data, atau Internet
+      const isZonasiTarget = rawCat.includes("pulsa") || rawCat.includes("data") || rawCat.includes("internet");
+
+      if (isZonasiTarget) {
+        if (
+          descStr.includes("ZONA") || descStr.includes("LOKAL") || descStr.includes("AREA") || 
+          descStr.includes("REGIONAL") || nameStr.includes("ZONA") || nameStr.includes("ZONASI") || 
+          nameStr.includes("LOKAL") || nameStr.includes("JATIM") || nameStr.includes("JABAR")
+        ) {
+          zonaTag = "ZONASI";
+        }
       }
 
       // SETTING MODAL & BRAND
@@ -152,20 +164,20 @@ export async function GET(req: Request) {
       const slugBrand = slugify(item.brand || "");
       const subBrandSlug = isPasca ? 'PASCABAYAR' : getSubBrandSlug(item.brand, item.product_name, item.category, item.type || "");
 
-      // NAMA PRODUK UNTUK DI WEB (Contoh: "Telkomsel 2000 (ZONASI)")
+      // NAMA PRODUK UNTUK DI WEB (Murni Bersih Tanpa Label Zonasi)
       const nominalMatch = item.product_name.match(/\d+([.,]\d+)?/);
       const cleanNominal = nominalMatch ? nominalMatch[0] : item.product_name;
-      const webProductName = isPasca ? item.product_name : `${item.brand} ${cleanNominal} (${zonaTag})`;
+      const webProductName = isPasca ? item.product_name : `${item.brand} ${cleanNominal}`;
 
-      // --- 1. SIMPAN SEMUA VARIASI KE TABEL ITEMS (Gudang Amunisi Auto-Fallback) ---
+      // --- 1. SIMPAN SEMUA VARIASI KE TABEL ITEMS (Deskripsi & Zona Wajib Masuk) ---
       itemsData.push({
         sku: item.buyer_sku_code,
         brand_slug: slugBrand,
-        name: item.product_name, // Tetap pakai nama asli dari Digiflazz untuk tabel items
+        name: item.product_name, 
         modal: modal,
         sub_brand_slug: subBrandSlug,
-        // desc: item.desc, // UNCOMMENT INI JIKA BOSKU SUDAH NAMBAH KOLOM 'desc' DI TABEL ITEMS SUPABASE
-        // zona_type: zonaTag, // UNCOMMENT INI JIKA BOSKU SUDAH NAMBAH KOLOM 'zona_type' DI TABEL ITEMS SUPABASE
+        desc: item.desc || "Produk Digital", // Pastikan tidak NULL jika desc kosong dari Digiflazz
+        zona_type: zonaTag,                  // Masuk sebagai NASIONAL atau ZONASI
         is_active: true,
         last_sync: syncTime
       });
