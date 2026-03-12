@@ -71,16 +71,26 @@ export async function POST(req: Request) {
     console.log(`📝 [DIGIFLAZZ UPDATE] RefID Asli: ${cleanOrderId} (Dari vendor: ${rawRefId}) | Status: ${status} | SN: ${sn}`);
 
 // A. Ambil data spesifik (Anti select *, hemat resource < 200ms) [cite: 2026-03-09]
-    const { data: order } = await supabaseAdmin
-      .from('orders')
-      .select('id, order_id, user_id, email, total_amount, status, category, profiles(id, balance, email)')
-      .eq('order_id', cleanOrderId) // <--- PASTIKAN MENCARI PAKAI cleanOrderId YANG SUDAH BERSIH
-      .single();
+    // TAMBAHAN: Tarik juga kolom api_ref_id untuk mencocokkan jejak fallback
+    const { data: order } = await supabaseAdmin
+      .from('orders')
+      .select('id, order_id, api_ref_id, user_id, email, total_amount, status, category, profiles(id, balance, email)')
+      .eq('order_id', cleanOrderId) 
+      .single();
 
     if (!order) {
       console.error("❌ Order tidak ditemukan di database!");
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
+
+    // --- KUNCI ANTI-TABRAKAN FALLBACK ---
+    // Pastikan Webhook yang masuk adalah untuk percobaan (Ref ID) terakhir yang kita pakai!
+    // Jika ada api_ref_id di DB, dan itu TIDAK SAMA dengan rawRefId dari Digiflazz, AABAIKAN!
+    if (order.api_ref_id && order.api_ref_id !== rawRefId) {
+       console.log(`⚠️ Mengabaikan Webhook Usang. (Dari Vendor: ${rawRefId}, Yang Aktif di DB: ${order.api_ref_id})`);
+       return NextResponse.json({ success: true, message: "Ignored outdated ref_id from previous fallback attempt" });
+    }
+    // ------------------------------------
 
 if (status === 'Sukses') {
       const kategori = (order.category || "").toLowerCase();

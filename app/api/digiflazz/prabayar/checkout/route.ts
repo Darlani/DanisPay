@@ -36,32 +36,50 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Pesanan sudah diproses!" }, { status: 400 });
     }
 
-    if (isLiveMode) {
-      console.log(`🚀 [PRABAYAR LIVE] Memulai sistem Auto-Fallback untuk Order #${order_id}...`);
+if (isLiveMode) {
+      console.log(`🚀 [AUTO-FALLBACK] Mencari harga TERMURAH untuk Order #${order_id}...`);
       
-      const { data: prod } = await supabaseAdmin.from('products').select('*').eq('sku', order.sku).single();
-      if (!prod) return NextResponse.json({ error: "Data produk tidak ditemukan di katalog." }, { status: 404 });
+      // 1. Ambil data produk utama untuk referensi pencarian
+      const { data: mainProd } = await supabaseAdmin
+        .from('products')
+        .select('name, brand, sku')
+        .eq('sku', order.sku)
+        .single();
 
-      const nominalMatch = prod.name.match(/\d+([.,]\d+)?/);
-      const targetNominal = nominalMatch ? nominalMatch[0] : null;
-      const isZonasi = (prod.name || "").toUpperCase().includes('ZONASI');
-      const targetBrandSlug = slugify(prod.brand || "");
+      if (!mainProd) return NextResponse.json({ error: "Data produk tidak ditemukan di katalog." }, { status: 404 });
 
-      const { data: candidates } = await supabaseAdmin.from('items')
-        .select('*')
+      // Ekstraksi Nominal (Ubah "Telkomsel 2.000" jadi "2000" agar cocok dengan format apapun)
+      const nominalTarget = mainProd.name.replace(/[^0-9]/g, '');
+      const targetBrandSlug = slugify(mainProd.brand || "");
+      const isZonasi = (mainProd.name || "").toUpperCase().includes('ZONASI');
+
+      // 2. CARI SEMUA KANDIDAT DI TABEL ITEMS (URUTKAN MODAL TERMURAH)
+      const { data: candidates } = await supabaseAdmin
+        .from('items')
+        .select('sku, modal, name, zona_type')
         .eq('brand_slug', targetBrandSlug)
         .eq('is_active', true)
-        .order('modal', { ascending: true });
+        .order('modal', { ascending: true }); // KUNCI UTAMA: Termurah di atas
 
+      // Filter manual agar nominal dan zonasi benar-benar pas
       let validAlternatives = (candidates || []).filter(item => {
-        const itemNominalMatch = item.name.match(/\d+([.,]\d+)?/);
-        const itemNominal = itemNominalMatch ? itemNominalMatch[0] : null;
+        const itemNominal = item.name.replace(/[^0-9]/g, '');
         const itemZona = (item.zona_type || "").toUpperCase() === 'ZONASI';
-        return itemNominal === targetNominal && itemZona === isZonasi;
+        
+        return itemNominal === nominalTarget && itemZona === isZonasi;
       });
 
+      console.log(`🎯 Ditemukan ${validAlternatives.length} supplier untuk nominal ${nominalTarget}`);
+
+      // 3. JIKA TIDAK ADA DI ITEMS, PAKAI SKU ASLI
       if (validAlternatives.length === 0) {
-        validAlternatives.push({ sku: order.sku, modal: 0 });
+        console.log("⚠️ Tidak ada alternatif di tabel Items, menggunakan SKU asli.");
+        validAlternatives.push({ 
+          sku: order.sku, 
+          modal: 0, 
+          name: mainProd.name, 
+          zona_type: isZonasi ? 'ZONASI' : '' 
+        });
       }
 
       let isSuccess = false;
@@ -70,36 +88,47 @@ export async function POST(req: Request) {
       let finalRefIdUsed = "";
       let attempt = 0;
 
+      // 4. LOOPING COBA BELI (MULAI DARI YANG PALING MURAH)
       for (const alt of validAlternatives) {
         attempt++;
         const currentRefId = attempt === 1 ? order_id : `${order_id}-R${attempt}`;
         const sign = crypto.createHash('md5').update(username + apiKey + currentRefId).digest('hex');
 
-        const digiRes = await fetch('https://api.digiflazz.com/v1/transaction', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username,
-            buyer_sku_code: alt.sku,
-            customer_no: order.game_id,
-            ref_id: currentRefId,
-            sign: sign
-          })
-        });
+        console.log(`🔄 Percobaan ${attempt}: Menggunakan SKU ${alt.sku} (Modal: ${alt.modal})`);
 
-        const digiData = await digiRes.json();
+        try {
+          const digiRes = await fetch('https://api.digiflazz.com/v1/transaction', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username,
+              buyer_sku_code: alt.sku,
+              customer_no: order.game_id,
+              ref_id: currentRefId,
+              sign: sign
+            })
+          });
 
-        if (digiData.data && (digiData.data.status === 'Sukses' || digiData.data.status === 'Pending')) {
-          isSuccess = true;
-          finalResponse = digiData.data;
-          finalSkuUsed = alt.sku;
-          finalRefIdUsed = currentRefId;
-          break; 
-        } else {
-          finalResponse = digiData.data; 
+          const digiData = await digiRes.json();
+          const d = digiData.data;
+
+          if (d && (d.status === 'Sukses' || d.status === 'Pending')) {
+            isSuccess = true;
+            finalResponse = d;
+            finalSkuUsed = alt.sku;
+            finalRefIdUsed = currentRefId;
+            console.log(`✅ BERHASIL/PENDING dengan SKU: ${alt.sku}`);
+            break; 
+          } else {
+            console.log(`❌ GAGAL dengan SKU ${alt.sku}: ${d?.message || 'Vendor Error'}`);
+            finalResponse = d; 
+          }
+        } catch (e) {
+          console.error(`🔥 Koneksi Timeout untuk SKU ${alt.sku}`);
         }
       }
 
+      // 5. UPDATE DATABASE HASIL AKHIR
       if (isSuccess) {
         // --- TAMBAHAN LOGIKA STRUK (Agar Token PLN langsung muncul Nama) ---
         const kategori = (order.category || "").toLowerCase();
