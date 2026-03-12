@@ -37,14 +37,14 @@ export async function GET(req: Request) {
   const querySecret = searchParams.get('secret');
   const WEBHOOK_SECRET = process.env.MACRODROID_SECRET;
 
-  const cookieStore = req.headers.get('cookie');
-  const isAdmin = cookieStore?.includes('isAdmin=true');
+  const cookieStore = req.headers.get('cookie');
+  const isAdmin = cookieStore?.includes('isAdmin=true');
 
-  const isAuthorized = (isAdmin) || (querySecret === WEBHOOK_SECRET && WEBHOOK_SECRET);
+  const isAuthorized = (isAdmin) || (querySecret === WEBHOOK_SECRET && WEBHOOK_SECRET);
 
-  if (!isAuthorized) {
-    return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau Kunci Salah." }, { status: 403 });
-  }
+  if (!isAuthorized) {
+    return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau Kunci Salah." }, { status: 403 });
+  }
 
   const syncTime = new Date().toISOString();
 
@@ -61,6 +61,10 @@ export async function GET(req: Request) {
     if (settingsData?.is_maintenance_digiflazz) {
       return NextResponse.json({ success: true, message: "MAINTENANCE AKTIF bos!" });
     }
+
+    // --- RESET TABEL ITEMS AGAR ID MULAI DARI 1 ---
+    // Pastikan sudah menjalankan 'ALTER SEQUENCE items_id_seq RESTART WITH 1;' di SQL Editor
+    await supabaseAdmin.from('items').delete().neq('sku', 'KOSONGKAN_SEMUA_DATA');
 
     const { data: dbCategories } = await supabaseAdmin.from('categories').select('id, name');
     const categoryMap = new Map(dbCategories?.map((c: any) => [c.name.toLowerCase(), c.id]));
@@ -187,19 +191,25 @@ export async function GET(req: Request) {
       const slugBrand = slugify(item.brand || "");
       const subBrandSlug = isPasca ? 'PASCABAYAR' : getSubBrandSlug(item.brand, item.product_name, item.category, item.type || "");
 
-      // NAMA PRODUK (Eliminasi Brand di depan agar tidak duplikat di UI)
+// NAMA PRODUK (Utuh & Hapus kata ganda di depan)
       let webProductName = item.product_name;
-      const brandName = item.brand || "";
-      if (webProductName.toLowerCase().startsWith(brandName.toLowerCase())) {
-        webProductName = webProductName.slice(brandName.length).trim();
+      const words = webProductName.split(/\s+/);
+      
+      // Jika kata pertama dan kedua sama (misal: "INDOSAT INDOSAT"), ambil dari kata kedua dst.
+      if (words.length > 1 && words[0].toLowerCase() === words[1].toLowerCase()) {
+        webProductName = words.slice(1).join(" ");
       }
-      if (!webProductName) webProductName = item.product_name;
+
+      // Tambahkan label [ZONASI] di depan nama jika terdeteksi zonasi
+      if (zonaTag === "ZONASI") {
+        webProductName = `[ZONASI] ${webProductName}`;
+      }
 
       // --- 1. SIMPAN SEMUA VARIASI KE TABEL ITEMS ---
       itemsData.push({
         sku: item.buyer_sku_code,
         brand_slug: slugBrand,
-        name: item.product_name, 
+        name: item.product_name, // Kolom name Items dibiarkan utuh asli Digiflazz
         modal: modal,
         sub_brand_slug: subBrandSlug,
         desc: fullDesc, // Informasi lengkap sesuai dari Digiflazz
@@ -208,8 +218,9 @@ export async function GET(req: Request) {
         last_sync: syncTime
       });
 
-      // --- 2. KELOMPOKKAN UNTUK TABEL PRODUCTS (Cari Modal Termahal) ---
-      const groupKey = webProductName.toLowerCase().trim();
+// --- 2. KELOMPOKKAN UNTUK TABEL PRODUCTS (Cari Modal Termahal) ---
+      // Tambahkan slugBrand agar produk nominal sama antar brand (misal: Axis 5k vs XL 5k) tidak bentrok
+      const groupKey = `${slugBrand}-${webProductName.toLowerCase().trim()}`;
 
       if (!productGroups.has(groupKey)) {
         productGroups.set(groupKey, { 
@@ -292,13 +303,13 @@ export async function GET(req: Request) {
         }
 
 // Chunking untuk tabel PRODUCTS dengan Audit Log [cite: 2026-03-06]
-        for (let i = 0; i < productsToUpsert.length; i += chunkSize) {
-            const chunk = productsToUpsert.slice(i, i + chunkSize);
+        for (let i = 0; i < productsToUpsert.length; i += chunkSize) {
+            const chunk = productsToUpsert.slice(i, i + chunkSize);
             console.log(`📦 [SYNC] Mengirim Kloter ${i / chunkSize + 1}... (${i} / ${productsToUpsert.length} Produk)`);
             
-            const { error: errProducts } = await supabaseAdmin.from('products').upsert(chunk, { onConflict: 'sku' });
-            if (errProducts) throw new Error("Gagal upsert Products: " + errProducts.message);
-        }
+            const { error: errProducts } = await supabaseAdmin.from('products').upsert(chunk, { onConflict: 'sku' });
+            if (errProducts) throw new Error("Gagal upsert Products: " + errProducts.message);
+        }
 
         const { error: errorDelete } = await supabaseAdmin.from('products')
             .delete()
