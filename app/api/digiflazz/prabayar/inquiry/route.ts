@@ -47,30 +47,37 @@ export async function POST(req: Request) {
       });
     }
 
-    // 3. EKSEKUSI CEK ID KE DIGIFLAZZ [cite: 2026-03-06]
+// 3. EKSEKUSI CEK ID KE DIGIFLAZZ [cite: 2026-03-06]
     let result;
 
     // SANGAT PENTING: Bersihkan spasi dan tanda strip dari input pembeli
     const cleanCustomerId = String(customer_id).replace(/[^0-9a-zA-Z]/g, '');
 
     if (inquirySku === "PLN") {
-      // 3A. JALUR KHUSUS PLN (Sesuai Dokumentasi Resmi)
+      // 3A. JALUR KHUSUS PLN (Endpoint Khusus Cek Nama Token)
+      // Rumus Sign: md5(username + apiKey + customer_no)
       const signPln = crypto.createHash('md5').update(username + apiKey + cleanCustomerId).digest('hex');
       
       const payloadPln = {
         username: username,
-        customer_no: cleanCustomerId, // Gunakan ID yang sudah dibersihkan
+        customer_no: cleanCustomerId,
         sign: signPln
       };
 
-      const resPln = await axios.post("https://api.digiflazz.com/v1/inquiry-pln", payloadPln, {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 15000,
-        validateStatus: (status) => status < 500 // Penjinak Axios
-      });
-      
-      result = resPln.data;
-      console.log("🔍 RESPONS INQUIRY PLN:", JSON.stringify(result, null, 2));
+      try {
+        const resPln = await axios.post("https://api.digiflazz.com/v1/inquiry-pln", payloadPln, {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 15000,
+          // Penjinak Axios: Agar status 400 (Nomor Salah) tidak bikin crash
+          validateStatus: (status) => status < 500 
+        });
+        
+        result = resPln.data;
+        console.log("🔍 RESPONS INQUIRY PLN:", JSON.stringify(result, null, 2));
+      } catch (err: any) {
+        console.error("💀 Gagal kontak server PLN:", err.message);
+        throw new Error("Server PLN pusat sedang sibuk, coba sesaat lagi.");
+      }
 
     } else {
       // 3B. JALUR GAME & E-WALLET (Pakai Endpoint Transaksi Umum)
