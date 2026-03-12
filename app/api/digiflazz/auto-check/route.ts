@@ -74,7 +74,7 @@ export async function GET(req: Request) {
       if (isPostpaid) payload.commands = "status-pasca";
 
       try {
-        const digiRes = await fetch('https://api.api-digiflazz.com/v1/transaction', {
+        const digiRes = await fetch('https://api.digiflazz.com/v1/transaction', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
