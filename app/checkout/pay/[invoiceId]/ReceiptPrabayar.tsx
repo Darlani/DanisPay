@@ -1,11 +1,22 @@
 "use client";
 
 import { useRef } from "react";
-import { Download, Printer, CheckCircle2, Gamepad2, Smartphone, Zap } from "lucide-react";
+import { Download, Printer, CheckCircle2, Gamepad2, Smartphone, Zap, Copy } from "lucide-react";
 import { toPng } from "html-to-image";
+
+import { useState } from "react"; // Tambahkan import useState
 
 export default function ReceiptPrabayar({ order }: { order: any }) {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false); // State untuk feedback copy
+
+  const handleCopyInvoice = () => {
+    if (order?.order_id) {
+      navigator.clipboard.writeText(order.order_id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const handleDownloadImage = async () => {
     if (receiptRef.current && order) {
@@ -76,7 +87,21 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
         {/* INFO TRANSAKSI UMUM */}
         <div className="space-y-1.5 text-[10px]">
           <div className="flex justify-between"><span>TANGGAL</span> <span className="font-bold text-right">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span></div>
-          <div className="flex justify-between"><span>INVOICE</span> <span className={`font-bold text-right ${theme.color}`}>#{order.order_id}</span></div>
+          <div 
+          onClick={handleCopyInvoice}
+          className="flex justify-between items-center cursor-pointer group hover:bg-slate-50 p-1 -m-1 rounded-lg transition-all active:scale-95"
+          title="Klik untuk salin Invoice"
+        >
+          <span>NO. INVOICE</span> 
+          <span className={`font-bold text-right ${theme.color} flex items-center gap-1.5`}>
+            #{order.order_id}
+            {copied ? (
+              <CheckCircle2 size={12} className="text-emerald-500 animate-in zoom-in" />
+            ) : (
+              <Copy size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+            )}
+          </span>
+        </div>
           <div className="flex justify-between"><span>METODE</span> <span className="font-bold text-right uppercase">{order.payment_method}</span></div>
           
           <div className="border-t border-dashed border-slate-200 my-3"></div>
@@ -84,10 +109,11 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
           {/* DETAIL PRODUK */}
           <div className="space-y-3">
             <div>
-              <p className="text-slate-400 uppercase text-[9px]">Produk / Item</p>
-              <p className="font-bold uppercase text-[12px] leading-tight">
-                {order.product_name} {order.item_label && `- ${order.item_label}`}
-              </p>
+            <p className="text-slate-400 uppercase text-[9px]">Produk / Item</p>
+            <p className="font-bold uppercase text-[12px] leading-tight">
+              {/* Hanya ambil dari database (product_name) agar anti-manipulasi */}
+              {order.product_name}
+            </p>
             </div>
 
             {/* --- LAYOUT 1: KHUSUS PLN (LENGKAP) --- */}

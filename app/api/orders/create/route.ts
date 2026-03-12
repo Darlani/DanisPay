@@ -181,11 +181,23 @@ const allowed = isPaymentAllowed(payment_method, product_name || "General", tota
     const kodeUnikPusat = Math.floor(Math.random() * maxRange) + 1;
 
 // --- 6. PEMETAAN DATA KE TABEL ORDERS ---
+    
+    // SAFETY NET: Pastikan nama produk selalu ada isinya (Anti-Kosong)
+    const safeProductName = dbProduct.name || product_name || dbProduct.sku || "Produk Digital";
+
+    // Logika Label Pintar (Anti-Hack & Informatif)
+    let dynamicLabel = safeProductName; 
+    
+    // Jika Pascabayar, ambil info periode dari inquiry (Contoh: "Tagihan MAR26")
+    if (isPascabayar && inquiry_result?.period) {
+      dynamicLabel = `Tagihan ${inquiry_result.period}`;
+    }
+
     const orderData = {
       order_id,
       sku: dbProduct.sku,
-      product_name: dbProduct.name,
-      item_label,
+      product_name: safeProductName, // <--- Sekarang 100% Aman
+      item_label: dynamicLabel,      // <--- Dinamis (Tagihan Bulan / Nama Produk)
       game_id,
       buy_price: isPascabayar ? modalPascabayar : (dbProduct.cost || 0), 
       price: isPascabayar ? hargaJualPascabayar : (dbProduct.price || 0),
