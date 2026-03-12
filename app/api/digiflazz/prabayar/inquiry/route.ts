@@ -50,20 +50,23 @@ export async function POST(req: Request) {
     // 3. EKSEKUSI CEK ID KE DIGIFLAZZ [cite: 2026-03-06]
     let result;
 
+    // SANGAT PENTING: Bersihkan spasi dan tanda strip dari input pembeli
+    const cleanCustomerId = String(customer_id).replace(/[^0-9a-zA-Z]/g, '');
+
     if (inquirySku === "PLN") {
       // 3A. JALUR KHUSUS PLN (Sesuai Dokumentasi Resmi)
-      // Rumus: md5(username + apiKey + customer_no)
-      const signPln = crypto.createHash('md5').update(username + apiKey + customer_id).digest('hex');
+      const signPln = crypto.createHash('md5').update(username + apiKey + cleanCustomerId).digest('hex');
       
       const payloadPln = {
         username: username,
-        customer_no: customer_id,
+        customer_no: cleanCustomerId, // Gunakan ID yang sudah dibersihkan
         sign: signPln
       };
 
       const resPln = await axios.post("https://api.digiflazz.com/v1/inquiry-pln", payloadPln, {
         headers: { 'Content-Type': 'application/json' },
-        timeout: 15000
+        timeout: 15000,
+        validateStatus: (status) => status < 500 // Penjinak Axios
       });
       
       result = resPln.data;
@@ -72,43 +75,43 @@ export async function POST(req: Request) {
     } else {
       // 3B. JALUR GAME & E-WALLET (Pakai Endpoint Transaksi Umum)
       const ref_id = `CEKID-${Date.now()}`;
-      // Rumus: md5(username + apikey + ref_id)
       const signGame = crypto.createHash('md5').update(username + apiKey + ref_id).digest('hex');
 
       const payloadGame = {
         commands: "plg-id",
         username: username,
         buyer_sku_code: inquirySku, 
-        customer_no: customer_id,
+        customer_no: customer_id, // Game kadang butuh huruf asli, biarkan pakai aslinya
         ref_id: ref_id,
         sign: signGame
       };
 
       const resGame = await axios.post("https://api.digiflazz.com/v1/transaction", payloadGame, {
         headers: { 'Content-Type': 'application/json' },
-        timeout: 15000
+        timeout: 15000,
+        validateStatus: (status) => status < 500 // Penjinak Axios
       });
 
       result = resGame.data;
       console.log("🔍 RESPONS INQUIRY GAME:", JSON.stringify(result, null, 2));
     }
 
-    // TANGANI JIKA GAGAL
-    if (result.data?.status === "Gagal" || result.data?.rc !== "00") {
-      let pesanUser = result.data?.message || "Gagal mengecek ID, Bos!";
+    // TANGANI JIKA GAGAL (Memeriksa payload 'data' dari Digiflazz)
+    if (!result?.data || result.data?.status === "Gagal" || result.data?.rc !== "00") {
+      let pesanUser = result?.data?.message || "Gagal mengecek ID, Bos!";
       
       // RC 54: Nomor Tujuan Salah, RC 43: SKU Non Aktif
-      if (result.data?.rc === '54') pesanUser = "Nomor ID Pelanggan salah/tidak ditemukan.";
-      else if (result.data?.rc === '43') pesanUser = "Produk ini tidak mendukung fitur cek nama otomatis.";
+      if (result?.data?.rc === '54') pesanUser = "Nomor ID Pelanggan salah/tidak ditemukan.";
+      else if (result?.data?.rc === '43') pesanUser = "Produk ini tidak mendukung fitur cek nama otomatis.";
 
       return NextResponse.json({
         success: false,
         message: pesanUser,
-        rc: result.data?.rc
+        rc: result?.data?.rc
       }, { status: 400 }); 
     }
 
-// 4. PARSING DATA JIKA SUKSES [cite: 2026-02-11]
+    // 4. PARSING DATA JIKA SUKSES [cite: 2026-02-11]
     const digiData = result.data;
     
     // Ambil data dasar
@@ -118,15 +121,14 @@ export async function POST(req: Request) {
     // KHUSUS PLN PRABAYAR: Digiflazz biasanya kirim tarif/daya di field 'segment_power'
     if (inquirySku === "PLN") {
        segmentPower = digiData?.segment_power || ""; 
-       // Jika di dashboard Bosku nanti mau digabung: "BUDI - R1/900"
     }
 
     return NextResponse.json({
       success: true,
       data: {
         customerName: customerName,
-        segmentPower: segmentPower, // Tambahkan ini agar UI bisa nampilin Daya (misal: R1/900VA)
-        amount: 0, // Prabayar amount selalu 0 saat cek ID
+        segmentPower: segmentPower, 
+        amount: 0, 
         period: "Pengecekan Berhasil"
       }
     });
@@ -135,7 +137,6 @@ export async function POST(req: Request) {
     const errorData = error.response?.data;
     const errorMessage = errorData?.data?.message || "Koneksi ke server pusat gagal Bos!";
 
-    // Log error di VPS biar kita gampang lacaknya (Keamanan Backend) [cite: 2026-03-06]
     console.error("❌ ERROR DIGIFLAZZ PRABAYAR:", JSON.stringify(errorData, null, 2) || error.message);
 
     return NextResponse.json({ message: errorMessage }, { status: 500 });
