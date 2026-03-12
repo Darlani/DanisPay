@@ -28,10 +28,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Akses Ditolak!" }, { status: 401 });
     }
 
-    // 2. CARI PESANAN YANG STATUSNYA 'DIPROSES'
+    // 2. AMBIL SETTING SAKLAR & CARI PESANAN
+    const { data: st } = await supabaseAdmin.from('store_settings').select('is_digiflazz_active').single();
+    
+    if (!st?.is_digiflazz_active) {
+       return NextResponse.json({ message: "Mode Simulasi: Satpam Patroli Libur Bos!" });
+    }
+
+    // TAMBAHAN: Tarik data profiles(balance) agar siap untuk Refund jika Gagal
     const { data: pendingOrders, error: fetchErr } = await supabaseAdmin
       .from('orders')
-      .select('*')
+      .select('*, profiles(balance, email)')
       .eq('status', 'Diproses')
       .order('updated_at', { ascending: true })
       .limit(5);
@@ -48,20 +55,13 @@ export async function GET(req: Request) {
     // 3. LOOPING JEMPUT BOLA
     for (const order of pendingOrders) {
       
-      // --- KUNCI ANTI-BONCOS (Membaca Rekam Jejak Auto-Fallback) ---
-      // Jika ada api_ref_id (hasil fallback), pakai itu. Jika tidak, pakai order_id biasa.
       const targetRefId = order.api_ref_id || order.order_id;
-      // Sama halnya dengan SKU, gunakan vendor_sku jika ada!
       const targetSku = order.vendor_sku || order.sku;
-      // -----------------------------------------------------------
-
-const sign = crypto.createHash('md5').update(username + apiKey + targetRefId).digest('hex');
+      const sign = crypto.createHash('md5').update(username + apiKey + targetRefId).digest('hex');
       
-      // --- DETEKSI KATEGORI (PASCABAYAR & TOKEN PLN) ---
       const kategori = (order.category || "").toLowerCase();
       const isPostpaid = kategori.includes('pascabayar') || kategori.includes('ppob');
       const isTokenPLN = kategori.includes('pln') || kategori.includes('token');
-      // -------------------------------------------------
 
       const payload: any = {
         username,
@@ -74,7 +74,7 @@ const sign = crypto.createHash('md5').update(username + apiKey + targetRefId).di
       if (isPostpaid) payload.commands = "status-pasca";
 
       try {
-        const digiRes = await fetch('https://api.digiflazz.com/v1/transaction', {
+        const digiRes = await fetch('https://api.api-digiflazz.com/v1/transaction', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -84,9 +84,12 @@ const sign = crypto.createHash('md5').update(username + apiKey + targetRefId).di
         const digiData = result.data;
 
         if (digiData) {
-          const newStatus = digiData.status; // Sukses, Gagal, Pending
+          const newStatus = digiData.status; 
           const sn = digiData.sn || order.sn;
 
+          // ==========================================
+          // SKENARIO 1: BERHASIL
+          // ==========================================
           if (newStatus === 'Sukses') {
             const updatePayload: any = {
               status: 'Berhasil',
@@ -94,21 +97,14 @@ const sign = crypto.createHash('md5').update(username + apiKey + targetRefId).di
               updated_at: new Date().toISOString()
             };
 
-            // JIKA PASCABAYAR ATAU TOKEN PLN: Bongkar data struk
             if (isPostpaid || isTokenPLN) {
-              
-              // Biarkan Supabase menyimpan object asli untuk tipe JSONB
               updatePayload.desc = digiData.desc || null;
-
-              // --- MAGIS EKSTRAKSI DATA PASCABAYAR & TOKEN PLN ---
               if (digiData.desc && typeof digiData.desc === 'object') {
                 updatePayload.customer_name = digiData.desc.nama || digiData.desc.nama_pelanggan || null;
-                
                 const tarif = digiData.desc.tarif || "";
                 const daya = digiData.desc.daya || "";
                 if (tarif || daya) updatePayload.segment_power = `${tarif}${daya ? '/' + daya : ''}`;
                 
-                // stand_meter HANYA ADA di Pascabayar
                 const detailTagihan = digiData.desc.tagihan?.detail?.[0];
                 if (detailTagihan && detailTagihan.meter_awal && detailTagihan.meter_akhir) {
                   updatePayload.stand_meter = `${detailTagihan.meter_awal} - ${detailTagihan.meter_akhir}`;
@@ -118,18 +114,122 @@ const sign = crypto.createHash('md5').update(username + apiKey + targetRefId).di
               }
             }
 
-            // Eksekusi Update
             await supabaseAdmin.from('orders').update(updatePayload).eq('order_id', order.order_id);
             await reportToTelegram(`🤖 <b>AUTO-CHECK SUKSES!</b>\n\n🆔 Inv: <code>${order.order_id}</code>\n📦 SN: <code>${sn}</code>\n💰 Status: Otomatis sinkron via Patroli.`);
           } 
+          
+          // ==========================================
+          // SKENARIO 2: GAGAL (KITA PASANG OTAK AUTO-RETRY & REFUND)
+          // ==========================================
           else if (newStatus === 'Gagal') {
-            await supabaseAdmin.from('orders').update({
-              status: 'Gagal',
-              notes: digiData.message,
-              updated_at: new Date().toISOString()
-            }).eq('order_id', order.order_id);
+            let isRetrying = false;
 
-            await reportToTelegram(`🤖 <b>AUTO-CHECK GAGAL!</b>\n\n🆔 Inv: <code>${order.order_id}</code>\n⚠️ Alasan: ${digiData.message}`);
+            if (!isPostpaid) {
+              console.log(`⚠️ Patroli menemukan status Gagal. Mengecek Amunisi Auto-Retry untuk Order #${order.order_id}...`);
+              
+              let currentAttempt = 1;
+              const match = order.api_ref_id?.match(/-R(\d+)$/);
+              if (match) currentAttempt = parseInt(match[1], 10);
+
+              const { data: mainProd } = await supabaseAdmin.from('products').select('name, brand').eq('sku', order.sku).single();
+
+              if (mainProd) {
+                const nominalTarget = mainProd.name.replace(/[^0-9]/g, '');
+                const targetBrandSlug = mainProd.brand?.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '') || "";
+                const isZonasi = (mainProd.name || "").toUpperCase().includes('ZONASI');
+
+                const { data: candidates } = await supabaseAdmin.from('items')
+                  .select('sku, modal, name, zona_type')
+                  .eq('brand_slug', targetBrandSlug)
+                  .eq('is_active', true)
+                  .order('modal', { ascending: true });
+
+                const validAlternatives = (candidates || []).filter(item => {
+                  const itemNominal = item.name.replace(/[^0-9]/g, '');
+                  const itemZona = (item.zona_type || "").toUpperCase() === 'ZONASI';
+                  return itemNominal === nominalTarget && itemZona === isZonasi;
+                });
+
+                if (currentAttempt < validAlternatives.length) {
+                  const nextAlt = validAlternatives[currentAttempt]; 
+                  const nextAttempt = currentAttempt + 1;
+                  const nextRefId = `${order.order_id}-R${nextAttempt}`;
+
+                  console.log(`🚀 [PATROLI AUTO-RETRY] Mengalihkan ke Supplier ke-${nextAttempt}: SKU ${nextAlt.sku}`);
+
+                  const retrySign = crypto.createHash('md5').update(username + apiKey + nextRefId).digest('hex');
+                  
+                  try {
+                    const digiResRetry = await fetch('https://api.digiflazz.com/v1/transaction', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        username, buyer_sku_code: nextAlt.sku, customer_no: order.game_id, ref_id: nextRefId, sign: retrySign
+                      })
+                    });
+
+                    const digiDataRetry = await digiResRetry.json();
+                    const d = digiDataRetry.data;
+
+                    // JIKA SUKSES ATAU PENDING, BATALKAN REFUND
+                    if (d && (d.status === 'Sukses' || d.status === 'Pending')) {
+                      await supabaseAdmin.from('orders').update({
+                        api_ref_id: nextRefId,
+                        vendor_sku: nextAlt.sku,
+                        status: d.status === 'Sukses' ? 'Berhasil' : 'Diproses',
+                        sn: d.sn || `Retry Patroli ke-${nextAttempt}`,
+                        updated_at: new Date().toISOString()
+                      }).eq('id', order.id);
+
+                      await reportToTelegram(`🔄 <b>AUTO-RETRY PATROLI AKTIF!</b>\n🆔 Inv: <code>${order.order_id}</code>\n🚀 Otomatis pindah ke Supplier ke-${nextAttempt} (${nextAlt.sku}).\n📊 Status: <b>${d.status}</b>`);
+                      
+                      isRetrying = true; // Tandai sedang retry
+                    }
+                  } catch (err) {
+                    console.error("🔥 Patroli Retry Gagal Koneksi:", err);
+                  }
+                }
+              }
+            }
+
+            // JIKA TIDAK ADA RETRY ATAU AMUNISI HABIS -> EKSEKUSI REFUND
+            if (!isRetrying) {
+              const refundValue = order.total_amount; 
+
+              if (order.user_id) {
+                const currentBalance = (order.profiles as any)?.balance || 0;
+                const newBalance = currentBalance + refundValue;
+                const userEmail = (order.profiles as any)?.email || order.email;
+
+                await supabaseAdmin.from('profiles').update({ balance: newBalance }).eq('id', order.user_id);
+                
+                await supabaseAdmin.from('balance_logs').insert([{
+                  user_id: order.user_id,
+                  user_email: userEmail,
+                  amount: refundValue,
+                  type: 'Refund',
+                  description: `Refund Gagal Order #${order.order_id}`,
+                  initial_balance: currentBalance,
+                  final_balance: newBalance
+                }]);
+
+                await supabaseAdmin.from('orders').update({ 
+                  status: 'Gagal', 
+                  notes: `Otomatis Refund: Rp ${refundValue.toLocaleString('id-ID')} (${digiData.message})`,
+                  updated_at: new Date().toISOString() 
+                }).eq('id', order.id);
+              } 
+              else {
+                // SKENARIO GUEST
+                await supabaseAdmin.from('orders').update({ 
+                  status: 'Gagal', 
+                  notes: `Gagal - WAJIB REFUND MANUAL: Rp ${refundValue.toLocaleString('id-ID')} (GUEST)`,
+                  updated_at: new Date().toISOString() 
+                }).eq('id', order.id);
+              }
+
+              await reportToTelegram(`🤖 <b>AUTO-CHECK GAGAL!</b>\n🆔 Inv: <code>${order.order_id}</code>\n⚠️ Alasan: ${digiData.message}\n💰 Telah di-Refund.`);
+            }
           }
         }
       } catch (e) {

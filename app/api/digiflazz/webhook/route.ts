@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
-// 1. FUNGSI LAPOR TELEGRAM [cite: 2026-02-11]
+// 1. FUNGSI LAPOR TELEGRAM
 async function reportToTelegram(message: string) {
-  // Ambil dari Env agar token Bos tidak terlihat di GitHub [cite: 2026-03-06]
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   try {
@@ -19,32 +18,23 @@ async function reportToTelegram(message: string) {
 }
 
 export async function POST(req: Request) {
-  try {
-    // 0. LOG AKSES MASUK (Untuk pantauan PM2) [cite: 2026-03-06]
+  try {
+    // 0. LOG AKSES MASUK
     const clientIp = req.headers.get('x-forwarded-for') || "Unknown IP";
     console.log(`📡 [DIGIFLAZZ CALLBACK] Incoming request from: ${clientIp}`);
 
-    // Ambil text mentah (raw) terlebih dahulu untuk memastikan validasi signature akurat
-    const rawBody = await req.text();
+    const rawBody = await req.text();
     const body = JSON.parse(rawBody);
     const signature = req.headers.get('X-Digiflazz-Delivery');
     
-    // Ambil data env [cite: 2026-02-11]
     const username = process.env.DIGIFLAZZ_USERNAME?.trim() || "";
     const secretKey = process.env.DIGIFLAZZ_API_KEY?.trim() || ""; 
 
-    // 2. VALIDASI KEAMANAN (MD5 sesuai rumus Digiflazz) [cite: 2026-02-28]
-    if (!signature) {
-      return NextResponse.json({ error: "No Signature" }, { status: 401 });
-    }
+    // 2. VALIDASI KEAMANAN (MD5)
+    if (!signature) return NextResponse.json({ error: "No Signature" }, { status: 401 });
 
-    // Langsung gunakan rawBody agar string yang dienkripsi sama persis dengan milik Digiflazz
-    const expectedSignature = crypto
-      .createHash('md5')
-      .update(username + secretKey + rawBody)
-      .digest('hex');
+    const expectedSignature = crypto.createHash('md5').update(username + secretKey + rawBody).digest('hex');
 
-    // Aktifkan proteksi penuh sekarang karena sudah mengudara [cite: 2026-03-06]
     if (signature !== expectedSignature) {
        console.error("❌ Upaya Ilegal! Signature Digiflazz tidak cocok.");
        return NextResponse.json({ error: "Invalid Signature" }, { status: 403 });
@@ -52,29 +42,24 @@ export async function POST(req: Request) {
 
     console.log("📩 WEBHOOK DIGIFLAZZ MASUK:", body);
 
-    const eventData = body.data;
-    if (!eventData) return NextResponse.json({ message: "No Data" }, { status: 400 });
+    const eventData = body.data;
+    if (!eventData) return NextResponse.json({ message: "No Data" }, { status: 400 });
 
-    const rawRefId = eventData.ref_id;
-    
-    // --- MAGIS AUTO-FALLBACK: Bersihaan embel-embel -R2, -R3, dst ---
-    // Regex ini akan mencari "-R" yang diikuti angka di paling ujung string, lalu menghapusnya
-    const cleanOrderId = rawRefId.replace(/-R\d+$/, '');
-    const refId = cleanOrderId; // <--- TAMBAHKAN BARIS INI BOSKU!
-    // ---------------------------------------------------------------
+    const rawRefId = eventData.ref_id;
+    // Bersihaan embel-embel -R2, -R3, dst
+    const cleanOrderId = rawRefId.replace(/-R\d+$/, '');
+    const refId = cleanOrderId;
 
-    const status = eventData.status; // 'Sukses', 'Gagal', 'Pending'
-    const sn = eventData.sn || "NO-SN";
-    const message = eventData.message;
+    const status = eventData.status; 
+    const sn = eventData.sn || "NO-SN";
+    const message = eventData.message;
 
-// 3. LOGIKA UPDATE DATABASE & REFUND [cite: 2026-03-09]
-    console.log(`📝 [DIGIFLAZZ UPDATE] RefID Asli: ${cleanOrderId} (Dari vendor: ${rawRefId}) | Status: ${status} | SN: ${sn}`);
+    console.log(`📝 [DIGIFLAZZ UPDATE] RefID Asli: ${cleanOrderId} (Dari vendor: ${rawRefId}) | Status: ${status} | SN: ${sn}`);
 
-// A. Ambil data spesifik (Anti select *, hemat resource < 200ms) [cite: 2026-03-09]
-    // TAMBAHAN: Tarik juga kolom api_ref_id untuk mencocokkan jejak fallback
+    // A. Ambil data spesifik dari Database
     const { data: order } = await supabaseAdmin
       .from('orders')
-      .select('id, order_id, api_ref_id, user_id, email, total_amount, status, category, profiles(id, balance, email)')
+      .select('id, order_id, api_ref_id, sku, game_id, user_id, email, total_amount, status, category, profiles(id, balance, email)')
       .eq('order_id', cleanOrderId) 
       .single();
 
@@ -84,20 +69,17 @@ export async function POST(req: Request) {
     }
 
     // --- KUNCI ANTI-TABRAKAN FALLBACK ---
-    // Pastikan Webhook yang masuk adalah untuk percobaan (Ref ID) terakhir yang kita pakai!
-    // Jika ada api_ref_id di DB, dan itu TIDAK SAMA dengan rawRefId dari Digiflazz, AABAIKAN!
     if (order.api_ref_id && order.api_ref_id !== rawRefId) {
        console.log(`⚠️ Mengabaikan Webhook Usang. (Dari Vendor: ${rawRefId}, Yang Aktif di DB: ${order.api_ref_id})`);
        return NextResponse.json({ success: true, message: "Ignored outdated ref_id from previous fallback attempt" });
     }
-    // ------------------------------------
 
-if (status === 'Sukses') {
+    // 3. LOGIKA UPDATE DATABASE
+    if (status === 'Sukses') {
       const kategori = (order.category || "").toLowerCase();
       const isPostpaid = kategori.includes('pascabayar') || kategori.includes('ppob');
-      const isTokenPLN = kategori.includes('pln') || kategori.includes('token'); // <--- PENTING: Deteksi Token PLN
+      const isTokenPLN = kategori.includes('pln') || kategori.includes('token'); 
 
-      // Siapkan update dasar untuk KEDUANYA (Prabayar & Pascabayar)
       const updatePayload: any = {
         status: 'Berhasil',
         sn: sn,
@@ -105,23 +87,14 @@ if (status === 'Sukses') {
         updated_at: new Date().toISOString()
       };
 
-      // JIKA PASCABAYAR ATAU TOKEN PLN: Tambahkan struk desc
       if (isPostpaid || isTokenPLN) {
-        
-        // Biarkan Supabase menyimpan object asli untuk tipe JSONB
         updatePayload.desc = eventData.desc || null;
-
-        // --- MAGIS EKSTRAKSI DATA PASCABAYAR & TOKEN PLN ---
         if (eventData.desc && typeof eventData.desc === 'object') {
-          // Ekstrak Nama
           updatePayload.customer_name = eventData.desc.nama || eventData.desc.nama_pelanggan || null;
-          
-          // Ekstrak Tarif & Daya
           const tarif = eventData.desc.tarif || "";
           const daya = eventData.desc.daya || "";
           if (tarif || daya) updatePayload.segment_power = `${tarif}${daya ? '/' + daya : ''}`;
           
-          // Ekstrak Stand Meter (HANYA ADA DI PASCABAYAR)
           const detailTagihan = eventData.desc.tagihan?.detail?.[0];
           if (detailTagihan && detailTagihan.meter_awal && detailTagihan.meter_akhir) {
             updatePayload.stand_meter = `${detailTagihan.meter_awal} - ${detailTagihan.meter_akhir}`;
@@ -138,8 +111,86 @@ if (status === 'Sukses') {
       await supabaseAdmin.from('orders').update({ sn, updated_at: new Date().toISOString() }).eq('id', order.id);
       await reportToTelegram(`⏳ <b>PENDING!</b>\n🆔 Inv: <code>${refId}</code>\n📦 SN: <code>${sn}</code>`);
 
-  } else if (status === 'Gagal' && order.status !== 'Gagal') {
-      // B. EKSEKUSI LOGIKA REFUND AKURAT (Sesuai kolom balance Bos) [cite: 2026-03-09]
+    } else if (status === 'Gagal' && order.status !== 'Gagal') {
+      
+      // ====================================================================
+      // 🚀 MESIN AUTO-RETRY VIA WEBHOOK (LEVEL DEWA)
+      // ====================================================================
+      const kategori = (order.category || "").toLowerCase();
+      const isPostpaid = kategori.includes('pascabayar') || kategori.includes('ppob');
+
+      if (!isPostpaid) {
+        console.log(`⚠️ Webhook Gagal diterima. Mengecek Amunisi Auto-Retry untuk Order #${cleanOrderId}...`);
+        
+        let currentAttempt = 1;
+        const match = order.api_ref_id?.match(/-R(\d+)$/);
+        if (match) currentAttempt = parseInt(match[1], 10);
+
+        const { data: mainProd } = await supabaseAdmin.from('products').select('name, brand').eq('sku', order.sku).single();
+
+        if (mainProd) {
+          const nominalTarget = mainProd.name.replace(/[^0-9]/g, '');
+          const targetBrandSlug = mainProd.brand?.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '') || "";
+          const isZonasi = (mainProd.name || "").toUpperCase().includes('ZONASI');
+
+          const { data: candidates } = await supabaseAdmin.from('items')
+            .select('sku, modal, name, zona_type')
+            .eq('brand_slug', targetBrandSlug)
+            .eq('is_active', true)
+            .order('modal', { ascending: true });
+
+          const validAlternatives = (candidates || []).filter(item => {
+            const itemNominal = item.name.replace(/[^0-9]/g, '');
+            const itemZona = (item.zona_type || "").toUpperCase() === 'ZONASI';
+            return itemNominal === nominalTarget && itemZona === isZonasi;
+          });
+
+          if (currentAttempt < validAlternatives.length) {
+            const nextAlt = validAlternatives[currentAttempt]; 
+            const nextAttempt = currentAttempt + 1;
+            const nextRefId = `${cleanOrderId}-R${nextAttempt}`;
+
+            console.log(`🚀 [WEBHOOK AUTO-RETRY] Mengalihkan ke Supplier ke-${nextAttempt}: SKU ${nextAlt.sku}`);
+
+            const sign = crypto.createHash('md5').update(username + secretKey + nextRefId).digest('hex');
+            
+            try {
+              const digiRes = await fetch('https://api.digiflazz.com/v1/transaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  username, buyer_sku_code: nextAlt.sku, customer_no: order.game_id, ref_id: nextRefId, sign
+                })
+              });
+
+              const digiData = await digiRes.json();
+              const d = digiData.data;
+
+              // BATALKAN REFUND JIKA RETRY SUKSES/PENDING
+              if (d && (d.status === 'Sukses' || d.status === 'Pending')) {
+                await supabaseAdmin.from('orders').update({
+                  api_ref_id: nextRefId,
+                  vendor_sku: nextAlt.sku,
+                  status: d.status === 'Sukses' ? 'Berhasil' : 'Diproses',
+                  sn: d.sn || `Retry Auto ke-${nextAttempt}`,
+                  updated_at: new Date().toISOString()
+                }).eq('id', order.id);
+
+                await reportToTelegram(`🔄 <b>AUTO-RETRY WEBHOOK AKTIF!</b>\n🆔 Inv: <code>${cleanOrderId}</code>\n⚠️ Supplier sebelumnya GAGAL.\n🚀 Sistem otomatis pindah ke Supplier ke-${nextAttempt} (${nextAlt.sku}).\n📊 Status baru: <b>${d.status}</b>`);
+
+                return NextResponse.json({ success: true, message: `Auto-Retry ke-${nextAttempt} Triggered` });
+              }
+            } catch (err) {
+              console.error("🔥 Webhook Retry Gagal Koneksi:", err);
+            }
+          } else {
+            console.log(`💀 Amunisi Habis! Semua ${validAlternatives.length} supplier gagal untuk Order #${cleanOrderId}. Melanjutkan Refund...`);
+          }
+        }
+      }
+      // ====================================================================
+
+      // B. EKSEKUSI LOGIKA REFUND AKURAT (Jika semua amunisi habis / Pascabayar)
       const refundValue = order.total_amount; 
 
       if (order.user_id) {
@@ -150,7 +201,7 @@ if (status === 'Sukses') {
         // 1. Update Saldo Utama
         await supabaseAdmin.from('profiles').update({ balance: newBalance }).eq('id', order.user_id);
         
-        // 2. Catat Sejarah Mutasi (Sesuai gambar tabel balance_logs Bos) [cite: 2026-03-09]
+        // 2. Catat Sejarah Mutasi
         await supabaseAdmin.from('balance_logs').insert([{
           user_id: order.user_id,
           user_email: userEmail,
@@ -164,20 +215,20 @@ if (status === 'Sukses') {
         // 3. Update Status Order
         await supabaseAdmin.from('orders').update({ 
           status: 'Gagal', 
-          notes: `Otomatis Refund Balance: Rp ${refundValue.toLocaleString('id-ID')}`,
+          notes: `Otomatis Refund Balance: Rp ${refundValue.toLocaleString('id-ID')} (Semua Suplier Gagal)`,
           updated_at: new Date().toISOString() 
         }).eq('id', order.id);
-      }
-      
+      } 
       else {
-        // SKENARIO GUEST: Tandai Admin untuk Transfer Manual [cite: 2026-03-06]
+        // SKENARIO GUEST
         await supabaseAdmin.from('orders').update({ 
           status: 'Gagal', 
-          notes: `Gagal - WAJIB REFUND MANUAL: Rp ${refundValue.toLocaleString('id-ID')} (GUEST)`,
+          notes: `Gagal - WAJIB REFUND MANUAL: Rp ${refundValue.toLocaleString('id-ID')} (GUEST / Suplier Habis)`,
           updated_at: new Date().toISOString() 
         }).eq('id', order.id);
       }
-      await reportToTelegram(`❌ <b>GAGAL!</b>\n🆔 Inv: <code>${refId}</code>\n⚠️ Refund: ${order.user_id ? 'Koin Otomatis' : 'Manual (Guest)'}\n💬 Pesan: ${message}`);
+
+      await reportToTelegram(`❌ <b>GAGAL (SUPLIER HABIS)!</b>\n🆔 Inv: <code>${refId}</code>\n⚠️ Refund: ${order.user_id ? 'Koin Otomatis' : 'Manual (Guest)'}\n💬 Pesan: ${message}`);
     }
 
     return NextResponse.json({ success: true });
