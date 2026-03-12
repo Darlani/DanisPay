@@ -1,11 +1,20 @@
 "use client";
 
-import { useRef } from "react";
-import { Download, Printer, CheckCircle2 } from "lucide-react";
+import { useRef, useState } from "react"; // Tambah useState
+import { Download, Printer, CheckCircle2, Copy } from "lucide-react"; // Tambah Copy
 import { toPng } from "html-to-image";
 
 export default function ReceiptPascabayar({ order }: { order: any }) {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false); // State feedback
+
+  const handleCopyInvoice = () => {
+    if (order?.order_id) {
+      navigator.clipboard.writeText(order.order_id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const handleDownloadImage = async () => {
     if (receiptRef.current && order) {
@@ -60,9 +69,20 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
             <span>TANGGAL</span> 
             <span className="font-bold text-right">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span>
           </div>
-          <div className="flex justify-between">
+          <div 
+            onClick={handleCopyInvoice}
+            className="flex justify-between items-center cursor-pointer group hover:bg-slate-50 p-1 -m-1 rounded-lg transition-all active:scale-95"
+            title="Klik untuk salin Invoice"
+          >
             <span>NO. INVOICE</span> 
-            <span className="font-bold text-right text-blue-600">#{order.order_id}</span>
+            <span className="font-bold text-right text-blue-600 flex items-center gap-1.5">
+              #{order.order_id}
+              {copied ? (
+                <CheckCircle2 size={12} className="text-emerald-500 animate-in zoom-in" />
+              ) : (
+                <Copy size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
+            </span>
           </div>
           <div className="flex justify-between">
             <span>METODE</span> 

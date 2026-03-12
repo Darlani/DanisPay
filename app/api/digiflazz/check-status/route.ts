@@ -25,7 +25,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Order ID diperlukan" }, { status: 400 });
     }
 
-    // 1. AMBIL DATA ORDER DARI DATABASE
+// 1. CEK SAKLAR DULU
+    const { data: st } = await supabaseAdmin.from('store_settings').select('is_digiflazz_active').single();
+    if (!st?.is_digiflazz_active) {
+       return NextResponse.json({ error: "Mode Simulasi: Dilarang cek status ke vendor!" }, { status: 403 });
+    }
+
     const { data: order, error: fetchErr } = await supabaseAdmin
       .from('orders')
       .select('*')
@@ -104,12 +109,8 @@ export async function POST(req: Request) {
       // JIKA PASCABAYAR ATAU TOKEN PLN: Bongkar data struk
             if (isPostpaid || isTokenPLN) {
               
-              // raw_tagihan HANYA untuk Pascabayar
-              if (isPostpaid) {
-                updatePayload.raw_tagihan = digiData.price || 0;
-              }
-
-              updatePayload.desc = typeof digiData.desc === 'object' ? JSON.stringify(digiData.desc) : digiData.desc;
+              // Biarkan Supabase menyimpan object asli untuk tipe JSONB
+              updatePayload.desc = digiData.desc || null;
 
               // --- MAGIS EKSTRAKSI DATA PASCABAYAR & TOKEN PLN ---
               if (digiData.desc && typeof digiData.desc === 'object') {

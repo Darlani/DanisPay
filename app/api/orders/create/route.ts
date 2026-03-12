@@ -23,7 +23,8 @@ export async function POST(req: Request) {
       device_id,
       referred_by,
       voucher_amount,
-      voucher_code
+      voucher_code,
+      inquiry_result
     } = body;
 
     // --- 2. AMBIL DATA PRODUK SPESIFIK (Anti select *, render < 200ms) [cite: 2026-03-09]
@@ -43,9 +44,17 @@ export async function POST(req: Request) {
       .eq('sku', sku)
       .single();
 
-    if (pError || !dbProduct) {
+if (pError || !dbProduct) {
       return NextResponse.json({ error: "Produk tidak ditemukan di database!" }, { status: 400 });
     }
+
+    // --- 2.5 CEK SAKLAR SIMULASI (PENTING!) ---
+    const { data: settings } = await supabaseAdmin
+      .from('store_settings')
+      .select('is_digiflazz_active')
+      .single();
+    
+    const isLive = settings?.is_digiflazz_active ?? true;
 
     // --- 3. LOGIKA CASHBACK (KHUSUS MEMBER SPECIAL) ---
     let finalCashback = 0;
@@ -171,8 +180,8 @@ const allowed = isPaymentAllowed(payment_method, product_name || "General", tota
     // Selalu mulai dari 001 sampai maxRange
     const kodeUnikPusat = Math.floor(Math.random() * maxRange) + 1;
 
-    // --- 6. PEMETAAN DATA KE TABEL ORDERS ---
-const orderData = {
+// --- 6. PEMETAAN DATA KE TABEL ORDERS ---
+    const orderData = {
       order_id,
       sku: dbProduct.sku,
       product_name: dbProduct.name,
@@ -184,12 +193,16 @@ const orderData = {
       voucher_code: voucher_code || null,
       voucher_amount: voucher_amount || 0,
       cashback: finalCashback, 
-      // Kode unik untuk prabayar sekarang pakai hasil hitungan trafik dinamis
       unique_code: isPascabayar ? kodeUnikUser : kodeUnikPusat,
-      // Total bayar prabayar = Harga + Kode Unik Trafik
       total_amount: isPascabayar ? total_amount : (hargaSeharusnya + kodeUnikPusat),
       payment_method,
-      status: 'Pending',
+      
+      // Jika bayar Full Koin & Mode Simulasi aktif, langsung set Berhasil
+      status: (used_balance >= totalInputUser && !isLive) ? 'Berhasil' : 'Pending',
+      
+      // JIKA FULL KOIN + SIMULASI: Kasih SN fiktif agar struk tidak kosong
+      sn: (used_balance >= totalInputUser && !isLive) ? `SIM-KOIN-${Math.floor(Math.random() * 9999)}` : null,
+
       user_contact,
       email: email || null,
       referred_by: referred_by || null,
@@ -198,9 +211,13 @@ const orderData = {
       device_id,
       used_balance,
       user_id: user_id || null,
-      // HANYA TERISI JIKA PASCABAYAR, PRABAYAR TETAP 0
       raw_tagihan: isPascabayar ? tagihanMurni : 0,
-      desc: isPascabayar ? { info: "Waiting for payment..." } : null, 
+
+      // --- SINKRONISASI DATA INQUIRY (AGAR STRUK SIMULASI NYATA) ---
+      customer_name: inquiry_result?.customerName || null,
+      segment_power: inquiry_result?.segmentPower || null,
+      desc: inquiry_result?.desc ? inquiry_result.desc : (isPascabayar ? { info: "Waiting for payment..." } : null), 
+
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString() 
     };

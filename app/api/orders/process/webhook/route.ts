@@ -214,14 +214,22 @@ if (needsPenalty) {
         });
     }
 
-// --- 4. UPDATE STATUS & WAKTU (AGAR ROBOT PATROLI SIAGA) [cite: 2026-03-06] ---
-    const { error: errUpdatePaid } = await supabaseAdmin
-      .from('orders')
-      .update({ 
-        status: 'Diproses',
-        updated_at: new Date().toISOString() 
-      }) 
-      .eq('id', currentOrder.id);
+// --- 4. UPDATE STATUS (SENSITIF SIMULASI) ---
+    const isLive = settings?.is_digiflazz_active;
+    
+    const updatePayload: any = { 
+      status: isLive ? 'Diproses' : 'Berhasil', 
+      sn: isLive ? 'Menunggu Vendor' : `SIM-BANK-${Math.floor(Math.random() * 9999)}`,
+      updated_at: new Date().toISOString() 
+    };
+
+    // Jika mode LIVE, biarkan kolom lain kosong karena nanti diisi oleh Webhook Digiflazz asli.
+    // Jika mode SIMULASI, kita tidak perlu nambahin data lagi karena sudah diisi saat 'Create Order' tadi.
+
+    const { error: errUpdatePaid } = await supabaseAdmin
+      .from('orders')
+      .update(updatePayload) 
+      .eq('id', currentOrder.id);
 
     if (errUpdatePaid) throw errUpdatePaid;
 
@@ -390,8 +398,8 @@ const { data: refProfile } = await supabaseAdmin.from('profiles').select('id, ba
       `📈 Cuan Bersih: <b>+ Rp ${cuanBersih.toLocaleString('id-ID')}</b>\n` +
       `👤 User: ${safeEmail}\n` +
       `🆔 Invoice: <b>${currentOrder.order_id}</b>\n` +
-      `🔄 Status: <b>DIPROSES (PROSES VENDOR)</b> ⏳\n\n` +
-      `<i>*Sistem otomatis via MacroDroid.</i>`;
+      `🔄 Status: <b>${isLive ? 'DIPROSES (PROSES VENDOR) ⏳' : 'BERHASIL (MODE SIMULASI) 🛠️'}</b>\n\n` +
+      `<i>*Sistem otomatis via MacroDroid.</i>`;
 
     await sendTelegram(message);
 
