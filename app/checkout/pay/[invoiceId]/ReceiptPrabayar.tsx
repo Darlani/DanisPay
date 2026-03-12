@@ -34,13 +34,18 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
 
   if (!order || order.status !== "Berhasil") return null;
 
-  // --- 1. DETEKSI KATEGORI ---
+  // --- 1. DETEKSI KATEGORI (BERDASARKAN TABEL DATABASE) ---
   const cat = (order.category || "").toLowerCase();
-  const sku = (order.sku || "").toLowerCase();
+  const productName = (order.product_name || "").toLowerCase();
   
-  const isPln = cat.includes('pln') || cat.includes('token') || sku.includes('pln');
-  const isGame = cat.includes('game') || cat.includes('voucher');
-  const isPulsaData = cat.includes('pulsa') || cat.includes('data') || cat.includes('internet');
+  // 1. PLN Token: Sesuai instruksi, HANYA cek jika product_name mengandung kata "pln"
+  const isPln = productName.includes('pln');
+  
+  // 2. GAME: Langsung tembak dari nama category
+  const isGame = cat.includes('game');
+  
+  // 3. PULSA / DATA: Jika bukan PLN dan bukan Game (Ini akan otomatis menangkap category 'pulsa-data-token' untuk produk selain PLN)
+  const isPulsaData = !isPln && !isGame;
 
   // --- 2. THEME CONFIG ---
   const theme = isPln 
