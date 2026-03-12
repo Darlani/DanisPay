@@ -137,26 +137,49 @@ export async function GET(req: Request) {
       const isHealthy = item.buyer_product_status && item.seller_product_status;
       if (!isHealthy) return; // Skip yang lagi gangguan
 
-      // --- DETEKSI ZONASI (Khusus Pulsa & Data) ---
-      const rawCat = (item.category || "").toLowerCase();
-      const descStr = (item.desc || "").toUpperCase();
-      const nameStr = (item.product_name || "").toUpperCase();
+// --- DETEKSI ZONASI & DESKRIPSI LENGKAP ---
+      const fullDesc = item.desc || ""; 
+      const descUpper = fullDesc.toUpperCase();
       
-      // Inisialisasi sebagai null sesuai permintaan Bos
-      let zonaTag = null;
+      // Daftar kata kunci wilayah yang memicu tag ZONASI
+      const regionalKeywords = [
+        // --- ISTILAH UMUM ---
+        "ZONA", "ZONASI", "LOKAL", "AREA", "REGIONAL", "CLUSTER", "PROMO WILAYAH", "KHUSUS",
 
-      // Scan zonasi HANYA untuk kategori Pulsa, Data, atau Internet
+        // --- PULAU & CLUSTER OPERATOR ---
+        "JAWA", "SUMATERA", "KALIMANTAN", "SULAWESI", "BALI", "NUSA TENGGARA", "NUSRA", 
+        "PAPUA", "MALUKU", "SULAMPUA", "KALISUMAPA", "SUMBAGSEL", "SUMBAGUT",
+
+        // --- PROVINSI & SINGKATAN (JAWA) ---
+        "JABAR", "JATENG", "JATIM", "DIY", "YOGYAKARTA", "JABODETABEK", "BANTEN", "JAKARTA", "MADURA",
+
+        // --- PROVINSI & SINGKATAN (SUMATERA) ---
+        "ACEH", "SUMUT", "SUMBAR", "RIAU", "KEPRI", "JAMBI", "BENGKULU", "SUMSEL", "BABEL", "LAMPUNG",
+
+        // --- PROVINSI & SINGKATAN (KALIMANTAN) ---
+        "KALBAR", "KALTENG", "KALSEL", "KALTIM", "KALTARA",
+
+        // --- PROVINSI & SINGKATAN (SULAWESI) ---
+        "SULUT", "SULTENG", "SULSEL", "SULTRA", "GORONTALO", "SULBAR",
+
+        // --- PROVINSI & SINGKATAN (BALI & NUSA TENGGARA) ---
+        "NTB", "NTT",
+
+        // --- PROVINSI & SINGKATAN (PAPUA & MALUKU) ---
+        "TERNATE", "AMBON", "PAPUA BARAT", "PAPUA SELATAN", "PAPUA TENGAH", "PAPUA PEGUNUNGAN"
+      ];
+
+      // Cek apakah ada salah satu kata kunci di deskripsi atau nama produk
+      const isZonasiMatch = regionalKeywords.some(key => 
+        descUpper.includes(key) || item.product_name.toUpperCase().includes(key)
+      );
+
+      // 1. Definisikan rawCat di sini agar bisa digunakan di bawahnya
+      const rawCat = (item.category || "").toLowerCase();
+
+      // 2. Set ZONASI jika kategori sesuai (Pulsa/Data/Internet) dan kata kunci wilayah ditemukan
       const isZonasiTarget = rawCat.includes("pulsa") || rawCat.includes("data") || rawCat.includes("internet");
-
-      if (isZonasiTarget) {
-        if (
-          descStr.includes("ZONA") || descStr.includes("LOKAL") || descStr.includes("AREA") || 
-          descStr.includes("REGIONAL") || nameStr.includes("ZONA") || nameStr.includes("ZONASI") || 
-          nameStr.includes("LOKAL") || nameStr.includes("JATIM") || nameStr.includes("JABAR")
-        ) {
-          zonaTag = "ZONASI";
-        }
-      }
+      const zonaTag = (isZonasiTarget && isZonasiMatch) ? "ZONASI" : null;
 
       // SETTING MODAL & BRAND
       const isPasca = item.type === 'Pasca' || !item.price;
@@ -164,20 +187,23 @@ export async function GET(req: Request) {
       const slugBrand = slugify(item.brand || "");
       const subBrandSlug = isPasca ? 'PASCABAYAR' : getSubBrandSlug(item.brand, item.product_name, item.category, item.type || "");
 
-      // NAMA PRODUK UNTUK DI WEB (Murni Bersih Tanpa Label Zonasi)
-      const nominalMatch = item.product_name.match(/\d+([.,]\d+)?/);
-      const cleanNominal = nominalMatch ? nominalMatch[0] : item.product_name;
-      const webProductName = isPasca ? item.product_name : `${item.brand} ${cleanNominal}`;
+      // NAMA PRODUK (Eliminasi Brand di depan agar tidak duplikat di UI)
+      let webProductName = item.product_name;
+      const brandName = item.brand || "";
+      if (webProductName.toLowerCase().startsWith(brandName.toLowerCase())) {
+        webProductName = webProductName.slice(brandName.length).trim();
+      }
+      if (!webProductName) webProductName = item.product_name;
 
-      // --- 1. SIMPAN SEMUA VARIASI KE TABEL ITEMS (Deskripsi & Zona Wajib Masuk) ---
+      // --- 1. SIMPAN SEMUA VARIASI KE TABEL ITEMS ---
       itemsData.push({
         sku: item.buyer_sku_code,
         brand_slug: slugBrand,
         name: item.product_name, 
         modal: modal,
         sub_brand_slug: subBrandSlug,
-        desc: item.desc || "Produk Digital", // Pastikan tidak NULL jika desc kosong dari Digiflazz
-        zona_type: zonaTag,                  // Masuk sebagai NASIONAL atau ZONASI
+        desc: fullDesc, // Informasi lengkap sesuai dari Digiflazz
+        zona_type: zonaTag,
         is_active: true,
         last_sync: syncTime
       });
