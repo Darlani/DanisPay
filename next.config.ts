@@ -56,9 +56,8 @@ async redirects() {
 async rewrites() {
     return [
       {
-        // Kita tambahkan :slug di depan regex agar Next.js tahu itu variabel slug
-        // Dan kita hapus tanda bintang (*) di destination jika jalurnya cuma 1 level
-        source: '/:slug((?!admin|api|login|checkout|_next|static|favicon.ico).*)',
+        // Tambahkan 'public' ke daftar pengecualian agar folder public (gambar/logo) tidak ikut ter-rewrite
+        source: '/:slug((?!admin|api|login|checkout|public|_next|static|favicon.ico).*)',
         destination: '/ProductSection/:slug',
       },
     ];
