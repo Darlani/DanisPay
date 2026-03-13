@@ -178,18 +178,19 @@ async function fetchLiveBalance() {
   async function fetchData() {
     setLoading(true);
     try {
-      // 1. Tarik dari 2 gudang sekaligus (Biarkan Supabase auto-detect relasinya)
+      // 1. Tarik dari 2 gudang (Hapus kata provider & cashback di select karena sudah otomatis ikut di tanda Bintang *) [cite: 2026-03-07]
       const [autoRes, semiRes] = await Promise.all([
         supabase.from('product_automatic')
-          .select(`*, provider, cashback, categories(name), brands(name)`)
+          .select('*, categories(name), brands(name)')
           .order('updated_at', { ascending: false }),
         supabase.from('product_semi_auto')
-          .select(`*, provider, cashback, categories(name), brands(name)`)
+          .select('*, categories(name), brands(name)')
           .order('updated_at', { ascending: false })
       ]);
 
-      if (autoRes.error) console.error("Error Auto:", autoRes.error);
-      if (semiRes.error) console.error("Error Semi:", semiRes.error);
+      // Munculkan error ke layar Bos biar kita tahu penyakitnya!
+      if (autoRes.error) alert("ERROR GUDANG AUTO: " + autoRes.error.message);
+      if (semiRes.error) alert("ERROR GUDANG MANUAL: " + semiRes.error.message);
 
       // 2. Mapping Semi-Auto agar selaras dengan nama kolom tabel layar
       const mappedSemi = (semiRes.data || []).map((item: any) => ({
@@ -385,13 +386,17 @@ const handleFlashSale = async () => {
     }
 };
 
-  const handleStopLock = async () => {
+const handleStopLock = async () => {
     if (selectedIds.length === 0) return alert("PILIH PRODUK DULU!");
     if (!confirm(`BUKA SEMUA GEMBOK (UNLOCK) UNTUK ${selectedIds.length} PRODUK?`)) return;
     setSyncing(true);
     try {
-      const { error } = await supabase.from('products').update({ lock_margin: false }).in('id', selectedIds);
-      if (error) throw error;
+      const autoIds = products.filter(p => selectedIds.includes(p.id) && p.source_table === 'product_automatic').map(p => p.id);
+      const semiIds = products.filter(p => selectedIds.includes(p.id) && p.source_table === 'product_semi_auto').map(p => p.id);
+
+      if (autoIds.length > 0) await supabase.from('product_automatic').update({ lock_margin: false }).in('id', autoIds);
+      if (semiIds.length > 0) await supabase.from('product_semi_auto').update({ lock_margin: false }).in('id', semiIds);
+      
       logActivity("STOP LOCK", `Membuka kunci margin untuk ${selectedIds.length} produk.`);
       alert("SEMUA GEMBOK BERHASIL DIBUKA!");
       setSelectedIds([]);
@@ -554,21 +559,34 @@ const handleStopFlashSale = async () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDelete = async (id: string, name: string) => {
+// Tambahkan parameter sourceTable
+  const handleDelete = async (id: string, name: string, sourceTable: string) => {
     if (!confirm(`YAKIN HAPUS PRODUK: ${name.toUpperCase()}?`)) return;
     try {
-      const { error } = await supabase.from('products').delete().eq('id', id);
+      // Hapus dari gudang yang tepat
+      const { error } = await supabase.from(sourceTable).delete().eq('id', id);
       logActivity("HAPUS PRODUK", `Menghapus produk: ${name.toUpperCase()}`);
       if (error) throw error;
       fetchData();
     } catch (err: any) { alert(err.message); }
   };
 
-  const handleBulkDelete = async () => {
+const handleBulkDelete = async () => {
     if (!confirm(`YAKIN HAPUS ${selectedIds.length} PRODUK SEKALIGUS?`)) return;
     try {
-      const { error } = await supabase.from('products').delete().in('id', selectedIds);
-      if (error) throw error;
+      // Pisahkan ID berdasarkan gudangnya
+      const autoIds = products.filter(p => selectedIds.includes(p.id) && p.source_table === 'product_automatic').map(p => p.id);
+      const semiIds = products.filter(p => selectedIds.includes(p.id) && p.source_table === 'product_semi_auto').map(p => p.id);
+
+      if (autoIds.length > 0) {
+        const { error } = await supabase.from('product_automatic').delete().in('id', autoIds);
+        if (error) throw error;
+      }
+      if (semiIds.length > 0) {
+        const { error } = await supabase.from('product_semi_auto').delete().in('id', semiIds);
+        if (error) throw error;
+      }
+
       logActivity("HAPUS MASAL", `Menghapus ${selectedIds.length} produk sekaligus.`);
       setSelectedIds([]);
       fetchData();
@@ -649,41 +667,35 @@ const handleStopFlashSale = async () => {
   }, [filteredProducts, globalCashback]);
 
 // 1. UPDATE UI SECARA INSTAN (Tanpa Loading)
-const handleLocalChange = (id: string, field: string, value: any) => {
-  // Catatan: Pastikan nilai kosong tetap kosong, tapi angka diproses sebagai Number agar tidak error kalkulasi
-  const safeValue = value === "" ? "" : Number(value);
-  setProducts(prev => prev.map(p => p.id === id ? { ...p, [field]: safeValue } : p));
-};
+  const handleLocalChange = (id: string, field: string, value: any) => {
+    // Catatan: Pastikan nilai kosong tetap kosong, tapi angka diproses sebagai Number agar tidak error kalkulasi
+    const safeValue = value === "" ? "" : Number(value);
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, [field]: safeValue } : p));
+  };
 
-// 2. SIMPAN KE DATABASE DI BELAKANG LAYAR (Silent Save)
-const handleSilentSave = async (id: string, field: string, value: any) => {
-  const finalValue = (field === 'promo_label' || field === 'lock_margin') ? value : Number(value);
-  try {
-    await fetch('/api/admin/products/quick-edit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, field, value: finalValue, globalCashback })
-    });
-    
-    // Tarik data terbaru diam-diam (Soft Refresh) biar hasil hitungan harga & profit otomatis update!
-    const { data } = await supabase
-      .from('products')
-      .select(`*, provider, cashback, categories!products_category_id_fkey (name), brands!products_brand_id_fkey (name)`)
-      .order('updated_at', { ascending: false });
-    
-    if (data) setProducts(data);
-    
-  } catch (err: any) {
-    console.error("GAGAL UPDATE:", err.message);
-  }
-};
+  // 2. SIMPAN KE DATABASE DI BELAKANG LAYAR (Silent Save)
+  const handleSilentSave = async (id: string, field: string, value: any) => {
+    const finalValue = (field === 'promo_label' || field === 'lock_margin') ? value : Number(value);
+    try {
+      await fetch('/api/admin/products/quick-edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, field, value: finalValue, globalCashback })
+      });
+      
+      // Langsung panggil ini biar data terbaru ditarik rapi dari 2 gudang!
+      fetchData(); 
+    } catch (err: any) {
+      console.error("GAGAL UPDATE:", err.message);
+    }
+  };
 
-// 3. TOGGLE LANGSUNG (Untuk Lock Margin / Promo)
-const handleToggleLock = async (id: string, currentValue: boolean) => {
-  const newValue = !currentValue;
-  handleLocalChange(id, 'lock_margin', newValue); // UI langsung ganti
-  await handleSilentSave(id, 'lock_margin', newValue); // Database nyusul diam-diam
-};
+  // 3. TOGGLE LANGSUNG (Untuk Lock Margin / Promo)
+  const handleToggleLock = async (id: string, currentValue: boolean) => {
+    const newValue = !currentValue;
+    handleLocalChange(id, 'lock_margin', newValue); // UI langsung ganti
+    await handleSilentSave(id, 'lock_margin', newValue); // Database nyusul diam-diam
+  };
 
   return (
     <div className="animate-in fade-in duration-500 font-black italic uppercase text-slate-800 pb-10 px-4 max-w-400 mx-auto">
@@ -1173,7 +1185,7 @@ const handleToggleLock = async (id: string, currentValue: boolean) => {
                     <td className="px-3 py-1.5 text-center">
                       <div className="flex justify-center gap-1">
                         <button onClick={() => handleEditClick(item)} className="p-1 text-amber-500 hover:bg-amber-100 rounded-lg"><Edit3 size={12}/></button>
-                        <button onClick={() => handleDelete(item.id, item.name)} className="p-1 text-rose-500 hover:bg-rose-100 rounded-lg"><Trash2 size={12}/></button>
+                        <button onClick={() => handleDelete(item.id, item.name, item.source_table)} className="p-1 text-rose-500 hover:bg-rose-100 rounded-lg"><Trash2 size={12}/></button>
                       </div>
                     </td>
                   </tr>
