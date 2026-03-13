@@ -11,8 +11,8 @@ export async function POST(req: Request) {
 
     // 1. CARI PRODUK DI DUA GUDANG [cite: 2026-03-13]
     const [autoRes, semiRes] = await Promise.all([
-      supabaseAdmin.from('product_automatic').select('*, categories!product_automatic_category_id_fkey(name)').in('id', selectedIds),
-      supabaseAdmin.from('product_semi_auto').select('*, categories!product_semi_auto_category_id_fkey(name)').in('id', selectedIds)
+      supabaseAdmin.from('product_automatic').select('*, categories(name)').in('id', selectedIds),
+      supabaseAdmin.from('product_semi_auto').select('*, categories(name)').in('id', selectedIds)
     ]);
 
     if (autoRes.error) throw autoRes.error;

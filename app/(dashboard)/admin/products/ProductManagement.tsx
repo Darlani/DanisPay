@@ -178,13 +178,13 @@ async function fetchLiveBalance() {
   async function fetchData() {
     setLoading(true);
     try {
-      // 1. Tarik dari 2 gudang sekaligus
+      // 1. Tarik dari 2 gudang sekaligus (Biarkan Supabase auto-detect relasinya)
       const [autoRes, semiRes] = await Promise.all([
         supabase.from('product_automatic')
-          .select(`*, provider, cashback, categories!product_automatic_category_id_fkey (name), brands!product_automatic_brand_id_fkey (name)`)
+          .select(`*, provider, cashback, categories(name), brands(name)`)
           .order('updated_at', { ascending: false }),
         supabase.from('product_semi_auto')
-          .select(`*, provider, cashback, categories!product_semi_auto_category_id_fkey (name), brands!product_semi_auto_brand_id_fkey (name)`)
+          .select(`*, provider, cashback, categories(name), brands(name)`)
           .order('updated_at', { ascending: false })
       ]);
 

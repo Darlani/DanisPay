@@ -9,10 +9,10 @@ export async function POST(req: Request) {
      // Gunakan id kategori sebagai fallback jika nama relasi tidak bisa ditarik
      const [autoRes, semiRes] = await Promise.all([
        supabaseAdmin.from('product_automatic')
-         .select('id, cost, discount, lock_margin, category_id, categories!product_automatic_category_id_fkey(name)')
+         .select('id, cost, discount, lock_margin, category_id, categories(name)')
          .limit(50000),
        supabaseAdmin.from('product_semi_auto')
-         .select('id, cost_numeric, discount, lock_margin, category_id, categories!product_semi_auto_category_id_fkey(name)')
+         .select('id, cost_numeric, discount, lock_margin, category_id, categories(name)')
          .limit(50000)
      ]);
 
