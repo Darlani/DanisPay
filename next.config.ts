@@ -53,12 +53,13 @@ async redirects() {
     ];
   },
 
-  async rewrites() {
+async rewrites() {
     return [
       {
-        // Cegah rewrite untuk jalur sistem agar admin dan api tidak error
-        source: '/((?!admin|api|login|checkout|_next|static|favicon.ico).*)',
-        destination: '/ProductSection/:slug*',
+        // Kita tambahkan :slug di depan regex agar Next.js tahu itu variabel slug
+        // Dan kita hapus tanda bintang (*) di destination jika jalurnya cuma 1 level
+        source: '/:slug((?!admin|api|login|checkout|_next|static|favicon.ico).*)',
+        destination: '/ProductSection/:slug',
       },
     ];
   },
