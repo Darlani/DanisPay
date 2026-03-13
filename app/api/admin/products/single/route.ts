@@ -15,7 +15,11 @@ async function handleRequest(req: Request, method: string) {
     const dbCashbackPercent = Number(settingsData?.cashback_percent || 3);
     
     // 1. Hitung Harga Jual Dasar (hBase)
-    const hBase = Math.ceil((payload.cost * (1 + payload.margin_item / 100)) / 100) * 100;
+    const marginVal = Number(payload.margin_item || 0);
+    // Jika margin 0, gunakan real modal tanpa pembulatan ratusan agar Jual = Modal
+    const hBase = marginVal === 0 
+      ? payload.cost 
+      : Math.ceil((payload.cost * (1 + marginVal / 100)) / 100) * 100;
 
     // 2. Potong Diskon (hFinal)
     const currentDiscount = Number(payload.discount || 0);

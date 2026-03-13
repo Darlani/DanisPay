@@ -37,8 +37,12 @@ export async function POST(req: Request) {
         updateData.discount = Number(value);
         currentDiscount = Number(value);
     } else if (field === 'margin_item') {
-        updateData.margin_item = Number(value);
-        currentPrice = Math.ceil((currentCost * (1 + Number(value) / 100)) / 100) * 100;
+        const marginVal = Number(value);
+        updateData.margin_item = marginVal;
+        // Jika margin 0, gunakan real modal tanpa pembulatan ratusan agar tidak ada selisih Rp 50
+        currentPrice = marginVal === 0 
+          ? currentCost 
+          : Math.ceil((currentCost * (1 + marginVal / 100)) / 100) * 100;
         
         if (isSemiAuto) {
           updateData.price_numeric = currentPrice;
