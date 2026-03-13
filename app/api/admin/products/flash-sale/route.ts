@@ -9,10 +9,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Tidak ada produk terpilih" }, { status: 400 });
     }
 
-    // 1. CARI PRODUK DI DUA GUDANG [cite: 2026-03-13]
+    // 1. PISAHKAN ID BERDASARKAN FORMAT (UUID vs ANGKA) [cite: 2026-03-13]
+    // UUID biasanya ada tanda "-" atau panjangnya lebih dari 20 karakter
+    const uuidIds = selectedIds.filter((id: any) => String(id).includes('-') || String(id).length > 20);
+    const numericIds = selectedIds.filter((id: any) => !String(id).includes('-') && String(id).length <= 20);
+
+    // 2. CARI PRODUK DI GUDANG MASING-MASING
     const [autoRes, semiRes] = await Promise.all([
-      supabaseAdmin.from('product_automatic').select('*, categories(name)').in('id', selectedIds),
-      supabaseAdmin.from('product_semi_auto').select('*, categories(name)').in('id', selectedIds)
+      uuidIds.length > 0 
+        ? supabaseAdmin.from('product_automatic').select('*, categories(name)').in('id', uuidIds)
+        : Promise.resolve({ data: [], error: null }),
+      numericIds.length > 0
+        ? supabaseAdmin.from('product_semi_auto').select('*, categories(name)').in('id', numericIds)
+        : Promise.resolve({ data: [], error: null })
     ]);
 
     if (autoRes.error) throw autoRes.error;
