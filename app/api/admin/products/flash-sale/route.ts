@@ -3,28 +3,32 @@ import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 export async function POST(req: Request) {
   try {
-    const { selectedIds, launchOptions, promoLabel, allStrategies, globalCashback } = await req.json();
+    // globalCashback dari frontend kita abaikan, ambil dari DB langsung
+    const { selectedIds, launchOptions, promoLabel, allStrategies } = await req.json();
 
     if (!selectedIds || selectedIds.length === 0) {
       return NextResponse.json({ success: false, error: "Tidak ada produk terpilih" }, { status: 400 });
     }
 
-// 1. PISAHKAN ID (UUID vs ANGKA) AGAR POSTGRES TIDAK MABUK [cite: 2026-03-13]
+    // 1. PISAHKAN ID (UUID vs ANGKA)
     const uuidIds = selectedIds.filter((id: any) => isNaN(Number(id))); 
     const numericIds = selectedIds.filter((id: any) => !isNaN(Number(id)));
 
-    // 2. CARI PRODUK DI GUDANG MASING-MASING SECARA SPESIFIK
-    const [autoRes, semiRes] = await Promise.all([
+    // 2. CARI PRODUK & SETTINGAN TOKO SECARA BERSAMAAN
+    const [autoRes, semiRes, settingsRes] = await Promise.all([
       uuidIds.length > 0 
         ? supabaseAdmin.from('product_automatic').select('id, cost, margin_item, lock_margin, discount, promo_label, categories(name)').in('id', uuidIds)
         : Promise.resolve({ data: [], error: null }),
       numericIds.length > 0
         ? supabaseAdmin.from('product_semi_auto').select('id, cost_numeric, margin_item, lock_margin, discount, promo_label, categories(name)').in('id', numericIds)
-        : Promise.resolve({ data: [], error: null })
+        : Promise.resolve({ data: [], error: null }),
+      supabaseAdmin.from('store_settings').select('cashback_percent').limit(1).single()
     ]);
 
     if (autoRes.error) throw autoRes.error;
     if (semiRes.error) throw semiRes.error;
+
+    const dbCashbackPercent = Number(settingsRes.data?.cashback_percent || 3);
 
     const autoProducts = autoRes.data || [];
     const semiProducts = semiRes.data || [];
@@ -66,30 +70,23 @@ export async function POST(req: Request) {
            }
         }
 
-        // 3. KALKULASI ULANG PROFIT & CASHBACK (Mencegah CB Bocor!)
+// 3. KALKULASI ULANG PROFIT & CASHBACK (Murni dari Store Settings & Anti-Boncos)
         const margin = Number(updatedProduct.margin_item || 0);
-        const cost = currentCost; // Pakai variabel yang sudah diamankan di atas
-        const price = Math.ceil((cost * (1 + margin / 100)) / 100) * 100; // Harga Jual Asli
+        const cost = currentCost;
+        const price = Math.ceil((cost * (1 + margin / 100)) / 100) * 100;
         const disc = Number(updatedProduct.discount || 0);
         
         const hargaSetelahDiskon = price - Math.floor(price * (disc / 100));
         const profitKotor = hargaSetelahDiskon - cost;
 
         let newCashback = 0;
-        if (disc > 0 && profitKotor > 0) {
-           // Diskon jalan, CB pakai random kecil
-           const randomPersen = (String(p.id).charCodeAt(0) % 6) + 15;
-           newCashback = Math.floor(profitKotor * (randomPersen / 100));
-        } else if (disc === 0) {
-           // Promo tapi diskon 0% (seperti e-wallet), CB normal dengan plafon 30%
-           const gbCb = Number(globalCashback) || 3;
-           const cbNormal = Math.floor(hargaSetelahDiskon * (gbCb / 100));
-           const plafonMaks = Math.floor(profitKotor * 0.3);
-           newCashback = (cbNormal > plafonMaks && profitKotor > 0) ? plafonMaks : cbNormal;
-        }
 
-        // Safety Guard! Kalau rugi, Cashback harus 0.
-        if (newCashback < 0 || profitKotor <= 0) newCashback = 0;
+        // Jika profit minus atau nol, mutlak 0 (Anti Boncos)
+        if (profitKotor > 0) {
+          const cbNormal = Math.floor(hargaSetelahDiskon * (dbCashbackPercent / 100));
+          const plafonMaks = Math.floor(profitKotor * 0.3);
+          newCashback = Math.min(cbNormal, plafonMaks);
+        }
 
         return {
            id: updatedProduct.id,

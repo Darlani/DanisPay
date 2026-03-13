@@ -3,18 +3,22 @@ import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 export async function POST(req: Request) {
   try {
-     const { allStrategies, globalCashback } = await req.json();
+// Kita abaikan globalCashback dari frontend demi keamanan
+     const { allStrategies } = await req.json();
 
-     // 1. Panggil data dari 2 Gudang (Limit 50.000 agar muat banyak) [cite: 2026-03-13]
-     // Gunakan id kategori sebagai fallback jika nama relasi tidak bisa ditarik
-     const [autoRes, semiRes] = await Promise.all([
-       supabaseAdmin.from('product_automatic')
-         .select('id, cost, discount, lock_margin, category_id, categories(name)')
-         .limit(50000),
-       supabaseAdmin.from('product_semi_auto')
-         .select('id, cost_numeric, discount, lock_margin, category_id, categories(name)')
-         .limit(50000)
-     ]);
+     // 1. Panggil data dari 2 Gudang + Store Settings (Limit 50.000 agar muat banyak)
+     const [autoRes, semiRes, settingsRes] = await Promise.all([
+       supabaseAdmin.from('product_automatic')
+         .select('id, cost, discount, lock_margin, category_id, categories(name)')
+         .limit(50000),
+       supabaseAdmin.from('product_semi_auto')
+         .select('id, cost_numeric, discount, lock_margin, category_id, categories(name)')
+         .limit(50000),
+       supabaseAdmin.from('store_settings').select('cashback_percent').limit(1).single()
+     ]);
+
+     // Tarik nilai murni dari database
+     const dbCashbackPercent = Number(settingsRes.data?.cashback_percent || 3);
 
      if (autoRes.error) console.error("Error Auto:", autoRes.error);
      if (semiRes.error) console.error("Error Semi:", semiRes.error);
@@ -53,23 +57,17 @@ export async function POST(req: Request) {
 
          const newPrice = Math.ceil((currentCost * (1 + newMargin / 100)) / 100) * 100;
          
-         // Hitung pakai newDiscount, bukan currentDiscount lama
-         const hargaSetelahDiskon = newPrice - Math.floor(newPrice * (newDiscount / 100));
-         const profitKotor = hargaSetelahDiskon - currentCost;
+// Hitung pakai newDiscount, bukan currentDiscount lama
+         const hargaSetelahDiskon = newPrice - Math.floor(newPrice * (newDiscount / 100));
+         const profitKotor = hargaSetelahDiskon - currentCost;
 
-         let newCashback = 0;
-         if (newDiscount > 0 && profitKotor > 0) {
-             const randomPersen = (String(product.id).charCodeAt(0) % 6) + 15;
-             newCashback = Math.floor(profitKotor * (randomPersen / 100));
-         } else if (newDiscount === 0) {
-             const gbCb = Number(globalCashback) || 3;
-             const cbNormal = Math.floor(hargaSetelahDiskon * (gbCb / 100));
+         // ANTI-BONCOS & ACUAN MUTLAK DARI SETTINGS
+         let newCashback = 0;
+         if (profitKotor > 0) {
+             const cbNormal = Math.floor(hargaSetelahDiskon * (dbCashbackPercent / 100));
              const plafonMaks = Math.floor(profitKotor * 0.3); // Plafon 30% anti rugi
-             newCashback = (cbNormal > plafonMaks && profitKotor > 0) ? plafonMaks : cbNormal;
+             newCashback = Math.min(cbNormal, plafonMaks);
          }
-
-         // Pastikan cashback nggak pernah minus
-         if (newCashback < 0 || profitKotor <= 0) newCashback = 0;
 
          // Masukkan ke array sesuai gudangnya dengan penamaan kolom yang benar
          if (isSemiAuto) {

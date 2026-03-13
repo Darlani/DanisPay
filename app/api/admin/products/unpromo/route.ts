@@ -13,40 +13,42 @@ export async function POST(req: Request) {
     const uuidIds = selectedIds.filter((id: any) => isNaN(Number(id))); 
     const numericIds = selectedIds.filter((id: any) => !isNaN(Number(id)));
 
-    // 2. TARIK DATA DARI DUA GUDANG SECARA SPESIFIK
-    const [autoRes, semiRes] = await Promise.all([
-      uuidIds.length > 0 
-        ? supabaseAdmin.from('product_automatic').select('id, price, cost').in('id', uuidIds)
-        : Promise.resolve({ data: [], error: null }),
-      numericIds.length > 0
-        ? supabaseAdmin.from('product_semi_auto').select('id, price_numeric, cost_numeric').in('id', numericIds)
-        : Promise.resolve({ data: [], error: null })
+// 2. TARIK DATA DARI DUA GUDANG + STORE SETTINGS SEKALIGUS
+    const [autoRes, semiRes, settingsRes] = await Promise.all([
+      uuidIds.length > 0 ? supabaseAdmin.from('product_automatic').select('id, price, cost').in('id', uuidIds) : Promise.resolve({ data: [], error: null }),
+      numericIds.length > 0 ? supabaseAdmin.from('product_semi_auto').select('id, price_numeric, cost_numeric').in('id', numericIds) : Promise.resolve({ data: [], error: null }),
+      supabaseAdmin.from('store_settings').select('cashback_percent').limit(1).single()
     ]);
 
     if (autoRes.error) throw autoRes.error;
     if (semiRes.error) throw semiRes.error;
 
-    // 3. FUNGSI PEMBUAT UPDATE PAYLOAD (Hanya kolom yang mau diubah saja Bos!)
+    const dbCashbackPercent = Number(settingsRes.data?.cashback_percent || 3);
+
+    // 3. FUNGSI PEMBUAT UPDATE PAYLOAD
     const processUpdates = (products: any[], isSemiAuto: boolean) => {
       return products.map((p: any) => {
         const price = Number(isSemiAuto ? (p.price_numeric || 0) : (p.price || 0));
         const cost = Number(isSemiAuto ? (p.cost_numeric || 0) : (p.cost || 0));
         const profitKotor = price - cost;
         
-        // Hitung Cashback Normal (Reset ke settingan global)
-        const cbNormal = Math.floor(price * (Number(globalCashback || 3) / 100));
-        const plafonMaks = Math.max(0, Math.floor(profitKotor * 0.3));
-        const finalCashback = (cbNormal > plafonMaks && profitKotor > 0) ? plafonMaks : cbNormal;
+        // Anti Boncos + Acuan Store Settings
+        let finalCashback = 0;
+        if (profitKotor > 0) {
+          const cbNormal = Math.floor(price * (dbCashbackPercent / 100));
+          const plafonMaks = Math.floor(profitKotor * 0.3);
+          finalCashback = Math.min(cbNormal, plafonMaks);
+        }
 
-        return {
-          id: p.id,
-          discount: 0,        // RESET DISKON KE 0
-          promo_label: null,  // HAPUS LABEL PROMO
-          cashback: finalCashback,
-          updated_at: new Date().toISOString()
-        };
-      });
-    };
+        return {
+          id: p.id,
+          discount: 0,        // RESET DISKON KE 0
+          promo_label: null,  // HAPUS LABEL PROMO
+          cashback: finalCashback,
+          updated_at: new Date().toISOString()
+        };
+      });
+    };
 
     const updatesAuto = processUpdates(autoRes.data || [], false);
     const updatesSemi = processUpdates(semiRes.data || [], true);

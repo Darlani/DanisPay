@@ -663,18 +663,16 @@ const handleBulkDelete = async () => {
       const omzetTotal = hargaSetelahDiskon * stock;
 
 let cbPerItem = 0;
-      const profitKotor = hargaSetelahDiskon - (Number(item.cost) || 0);
+      const profitKotor = hargaSetelahDiskon - (Number(item.cost) || 0);
 
-      if (profitKotor <= 0) {
-        cbPerItem = 0; // Est cuan tidak boleh dikurangi cashback gaib jika profit nol
-      } else if (diskonPersen > 0) {
-        const randomPersen = (String(item.id).charCodeAt(0) % 6) + 15;
-        cbPerItem = Math.floor(profitKotor * (randomPersen / 100));
-      } else {
-        const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100));
-        const plafonMaks = Math.floor(profitKotor * 0.3);
-        cbPerItem = Math.min(cbNormal, plafonMaks);
-      }
+      // Rumus murni sesuai database, tidak pakai random lagi
+      if (profitKotor <= 0) {
+        cbPerItem = 0;
+      } else {
+        const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100));
+        const plafonMaks = Math.floor(profitKotor * 0.3);
+        cbPerItem = Math.min(cbNormal, plafonMaks);
+      }
 
       const totalProfitBersih = (hargaSetelahDiskon - (Number(item.cost) || 0) - cbPerItem) * stock;
       return { totalOmzet: acc.totalOmzet + omzetTotal, totalModal: acc.totalModal + modal, totalProfit: acc.totalProfit + totalProfitBersih };

@@ -6,7 +6,13 @@ export async function PUT(req: Request) { return handleRequest(req, 'PUT'); }
 
 async function handleRequest(req: Request, method: string) {
   try {
-    const payload = await req.json();
+    const payload = await req.json(); // Abaikan globalCashback dari payload
+
+    // ======================================================================
+    // 0. TARIK SETTINGAN TOKO SEBAGAI ACUAN MUTLAK
+    // ======================================================================
+    const { data: settingsData } = await supabaseAdmin.from('store_settings').select('cashback_percent').limit(1).single();
+    const dbCashbackPercent = Number(settingsData?.cashback_percent || 3);
     
     // 1. Hitung Harga Jual Dasar (hBase)
     const hBase = Math.ceil((payload.cost * (1 + payload.margin_item / 100)) / 100) * 100;
@@ -16,14 +22,16 @@ async function handleRequest(req: Request, method: string) {
     const nominalDiskon = Math.floor(hBase * (currentDiscount / 100));
     const hFinal = hBase - nominalDiskon;
 
-    // 3. Hitung Profit & Capped Cashback (30% dari Profit)
+    // 3. Hitung Profit & Cashback (Benteng Anti-Boncos Mutlak)
     const profitKotor = hFinal - payload.cost;
-    const persenCB = Number(payload.globalCashback) || 3;
-    const cbNormal = Math.floor(hFinal * (persenCB / 100));
-    const plafonMaks = Math.max(0, Math.floor(profitKotor * 0.3));
-
-    // Satpam anti-bocor: Cashback tidak boleh lebih dari 30% profit
-    const finalCashback = profitKotor > 0 ? Math.min(cbNormal, plafonMaks) : 0;
+    
+    let finalCashback = 0;
+    if (profitKotor > 0) {
+      // Cashback dihitung dari harga setelah diskon (hFinal) sesuai settingan database
+      const cbNormal = Math.floor(hFinal * (dbCashbackPercent / 100));
+      const plafonMaks = Math.floor(profitKotor * 0.3); // Maksimal 30% dari profit kotor
+      finalCashback = Math.min(cbNormal, plafonMaks);
+    }
 
     // ======================================================================
     // 4. 🧠 OTAK PINTAR DETEKSI GUDANG & MAPPING KOLOM
