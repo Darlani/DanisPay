@@ -67,11 +67,17 @@ export async function POST(req: Request) {
         }
     }
 
-    // 4. SAVE KE DATABASE (Sesuai alamat gudangnya)
-    const { error: updateErr } = await supabaseAdmin.from(targetTable).update(updateData).eq('id', id);
-    if (updateErr) throw updateErr;
+// 4. SAVE KE DATABASE (Sesuai alamat gudangnya)
+    const { error: updateErr } = await supabaseAdmin.from(targetTable).update(updateData).eq('id', id);
+    if (updateErr) throw updateErr;
 
-    return NextResponse.json({ success: true });
+    // Format balikan agar sesuai dengan nama kolom di frontend
+    const returnedData = {
+      ...updateData,
+      price: isSemiAuto ? updateData.price_numeric : updateData.price
+    };
+
+    return NextResponse.json({ success: true, updatedData: returnedData });
   } catch (error: any) {
     console.error("QUICK EDIT ERROR:", error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

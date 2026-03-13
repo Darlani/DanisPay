@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { 
   Package, Plus, Search, Trash2, Edit3, Save, X, 
-  Layers, Loader2, TrendingUp, Zap, DollarSign, Activity, Lock, Unlock
+  Layers, Loader2, TrendingUp, Zap, DollarSign, Activity, Lock, Unlock, CheckCircle2
 } from "lucide-react";
 
 interface MarginConfig {
@@ -108,6 +108,7 @@ const [allStrategies, setAllStrategies] = useState<any>({
   const [quickEditing, setQuickEditing] = useState<{id: string, field: string} | null>(null);
   const [quickValue, setQuickValue] = useState<string | number>("");
   const [logs, setLogs] = useState<any[]>([]);
+  const [toastMsg, setToastMsg] = useState<string | null>(null); // State untuk Notifikasi Toast
 
   useEffect(() => {
     if (allStrategies[activeStrategyName]) {
@@ -277,22 +278,27 @@ async function fetchLiveBalance() {
     }
   };
 
-  const handleQuickUpdate = async (id: string, field: string, value: any) => {
-    const finalValue = (field === 'promo_label' || field === 'lock_margin') ? value : Number(value);
-    try {
-      const res = await fetch('/api/admin/products/quick-edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, field, value: finalValue, globalCashback })
-      });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error);
-      setQuickEditing(null);
-      fetchData(); 
-    } catch (err: any) {
-      alert("GAGAL UPDATE: " + err.message);
-    }
-  };
+const handleQuickUpdate = async (id: string, field: string, value: any) => {
+    const finalValue = (field === 'promo_label' || field === 'lock_margin') ? value : Number(value);
+    try {
+      const res = await fetch('/api/admin/products/quick-edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, field, value: finalValue, globalCashback })
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error);
+      setQuickEditing(null);
+      
+      // Update data di layar secara instan khusus untuk promo_label
+      if (field === 'promo_label') {
+          handleLocalChange(id, 'promo_label', value);
+      }
+      // fetchData() dihapus agar tidak reload
+    } catch (err: any) {
+      alert("GAGAL UPDATE: " + err.message);
+    }
+  };
 
   const getUnitByBrand = (brandName: string) => {
     const name = brandName.toLowerCase();
@@ -681,21 +687,39 @@ const handleBulkDelete = async () => {
   };
 
 // 2. SIMPAN KE DATABASE DI BELAKANG LAYAR (Silent Save)
-  const handleSilentSave = async (id: string, field: string, value: any) => {
-    const finalValue = (field === 'promo_label' || field === 'lock_margin') ? value : Number(value);
-    try {
-      await fetch('/api/admin/products/quick-edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, field, value: finalValue, globalCashback })
-      });
-      
-      // Panggil fetchData untuk tarik data terbaru dari 2 gudang (Auto & Semi)
-      fetchData(); 
-    } catch (err: any) {
-      console.error("GAGAL UPDATE:", err.message);
-    }
-  };
+  const handleSilentSave = async (id: string, field: string, value: any) => {
+    const finalValue = (field === 'promo_label' || field === 'lock_margin') ? value : Number(value);
+    try {
+      const res = await fetch('/api/admin/products/quick-edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, field, value: finalValue, globalCashback })
+      });
+      
+      const data = await res.json();
+
+// Jika backend sukses menghitung ulang anti-korupsi, langsung update UI-nya!
+      if (data.success && data.updatedData) {
+        setToastMsg("TERSIMPAN!");
+        setTimeout(() => setToastMsg(null), 2500); // Hilang otomatis dalam 2.5 detik
+
+        setProducts(prev => prev.map(p => {
+          if (p.id === id) {
+            return {
+              ...p,
+              ...(data.updatedData.margin_item !== undefined && { margin_item: data.updatedData.margin_item }),
+              ...(data.updatedData.discount !== undefined && { discount: data.updatedData.discount }),
+              ...(data.updatedData.cashback !== undefined && { cashback: data.updatedData.cashback }),
+              ...(data.updatedData.price !== undefined && { price: data.updatedData.price }),
+            };
+          }
+          return p;
+        }));
+      }
+    } catch (err: any) {
+      console.error("GAGAL UPDATE:", err.message);
+    }
+  };
 
   // 3. TOGGLE LANGSUNG (Untuk Lock Margin / Promo)
   const handleToggleLock = async (id: string, currentValue: boolean) => {
@@ -1202,6 +1226,13 @@ const handleBulkDelete = async () => {
           </table>
         </div> 
       </div>
+
+      {/* TOAST NOTIFIKASI SILENT SAVE */}
+      {toastMsg && (
+        <div className="fixed bottom-10 right-4 md:right-10 bg-emerald-500 text-white px-5 py-3 rounded-2xl shadow-xl shadow-emerald-900/20 font-black text-[10px] tracking-widest uppercase animate-in slide-in-from-bottom-5 fade-in duration-300 z-50 flex items-center gap-2 border border-emerald-400">
+          <CheckCircle2 size={16} className="animate-pulse" /> {toastMsg}
+        </div>
+      )}
     </div>
   ); 
 }
