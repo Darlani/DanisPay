@@ -662,17 +662,19 @@ const handleBulkDelete = async () => {
       const hargaSetelahDiskon = hargaJualAsli - Math.floor(hargaJualAsli * (diskonPersen / 100));
       const omzetTotal = hargaSetelahDiskon * stock;
 
-      let cbPerItem = 0;
-      if (diskonPersen > 0) {
-        const profitKotor = hargaSetelahDiskon - (Number(item.cost) || 0);
-        if (profitKotor > 0) {
-          // Paksa ID jadi String dulu Bos agar ID angka nggak bikin crash! [cite: 2026-03-13]
-          const randomPersen = (String(item.id).charCodeAt(0) % 6) + 15;
-          cbPerItem = Math.floor(profitKotor * (randomPersen / 100));
-        }
-      } else {
-        cbPerItem = Math.floor(hargaSetelahDiskon * (globalCashback / 100));
-      }
+let cbPerItem = 0;
+      const profitKotor = hargaSetelahDiskon - (Number(item.cost) || 0);
+
+      if (profitKotor <= 0) {
+        cbPerItem = 0; // Est cuan tidak boleh dikurangi cashback gaib jika profit nol
+      } else if (diskonPersen > 0) {
+        const randomPersen = (String(item.id).charCodeAt(0) % 6) + 15;
+        cbPerItem = Math.floor(profitKotor * (randomPersen / 100));
+      } else {
+        const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100));
+        const plafonMaks = Math.floor(profitKotor * 0.3);
+        cbPerItem = Math.min(cbNormal, plafonMaks);
+      }
 
       const totalProfitBersih = (hargaSetelahDiskon - (Number(item.cost) || 0) - cbPerItem) * stock;
       return { totalOmzet: acc.totalOmzet + omzetTotal, totalModal: acc.totalModal + modal, totalProfit: acc.totalProfit + totalProfitBersih };

@@ -49,23 +49,25 @@ export async function POST(req: Request) {
         updateData.cashback = Number(value);
     }
 
-    // 3. HITUNG ULANG CASHBACK (Logika Asli Bos: Kecuali bos lagi ngetik manual di kolom cashback)
-    if (field === 'margin_item' || field === 'discount') {
-        const hargaSetelahDiskon = currentPrice - Math.floor(currentPrice * (currentDiscount / 100));
-        const profitKotor = hargaSetelahDiskon - currentCost;
+// 3. HITUNG ULANG CASHBACK (Logika Asli Bos: Kecuali bos lagi ngetik manual di kolom cashback)
+    if (field === 'margin_item' || field === 'discount') {
+        const hargaSetelahDiskon = currentPrice - Math.floor(currentPrice * (currentDiscount / 100));
+        const profitKotor = hargaSetelahDiskon - currentCost;
 
-        if (currentDiscount > 0 && profitKotor > 0) {
-            const randomPersen = (String(product.id).charCodeAt(0) % 6) + 15;
-            updateData.cashback = Math.floor(profitKotor * (randomPersen / 100));
-        } else if (currentDiscount === 0) {
-            const gbCb = Number(globalCashback) || 3;
-            const cbNormal = Math.floor(hargaSetelahDiskon * (gbCb / 100));
-            const plafonMaks = Math.floor(profitKotor * 0.3);
-            updateData.cashback = (cbNormal > plafonMaks && profitKotor > 0) ? plafonMaks : cbNormal;
-        } else {
-            updateData.cashback = 0; // Kalo boncos, cashback dimatiin
-        }
-    }
+        if (profitKotor <= 0) {
+            // ANTI-BONCOS MUTLAK: Profit 0 atau minus, cashback WAJIB 0!
+            updateData.cashback = 0;
+        } else if (currentDiscount > 0) {
+            const randomPersen = (String(product.id).charCodeAt(0) % 6) + 15;
+            updateData.cashback = Math.floor(profitKotor * (randomPersen / 100));
+        } else {
+            const gbCb = Number(globalCashback) || 3;
+            const cbNormal = Math.floor(hargaSetelahDiskon * (gbCb / 100));
+            const plafonMaks = Math.floor(profitKotor * 0.3);
+            // Pakai Math.min agar selalu ambil nilai yang paling kecil antara normal dan plafon 30%
+            updateData.cashback = Math.min(cbNormal, plafonMaks);
+        }
+    }
 
 // 4. SAVE KE DATABASE (Sesuai alamat gudangnya)
     const { error: updateErr } = await supabaseAdmin.from(targetTable).update(updateData).eq('id', id);
