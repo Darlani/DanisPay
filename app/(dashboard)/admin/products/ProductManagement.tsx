@@ -458,19 +458,20 @@ const handleStopFlashSale = async () => {
     if (!formData.sku) return alert("ISI KODE SKU DULU, BOS!");
     setCheckingSku(true);
     try {
-// Ambil kolom spesifik saja agar pencarian ringan [cite: 2026-03-07]
+// Tarik kolom sesuai kenyataan di database Bos [cite: 2026-03-07]
       const { data: itemData, error } = await supabase
         .from('items')
-        .select('sku, buyer_sku_code, sub_brand_slug, type, brand_slug, brand, name, product_name, modal, price, category')
+        .select('sku, name, modal, brand_slug, sub_brand_slug')
         .eq('sku', formData.sku)
         .single();
+
       if (error || !itemData) return alert("SKU TIDAK DITEMUKAN DI GUDANG ITEMS!");
 
-      // ambil data aman, cover format digiflazz (product_name, price, brand)
-      const fetchedSubBrand = itemData.sub_brand_slug || itemData.type || "";
-      const itemBrand = itemData.brand_slug || itemData.brand || "";
-      const itemName = itemData.name || itemData.product_name || "";
-      const itemModal = itemData.modal || itemData.price || 0;
+      // 1. Mapping data yang beneran ada
+      const fetchedSubBrand = itemData.sub_brand_slug || "";
+      const itemBrand = itemData.brand_slug || "";
+      const itemName = itemData.name || "";
+      const itemModal = Number(itemData.modal || 0);
 
       // logika pencarian brand lebih pintar
       const foundBrand = brandsList.find(b => 
@@ -479,10 +480,9 @@ const handleStopFlashSale = async () => {
           (b.name && b.name.toLowerCase().includes(itemBrand.toLowerCase()))
       );
 
-      // logika pencarian kategori
+      // logika pencarian kategori (Hanya andalkan relasi Brand karena kolom category di items sudah tidak ada) [cite: 2026-03-07]
       const foundCategory = categories.find(c => 
-          (foundBrand && foundBrand.category?.toLowerCase() === c.name?.toLowerCase()) ||
-          (itemData.category && itemData.category.toLowerCase() === c.name?.toLowerCase())
+          foundBrand && foundBrand.category_id === c.id
       );
 
       const fetchedModal = Number(itemModal);
@@ -505,7 +505,7 @@ const handleStopFlashSale = async () => {
         brand_id: foundBrand ? String(foundBrand.id) : prev.brand_id,
         category_id: foundCategory ? String(foundCategory.id) : prev.category_id,
         sub_brand: fetchedSubBrand, 
-        sku: itemData.sku || itemData.buyer_sku_code, 
+        sku: itemData.sku, // buyer_sku_code sudah dihapus dari select 
         lock_margin: false
       }));
 
