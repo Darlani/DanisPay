@@ -178,13 +178,13 @@ async function fetchLiveBalance() {
   async function fetchData() {
     setLoading(true);
     try {
-      // 1. Tarik dari 2 gudang (Hapus kata provider & cashback di select karena sudah otomatis ikut di tanda Bintang *) [cite: 2026-03-07]
+      // 1. Tarik dari 2 gudang dengan paksaan jalur relasi (Hint) [cite: 2026-03-07]
       const [autoRes, semiRes] = await Promise.all([
         supabase.from('product_automatic')
-          .select('*, categories(name), brands(name)')
+          .select('*, categories!product_automatic_category_id_fkey(name), brands!product_automatic_brand_id_fkey(name)')
           .order('updated_at', { ascending: false }),
         supabase.from('product_semi_auto')
-          .select('*, categories(name), brands(name)')
+          .select('*, categories!product_semi_auto_category_id_fkey(name), brands!product_semi_auto_brand_id_fkey(name)')
           .order('updated_at', { ascending: false })
       ]);
 
