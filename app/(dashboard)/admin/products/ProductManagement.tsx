@@ -212,9 +212,10 @@ async function fetchLiveBalance() {
 
       setProducts(combinedProducts);
 
-      const { data: settingsData } = await supabase
+    const { data: settingsData } = await supabase
         .from('store_settings')
-        .select('*')
+        // Ambil kolom ini agar settingan "Iron Guard" & "Cashback" tetap sinkron [cite: 2026-03-07]
+        .select('margin_json, cashback_percent, balance_digiflazz')
         .limit(1)
         .single();
 
@@ -457,7 +458,12 @@ const handleStopFlashSale = async () => {
     if (!formData.sku) return alert("ISI KODE SKU DULU, BOS!");
     setCheckingSku(true);
     try {
-      const { data: itemData, error } = await supabase.from('items').select('*').eq('sku', formData.sku).single();
+// Ambil kolom spesifik saja agar pencarian ringan [cite: 2026-03-07]
+      const { data: itemData, error } = await supabase
+        .from('items')
+        .select('sku, buyer_sku_code, sub_brand_slug, type, brand_slug, brand, name, product_name, modal, price, category')
+        .eq('sku', formData.sku)
+        .single();
       if (error || !itemData) return alert("SKU TIDAK DITEMUKAN DI GUDANG ITEMS!");
 
       // ambil data aman, cover format digiflazz (product_name, price, brand)
@@ -654,7 +660,8 @@ const handleBulkDelete = async () => {
       if (diskonPersen > 0) {
         const profitKotor = hargaSetelahDiskon - (Number(item.cost) || 0);
         if (profitKotor > 0) {
-          const randomPersen = (item.id.charCodeAt(0) % 6) + 15;
+          // Paksa ID jadi String dulu Bos agar ID angka nggak bikin crash! [cite: 2026-03-13]
+          const randomPersen = (String(item.id).charCodeAt(0) % 6) + 15;
           cbPerItem = Math.floor(profitKotor * (randomPersen / 100));
         }
       } else {
@@ -673,7 +680,7 @@ const handleBulkDelete = async () => {
     setProducts(prev => prev.map(p => p.id === id ? { ...p, [field]: safeValue } : p));
   };
 
-  // 2. SIMPAN KE DATABASE DI BELAKANG LAYAR (Silent Save)
+// 2. SIMPAN KE DATABASE DI BELAKANG LAYAR (Silent Save)
   const handleSilentSave = async (id: string, field: string, value: any) => {
     const finalValue = (field === 'promo_label' || field === 'lock_margin') ? value : Number(value);
     try {
@@ -683,7 +690,7 @@ const handleBulkDelete = async () => {
         body: JSON.stringify({ id, field, value: finalValue, globalCashback })
       });
       
-      // Langsung panggil ini biar data terbaru ditarik rapi dari 2 gudang!
+      // Panggil fetchData untuk tarik data terbaru dari 2 gudang (Auto & Semi)
       fetchData(); 
     } catch (err: any) {
       console.error("GAGAL UPDATE:", err.message);

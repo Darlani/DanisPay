@@ -9,18 +9,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Tidak ada produk terpilih" }, { status: 400 });
     }
 
-    // 1. PISAHKAN ID BERDASARKAN FORMAT (UUID vs ANGKA) [cite: 2026-03-13]
-    // UUID biasanya ada tanda "-" atau panjangnya lebih dari 20 karakter
-    const uuidIds = selectedIds.filter((id: any) => String(id).includes('-') || String(id).length > 20);
-    const numericIds = selectedIds.filter((id: any) => !String(id).includes('-') && String(id).length <= 20);
+// 1. PISAHKAN ID (UUID vs ANGKA) AGAR POSTGRES TIDAK MABUK [cite: 2026-03-13]
+    const uuidIds = selectedIds.filter((id: any) => isNaN(Number(id))); 
+    const numericIds = selectedIds.filter((id: any) => !isNaN(Number(id)));
 
-    // 2. CARI PRODUK DI GUDANG MASING-MASING
+    // 2. CARI PRODUK DI GUDANG MASING-MASING SECARA SPESIFIK
     const [autoRes, semiRes] = await Promise.all([
       uuidIds.length > 0 
-        ? supabaseAdmin.from('product_automatic').select('*, categories(name)').in('id', uuidIds)
+        ? supabaseAdmin.from('product_automatic').select('id, cost, margin_item, lock_margin, discount, promo_label, categories(name)').in('id', uuidIds)
         : Promise.resolve({ data: [], error: null }),
       numericIds.length > 0
-        ? supabaseAdmin.from('product_semi_auto').select('*, categories(name)').in('id', numericIds)
+        ? supabaseAdmin.from('product_semi_auto').select('id, cost_numeric, margin_item, lock_margin, discount, promo_label, categories(name)').in('id', numericIds)
         : Promise.resolve({ data: [], error: null })
     ]);
 
