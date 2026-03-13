@@ -42,14 +42,26 @@ compiler: {
   // INI MANTRA BARU YANG BENAR UNTUK NEXT.JS 15+ BOS!
   devIndicators: false,
 
-  async rewrites() {
-    return [
-      {
-        source: '/:slug',
-        destination: '/ProductSection/:slug',
-      },
-    ];
-  },
+async redirects() {
+    return [
+      {
+        // Gunakan :slug* agar jika ada sub-path tetap terlempar ke URL baru
+        source: '/ProductSection/:slug*',
+        destination: '/:slug*',
+        permanent: true,
+      },
+    ];
+  },
+
+  async rewrites() {
+    return [
+      {
+        // Cegah rewrite untuk jalur sistem agar admin dan api tidak error
+        source: '/((?!admin|api|login|checkout|_next|static|favicon.ico).*)',
+        destination: '/ProductSection/:slug*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -103,7 +103,8 @@ export default function ProductSection({ title, category, id }: ProductSectionPr
           visibleProducts.map((product: any, index: number) => (
             <Link 
               key={product.id || product.slug} 
-              href={`/ProductSection/${product.slug}`} 
+              // Hapus /ProductSection/ agar langsung menembak ke URL pendek
+              href={`/${product.slug}`} 
               className="group flex flex-col rounded-xl overflow-hidden border border-slate-700 hover:border-blue-500 transition-all duration-300 shadow-lg hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] bg-slate-900"
             >
               {/* Bagian Gambar (Atas) */}
