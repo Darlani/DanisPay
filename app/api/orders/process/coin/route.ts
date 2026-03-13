@@ -21,10 +21,12 @@ export async function POST(req: Request) {
 
     const { order_id, email } = await req.json();
 
-    // 1. Ambil data Order & Profil Buyer (Kodingan asli lu lanjut di sini)
+// 1. Ambil data Order (Hanya kolom yang diperlukan saja Bos! [cite: 2026-03-07])
     const [orderRes, profileRes] = await Promise.all([
-      supabaseAdmin.from('orders').select('*').eq('order_id', order_id).single(),
-      supabaseAdmin.from('profiles').select('*').eq('email', email).single()
+      supabaseAdmin.from('orders')
+        .select('id, order_id, status, used_balance, user_id, category, price, buy_price, product_name, item_label, referred_by, cashback, raw_tagihan, product_type')
+        .eq('order_id', order_id).single(),
+      supabaseAdmin.from('profiles').select('id, balance, email, member_type, referred_by').eq('email', email).single()
     ]);
 
     const order = orderRes.data;
@@ -139,48 +141,51 @@ export async function POST(req: Request) {
       }
     }
 
-// 4. EKSEKUSI FINAL (DENGAN TANDA WAKTU BARU) [cite: 2026-03-06]
-await Promise.all([
-  supabaseAdmin.from('profiles').update({ balance: finalBalance }).eq('id', profile.id),
-  supabaseAdmin.from('orders').update({ 
-    status: 'Diproses',
-    updated_at: new Date().toISOString() 
-  }).eq('order_id', order_id),
-  supabaseAdmin.from('balance_logs').insert([{ 
-    user_id: profile.id, 
-    user_email: email, 
-    amount: -order.used_balance + cbNominal, 
-    type: 'Payment', 
-    description: `Full Koin Order #${order_id}`,
-    initial_balance: profile.balance,
-    final_balance: finalBalance
-  }])
-]);
+// 4. EKSEKUSI FINAL (DENGAN TANDA WAKTU BARU)
+    await Promise.all([
+      supabaseAdmin.from('profiles').update({ balance: finalBalance }).eq('id', profile.id),
+      supabaseAdmin.from('orders').update({ 
+        status: 'Diproses',
+        updated_at: new Date().toISOString() 
+      }).eq('order_id', order_id),
+      supabaseAdmin.from('balance_logs').insert([{ 
+        user_id: profile.id, 
+        user_email: email, 
+        amount: -order.used_balance + cbNominal, 
+        type: 'Payment', 
+        description: `Full Koin Order #${order_id}`,
+        initial_balance: profile.balance,
+        final_balance: finalBalance
+      }])
+    ]);
 
-// 5. LAPOR TELEGRAM (STATUS DIPROSES)
-    const telegramMsg = `<b>TRANSAKSI FULL KOIN!</b> 🪙\n\n` +
-      `📦 Produk: <b>${order.product_name} - ${order.item_label}</b>\n` +
-      `🪙 Koin DaPay: <b>- Rp ${order.used_balance.toLocaleString('id-ID')}</b>\n` +
-      `👤 User: <b>${email}</b>\n` +
-      `🆔 Invoice: <b>${order_id}</b>\n` +
-      `🔄 Status: <b>DIPROSES (NEMBAK VENDOR)</b>\n\n` + 
-      `<i>*Catatan: Menunggu laporan sukses dari Digiflazz.</i>`;
+    // 5. 🕵️ LOGIKA DETEKSI JALUR (HYBRID: KTP + KEYWORDS)
+    const kategoriNotif = (order.category || "").toLowerCase();
+    const manualKeywords = ['manual', 'jasa', 'konten', 'software', 'voucher'];
+    const isManualProduct = order.product_type === 'manual' || manualKeywords.some(k => kategoriNotif.includes(k));
+
+    const telegramMsg = `<b>TRANSAKSI FULL KOIN!</b> 🪙\n\n` +
+      `📦 Produk: <b>${order.product_name} - ${order.item_label}</b>\n` +
+      `🪙 Koin DaPay: <b>- Rp ${order.used_balance.toLocaleString('id-ID')}</b>\n` +
+      `👤 User: <b>${email}</b>\n` +
+      `🆔 Invoice: <b>${order_id}</b>\n` +
+      `🔄 Status: <b>DIPROSES (${isManualProduct ? 'PROSES MANUAL/STOK' : 'NEMBAK VENDOR'})</b>\n\n` + 
+      `<i>*Catatan: ${isManualProduct ? 'Mohon segera diproses manual!' : 'Menunggu eksekusi.'}</i>`;
 
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
 
-    fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            chat_id: chatId,
-            text: telegramMsg,
-            parse_mode: 'HTML'
-        })
-    }).catch(e => console.error("Gagal lapor telegram di background:", e.message));
+    // 🤫 LOGIKA SENYAP FASE 1
+    if (!settings?.is_digiflazz_active || isManualProduct) {
+      fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text: telegramMsg, parse_mode: 'HTML' })
+      }).catch(e => console.error("Gagal lapor telegram di background:", e.message));
+    }
 
-    // 6. EKSEKUSI KE DIGIFLAZZ (HANYA JIKA MODE LIVE AKTIF) [cite: 2026-02-28]
-    if (settings?.is_digiflazz_active) {
+    // 6. EKSEKUSI KE DIGIFLAZZ (HANYA JIKA LIVE AKTIF & BUKAN PRODUK MANUAL)
+    if (settings?.is_digiflazz_active && !isManualProduct) {
        console.log(`🚀 [FULL KOIN] Mode Live Aktif. Meneruskan Order #${order.order_id} ke Digiflazz...`);
        
        try {

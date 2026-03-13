@@ -21,7 +21,8 @@ export async function POST(req: Request) {
 
     // 1. AMBIL DATA ORDER & CEK SAKLAR LIVE
     const [orderRes, settingsRes] = await Promise.all([
-      supabaseAdmin.from('orders').select('*').eq('order_id', order_id).single(),
+      // Hanya panggil kolom yang dipakai: id, order_id, status, sku, game_id, category [cite: 2026-03-07]
+      supabaseAdmin.from('orders').select('id, order_id, status, sku, game_id, category').eq('order_id', order_id).single(),
       supabaseAdmin.from('store_settings').select('is_digiflazz_active').single()
     ]);
 

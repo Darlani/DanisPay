@@ -23,7 +23,11 @@ export async function POST(req: Request) {
     }
 
     const [orderRes, settingsRes] = await Promise.all([
-      supabaseAdmin.from('orders').select('*').eq('order_id', order_id).single(),
+      // Panggil kolom yang dipakai saja: id, order_id, status, sku, game_id, category [cite: 2026-03-07]
+      supabaseAdmin.from('orders')
+        .select('id, order_id, status, sku, game_id, category')
+        .eq('order_id', order_id)
+        .single(),
       supabaseAdmin.from('store_settings').select('is_digiflazz_active').single()
     ]);
 
@@ -39,9 +43,9 @@ export async function POST(req: Request) {
 if (isLiveMode) {
       console.log(`🚀 [AUTO-FALLBACK] Mencari harga TERMURAH untuk Order #${order_id}...`);
       
-      // 1. Ambil data produk utama untuk referensi pencarian
+      // 1. Ambil data dari gudang baru: product_automatic [cite: 2026-03-13]
       const { data: mainProd } = await supabaseAdmin
-        .from('products')
+        .from('product_automatic')
         .select('name, brand, sku')
         .eq('sku', order.sku)
         .single();

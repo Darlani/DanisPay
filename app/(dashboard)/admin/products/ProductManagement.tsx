@@ -178,13 +178,38 @@ async function fetchLiveBalance() {
   async function fetchData() {
     setLoading(true);
     try {
-      const { data: productData, error: prodError } = await supabase
-        .from('products')
-        .select(`*, provider, cashback, categories!products_category_id_fkey (name), brands!products_brand_id_fkey (name)`)
-        .order('updated_at', { ascending: false });
+      // 1. Tarik dari 2 gudang sekaligus
+      const [autoRes, semiRes] = await Promise.all([
+        supabase.from('product_automatic')
+          .select(`*, provider, cashback, categories!product_automatic_category_id_fkey (name), brands!product_automatic_brand_id_fkey (name)`)
+          .order('updated_at', { ascending: false }),
+        supabase.from('product_semi_auto')
+          .select(`*, provider, cashback, categories!product_semi_auto_category_id_fkey (name), brands!product_semi_auto_brand_id_fkey (name)`)
+          .order('updated_at', { ascending: false })
+      ]);
 
-      if (prodError) throw prodError;
-      setProducts(productData || []);
+      if (autoRes.error) console.error("Error Auto:", autoRes.error);
+      if (semiRes.error) console.error("Error Semi:", semiRes.error);
+
+      // 2. Mapping Semi-Auto agar selaras dengan nama kolom tabel layar
+      const mappedSemi = (semiRes.data || []).map((item: any) => ({
+        ...item,
+        price: item.price_numeric, // Samakan nama variabelnya untuk frontend
+        cost: item.cost_numeric,
+        source_table: 'product_semi_auto' // Tanda pengenal gudang
+      }));
+
+      const mappedAuto = (autoRes.data || []).map((item: any) => ({
+        ...item,
+        source_table: 'product_automatic' // Tanda pengenal gudang
+      }));
+
+      // 3. Gabungkan dan urutkan
+      const combinedProducts = [...mappedAuto, ...mappedSemi].sort((a, b) => {
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      });
+
+      setProducts(combinedProducts);
 
       const { data: settingsData } = await supabase
         .from('store_settings')

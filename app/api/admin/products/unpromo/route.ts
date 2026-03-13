@@ -9,42 +9,52 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Pilih produk dulu bos!" }, { status: 400 });
     }
 
-    // 1. Ambil SEMUA kolom (*) biar nggak ada yang ketinggalan atau kena cegat NOT NULL
-    const { data: products, error: fetchError } = await supabaseAdmin
-      .from('products')
-      .select('*') // Pakai bintang biar semua kolom (brand, sku, sub_brand, dll) ikut narik
-      .in('id', selectedIds);
+    // 1. CARI DI KEDUA GUDANG SEKALIGUS (Tetap pakai select * sesuai request Bos)
+    const [autoRes, semiRes] = await Promise.all([
+      supabaseAdmin.from('product_automatic').select('*').in('id', selectedIds),
+      supabaseAdmin.from('product_semi_auto').select('*').in('id', selectedIds)
+    ]);
 
-    if (fetchError) throw fetchError;
+    const autoProducts = autoRes.data || [];
+    const semiProducts = semiRes.data || [];
 
-    // 2. Siapkan data update - Pakai spread operator (...) biar kolom lain nggak berubah
-    const updates = (products || []).map((p: any) => {
-      const price = Number(p.price || 0);
-      const cost = Number(p.cost || 0);
-      const profitKotor = price - cost;
-      
-      const cbNormal = Math.floor(price * (Number(globalCashback || 3) / 100));
-      // Plafon cashback 30% dari profit (Biar DanisPay nggak boncos)
-      const plafonMaks = Math.max(0, Math.floor(profitKotor * 0.3));
-      const finalCashback = cbNormal > plafonMaks ? plafonMaks : cbNormal;
+    // 2. FUNGSI PEMBUAT UPDATE PAYLOAD
+    const createUpdates = (products: any[], isSemiAuto: boolean) => {
+      return products.map((p: any) => {
+        // Handle perbedaan nama kolom untuk semi_auto
+        const price = Number(isSemiAuto ? (p.price_numeric || 0) : (p.price || 0));
+        const cost = Number(isSemiAuto ? (p.cost_numeric || 0) : (p.cost || 0));
+        const profitKotor = price - cost;
+        
+        const cbNormal = Math.floor(price * (Number(globalCashback || 3) / 100));
+        const plafonMaks = Math.max(0, Math.floor(profitKotor * 0.3));
+        const finalCashback = cbNormal > plafonMaks ? plafonMaks : cbNormal;
 
-      return {
-        ...p,            // <--- INI KUNCINYA: Masukin semua data asli p (brand, sku, dll)
-        discount: 0,     // Matikan diskon
-        promo_label: null, // Hapus label promo
-        cashback: finalCashback,
-        updated_at: new Date().toISOString()
-      };
-    });
+        return {
+          ...p,            // Masukkan semua data asli
+          discount: 0,     // Matikan diskon
+          promo_label: null, // Hapus label promo
+          cashback: finalCashback,
+          updated_at: new Date().toISOString()
+        };
+      });
+    };
 
-    // 3. Eksekusi Upsert (Update massal)
-    const { error: updateError } = await supabaseAdmin
-      .from('products')
-      .upsert(updates);
+    const autoUpdates = createUpdates(autoProducts, false);
+    const semiUpdates = createUpdates(semiProducts, true);
 
-    if (updateError) throw updateError;
+    // 3. EKSEKUSI UPSERT KE MASING-MASING GUDANG
+    const updatePromises = [];
+    if (autoUpdates.length > 0) {
+      updatePromises.push(supabaseAdmin.from('product_automatic').upsert(autoUpdates));
+    }
+    if (semiUpdates.length > 0) {
+      updatePromises.push(supabaseAdmin.from('product_semi_auto').upsert(semiUpdates));
+    }
 
-    return NextResponse.json({ success: true, updatedCount: updates.length });
+    await Promise.all(updatePromises);
+
+    return NextResponse.json({ success: true, updatedCount: autoUpdates.length + semiUpdates.length });
   } catch (error: any) {
     console.error("UNPROMO_ERROR:", error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

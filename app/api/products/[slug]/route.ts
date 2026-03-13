@@ -21,16 +21,28 @@ export async function GET(request: Request, context: any) {
       return NextResponse.json({ success: false, message: "Produk tidak ditemukan" }, { status: 404 });
     }
 
-    // 2. TAHAP 2: Ambil Produk secara terpisah (Ini yang BIKIN AMAN dari 404)
-    const { data: itemsData } = await supabase
-      .from('products')
-      .select('id, name, price, sku, cost, cashback, discount, sub_brand, is_active')
-      .eq('brand_id', brandData.id)
-      .eq('is_active', true)
-      .order('price', { ascending: true });
+    // 2. TAHAP 2: Ambil Produk dari Dua Jalur (Semi-Auto & Automatic) [cite: 2026-03-13]
+    const [autoRes, semiRes] = await Promise.all([
+      supabase.from('product_automatic')
+        .select('id, name, price, sku, cost, cashback, discount, sub_brand, is_active')
+        .eq('brand_id', brandData.id).eq('is_active', true),
+      supabase.from('product_semi_auto')
+        .select('id, name, price_numeric, sku, cost_numeric, cashback, discount, sub_brand, is_active')
+        .eq('brand_id', brandData.id).eq('is_active', true)
+    ]);
 
-    // 3. Mapping di Backend
-    const mappedItems = itemsData?.map((item: any) => ({
+    // Satukan barang dari kedua gudang
+    const autoItems = autoRes.data || [];
+    const semiAutoItems = (semiRes.data || []).map(item => ({
+      ...item,
+      price: item.price_numeric, // Mapping agar nama kolom sinkron
+      cost: item.cost_numeric
+    }));
+
+    const allItems = [...autoItems, ...semiAutoItems].sort((a, b) => a.price - b.price);
+
+    // 3. Mapping untuk Tampilan UI
+    const mappedItems = allItems.map((item: any) => ({
       ...item,
       id: item.id.toString(),
       label: item.name,

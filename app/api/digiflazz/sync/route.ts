@@ -133,8 +133,8 @@ export async function GET(req: Request) {
     const itemsData: any[] = [];
     const productGroups = new Map();
 
-    // AMBIL DATA PRODUK LAMA UNTUK CEK STATUS GEMBOK
-    const { data: existingProducts } = await supabaseAdmin.from('products').select('sku, lock_margin, price, margin_item, discount');
+    // AMBIL DATA PRODUK LAMA (AUTOMATIC) UNTUK CEK STATUS GEMBOK
+    const { data: existingProducts } = await supabaseAdmin.from('product_automatic').select('sku, lock_margin, price, margin_item, discount');
     const existingProductMap = new Map(existingProducts?.map((p: any) => [p.sku, p]));
 
     digiItems.forEach((item: any) => {
@@ -307,11 +307,11 @@ export async function GET(req: Request) {
             const chunk = productsToUpsert.slice(i, i + chunkSize);
             console.log(`📦 [SYNC] Mengirim Kloter ${i / chunkSize + 1}... (${i} / ${productsToUpsert.length} Produk)`);
             
-            const { error: errProducts } = await supabaseAdmin.from('products').upsert(chunk, { onConflict: 'sku' });
+            const { error: errProducts } = await supabaseAdmin.from('product_automatic').upsert(chunk, { onConflict: 'sku' });
             if (errProducts) throw new Error("Gagal upsert Products: " + errProducts.message);
         }
 
-        const { error: errorDelete } = await supabaseAdmin.from('products')
+        const { error: errorDelete } = await supabaseAdmin.from('product_automatic')
             .delete()
             .eq('provider', 'DIGIFLAZZ')
             .lt('updated_at', syncTime); 

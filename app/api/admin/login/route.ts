@@ -20,10 +20,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email atau Password salah!" }, { status: 401 });
     }
 
-    // 2. Ambil Profil menggunakan Service Role (Tembus RLS)
+// 2. Ambil Profil menggunakan Service Role (Tembus RLS)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('*')
+      // Pangkas habis! Hanya ambil identitas yang wajib untuk sesi Admin [cite: 2026-03-07]
+      .select('id, email, full_name, role') 
       .eq('id', authData.user.id)
       .single();
 

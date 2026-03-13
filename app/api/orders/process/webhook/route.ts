@@ -162,7 +162,7 @@ export async function POST(request: Request) {
 // Tambahkan buy_price dan cashback untuk hitung cuan bersih [cite: 2026-03-09]
     const { data: orders, error: fetchError } = await supabaseAdmin
       .from('orders')
-      .select('id, order_id, status, payment_method, used_balance, user_id, email, total_amount, unique_code, product_name, item_label, category, buy_price, cashback, raw_tagihan')
+      .select('id, order_id, status, payment_method, used_balance, user_id, email, total_amount, unique_code, product_name, item_label, category, buy_price, cashback, raw_tagihan, product_type')
       .eq('total_amount', amount) 
       .ilike('status', 'pending') 
       .order('created_at', { ascending: false });
@@ -345,8 +345,9 @@ const { data: refProfile } = await supabaseAdmin.from('profiles').select('id, ba
 
           // C. 💰 LOGIKA CASHBACK BUYER (SPECIAL MEMBER)
           if (buyerProfile.member_type?.toLowerCase() === 'special') {
-            const { data: productData } = await supabaseAdmin.from('products').select('cashback').eq('name', currentOrder.product_name).maybeSingle();
-            const cbNominal = productData?.cashback || 0;
+            // Langsung ambil dari data order, tidak perlu fetch ke tabel produk lagi (Lebih cepat!)
+            const cbNominal = currentOrder.cashback || 0; 
+
             if (cbNominal > 0) {
               const newBalCb = (buyerProfile.balance || 0) + cbNominal;
               await supabaseAdmin.from('profiles').update({ balance: newBalCb }).eq('id', userId);
@@ -378,18 +379,17 @@ const { data: refProfile } = await supabaseAdmin.from('profiles').select('id, ba
         `🧾 Total Pesanan: <b>Rp ${grandTotal.toLocaleString('id-ID')}</b>\n`
       : `💰 Nominal Transfer: <b>Rp ${nominalTransfer.toLocaleString('id-ID')}</b>\n`;
 
-    // --- LOGIKA PROFIT ALERT (CUAN BERSIH REAL) ---
+// --- LOGIKA PROFIT ALERT (CUAN BERSIH REAL) ---
     const kategoriNotif = (currentOrder.category || "").toLowerCase();
     const isPascaNotif = kategoriNotif.includes('pascabayar') || kategoriNotif.includes('pln');
 
     const revenueMurni = (currentOrder.total_amount || 0) - (currentOrder.unique_code || 0) + (currentOrder.used_balance || 0);
-    
-    // Gunakan logika modal yang sama agar laporan Telegram sinkron dengan database
-    const modalNotif = isPascaNotif 
-      ? ((currentOrder.raw_tagihan || 0) + (currentOrder.buy_price || 0)) 
-      : (currentOrder.buy_price || 0);
-
+    const modalNotif = isPascaNotif ? ((currentOrder.raw_tagihan || 0) + (currentOrder.buy_price || 0)) : (currentOrder.buy_price || 0);
     const cuanBersih = revenueMurni - modalNotif - (currentOrder.cashback || 0);
+
+    // 🕵️ LOGIKA DETEKSI JALUR (MANUAL VS PROVIDER)
+    // Sekarang kita cukup cek kolom product_type yang sudah kita buat tadi
+    const isManualProduct = currentOrder.product_type === 'manual';
 
     const message = `<b>DANA DITERIMA (WEBHOOK)!</b> 🤑\n\n` +
       `📢 Notif Dari: <b>${brandLogo}</b>\n` +
@@ -397,15 +397,22 @@ const { data: refProfile } = await supabaseAdmin.from('profiles').select('id, ba
       detailPembayaran +
       `📈 Cuan Bersih: <b>+ Rp ${cuanBersih.toLocaleString('id-ID')}</b>\n` +
       `👤 User: ${safeEmail}\n` +
-      `🆔 Invoice: <b>${currentOrder.order_id}</b>\n` +
-      `🔄 Status: <b>${isLive ? 'DIPROSES (PROSES VENDOR) ⏳' : 'BERHASIL (MODE SIMULASI) 🛠️'}</b>\n\n` +
+      `🆔 Invoice: <b>${currentOrder.order_id}</b>\n` +
+      `🔄 Status: <b>${isManualProduct ? 'DIPROSES (PROSES MANUAL/STOK) 🛠️' : (isLive ? 'DIPROSES (PROSES VENDOR) ⏳' : 'BERHASIL (MODE SIMULASI) 🛠️')}</b>\n\n` +
       `<i>*Sistem otomatis via MacroDroid.</i>`;
 
-    await sendTelegram(message);
+    // 🤫 LOGIKA SENYAP FASE 1
+    if (!isLive || isManualProduct) {
+      await sendTelegram(message);
+    } else {
+      console.log(`🤫 [FASE 1 SENYAP] Dana masuk dari ${paymentBrand}. Diteruskan ke Digiflazz tanpa lapor Telegram.`);
+    }
 
-    // --- 8. EKSEKUSI PENEMBAKAN SUPPLIER --- [cite: 2026-02-28]
-    if (settings?.is_digiflazz_active) {
-       await processFulfillment(currentOrder); // Panggil fungsi nembak Digiflazz
+    // --- 8. EKSEKUSI PENEMBAKAN SUPPLIER (HANYA JIKA BUKAN PRODUK MANUAL) ---
+    if (settings?.is_digiflazz_active && !isManualProduct) {
+       await processFulfillment(currentOrder); 
+    } else if (isManualProduct) {
+       console.log(`🛑 [STOP] Order #${currentOrder.order_id} adalah kategori ${kategoriNotif}. SKIP tembak ke Digiflazz!`);
     }
 
     return NextResponse.json({ success: true, message: `Invoice ${currentOrder.order_id} Sukses.` });

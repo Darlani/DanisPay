@@ -40,6 +40,7 @@ export async function GET(req: Request) {
       .from('orders')
       .select('*, profiles(balance, email)')
       .eq('status', 'Diproses')
+      .eq('product_type', 'provider') // 🕵️ Patroli hanya ngecek produk otomatis ke Digiflazz
       .order('updated_at', { ascending: true })
       .limit(5);
 
@@ -115,7 +116,18 @@ export async function GET(req: Request) {
             }
 
             await supabaseAdmin.from('orders').update(updatePayload).eq('order_id', order.order_id);
-            await reportToTelegram(`🤖 <b>AUTO-CHECK SUKSES!</b>\n\n🆔 Inv: <code>${order.order_id}</code>\n📦 SN: <code>${sn}</code>\n💰 Status: Otomatis sinkron via Patroli.`);
+
+            // Hitung jumlah retry dari api_ref_id
+            let currentAttempt = 1;
+            const matchId = order.api_ref_id?.match(/-R(\d+)$/);
+            if (matchId) currentAttempt = parseInt(matchId[1], 10);
+            const retryText = currentAttempt > 1 ? `\n🔄 AUTO-RETRY AKTIF! ${currentAttempt}x` : "";
+            
+            const hargaJual = (order.price || 0) + (order.used_balance || 0);
+            const labaBersih = hargaJual - (order.buy_price || 0);
+
+            console.log(`✅ [PATROLI] Pesanan ${order.order_id} SUKSES! SN: ${sn}`);
+            await reportToTelegram(`✅ <b>TRANSAKSI BERHASIL!</b> 🚀${retryText}\n\n📦 Produk: ${order.product_name}\n💰 Harga Jual: Rp ${hargaJual.toLocaleString('id-ID')}\n💵 Est. Laba: Rp ${labaBersih.toLocaleString('id-ID')}\n👤 User: ${order.user_id ? 'MEMBER' : 'GUEST'}\n🆔 Inv: <code>${order.order_id}</code>\n📦 SN: <code>${sn}</code>\n🔄 Status: DIPROSES ➡️ BERHASIL`);
           } 
           
           // ==========================================
@@ -131,7 +143,8 @@ export async function GET(req: Request) {
               const match = order.api_ref_id?.match(/-R(\d+)$/);
               if (match) currentAttempt = parseInt(match[1], 10);
 
-              const { data: mainProd } = await supabaseAdmin.from('products').select('name, brand').eq('sku', order.sku).single();
+              // Ganti ke nama tabel baru: product_automatic [cite: 2026-03-13]
+const { data: mainProd } = await supabaseAdmin.from('product_automatic').select('name, brand').eq('sku', order.sku).single();
 
               if (mainProd) {
                 const nominalTarget = mainProd.name.replace(/[^0-9]/g, '');
@@ -180,8 +193,6 @@ export async function GET(req: Request) {
                         sn: d.sn || `Retry Patroli ke-${nextAttempt}`,
                         updated_at: new Date().toISOString()
                       }).eq('id', order.id);
-
-                      await reportToTelegram(`🔄 <b>AUTO-RETRY PATROLI AKTIF!</b>\n🆔 Inv: <code>${order.order_id}</code>\n🚀 Otomatis pindah ke Supplier ke-${nextAttempt} (${nextAlt.sku}).\n📊 Status: <b>${d.status}</b>`);
                       
                       isRetrying = true; // Tandai sedang retry
                     }
@@ -228,7 +239,16 @@ export async function GET(req: Request) {
                 }).eq('id', order.id);
               }
 
-              await reportToTelegram(`🤖 <b>AUTO-CHECK GAGAL!</b>\n🆔 Inv: <code>${order.order_id}</code>\n⚠️ Alasan: ${digiData.message}\n💰 Telah di-Refund.`);
+              // Hitung jumlah retry yang sudah dilakukan
+              let currentAttempt = 1;
+              const matchId = order.api_ref_id?.match(/-R(\d+)$/);
+              if (matchId) currentAttempt = parseInt(matchId[1], 10);
+              const retryText = currentAttempt > 1 ? `\n🔄 AUTO-RETRY HABIS: ${currentAttempt}x` : "";
+
+              const nominalTransfer = (order.price || 0) + (order.used_balance || 0);
+              const userStatus = order.user_id ? 'MEMBER (Koin Kembali)' : 'GUEST (Butuh Refund Manual)';
+
+              await reportToTelegram(`❌ <b>TRANSAKSI GAGAL!</b> 😭${retryText}\n\n📦 Produk: ${order.product_name}\n💰 Nominal: Rp ${nominalTransfer.toLocaleString('id-ID')}\n⚠️ Alasan: ${digiData.message || 'Stok Kosong / Gangguan'}\n👤 User: ${userStatus}\n🆔 Inv: <code>${order.order_id}</code>\n🔄 Status: DIPROSES ➡️ GAGAL`);
             }
           }
         }

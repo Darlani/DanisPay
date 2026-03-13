@@ -31,10 +31,10 @@ export async function POST(req: Request) {
        return NextResponse.json({ error: "Mode Simulasi: Dilarang cek status ke vendor!" }, { status: 403 });
     }
 
-    // TAMBAHAN: Tarik profiles(balance) agar siap untuk Refund
-    const { data: order, error: fetchErr } = await supabaseAdmin
+    // TAMBAHAN: Tarik profiles(balance) dan kolom finance untuk hitung cuan
+    const { data: order, error: fetchErr }: { data: any, error: any } = await supabaseAdmin
       .from('orders')
-      .select('*, profiles(balance, email)')
+      .select('id, order_id, api_ref_id, sku, game_id, user_id, email, total_amount, status, category, product_name, price, used_balance, buy_price, created_at, profiles(id, balance, email)')
       .eq('order_id', order_id)
       .single();
 
@@ -124,7 +124,18 @@ export async function POST(req: Request) {
       }
 
       await supabaseAdmin.from('orders').update(updatePayload).eq('id', order.id); 
-      await reportToTelegram(`✅ <b>DETEKTIF BERHASIL!</b>\n\n🆔 Inv: <code>${order_id}</code>\n📦 SN: <code>${sn}</code>\n💰 Info: Status diperbarui via Jemput Bola.`);
+      
+      // Hitung jumlah retry
+      let currentAttempt = 1;
+      const matchId = order.api_ref_id?.match(/-R(\d+)$/);
+      if (matchId) currentAttempt = parseInt(matchId[1], 10);
+      const retryText = currentAttempt > 1 ? `\n🔄 AUTO-RETRY AKTIF! ${currentAttempt}x` : "";
+      
+      const hargaJual = (order.price || 0) + (order.used_balance || 0);
+      const labaBersih = hargaJual - (order.buy_price || 0);
+
+      console.log(`✅ [CHECK-STATUS] Pesanan ${order_id} SUKSES! SN: ${sn}`);
+      await reportToTelegram(`✅ <b>TRANSAKSI BERHASIL (Via Detektif)!</b> 🚀${retryText}\n\n📦 Produk: ${order.product_name}\n💰 Harga Jual: Rp ${hargaJual.toLocaleString('id-ID')}\n💵 Est. Laba: Rp ${labaBersih.toLocaleString('id-ID')}\n👤 User: ${order.user_id ? 'MEMBER' : 'GUEST'}\n🆔 Inv: <code>${order_id}</code>\n📦 SN: <code>${sn}</code>\n🔄 Status: DIPROSES ➡️ BERHASIL`);
       
       return NextResponse.json({ success: true, status: newStatus, sn: sn, message: message });
     }
@@ -140,7 +151,8 @@ export async function POST(req: Request) {
         const match = targetRefId?.match(/-R(\d+)$/);
         if (match) currentAttempt = parseInt(match[1], 10);
 
-        const { data: mainProd } = await supabaseAdmin.from('products').select('name, brand').eq('sku', order.sku).single();
+        // Ganti ke nama tabel baru: product_automatic
+const { data: mainProd } = await supabaseAdmin.from('product_automatic').select('name, brand').eq('sku', order.sku).single();
 
         if (mainProd) {
           const nominalTarget = mainProd.name.replace(/[^0-9]/g, '');
@@ -191,8 +203,7 @@ export async function POST(req: Request) {
                   updated_at: new Date().toISOString()
                 }).eq('id', order.id);
 
-                await reportToTelegram(`🔄 <b>AUTO-RETRY DETEKTIF AKTIF!</b>\n🆔 Inv: <code>${order.order_id}</code>\n🚀 Otomatis pindah ke Supplier ke-${nextAttempt} (${nextAlt.sku}).\n📊 Status: <b>${d.status}</b>`);
-                
+                // Mode Senyap: Tidak lapor Telegram saat ganti supplier
                 isRetrying = true;
                 return NextResponse.json({ success: true, status: d.status, sn: d.sn, message: "Auto-Retry Triggered!" });
               }
@@ -239,7 +250,17 @@ export async function POST(req: Request) {
           }).eq('id', order.id);
         }
 
-        await reportToTelegram(`❌ <b>DETEKTIF MELAPORKAN GAGAL!</b>\n🆔 Inv: <code>${order_id}</code>\n⚠️ Alasan: ${message}\n💰 Telah di-Refund.`);
+        // Hitung jumlah retry
+        let currentAttempt = 1;
+        const matchId = targetRefId?.match(/-R(\d+)$/);
+        if (matchId) currentAttempt = parseInt(matchId[1], 10);
+        const retryText = currentAttempt > 1 ? `\n🔄 AUTO-RETRY HABIS: ${currentAttempt}x` : "";
+
+        const nominalTotal = (order.price || 0) + (order.used_balance || 0);
+        const userStatus = order.user_id ? 'MEMBER (Koin Kembali)' : 'GUEST (Butuh Refund Manual)';
+
+        await reportToTelegram(`❌ <b>TRANSAKSI GAGAL (Via Detektif)!</b> 😭${retryText}\n\n📦 Produk: ${order.product_name}\n💰 Nominal: Rp ${nominalTotal.toLocaleString('id-ID')}\n⚠️ Alasan: ${message || 'Stok Kosong / Gangguan'}\n👤 User: ${userStatus}\n🆔 Inv: <code>${order_id}</code>\n🔄 Status: DIPROSES ➡️ GAGAL`);
+        
         return NextResponse.json({ success: true, status: 'Gagal', message: message });
       }
     }

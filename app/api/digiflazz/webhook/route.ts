@@ -56,10 +56,10 @@ export async function POST(req: Request) {
 
     console.log(`📝 [DIGIFLAZZ UPDATE] RefID Asli: ${cleanOrderId} (Dari vendor: ${rawRefId}) | Status: ${status} | SN: ${sn}`);
 
-    // A. Ambil data spesifik dari Database
-    const { data: order } = await supabaseAdmin
+    // A. Ambil data spesifik dari Database (Tambahkan : { data: any } agar TypeScript tidak cerewet)
+    const { data: order }: { data: any } = await supabaseAdmin
       .from('orders')
-      .select('id, order_id, api_ref_id, sku, game_id, user_id, email, total_amount, status, category, profiles(id, balance, email)')
+      .select('id, order_id, api_ref_id, sku, game_id, user_id, email, total_amount, status, category, product_name, price, used_balance, buy_price, profiles(id, balance, email)')
       .eq('order_id', cleanOrderId) 
       .single();
 
@@ -126,7 +126,8 @@ export async function POST(req: Request) {
         const match = order.api_ref_id?.match(/-R(\d+)$/);
         if (match) currentAttempt = parseInt(match[1], 10);
 
-        const { data: mainProd } = await supabaseAdmin.from('products').select('name, brand').eq('sku', order.sku).single();
+        // Ganti ke nama tabel baru: product_automatic [cite: 2026-03-13]
+const { data: mainProd } = await supabaseAdmin.from('product_automatic').select('name, brand').eq('sku', order.sku).single();
 
         if (mainProd) {
           const nominalTarget = mainProd.name.replace(/[^0-9]/g, '');
@@ -176,9 +177,10 @@ export async function POST(req: Request) {
                   updated_at: new Date().toISOString()
                 }).eq('id', order.id);
 
-                await reportToTelegram(`🔄 <b>AUTO-RETRY WEBHOOK AKTIF!</b>\n🆔 Inv: <code>${cleanOrderId}</code>\n⚠️ Supplier sebelumnya GAGAL.\n🚀 Sistem otomatis pindah ke Supplier ke-${nextAttempt} (${nextAlt.sku}).\n📊 Status baru: <b>${d.status}</b>`);
+            // Mode Senyap: Tidak lapor Telegram saat ganti supplier otomatis via Webhook
+            console.log(`🔄 [AUTO-RETRY WEBHOOK] Inv: ${cleanOrderId} otomatis pindah ke Supplier ke-${nextAttempt} (${nextAlt.sku})`);
 
-                return NextResponse.json({ success: true, message: `Auto-Retry ke-${nextAttempt} Triggered` });
+            return NextResponse.json({ success: true, message: `Auto-Retry ke-${nextAttempt} Triggered` });
               }
             } catch (err) {
               console.error("🔥 Webhook Retry Gagal Koneksi:", err);
@@ -228,7 +230,16 @@ export async function POST(req: Request) {
         }).eq('id', order.id);
       }
 
-      await reportToTelegram(`❌ <b>GAGAL (SUPLIER HABIS)!</b>\n🆔 Inv: <code>${refId}</code>\n⚠️ Refund: ${order.user_id ? 'Koin Otomatis' : 'Manual (Guest)'}\n💬 Pesan: ${message}`);
+      // Hitung jumlah retry yang sudah dilakukan
+      let currentAttempt = 1;
+      const matchId = order.api_ref_id?.match(/-R(\d+)$/);
+      if (matchId) currentAttempt = parseInt(matchId[1], 10);
+      const retryText = currentAttempt > 1 ? `\n🔄 AUTO-RETRY HABIS: ${currentAttempt}x` : "";
+
+      const nominalTransfer = (order.price || 0) + (order.used_balance || 0);
+      const userStatus = order.user_id ? 'MEMBER (Koin Kembali)' : 'GUEST (Butuh Refund Manual)';
+
+      await reportToTelegram(`❌ <b>TRANSAKSI GAGAL!</b> 😭${retryText}\n\n📦 Produk: ${order.product_name}\n💰 Nominal: Rp ${nominalTransfer.toLocaleString('id-ID')}\n⚠️ Alasan: ${message || 'Stok Kosong / Gangguan'}\n👤 User: ${userStatus}\n🆔 Inv: <code>${cleanOrderId}</code>\n🔄 Status: DIPROSES ➡️ GAGAL`);
     }
 
     return NextResponse.json({ success: true });

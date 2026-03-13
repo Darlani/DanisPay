@@ -8,47 +8,56 @@ export async function POST(req: Request) {
     
     // 1. Ekstrak data dari frontend
     const { 
-      sku, 
-      payment_method, 
-      total_amount, 
-      used_balance, 
-      user_id, 
-      email,
-      product_name,
-      order_id,
-      game_id,
-      item_label,
-      user_contact,
-      ip_address,
-      device_id,
-      referred_by,
-      voucher_amount,
-      voucher_code,
-      inquiry_result
+      sku, payment_method, total_amount, used_balance, user_id, email,
+      product_name, order_id, game_id, item_label, user_contact,
+      ip_address, device_id, referred_by, voucher_amount,
+      voucher_code, inquiry_result
     } = body;
 
-    // --- 2. AMBIL DATA PRODUK SPESIFIK (Anti select *, render < 200ms) [cite: 2026-03-09]
-    const { data: dbProduct, error: pError } = await supabaseAdmin
-      .from('products')
+    // --- 2. 🕵️ DETEKSI SUMBER PRODUK (Hybrid Search) ---
+    let dbProduct: any = null;
+    let productType: 'manual' | 'provider' = 'provider';
+
+    // A. Cek di product_semi_auto (Stok Mandiri Bos)
+    const { data: semiAutoData } = await supabaseAdmin
+      .from('product_semi_auto')
       .select(`
-        sku, 
-        name, 
-        price, 
-        cost, 
-        discount, 
-        cashback, 
-        categories (
-          name
-        )
+        id, sku, name, price_numeric, cost_numeric, discount, cashback,
+        categories ( name )
       `)
       .eq('sku', sku)
-      .single();
+      .maybeSingle();
 
-if (pError || !dbProduct) {
-      return NextResponse.json({ error: "Produk tidak ditemukan di database!" }, { status: 400 });
+    if (semiAutoData) {
+      // Mapping agar variabel di bawah tidak pecah
+      dbProduct = {
+        ...semiAutoData,
+        price: semiAutoData.price_numeric,
+        cost: semiAutoData.cost_numeric
+      };
+      productType = 'manual';
+    } else {
+      // B. Jika tidak ada, baru cari di product_automatic (Digiflazz)
+      const { data: providerData } = await supabaseAdmin
+        .from('product_automatic')
+        .select(`
+          sku, name, price, cost, discount, cashback,
+          categories ( name )
+        `)
+        .eq('sku', sku)
+        .single();
+
+      if (providerData) {
+        dbProduct = providerData;
+        productType = 'provider';
+      }
     }
 
-    // --- 2.5 CEK SAKLAR SIMULASI (PENTING!) ---
+    if (!dbProduct) {
+      return NextResponse.json({ error: "Produk tidak ditemukan di rak database!" }, { status: 400 });
+    }
+
+    // --- 2.5 CEK SAKLAR SIMULASI ---
     const { data: settings } = await supabaseAdmin
       .from('store_settings')
       .select('is_digiflazz_active')
@@ -58,14 +67,8 @@ if (pError || !dbProduct) {
 
     // --- 3. LOGIKA CASHBACK (KHUSUS MEMBER SPECIAL) ---
     let finalCashback = 0;
-
     if (user_id) {
-      const { data: userProfile } = await supabaseAdmin
-        .from('profiles')
-        .select('member_type')
-        .eq('id', user_id)
-        .maybeSingle();
-
+      const { data: userProfile } = await supabaseAdmin.from('profiles').select('member_type').eq('id', user_id).maybeSingle();
       if (userProfile?.member_type?.toLowerCase() === 'special') {
         finalCashback = dbProduct.cashback || 0;
       }
@@ -76,19 +79,19 @@ if (pError || !dbProduct) {
     let modalPascabayar = 0;
     let hargaJualPascabayar = 0;
     let kodeUnikUser = 0; 
-    let tagihanMurni = 0; // <--- Tambahkan ini buat nyimpen nilai tagihan aslinya 
+    let tagihanMurni = 0; 
     
     const totalInputUser = total_amount + used_balance + (voucher_amount || 0);
-    // Gunakan as any untuk akses nama kategori (Solusi error TypeScript) [cite: 2026-03-09]
     const namaKategori = (dbProduct.categories as any)?.name?.toLowerCase() || "";
-    const isPascabayar = namaKategori.includes('pascabayar') || dbProduct.sku.toLowerCase() === 'pln';
+    
+    // Proteksi: Pascabayar hanya berlaku untuk produk dari provider
+    const isPascabayar = productType === 'provider' && (namaKategori.includes('pascabayar') || dbProduct.sku.toLowerCase() === 'pln');
 
     if (isPascabayar) {
       try {
         const protocol = req.headers.get('x-forwarded-proto') || 'http';
         const host = req.headers.get('host');
         const baseUrl = `${protocol}://${host}`;
-        
         const cleanCustomerId = game_id.split('(')[0].trim();
 
         const inqRes = await fetch(`${baseUrl}/api/digiflazz/pascabayar/inquiry`, {
@@ -102,7 +105,6 @@ if (pError || !dbProduct) {
           return NextResponse.json({ error: "Gagal memverifikasi ulang tagihan ke pusat." }, { status: 400 });
         }
 
-        // Hapus const agar dia menimpa variabel global yang kita buat di atas
         tagihanMurni = Number(inqData.data.desc?.detail?.[0]?.nilai_tagihan || 0);
         const adminDigiflazz = Number(inqData.data.admin || 5000);
         const adminToko = Number(dbProduct.price || 0); 
@@ -113,34 +115,31 @@ if (pError || !dbProduct) {
         
         const selisihMurni = Math.floor(totalInputUser - hargaSeharusnya);
         kodeUnikUser = (selisihMurni > 0 && selisihMurni < 1000) ? selisihMurni : 0;
-        
         const totalUserTanpaKodeUnik = totalInputUser - kodeUnikUser;
 
         if (Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya) > 1000) {
-          return NextResponse.json({ 
-            error: `Deteksi manipulasi! DB: ${hargaSeharusnya}, Input: ${totalUserTanpaKodeUnik}` 
-          }, { status: 400 });
+          return NextResponse.json({ error: `Deteksi manipulasi! DB: ${hargaSeharusnya}, Input: ${totalUserTanpaKodeUnik}` }, { status: 400 });
         }
       } catch (error) {
         return NextResponse.json({ error: "Gagal koneksi ke server inquiry pascabayar." }, { status: 500 });
       }
     } else {
-      // LOGIKA PRABAYAR
+      // LOGIKA PRABAYAR (MANUAL ATAU PROVIDER)
       hargaSeharusnya = Math.floor(dbProduct.price * (1 - ((dbProduct.discount || 0) / 100)));
       
-      const listButuhInquiry = ['pln', 'game']; 
-      if (listButuhInquiry.some(kw => namaKategori.includes(kw) || dbProduct.sku.toLowerCase().includes(kw))) {
-        try {
-          const protocol = req.headers.get('x-forwarded-proto') || 'http';
-          const host = req.headers.get('host');
-          const baseUrl = `${protocol}://${host}`;
-          
-          await fetch(`${baseUrl}/api/digiflazz/prabayar/inquiry`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ customer_id: game_id, sku: dbProduct.sku })
-          });
-        } catch (e) { console.error("Re-inquiry prabayar skip"); }
+      if (productType === 'provider') {
+        const listButuhInquiry = ['pln', 'game']; 
+        if (listButuhInquiry.some(kw => namaKategori.includes(kw) || dbProduct.sku.toLowerCase().includes(kw))) {
+          try {
+            const protocol = req.headers.get('x-forwarded-proto') || 'http';
+            const host = req.headers.get('host');
+            await fetch(`${protocol}://${host}/api/digiflazz/prabayar/inquiry`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ customer_id: game_id, sku: dbProduct.sku })
+            });
+          } catch (e) { console.error("Re-inquiry skip"); }
+        }
       }
 
       if (Math.abs(totalInputUser - hargaSeharusnya) > 1500) {
@@ -149,46 +148,20 @@ if (pError || !dbProduct) {
     }
 
     // --- 5. VALIDASI PEMBAYARAN ---
-    const { data: payData } = await supabaseAdmin
-      .from('payment_accounts')
-      .select('is_maintenance, start_hour, end_hour, min_price')
-      .eq('name', payment_method)
-      .maybeSingle();
-
-const allowed = isPaymentAllowed(payment_method, product_name || "General", total_amount, payData);
+    const { data: payData } = await supabaseAdmin.from('payment_accounts').select('is_maintenance, start_hour, end_hour, min_price').eq('name', payment_method).maybeSingle();
+    const allowed = isPaymentAllowed(payment_method, product_name || "General", total_amount, payData);
     if (!allowed) {
-      return NextResponse.json({ error: "Metode pembayaran tidak tersedia (Maintenance/Limit)." }, { status: 403 });
+      return NextResponse.json({ error: "Metode pembayaran tidak tersedia." }, { status: 403 });
     }
 
-    // --- 5.5 LOGIKA SMART UNIQUE CODE (RANGE DINAMIS) ---
+    // --- 5.5 LOGIKA SMART UNIQUE CODE ---
     const limaMenitLalu = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const { count: trafik } = await supabaseAdmin
-      .from('orders')
-      .select('id', { count: 'exact', head: true }) // Hemat resource, tanya ID saja
-      .eq('status', 'Pending')
-      .gte('created_at', limaMenitLalu);
+    const { count: trafik } = await supabaseAdmin.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'Pending').gte('created_at', limaMenitLalu);
+    const kodeUnikPusat = Math.floor(Math.random() * ((trafik || 0) > 15 ? 999 : ((trafik || 0) > 5 ? 500 : 200))) + 1;
 
-    const jumlahPending = trafik || 0;
-    let maxRange = 200; // Default Sepi
-
-    if (jumlahPending > 15) {
-      maxRange = 999; // Ramai
-    } else if (jumlahPending > 5) {
-      maxRange = 500; // Sedang
-    }
-
-    // Selalu mulai dari 001 sampai maxRange
-    const kodeUnikPusat = Math.floor(Math.random() * maxRange) + 1;
-
-// --- 6. PEMETAAN DATA KE TABEL ORDERS ---
-    
-    // SAFETY NET: Pastikan nama produk selalu ada isinya (Anti-Kosong)
-    const safeProductName = dbProduct.name || product_name || dbProduct.sku || "Produk Digital";
-
-    // Logika Label Pintar (Anti-Hack & Informatif)
+    // --- 6. PEMETAAN DATA KE TABEL ORDERS ---
+    const safeProductName = dbProduct.name || product_name || "Produk Digital";
     let dynamicLabel = safeProductName; 
-    
-    // Jika Pascabayar, ambil info periode dari inquiry (Contoh: "Tagihan MAR26")
     if (isPascabayar && inquiry_result?.period) {
       dynamicLabel = `Tagihan ${inquiry_result.period}`;
     }
@@ -196,8 +169,8 @@ const allowed = isPaymentAllowed(payment_method, product_name || "General", tota
     const orderData = {
       order_id,
       sku: dbProduct.sku,
-      product_name: safeProductName, // <--- Sekarang 100% Aman
-      item_label: dynamicLabel,      // <--- Dinamis (Tagihan Bulan / Nama Produk)
+      product_name: safeProductName,
+      item_label: dynamicLabel,
       game_id,
       buy_price: isPascabayar ? modalPascabayar : (dbProduct.cost || 0), 
       price: isPascabayar ? hargaJualPascabayar : (dbProduct.price || 0),
@@ -209,23 +182,23 @@ const allowed = isPaymentAllowed(payment_method, product_name || "General", tota
       total_amount: isPascabayar ? total_amount : (hargaSeharusnya + kodeUnikPusat),
       payment_method,
       
-      // Jika bayar Full Koin & Mode Simulasi aktif, langsung set Berhasil
+      // LOGIKA JALUR HYBRID
+      product_type: productType, 
+      manual_product_id: productType === 'manual' ? dbProduct.id : null,
+
       status: (used_balance >= totalInputUser && !isLive) ? 'Berhasil' : 'Pending',
-      
-      // JIKA FULL KOIN + SIMULASI: Kasih SN fiktif agar struk tidak kosong
       sn: (used_balance >= totalInputUser && !isLive) ? `SIM-KOIN-${Math.floor(Math.random() * 9999)}` : null,
 
       user_contact,
       email: email || null,
       referred_by: referred_by || null,
-      category: (dbProduct.categories as any)?.name || "umum",
+      category: namaKategori || "umum",
       ip_address,
       device_id,
       used_balance,
       user_id: user_id || null,
       raw_tagihan: isPascabayar ? tagihanMurni : 0,
 
-      // --- SINKRONISASI DATA INQUIRY (AGAR STRUK SIMULASI NYATA) ---
       customer_name: inquiry_result?.customerName || null,
       segment_power: inquiry_result?.segmentPower || null,
       desc: inquiry_result?.desc ? inquiry_result.desc : (isPascabayar ? { info: "Waiting for payment..." } : null), 
@@ -235,14 +208,8 @@ const allowed = isPaymentAllowed(payment_method, product_name || "General", tota
     };
 
     // --- 7. EKSEKUSI INSERT ---
-    const { error: insertError } = await supabaseAdmin
-      .from('orders')
-      .insert([orderData]); 
-    
-    if (insertError) {
-      console.error("❌ Gagal Simpan Order:", insertError.message);
-      return NextResponse.json({ error: "Gagal menyimpan pesanan." }, { status: 500 });
-    }
+    const { error: insertError } = await supabaseAdmin.from('orders').insert([orderData]); 
+    if (insertError) throw insertError;
 
     return NextResponse.json({ success: true, order_id: order_id });
 
