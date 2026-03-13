@@ -133,9 +133,10 @@ export async function GET(req: Request) {
     const itemsData: any[] = [];
     const productGroups = new Map();
 
-    // AMBIL DATA PRODUK LAMA (AUTOMATIC) UNTUK CEK STATUS GEMBOK
-    const { data: existingProducts } = await supabaseAdmin.from('product_automatic').select('sku, lock_margin, price, margin_item, discount');
-    const existingProductMap = new Map(existingProducts?.map((p: any) => [p.sku, p]));
+    // SEKARANG KITA KENALAN PAKAI NAMA + BRAND_ID, BUKAN SKU LAGI! [cite: 2026-03-13]
+    const { data: existingProducts } = await supabaseAdmin.from('product_automatic').select('name, brand_id, lock_margin, price, margin_item, discount');
+    // Key Map: Gabungan brand_id dan nama (biar unik banget)
+    const existingProductMap = new Map(existingProducts?.map((p: any) => [`${p.brand_id}-${p.name.toLowerCase().trim()}`, p]));
 
     digiItems.forEach((item: any) => {
       const isHealthy = item.buyer_product_status && item.seller_product_status;
@@ -251,7 +252,9 @@ export async function GET(req: Request) {
       let finalPrice = 0;
       let marginInfo = 0;
 
-      const existing = existingProductMap.get(group.baseSku);
+      // Cek gembok pakai Nama + ID Brand, biarpun SKU-nya berubah, gemboknya gak bakal lepas!
+      const productKey = `${bInfo.id}-${group.webName.toLowerCase().trim()}`;
+      const existing = existingProductMap.get(productKey);
       const isLocked = existing?.lock_margin === true || String(existing?.lock_margin).toLowerCase() === 'true';
 
       if (isLocked) {
@@ -307,7 +310,8 @@ export async function GET(req: Request) {
             const chunk = productsToUpsert.slice(i, i + chunkSize);
             console.log(`📦 [SYNC] Mengirim Kloter ${i / chunkSize + 1}... (${i} / ${productsToUpsert.length} Produk)`);
             
-            const { error: errProducts } = await supabaseAdmin.from('product_automatic').upsert(chunk, { onConflict: 'sku' });
+            // JANGKARNYA PINDAH KE NAMA, BIAR ID UUID TIDAK BERUBAH-UBAH! [cite: 2026-03-13]
+      const { error: errProducts } = await supabaseAdmin.from('product_automatic').upsert(chunk, { onConflict: 'name' });
             if (errProducts) throw new Error("Gagal upsert Products: " + errProducts.message);
         }
 

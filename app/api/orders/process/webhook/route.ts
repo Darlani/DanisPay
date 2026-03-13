@@ -271,9 +271,9 @@ if (needsPenalty) {
       if (userId && userEmail && userEmail !== 'null') {
         console.log("🧮 Menghitung Komisi, Bonus & Cashback...");
         
-        // 1. Ambil Settings & Profile Buyer Terupdate
+        // Tarik kolom yang benar-benar dipakai buat hitung duit aja Bos! [cite: 2026-03-07]
         const [settingsRes, profileRes] = await Promise.all([
-          supabaseAdmin.from('store_settings').select('*').single(),
+          supabaseAdmin.from('store_settings').select('welcome_bonus_amount, welcome_bonus_min_trx, first_referral_percent, next_referral_percent').single(),
           supabaseAdmin.from('profiles').select('referred_by, member_type, balance').eq('id', userId).single()
         ]);
 

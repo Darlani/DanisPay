@@ -387,7 +387,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                 </div>
                 
                 {/* Grid Item Nominal - Layout dikembalikan agar proporsional di desktop */}
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 px-0">
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-2 sm:gap-3 px-0">
                 {filteredItems.map((opt: any, index: number) => {
                     const isEnabled = opt.is_active ?? true;
                     const promoLabel = opt.promo_label;

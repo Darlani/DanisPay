@@ -27,12 +27,29 @@ const nextConfig = {
     ];
   },
 
-experimental: {
-    // Bersih dari fitur yang belum stabil
+compiler: {
+    // Menghapus console.log di production demi keamanan dan kecepatan,
+    // tapi menyisakan console.error buat jaga-jaga kalau ada bug fatal.
+    removeConsole: process.env.NODE_ENV === "production" ? {
+      exclude: ["error"],
+    } : false,
   },
 
-  // INI MANTRA BARU YANG BENAR UNTUK NEXT.JS 15+ BOS!
-  devIndicators: false,
+  experimental: {
+    // Bersih dari fitur yang belum stabil
+  },
+
+  // INI MANTRA BARU YANG BENAR UNTUK NEXT.JS 15+ BOS!
+  devIndicators: false,
+
+  async rewrites() {
+    return [
+      {
+        source: '/:slug',
+        destination: '/ProductSection/:slug',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

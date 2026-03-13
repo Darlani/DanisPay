@@ -54,8 +54,8 @@ export async function POST(req: Request) {
     if (order.referred_by) {
       try {
         const [settingsRes, refProfileRes] = await Promise.all([
-          supabaseAdmin.from('store_settings').select('*').single(),
-          // Tambahkan 'id' di sini biar TypeScript nggak bingung pas kita panggil refProfile.id
+          // Tarik kolom yang benar-benar dipakai buat bonus & referral saja Bos
+          supabaseAdmin.from('store_settings').select('welcome_bonus_amount, welcome_bonus_min_trx, first_referral_percent, next_referral_percent').single(),
           supabaseAdmin.from('profiles').select('id, balance, email').eq('referral_code', order.referred_by).maybeSingle()
         ]);
 
