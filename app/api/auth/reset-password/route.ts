@@ -14,12 +14,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email wajib diisi bos!" }, { status: 400 });
     }
 
-    // Eksekusi pengiriman email reset password via Supabase
-    // Arahkan kembali ke halaman update-password setelah user klik link di email
-    const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+// Pakai variable siteUrl yang pasti (utamakan dari ENV) biar link gak nyasar ke localhost
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://danispay.my.id';
     
     const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-      redirectTo: `${origin}/update-password`, 
+      // Pastikan path-nya lengkap dan mengarah ke UI ganti password
+      redirectTo: `${siteUrl}/update-password`, 
     });
 
     if (error) throw error;
