@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, ArrowRight, Loader2, AlertCircle, Store, UserPlus, ShieldAlert, ChevronLeft } from "lucide-react";
+import { Lock, Mail, ArrowRight, Loader2, AlertCircle, Store, UserPlus, ShieldAlert, ChevronLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { Turnstile } from '@marsidev/react-turnstile'; 
 
@@ -12,10 +12,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  
-  // State baru untuk mengontrol tampilan PIN
-  const [isPinStage, setIsPinStage] = useState(false);
+const [errorMsg, setErrorMsg] = useState("");
+  
+  // State baru untuk mengontrol tampilan PIN & Password
+  const [isPinStage, setIsPinStage] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [tempProfile, setTempProfile] = useState<any>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null); 
   
@@ -169,20 +170,38 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase ml-3">Password</label>
+<div className="space-y-1">
+                {/* Header Label & Lupa Password */}
+                <div className="flex justify-between items-end px-3">
+                  <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">Password</label>
+                  <Link href="/forgot-password" className="text-[10px] font-bold tracking-widest uppercase text-slate-500 hover:text-blue-400 transition-colors">
+                    Lupa Password?
+                  </Link>
+                </div>
+                
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
                   </div>
+                  
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
-                    className="w-full bg-slate-900/50 border border-white/10 text-white text-sm rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent block pl-12 p-4 placeholder-slate-600 transition-all outline-none font-medium"
+                    // Tambahkan pr-12 agar teks tidak tertimpa ikon mata di sebelah kanan
+                    className="w-full bg-slate-900/50 border border-white/10 text-white text-sm rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent block pl-12 pr-12 p-4 placeholder-slate-600 transition-all outline-none font-medium"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
+
+                  {/* Tombol Mata (Show/Hide) */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
               </div>
 
