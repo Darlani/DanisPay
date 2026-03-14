@@ -36,7 +36,7 @@ export async function POST(req: Request) {
         let finalCashback = 0;
         if (profitKotor > 0) {
           const cbNormal = Math.floor(price * (dbCashbackPercent / 100));
-          const plafonMaks = Math.floor(profitKotor * 0.3);
+          const plafonMaks = Math.floor(profitKotor * (dbCashbackPercent / 10));
           finalCashback = Math.min(cbNormal, plafonMaks);
         }
 

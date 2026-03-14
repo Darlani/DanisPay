@@ -84,7 +84,7 @@ export async function POST(req: Request) {
         // Jika profit minus atau nol, mutlak 0 (Anti Boncos)
         if (profitKotor > 0) {
           const cbNormal = Math.floor(hargaSetelahDiskon * (dbCashbackPercent / 100));
-          const plafonMaks = Math.floor(profitKotor * 0.3);
+          const plafonMaks = Math.floor(profitKotor * (dbCashbackPercent / 10));
           newCashback = Math.min(cbNormal, plafonMaks);
         }
 

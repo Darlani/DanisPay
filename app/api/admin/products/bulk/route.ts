@@ -65,7 +65,7 @@ export async function POST(req: Request) {
          let newCashback = 0;
          if (profitKotor > 0) {
              const cbNormal = Math.floor(hargaSetelahDiskon * (dbCashbackPercent / 100));
-             const plafonMaks = Math.floor(profitKotor * 0.3); // Plafon 30% anti rugi
+             const plafonMaks = Math.floor(profitKotor * (dbCashbackPercent / 10)); // Plafon 30% anti rugi
              newCashback = Math.min(cbNormal, plafonMaks);
          }
 

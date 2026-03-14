@@ -33,7 +33,7 @@ async function handleRequest(req: Request, method: string) {
     if (profitKotor > 0) {
       // Cashback dihitung dari harga setelah diskon (hFinal) sesuai settingan database
       const cbNormal = Math.floor(hFinal * (dbCashbackPercent / 100));
-      const plafonMaks = Math.floor(profitKotor * 0.3); // Maksimal 30% dari profit kotor
+      const plafonMaks = Math.floor(profitKotor * (dbCashbackPercent / 10)); // Maksimal 30% dari profit kotor
       finalCashback = Math.min(cbNormal, plafonMaks);
     }
 

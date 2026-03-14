@@ -12,23 +12,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Akses Ditolak! Lu bukan Admin/Manager Bos." }, { status: 403 });
     }
 
-    const body = await req.json();
-    const { strategies, cashback } = body;
-    const storeId = process.env.STORE_ID; // Ambil dari bensin .env [cite: 2026-03-06]
+const body = await req.json();
+    const { strategies, cashback } = body;
+    const storeId = process.env.STORE_ID; // Ambil dari bensin .env [cite: 2026-03-06]
 
-    if (!storeId) {
-      return NextResponse.json({ success: false, error: "StoreID di .env belum disetting!" });
-    }
+    // VALIDASI KEAMANAN MUTLAK: Pastikan cashback tidak bisa tembus dari 3%
+    const safeCashback = Math.min(Math.max(Number(cashback) || 0, 0), 3);
 
-    // 2. UPDATE DATABASE
-    const { error } = await supabaseAdmin
-      .from('store_settings')
-      .update({ 
-        margin_json: strategies,
-        cashback_percent: cashback,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', storeId);
+    if (!storeId) {
+      return NextResponse.json({ success: false, error: "StoreID di .env belum disetting!" });
+    }
+
+    // 2. UPDATE DATABASE
+    const { error } = await supabaseAdmin
+      .from('store_settings')
+      .update({ 
+        margin_json: strategies,
+        cashback_percent: safeCashback, // Gunakan variabel yang sudah diamankan
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', storeId);
 
     if (error) throw error;
 

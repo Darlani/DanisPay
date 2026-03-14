@@ -66,7 +66,7 @@ export async function POST(req: Request) {
         } else {
             // RUMUS BENAR: Menggunakan nilai dari store_settings, tanpa random!
             const cbNormal = Math.floor(hargaSetelahDiskon * (dbCashbackPercent / 100));
-            const plafonMaks = Math.floor(profitKotor * 0.3); // Maksimal 30% dari profit
+            const plafonMaks = Math.floor(profitKotor * (dbCashbackPercent / 10)); // Maksimal 30% dari profit
             updateData.cashback = Math.min(cbNormal, plafonMaks);
         }
     }
