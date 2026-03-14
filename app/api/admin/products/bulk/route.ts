@@ -30,68 +30,62 @@ export async function POST(req: Request) {
      const updatesAuto: any[] = [];
      const updatesSemi: any[] = [];
 
-     // 2. Fungsi Eksekutor Perhitungan (Anti-Korupsi)
-     const processProducts = (products: any[], isSemiAuto: boolean, targetArray: any[]) => {
-       for (const product of products) {
-         // Pastikan evaluasi strict untuk boolean true atau wujud string 'true' dari Supabase
-         if (product.lock_margin === true || String(product.lock_margin).toLowerCase() === 'true') continue; // Jangan ganggu yang digembok!
+// 2. Fungsi Eksekutor Perhitungan (Anti-Korupsi & Smart Lock)
+     const processProducts = (products: any[], isSemiAuto: boolean, targetArray: any[]) => {
+       for (const product of products) {
+         // Cek apakah produk ini digembok
+         const isLocked = product.lock_margin === true || String(product.lock_margin).toLowerCase() === 'true';
 
-         // Ambil nama kategori, jika null pakai 'DEFAULT'
-         const categoryName = product.categories?.name?.toUpperCase() || "DEFAULT";
-         
-         // Cari strategi yang cocok
-         const strategyList = allStrategies[categoryName] || allStrategies["DEFAULT"];
-         const currentCost = Number(isSemiAuto ? (product.cost_numeric || 0) : (product.cost || 0));
-         
-         // 2. KASIH FALLBACK! Kalau nggak nemu range-nya, paksain pakai tier [0]
-         const cfg = strategyList.find((c: any) => currentCost >= c.minCost && currentCost <= c.maxCost) || strategyList[0];
-         
-         if (!cfg) continue; // Safety net terakhir
+         const categoryName = product.categories?.name?.toUpperCase() || "DEFAULT";
+         const strategyList = allStrategies[categoryName] || allStrategies["DEFAULT"];
+         const currentCost = Number(isSemiAuto ? (product.cost_numeric || 0) : (product.cost || 0));
+         
+         const cfg = strategyList.find((c: any) => currentCost >= c.minCost && currentCost <= c.maxCost) || strategyList[0];
+         if (!cfg && !isLocked) continue; // Safety net
 
-         // --- BAGIAN BARU: SETTING MARGIN & DISKON SESUAI STRATEGI ---
-         const newMargin = cfg.min; 
-         
-         // MATIKAN AUTO PROMO: Pertahankan diskon manual yang sudah ada di database, atau 0 jika tidak ada
-         const newDiscount = Number(product.discount || 0);
-         // -----------------------------------------------------------
+         // 1. TENTUKAN MARGIN: Jika digembok, pakai margin lama. Jika tidak, ikut strategi baru!
+         const newMargin = isLocked ? Number(product.margin_item || 0) : (cfg ? cfg.min : 0); 
+         const newDiscount = Number(product.discount || 0);
 
-         const newPrice = Math.ceil((currentCost * (1 + newMargin / 100)) / 100) * 100;
-         
-// Hitung pakai newDiscount, bukan currentDiscount lama
+         // 2. HITUNG HARGA JUAL (Bebas selisih Rp 50 jika margin 0)
+         const newPrice = newMargin === 0 
+           ? currentCost 
+           : Math.ceil((currentCost * (1 + newMargin / 100)) / 100) * 100;
+         
          const hargaSetelahDiskon = newPrice - Math.floor(newPrice * (newDiscount / 100));
          const profitKotor = hargaSetelahDiskon - currentCost;
 
-         // ANTI-BONCOS & ACUAN MUTLAK DARI SETTINGS
+         // 3. CASHBACK DINAMIS (Tetap update walau digembok)
          let newCashback = 0;
-         if (profitKotor > 0) {
-             const cbNormal = Math.floor(hargaSetelahDiskon * (dbCashbackPercent / 100));
-             const plafonMaks = Math.floor(profitKotor * (dbCashbackPercent / 10)); // Plafon 30% anti rugi
-             newCashback = Math.min(cbNormal, plafonMaks);
-         }
+         if (profitKotor > 0) {
+             const cbNormal = Math.floor(hargaSetelahDiskon * (dbCashbackPercent / 100));
+             const plafonMaks = Math.floor(profitKotor * (dbCashbackPercent / 10)); // Capped Dinamis
+             newCashback = Math.min(cbNormal, plafonMaks);
+         }
 
-         // Masukkan ke array sesuai gudangnya dengan penamaan kolom yang benar
-         if (isSemiAuto) {
-           targetArray.push({
-             id: product.id,
-             margin_item: newMargin,
-             discount: newDiscount,
-             price_numeric: newPrice, // Khusus Semi Auto
-             cashback: newCashback,
-             updated_at: new Date().toISOString()
-           });
-         } else {
-           targetArray.push({
-             id: product.id,
-             margin_item: newMargin,
-             discount: newDiscount,
-             price: newPrice, // Khusus Automatic
-             cashback: newCashback,
-             updated_at: new Date().toISOString()
-           });
-         }
-         updateCount++;
-       }
-     };
+         // 4. MASUKKAN KE ARRAY UPDATE
+         if (isSemiAuto) {
+           targetArray.push({
+             id: product.id,
+             margin_item: newMargin,
+             discount: newDiscount,
+             price_numeric: newPrice, // Khusus Semi Auto
+             cashback: newCashback,
+             updated_at: new Date().toISOString()
+           });
+         } else {
+           targetArray.push({
+             id: product.id,
+             margin_item: newMargin,
+             discount: newDiscount,
+             price: newPrice, // Khusus Automatic
+             cashback: newCashback,
+             updated_at: new Date().toISOString()
+           });
+         }
+         updateCount++;
+       }
+     };
 
      // Eksekusi proses hitung
      processProducts(autoProducts, false, updatesAuto);
