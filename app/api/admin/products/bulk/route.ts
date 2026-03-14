@@ -6,15 +6,17 @@ export async function POST(req: Request) {
 // Kita abaikan globalCashback dari frontend demi keamanan
      const { allStrategies } = await req.json();
 
-     // 1. Panggil data dari 2 Gudang + Store Settings (Limit 50.000 agar muat banyak)
+// 1. Panggil data dari 2 Gudang + Store Settings (Limit 50.000 agar muat banyak)
      const [autoRes, semiRes, settingsRes] = await Promise.all([
        supabaseAdmin.from('product_automatic')
-         .select('id, cost, discount, lock_margin, category_id, categories(name)')
+         // WAJIB ADA margin_item AGAR SISTEM INGAT ANGKA GEMBOKNYA
+         .select('id, cost, margin_item, discount, lock_margin, category_id, categories(name)')
          .limit(50000),
        supabaseAdmin.from('product_semi_auto')
-         .select('id, cost_numeric, discount, lock_margin, category_id, categories(name)')
+         // WAJIB ADA margin_item DI SINI JUGA
+         .select('id, cost_numeric, margin_item, discount, lock_margin, category_id, categories(name)')
          .limit(50000),
-       supabaseAdmin.from('store_settings').select('cashback_percent').limit(1).single()
+       supabaseAdmin.from('store_settings').select('cashback_percent').limit(1).single()
      ]);
 
      // Tarik nilai murni dari database
@@ -71,6 +73,7 @@ export async function POST(req: Request) {
              discount: newDiscount,
              price_numeric: newPrice, // Khusus Semi Auto
              cashback: newCashback,
+             lock_margin: product.lock_margin, // <-- Kunci permanen!
              updated_at: new Date().toISOString()
            });
          } else {
@@ -80,6 +83,7 @@ export async function POST(req: Request) {
              discount: newDiscount,
              price: newPrice, // Khusus Automatic
              cashback: newCashback,
+             lock_margin: product.lock_margin, // <-- Kunci permanen!
              updated_at: new Date().toISOString()
            });
          }
