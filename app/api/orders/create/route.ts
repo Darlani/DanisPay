@@ -89,9 +89,8 @@ export async function POST(req: Request) {
 
     if (isPascabayar) {
       try {
-        const protocol = req.headers.get('x-forwarded-proto') || 'http';
-        const host = req.headers.get('host');
-        const baseUrl = `${protocol}://${host}`;
+        // Gunakan 127.0.0.1 (localhost) untuk koneksi internal server agar tidak diblokir firewall VPS
+        const baseUrl = "http://127.0.0.1:3000";
         const cleanCustomerId = game_id.split('(')[0].trim();
 
         const inqRes = await fetch(`${baseUrl}/api/digiflazz/pascabayar/inquiry`, {
