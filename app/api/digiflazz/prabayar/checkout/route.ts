@@ -160,13 +160,16 @@ if (isLiveMode) {
 
         return NextResponse.json({ success: true, status: finalResponse.status, sn: finalResponse.sn, sku_used: finalSkuUsed });
       } else {
-        await supabaseAdmin.from('orders').update({ 
-          status: 'Gagal',
-          updated_at: new Date().toISOString()
-        }).eq('order_id', order_id);
+        await supabaseAdmin.from('orders').update({ 
+          status: 'Gagal',
+          updated_at: new Date().toISOString()
+        }).eq('order_id', order_id);
 
-        return NextResponse.json({ error: finalResponse?.message || "Semua stok alternatif sedang gangguan", raw: finalResponse }, { status: 500 });
-      }
+        // Tambahkan baris ini Bos, biar detail error Digiflazz muncul di pm2 logs
+        console.error(`🚨 [FINAL FAIL] Order: ${order_id} | SKU Terakhir: ${finalSkuUsed} | Pesan Vendor:`, JSON.stringify(finalResponse));
+
+        return NextResponse.json({ error: finalResponse?.message || "Semua stok alternatif sedang gangguan", raw: finalResponse }, { status: 500 });
+      }
 
     } else {
       // 🛠️ MODE SIMULASI
