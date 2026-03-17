@@ -136,10 +136,13 @@ export async function POST(req: Request) {
         if (Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya) > 1000) {
           return NextResponse.json({ error: `Deteksi manipulasi! DB: ${hargaSeharusnya}, Input: ${totalUserTanpaKodeUnik}` }, { status: 400 });
         }
-      } catch (error: any) {
-        console.error("🔥 Error Validation Pascabayar:", error.message);
-        return NextResponse.json({ error: "Gagal koneksi ke server pusat untuk verifikasi tagihan." }, { status: 500 });
-      }
+} catch (error: any) {
+        // INI PENTING: Biar Bos bisa liat di 'pm2 logs' error aslinya apa
+        console.error("🔥 [FATAL ERROR INQUIRY]:", error.message);
+        return NextResponse.json({ 
+          error: "Gagal koneksi ke server pusat. Pastikan Saldo & IP VPS terdaftar di Digiflazz." 
+        }, { status: 500 });
+      }
     } else {
       // LOGIKA PRABAYAR (MANUAL ATAU PROVIDER)
       hargaSeharusnya = Math.floor(dbProduct.price * (1 - ((dbProduct.discount || 0) / 100)));
