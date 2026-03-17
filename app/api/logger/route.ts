@@ -14,8 +14,9 @@ const WINDOW_MS = 60 * 1000;
 
 export async function POST(req: Request) {
   try {
-    // 1. Dapatkan IP pengunjung dan info browser (User Agent)
-    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'IP_Tidak_Diketahui';
+// 1. Dapatkan IP pengunjung asli (Kebal dari Proxy/Nginx)
+    const forwardedFor = req.headers.get('x-forwarded-for');
+    const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : (req.headers.get('x-real-ip') || req.headers.get('cf-connecting-ip') || 'IP_Tidak_Diketahui');
     const userAgent = req.headers.get('user-agent') || 'Browser_Tidak_Diketahui';
 
     // 2. Cek Rate Limit berdasarkan IP
@@ -39,10 +40,15 @@ export async function POST(req: Request) {
       rateLimitMap.set(ip, { count: 1, lastReset: now });
     }
 
-    // 3. Lanjutkan insert ke Supabase jika aman (tanpa select '*')
-    const body = await req.json();
-    
-    const { error } = await supabase
+// 3. Lanjutkan insert ke Supabase jika aman (tanpa select '*')
+    const body = await req.json();
+
+    // Filter Error Sampah: Jangan simpan ChunkLoadError ke database agar tidak penuh
+    if (body.message && body.message.includes('ChunkLoadError')) {
+      return NextResponse.json({ success: true, message: 'Ignored ChunkLoadError' });
+    }
+    
+    const { error } = await supabase
       .from('error_logs')
       .insert([
         { 

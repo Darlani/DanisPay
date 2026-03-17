@@ -8,8 +8,9 @@ export async function POST(req: Request) {
   try {
     const { userId, pin } = await req.json();
 
-    // Tangkap IP dan User-Agent dari Headers
-    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'IP Tidak Diketahui';
+// Tangkap IP dan User-Agent dari Headers (Anti-Proxy)
+    const forwardedFor = req.headers.get('x-forwarded-for');
+    const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : (req.headers.get('x-real-ip') || req.headers.get('cf-connecting-ip') || 'IP Tidak Diketahui');
     const userAgent = req.headers.get('user-agent') || 'Device Tidak Diketahui';
 
 // 1. Ambil Secret Key & Status Limit
@@ -32,11 +33,16 @@ export async function POST(req: Request) {
     // Kita pakai try-catch internal buat nangkep error "Secret Too Short"
 let isValid = false;
     try {
-      // Hilangkan spasi jika ada
       const cleanSecret = profile['2fa_secret'].trim();
+      const cleanPin = String(pin || '').trim();
+
+      // Validasi: PIN harus 6 digit angka saja sebelum diverifikasi otplib
+      if (!/^\d+$/.test(cleanPin)) {
+        return NextResponse.json({ error: "PIN HARUS BERUPA ANGKA!" }, { status: 400 });
+      }
       
       isValid = authenticator.verify({
-        token: String(pin).trim(),
+        token: cleanPin,
         secret: cleanSecret
       });
     } catch (err: any) {

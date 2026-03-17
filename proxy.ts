@@ -5,8 +5,9 @@ import type { NextRequest } from 'next/server';
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  // 1. Ambil IP pengunjung dari header
-  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'IP_Tidak_Diketahui';
+// 1. Ambil IP pengunjung dari header (Anti-Proxy)
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : (request.headers.get('x-real-ip') || request.headers.get('cf-connecting-ip') || 'IP_Tidak_Diketahui');
 
   // 2. Bypass jalur statis (gambar, CSS) agar render UI tetap wus wus di bawah 200ms
   const isStaticPath = pathname.startsWith('/_next') || pathname.includes('.');
