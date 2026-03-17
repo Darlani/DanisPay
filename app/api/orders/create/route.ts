@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 import { isPaymentAllowed } from '@/utils/LogicPembayaran';
+import crypto from 'crypto'; // WAJIB ADA UNTUK SIGNATURE
 
 export async function POST(req: Request) {
   try {
@@ -29,7 +30,6 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (semiAutoData) {
-      // Mapping agar variabel di bawah tidak pecah
       dbProduct = {
         ...semiAutoData,
         price: semiAutoData.price_numeric,
@@ -89,23 +89,40 @@ export async function POST(req: Request) {
 
     if (isPascabayar) {
       try {
-        // Gunakan 127.0.0.1 (localhost) untuk koneksi internal server agar tidak diblokir firewall VPS
-        const baseUrl = "http://127.0.0.1:3000";
+        /**
+         * 🚀 PERBAIKAN FATAL: LANGSUNG TEMBAK DIGIFLAZZ (BYPASS LOCALHOST)
+         * Agar tidak kena Error 500 karena Loopback Connection ditolak VPS.
+         */
+        const username = process.env.DIGIFLAZZ_USERNAME || "";
+        const apiKey = process.env.DIGIFLAZZ_API_KEY || "";
+        const ref_id_inq = `INQ-VAL-${Date.now()}`;
+        const sign_inq = crypto.createHash('md5').update(username + apiKey + ref_id_inq).digest('hex');
         const cleanCustomerId = game_id.split('(')[0].trim();
 
-        const inqRes = await fetch(`${baseUrl}/api/digiflazz/pascabayar/inquiry`, {
+        const inqRes = await fetch("https://api.digiflazz.com/v1/transaction", {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ customer_id: cleanCustomerId, sku: dbProduct.sku, category: namaKategori })
+          body: JSON.stringify({
+            commands: "inq-pasca",
+            username: username,
+            buyer_sku_code: dbProduct.sku.toLowerCase() === 'pln' ? 'pln' : dbProduct.sku,
+            customer_no: cleanCustomerId,
+            ref_id: ref_id_inq,
+            sign: sign_inq
+          })
         });
 
-        const inqData = await inqRes.json();
-        if (!inqRes.ok || !inqData.data) {
-          return NextResponse.json({ error: "Gagal memverifikasi ulang tagihan ke pusat." }, { status: 400 });
+        const inqResult = await inqRes.json();
+        const d = inqResult.data;
+
+        if (!inqRes.ok || d?.status === 'Gagal') {
+          console.error("❌ Digiflazz Inq Fail:", d?.message);
+          return NextResponse.json({ error: `Gagal verifikasi tagihan: ${d?.message || 'Server Offline'}` }, { status: 400 });
         }
 
-        tagihanMurni = Number(inqData.data.desc?.detail?.[0]?.nilai_tagihan || 0);
-        const adminDigiflazz = Number(inqData.data.admin || 5000);
+        // Ekstraksi data tagihan real dari Digiflazz
+        tagihanMurni = Number(d.desc?.detail?.[0]?.nilai_tagihan || 0);
+        const adminDigiflazz = Number(d.admin || 0);
         const adminToko = Number(dbProduct.price || 0); 
         
         modalPascabayar = tagihanMurni + adminDigiflazz;
@@ -119,28 +136,14 @@ export async function POST(req: Request) {
         if (Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya) > 1000) {
           return NextResponse.json({ error: `Deteksi manipulasi! DB: ${hargaSeharusnya}, Input: ${totalUserTanpaKodeUnik}` }, { status: 400 });
         }
-      } catch (error) {
-        return NextResponse.json({ error: "Gagal koneksi ke server inquiry pascabayar." }, { status: 500 });
+      } catch (error: any) {
+        console.error("🔥 Error Validation Pascabayar:", error.message);
+        return NextResponse.json({ error: "Gagal koneksi ke server pusat untuk verifikasi tagihan." }, { status: 500 });
       }
     } else {
       // LOGIKA PRABAYAR (MANUAL ATAU PROVIDER)
       hargaSeharusnya = Math.floor(dbProduct.price * (1 - ((dbProduct.discount || 0) / 100)));
       
-      if (productType === 'provider') {
-        const listButuhInquiry = ['pln', 'game']; 
-        if (listButuhInquiry.some(kw => namaKategori.includes(kw) || dbProduct.sku.toLowerCase().includes(kw))) {
-          try {
-            const protocol = req.headers.get('x-forwarded-proto') || 'http';
-            const host = req.headers.get('host');
-            await fetch(`${protocol}://${host}/api/digiflazz/prabayar/inquiry`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ customer_id: game_id, sku: dbProduct.sku })
-            });
-          } catch (e) { console.error("Re-inquiry skip"); }
-        }
-      }
-
       if (Math.abs(totalInputUser - hargaSeharusnya) > 1500) {
         return NextResponse.json({ error: "Deteksi manipulasi harga prabayar!" }, { status: 400 });
       }
@@ -153,7 +156,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Metode pembayaran tidak tersedia." }, { status: 403 });
     }
 
-    // --- 5.5 LOGIKA SMART UNIQUE CODE ---
+    // --- 5.5 LOGIKA SMART UNIQUE CODE (Hanya untuk Prabayar) ---
     const limaMenitLalu = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const { count: trafik } = await supabaseAdmin.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'Pending').gte('created_at', limaMenitLalu);
     const kodeUnikPusat = Math.floor(Math.random() * ((trafik || 0) > 15 ? 999 : ((trafik || 0) > 5 ? 500 : 200))) + 1;
@@ -169,7 +172,7 @@ export async function POST(req: Request) {
       order_id,
       sku: dbProduct.sku,
       product_name: safeProductName,
-      item_label: dynamicLabel,
+      item_label: isPascabayar ? (inquiry_result?.period ? `Tagihan ${inquiry_result.period}` : "Tagihan Listrik") : item_label,
       game_id,
       buy_price: isPascabayar ? modalPascabayar : (dbProduct.cost || 0), 
       price: isPascabayar ? hargaJualPascabayar : (dbProduct.price || 0),
@@ -178,10 +181,9 @@ export async function POST(req: Request) {
       voucher_amount: voucher_amount || 0,
       cashback: finalCashback, 
       unique_code: isPascabayar ? kodeUnikUser : kodeUnikPusat,
-      total_amount: isPascabayar ? total_amount : (hargaSeharusnya + kodeUnikPusat),
+      total_amount: total_amount, 
       payment_method,
       
-      // LOGIKA JALUR HYBRID
       product_type: productType, 
       manual_product_id: productType === 'manual' ? dbProduct.id : null,
 
