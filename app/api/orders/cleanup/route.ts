@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   // 2. LOGIKA CLEANUP: Pesanan lebih dari 2 jam = Hangus
   const duaJamLalu = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
-  console.log(`🧹 [CLEANUP] Memulai pembersihan pesanan Pending sebelum: ${duaJamLalu}`);
+  console.error(`🚨 [DEBUG-CLEANUP] Robot Aktif! Cek data sebelum: ${duaJamLalu}`);
 
   try {
     // A. TARIK SEMUA PESANAN EXPIRED (Termasuk data profil untuk cek saldo)
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
       cleanedCount++;
     }
 
-    console.log(`✅ [CLEANUP SUKSES]: ${cleanedCount} pesanan kadaluarsa berhasil disapu dan koin dikembalikan (jika ada).`);
+    console.error(`✅ [CLEANUP-REPORT] Berhasil hapus: ${cleanedCount} data.`);
 
     return NextResponse.json({ 
       success: true, 
