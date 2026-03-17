@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     // PERBAIKAN: Timeout dinaikkan ke 45 detik karena server pusat (PLN/PDAM) sering lemot
     const res = await axios.post("https://api.digiflazz.com/v1/transaction", payload, {
       headers: { 'Content-Type': 'application/json' },
-      timeout: 45000 
+      timeout: 60000 
     });
 
     const result = res.data;
