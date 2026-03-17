@@ -14,13 +14,19 @@ function generateDynamicQRIS(staticQRIS: string, nominal: number) {
     payload = payload.substring(0, crcTagIndex);
   }
 
-  // Inject Tag 54 (Amount)
-  const amountStr = nominal.toString();
-  const amountLen = amountStr.length.toString().padStart(2, '0');
-  const tag54 = `54${amountLen}${amountStr}`;
+// Inject Tag 54 (Amount)
+  const amountStr = nominal.toString();
+  const amountLen = amountStr.length.toString().padStart(2, '0');
+  const tag54 = `54${amountLen}${amountStr}`;
 
-  // Gabungkan payload + Tag 54 + Tag 6304 [cite: 2026-03-06]
-  payload += tag54 + "6304";
+  // Selipkan Tag 54 SETELAH Tag 53 (Mata Uang IDR: 5303360) agar susunannya sesuai standar Bank
+  if (payload.includes("5303360")) {
+    payload = payload.replace("5303360", `5303360${tag54}`);
+    payload += "6304"; // Tambahkan Tag CRC di paling akhir
+  } else {
+    // Fallback jika format QRIS statisnya aneh
+    payload += tag54 + "6304";
+  }
 
   // Hitung CRC16-CCITT
   let crc = 0xFFFF;
