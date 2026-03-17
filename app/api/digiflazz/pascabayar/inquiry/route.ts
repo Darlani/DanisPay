@@ -5,7 +5,7 @@ import axios from 'axios';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { customer_id, sku, category } = body;
+    const { customer_id, sku, category, amount: userAmount } = body;
 
     if (!customer_id || !sku) {
       return NextResponse.json({ message: "Data tidak lengkap Bos!" }, { status: 400 });
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Konfigurasi server belum lengkap Bos!" }, { status: 500 });
     }
 
-    // 1. LOGIKA MAPPING SKU (Tetap Aman)
+    // 1. LOGIKA MAPPING SKU & HANDLING PRODUK KHUSUS
     let inquirySku = sku; 
     const lowerCat = category?.toLowerCase() || "";
     const lowerName = sku.toLowerCase();
@@ -38,59 +38,63 @@ export async function POST(req: Request) {
     const ref_id = `INQ-${Date.now()}`;
     const sign = crypto.createHash('md5').update(username + apiKey + ref_id).digest('hex');
 
-    const res = await axios.post("https://api.digiflazz.com/v1/transaction", {
+    // KONSTRUKSI REQUEST SESUAI DOKUMEN
+    const payload: any = {
       commands: "inq-pasca",
       username: username,
       buyer_sku_code: inquirySku.toLowerCase(),
       customer_no: customer_id,
       ref_id: ref_id,
       sign: sign
-    }, {
+    };
+
+    // KHUSUS E-MONEY (Sesuai Dokumen: butuh parameter amount)
+    if (lowerCat.includes('e-money') || lowerName.includes('emoney')) {
+      payload.amount = userAmount || 0;
+    }
+
+    console.log(`📡 [INQUIRY] Tembak Digiflazz untuk SKU: ${inquirySku}...`);
+
+    // PERBAIKAN: Timeout dinaikkan ke 45 detik karena server pusat (PLN/PDAM) sering lemot
+    const res = await axios.post("https://api.digiflazz.com/v1/transaction", payload, {
       headers: { 'Content-Type': 'application/json' },
-      timeout: 15000 
+      timeout: 45000 
     });
 
     const result = res.data;
     const digiData = result.data;
 
     if (digiData?.status === "Gagal") {
-      let pesanUser = "Gagal cek tagihan, Bos!";
-      if (digiData?.rc === '02') {
-        pesanUser = "Tagihan ID ini sudah Lunas atau tidak ada tagihan aktif.";
-      } else if (digiData?.rc === '54') {
-        pesanUser = "Nomor ID Pelanggan salah, coba cek lagi kodenya.";
-      }
+      let pesanUser = digiData.message || "Gagal cek tagihan, Bos!";
+      if (digiData?.rc === '02') pesanUser = "Tagihan sudah Lunas atau tidak ada tagihan aktif.";
+      if (digiData?.rc === '54') pesanUser = "Nomor ID Pelanggan salah, cek lagi kodenya.";
+      
       return NextResponse.json({ success: false, message: pesanUser, rc: digiData?.rc }, { status: 400 });
     }
 
-    // 2. MAGIS EKSTRAKSI DATA (Sesuai kodingan Webhook/Auto-Check) [cite: 2026-03-11]
+    // 2. MAGIS EKSTRAKSI DATA (Tetap Utuh Tanpa Korupsi)
     let customerName = digiData.customer_name || digiData.name || "Pelanggan";
     let segmentPower = "";
     let standMeter = "";
 
     if (digiData.desc && typeof digiData.desc === 'object') {
-      // Ambil Nama dari desc jika di field utama kosong
       customerName = digiData.desc.nama || digiData.desc.nama_pelanggan || customerName;
-      
-      // Ambil Tarif/Daya
       const tarif = digiData.desc.tarif || "";
       const daya = digiData.desc.daya || "";
       if (tarif || daya) segmentPower = `${tarif}${daya ? '/' + daya : ''}`;
 
-      // Ambil Stand Meter
       const detail = digiData.desc.tagihan?.detail?.[0];
       if (detail?.meter_awal && detail?.meter_akhir) {
         standMeter = `${detail.meter_awal} - ${detail.meter_akhir}`;
       }
     }
 
-    // 3. KIRIM KE FRONTEND DENGAN FORMAT LENGKAP
     return NextResponse.json({
       success: true,
       data: {
         customerName: customerName,
-        segmentPower: segmentPower, // Baru! Munculkan di UI (Contoh: R1/450)
-        standMeter: standMeter,     // Baru! Munculkan di UI
+        segmentPower: segmentPower,
+        standMeter: standMeter,
         amount: digiData.price || 0,
         adminSupplier: digiData.admin || 0,
         period: digiData.periode || "Bulan ini",
@@ -99,7 +103,11 @@ export async function POST(req: Request) {
     });
 
   } catch (error: any) {
-    console.error("❌ ERROR API:", error.message);
-    return NextResponse.json({ message: "Server Error Bos! Hubungi IT." }, { status: 500 });
+    if (error.code === 'ECONNABORTED') {
+      console.error("❌ TIMEOUT: Server Digiflazz terlalu lama merespon.");
+      return NextResponse.json({ message: "Server Provider lambat, silakan coba 1 menit lagi." }, { status: 504 });
+    }
+    console.error("❌ ERROR API INQUIRY:", error.message);
+    return NextResponse.json({ message: "Gagal koneksi ke server pusat!" }, { status: 500 });
   }
 }
