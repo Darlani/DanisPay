@@ -21,7 +21,6 @@ export async function POST(req: Request) {
 
     // 1. AMBIL DATA ORDER & CEK SAKLAR LIVE
     const [orderRes, settingsRes] = await Promise.all([
-      // Hanya panggil kolom yang dipakai: id, order_id, status, sku, game_id, category [cite: 2026-03-07]
       supabaseAdmin.from('orders').select('id, order_id, status, sku, game_id, category').eq('order_id', order_id).single(),
       supabaseAdmin.from('store_settings').select('is_digiflazz_active').single()
     ]);
@@ -40,14 +39,18 @@ export async function POST(req: Request) {
       
       const sign = crypto.createHash('md5').update(username + apiKey + order_id).digest('hex');
 
+      // PERBAIKAN: Bersihkan No Pelanggan & Paksa SKU Huruf Besar
+      const cleanCustomerId = order.game_id.split('(')[0].trim();
+      const upperSku = order.sku.toUpperCase();
+
       const digiRes = await fetch('https://api.digiflazz.com/v1/transaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          commands: "pay-pasca", // Kunci utama Pembayaran LIVE
+          commands: "pay-pasca", 
           username,
-          buyer_sku_code: order.sku,
-          customer_no: order.game_id,
+          buyer_sku_code: upperSku,
+          customer_no: cleanCustomerId,
           ref_id: order_id,
           sign: sign
         })
@@ -60,16 +63,16 @@ export async function POST(req: Request) {
       if (digiData && (digiData.status === 'Sukses' || digiData.status === 'Pending')) {
         const isSuccess = digiData.status === 'Sukses';
         
-        // Siapkan Payload Update
+        // Siapkan Payload Update (Tetap Utuh 100%)
         const updatePayload: any = { 
           status: isSuccess ? 'Berhasil' : 'Diproses',
           sn: digiData.sn || 'Proses di Vendor',
-          api_ref_id: order_id, // Tetap simpan agar Webhook/Auto-check sinkron
+          api_ref_id: order_id, 
           vendor_sku: order.sku,
           updated_at: new Date().toISOString()
         };
 
-        // --- EKSTRAKSI DATA LANGSUNG (Agar pelanggan senang data langsung muncul) ---
+        // --- EKSTRAKSI DATA LANGSUNG (Sesuai Kodingan Asli Bos) ---
         if (digiData.desc && typeof digiData.desc === 'object') {
             updatePayload.raw_tagihan = digiData.price || 0;
             updatePayload.desc = JSON.stringify(digiData.desc);
@@ -90,7 +93,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true, status: digiData.status, sn: digiData.sn });
 
       } else {
-        // GAGAL DARI DIGIFLAZZ
+        // GAGAL DARI DIGIFLAZZ (Tambah Log Detail agar Bos tahu alasannya di PM2)
+        console.error(`❌ [DIGIFLAZZ ERROR] Order #${order_id}: ${digiData?.message}`);
         return NextResponse.json({ error: digiData?.message || "Gagal diproses oleh Vendor" }, { status: 500 });
       }
 
@@ -108,7 +112,7 @@ export async function POST(req: Request) {
     }
 
   } catch (err: any) {
-    console.error("Fatal Error Checkout:", err.message);
+    console.error("🔥 Fatal Error Checkout:", err.message);
     return NextResponse.json({ error: "Terjadi kesalahan internal!" }, { status: 500 });
   }
 }
