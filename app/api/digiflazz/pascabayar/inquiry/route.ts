@@ -39,11 +39,14 @@ export async function POST(req: Request) {
     const sign = crypto.createHash('md5').update(username + apiKey + ref_id).digest('hex');
 
     // KONSTRUKSI REQUEST SESUAI DOKUMEN
+// Kita bersihkan dulu ID-nya dari spasi atau tanda kurung (ex: 12345 (PLN) -> 12345)
+    const cleanId = String(customer_id).split('(')[0].trim();
+
     const payload: any = {
       commands: "inq-pasca",
       username: username,
       buyer_sku_code: inquirySku.toLowerCase(),
-      customer_no: customer_id,
+      customer_no: cleanId, // Pakai yang sudah bersih
       ref_id: ref_id,
       sign: sign
     };
