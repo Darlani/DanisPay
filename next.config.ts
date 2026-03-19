@@ -27,9 +27,13 @@ const nextConfig = {
     ];
   },
 
-// compiler: {
-//   removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error"] } : false,
-// },
+compiler: {
+    // Menghapus console.log di production demi keamanan dan kecepatan,
+    // tapi menyisakan console.error buat jaga-jaga kalau ada bug fatal.
+    removeConsole: process.env.NODE_ENV === "production" ? {
+      exclude: ["error"],
+    } : false,
+  },
 
   experimental: {
     // Bersih dari fitur yang belum stabil
