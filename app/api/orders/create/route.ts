@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 import { isPaymentAllowed } from '@/utils/LogicPembayaran';
 import crypto from 'crypto'; // WAJIB ADA UNTUK SIGNATURE
+import axios from 'axios'; // <-- TAMBAHAN AXIOS AGAR SINKRON DENGAN INQUIRY
 
 export async function POST(req: Request) {
   try {
@@ -90,32 +91,33 @@ export async function POST(req: Request) {
     if (isPascabayar) {
       try {
         /**
-         * 🚀 PERBAIKAN FATAL: LANGSUNG TEMBAK DIGIFLAZZ (BYPASS LOCALHOST)
-         * Agar tidak kena Error 500 karena Loopback Connection ditolak VPS.
+         * 🚀 PERBAIKAN FATAL: LANGSUNG TEMBAK DIGIFLAZZ MENGGUNAKAN AXIOS
+         * Agar selaras dengan inquiry dan tidak kena timeout prematur.
          */
         const username = process.env.DIGIFLAZZ_USERNAME || "";
         const apiKey = process.env.DIGIFLAZZ_API_KEY || "";
         const ref_id_inq = `INQ-VAL-${Date.now()}`;
         const sign_inq = crypto.createHash('md5').update(username + apiKey + ref_id_inq).digest('hex');
+        
+        // Membersihkan ID sama persis dengan yang di API Inquiry
         const cleanCustomerId = game_id.split('(')[0].trim();
 
-        const inqRes = await fetch("https://api.digiflazz.com/v1/transaction", {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        // Ganti fetch dengan axios dan tambahkan timeout 60 detik
+        const inqRes = await axios.post("https://api.digiflazz.com/v1/transaction", {
             commands: "inq-pasca",
             username: username,
             buyer_sku_code: dbProduct.sku.toLowerCase() === 'pln' ? 'pln' : dbProduct.sku,
             customer_no: cleanCustomerId,
             ref_id: ref_id_inq,
             sign: sign_inq
-          })
+        }, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 60000 
         });
 
-        const inqResult = await inqRes.json();
-        const d = inqResult.data;
+        const d = inqRes.data.data;
 
-        if (!inqRes.ok || d?.status === 'Gagal') {
+        if (d?.status === 'Gagal') {
           console.error("❌ Digiflazz Inq Fail:", d?.message);
           return NextResponse.json({ error: `Gagal verifikasi tagihan: ${d?.message || 'Server Offline'}` }, { status: 400 });
         }
@@ -136,13 +138,13 @@ export async function POST(req: Request) {
         if (Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya) > 1000) {
           return NextResponse.json({ error: `Deteksi manipulasi! DB: ${hargaSeharusnya}, Input: ${totalUserTanpaKodeUnik}` }, { status: 400 });
         }
-} catch (error: any) {
-        // INI PENTING: Biar Bos bisa liat di 'pm2 logs' error aslinya apa
-        console.error("🔥 [FATAL ERROR INQUIRY]:", error.message);
-        return NextResponse.json({ 
-          error: "Gagal koneksi ke server pusat. Pastikan Saldo & IP VPS terdaftar di Digiflazz." 
-        }, { status: 500 });
-      }
+      } catch (error: any) {
+        // INI PENTING: Biar Bos bisa liat di 'pm2 logs' error aslinya apa
+        console.error("🔥 [FATAL ERROR INQUIRY VALIDATION]:", error.message);
+        return NextResponse.json({ 
+          error: "Gagal koneksi ke server pusat untuk validasi. Server mungkin sibuk, coba lagi." 
+        }, { status: 500 });
+      }
     } else {
       // LOGIKA PRABAYAR (MANUAL ATAU PROVIDER)
       hargaSeharusnya = Math.floor(dbProduct.price * (1 - ((dbProduct.discount || 0) / 100)));
