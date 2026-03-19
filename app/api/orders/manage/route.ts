@@ -320,40 +320,49 @@ if (oldStatusRaw === currentStatus) {
 
     if (telegramMessage) await sendTelegram(telegramMessage);
 
-    // =========================================================================
+// =========================================================================
     // 🚀 EKSEKUSI NEMBAK KE DIGIFLAZZ (HANYA JIKA STATUS "DIPROSES" DAN LIVE AKTIF)
-    // Jika admin set "Berhasil", berarti ini produk manual Bos, SKIP Digiflazz!
     // =========================================================================
     if (currentStatus === 'Diproses' && settings?.is_digiflazz_active) {
        console.log(`🚀 [ADMIN ACTION] Order #${oldOrder.order_id} diteruskan ke Digiflazz...`);
        
-try {
-           // Jalur tol internal VPS: Super cepat & anti-nyasar [cite: 2026-03-06]
-           const baseUrl = "http://127.0.0.1:3000"; 
+       try {
+           const kategoriLengkap = (oldOrder.category || "").toLowerCase();
+           const isPasca = kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('pln');
            
-const kategoriLengkap = (oldOrder.category || "").toLowerCase();
-           
-           // Gunakan rute baru yang sudah kita rapikan ke dalam folder digiflazz [cite: 2026-03-08]
-           let apiEndpoint = `${baseUrl}/api/digiflazz/prabayar/checkout`;
-           if (kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('ppob')) {
-               apiEndpoint = `${baseUrl}/api/digiflazz/pascabayar/checkout`; 
-           }
+           // GUNAKAN BASE_URL YANG ASLI (JANGAN 127.0.0.1)
+           // Jika di env tidak ada NEXT_PUBLIC_BASE_URL, pakai fallback request url
+           const reqUrl = new URL(req.url);
+           const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${reqUrl.protocol}//${reqUrl.host}`;
+           
+           const apiEndpoint = isPasca 
+               ? `${baseUrl}/api/digiflazz/pascabayar/checkout`
+               : `${baseUrl}/api/digiflazz/prabayar/checkout`;
 
-      fetch(apiEndpoint, {
-          method: 'POST',
-          headers: { 
-              'Content-Type': 'application/json',
-              'x-webhook-secret': WEBHOOK_SECRET // Gunakan secret untuk verifikasi internal [cite: 2026-03-06]
-          },
-          body: JSON.stringify({
-              order_id: oldOrder.order_id,
-              email: user_email,
-              use_koin: false 
-          })
-           }).catch(e => console.error("Gagal trigger API Checkout:", e));
+           console.log(`📡 Mengetuk pintu internal: ${apiEndpoint}`);
+
+           // WAJIB PAKAI AWAIT! Agar proses tidak dibunuh oleh Next.js sebelum selesai
+           const checkoutRes = await fetch(apiEndpoint, {
+               method: 'POST',
+               headers: { 
+                   'Content-Type': 'application/json',
+                   'x-webhook-secret': WEBHOOK_SECRET
+               },
+               body: JSON.stringify({
+                   order_id: oldOrder.order_id,
+                   email: user_email,
+                   use_koin: false 
+               })
+           });
+
+           if (!checkoutRes.ok) {
+               console.error(`❌ Gagal trigger Checkout! HTTP Status: ${checkoutRes.status}`);
+           } else {
+               console.log(`✅ Sukses trigger Checkout untuk #${oldOrder.order_id}`);
+           }
            
-       } catch (apiErr) {
-           console.error("Gagal mengeksekusi ke Digiflazz:", apiErr);
+       } catch (apiErr: any) {
+           console.error("🔥 Gagal mengeksekusi ke Digiflazz:", apiErr.message);
        }
     }
 
