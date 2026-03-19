@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-// IMPORT LANGSUNG FUNGSI CHECKOUT UNTUK BYPASS HTTP FETCH (Jalur Tol VVIP)
+// IMPORT FUNGSI LOGIKA MURNI (Direct Call)
+import { runCheckoutPascabayar } from '@/app/api/digiflazz/pascabayar/checkout/route';
+// Note: Untuk Prabayar sementara tetap pakai cara lama dulu sampai file prabayar di-refactor juga
 import { POST as processPrabayar } from '@/app/api/digiflazz/prabayar/checkout/route';
-import { POST as processPascabayar } from '@/app/api/digiflazz/pascabayar/checkout/route';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -296,41 +297,37 @@ export async function PATCH(req: Request) {
     if (telegramMessage) await sendTelegram(telegramMessage);
 
     // =========================================================================
-    // 🚀 EKSEKUSI NEMBAK KE DIGIFLAZZ (BYPASS HTTP FETCH)
+    // 🚀 EKSEKUSI NEMBAK KE DIGIFLAZZ (DIRECT LOGIC CALL - ANTI MACET)
     // =========================================================================
     if (currentStatus === 'Diproses' && settings?.is_digiflazz_active) {
-       console.log(`🚀 [ADMIN ACTION] Memanggil fungsi internal untuk #${oldOrder.order_id}...`);
+       console.log(`🚀 [ADMIN ACTION] Menjalankan fungsi checkout internal untuk #${oldOrder.order_id}...`);
        
        try {
            const kategoriLengkap = (oldOrder.category || "").toLowerCase();
            const isPasca = kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('pln');
            
-           // Bikin objek Request "Palsu" untuk menipu fungsi checkout
-           const mockRequest = new Request('http://localhost', {
-               method: 'POST',
-               body: JSON.stringify({ order_id: oldOrder.order_id })
-           });
-
-           // Panggil fungsi secara langsung berdasarkan kategori (Instant!)
-           let response;
            if (isPasca) {
-               console.log("⚡ Eksekusi rute Pascabayar...");
-               response = await processPascabayar(mockRequest);
+               console.log("⚡ Memanggil runCheckoutPascabayar secara langsung...");
+               // PANGGIL FUNGSI SECARA LANGSUNG (Tanpa mockRequest, Tanpa macet!)
+               const result = await runCheckoutPascabayar(oldOrder.order_id);
+               
+               if (result.error) {
+                   console.error(`❌ Checkout Pascabayar GAGAL:`, result.error);
+               } else {
+                   console.log(`✅ Checkout Pascabayar SUKSES:`, result.status);
+               }
            } else {
-               console.log("⚡ Eksekusi rute Prabayar...");
-               response = await processPrabayar(mockRequest);
-           }
-           
-           // BONGKAR BRANKAS ERROR JIKA GAGAL (Agar tampil di VPS)
-           if (response && !response.ok) {
-               const resJson = await response.json();
-               console.error(`❌ Checkout merespon ERROR:`, JSON.stringify(resJson, null, 2));
-           } else {
-               console.log(`✅ Sukses trigger Checkout untuk #${oldOrder.order_id}`);
+               // UNTUK PRABAYAR (Lanjutkan pakai Mock dulu sampai Bos sempat refactor file prabayarnya)
+               const mockRequest = new Request('http://localhost', {
+                   method: 'POST',
+                   body: JSON.stringify({ order_id: oldOrder.order_id })
+               });
+               await processPrabayar(mockRequest);
+               console.log(`✅ Sukses trigger Checkout Prabayar untuk #${oldOrder.order_id}`);
            }
            
        } catch (apiErr: any) {
-           console.error("🔥 Gagal memanggil fungsi Checkout internal:", apiErr.message);
+           console.error("🔥 Gagal memanggil fungsi Checkout:", apiErr.message);
        }
     }
 

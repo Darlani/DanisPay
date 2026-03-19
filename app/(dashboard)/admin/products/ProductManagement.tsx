@@ -805,7 +805,19 @@ let cbPerItem = 0;
                 <div className="flex flex-col">
                   <span className="text-[6px] text-slate-500 font-bold uppercase">CASHBACK</span>
                   <div className="flex items-center gap-0.5">
-                    <input type="number" className="w-6 bg-transparent text-amber-400 text-[10px] font-black outline-none" value={globalCashback} onChange={(e) => setGlobalCashback(Number(e.target.value))}/>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max="3" 
+                      className="w-6 bg-transparent text-amber-400 text-[10px] font-black outline-none" 
+                      value={globalCashback} 
+                      onChange={(e) => {
+                        let val = Number(e.target.value);
+                        if (val > 3) val = 3; // Kunci batas maksimal 3% (Capped 30%)
+                        if (val < 0) val = 0; // Kunci batas minimal 0%
+                        setGlobalCashback(val);
+                      }}
+                    />
                     <span className="text-amber-500 text-[8px] font-black">%</span>
                   </div>
                 </div>

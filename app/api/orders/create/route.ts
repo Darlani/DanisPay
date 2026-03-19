@@ -127,8 +127,8 @@ export async function POST(req: Request) {
 
     const orderData = {
       order_id,
-      // 🚀 TAMBAHKAN BARIS INI: Ambil ref_id dari hasil inquiry frontend
-      api_ref_id: isPascabayar && inquiry_result?.ref_id ? inquiry_result.ref_id : order_id, 
+      // 🚀 PAKSA SIMPAN ID INQUIRY ASLI DARI DIGIFLAZZ (INQ-xxxx)
+      api_ref_id: inquiry_result?.ref_id || order_id, 
       
       sku: dbProduct.sku,
       product_name: safeProductName,
