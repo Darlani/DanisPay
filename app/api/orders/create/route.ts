@@ -71,36 +71,35 @@ export async function POST(req: Request) {
     
 const isPascabayar = productType === 'provider' && (namaKategori.includes('pascabayar') || dbProduct.sku.toLowerCase() === 'pln');
 
-    if (isPascabayar) {
+if (isPascabayar) {
       try {
-        // 1. Ambil Tagihan Murni (Tanpa admin supplier) dari hasil CEK di frontend
+        // 1. Ambil data dari hasil inquiry yang dikirim frontend
         tagihanMurni = Number(inquiry_result?.amount || 0);
         const adminToko = Number(dbProduct.price || 0); 
         const adminSupplier = Number(inquiry_result?.adminSupplier || 0);
 
-        // 2. Kalkulasi Ulang (Pastikan rumusnya sama 100% dengan Frontend)
+        // 2. Hitung harga yang seharusnya dibayar user
         hargaJualPascabayar = tagihanMurni + adminToko;
-        modalPascabayar = tagihanMurni + adminSupplier; // Ini biaya asli Bos ke Digiflazz
+        modalPascabayar = tagihanMurni + adminSupplier; // Modal asli Bos ke Digiflazz
         
         hargaSeharusnya = hargaJualPascabayar;
         
-        // 3. Hitung Kode Unik (Beda harga bayar dan harga asli)
+        // 3. Validasi angka yang dikirim Frontend vs Perhitungan Backend
         const selisihMurni = Math.floor(totalInputUser - hargaSeharusnya);
         kodeUnikUser = (selisihMurni > 0 && selisihMurni < 1000) ? selisihMurni : 0;
-        
-        // Angka yang benar-benar dibayar User dikurangi kode unik
         const totalUserTanpaKodeUnik = Math.floor(totalInputUser - kodeUnikUser);
 
-        // 4. Validasi Keamanan (Toleransi selisih naikkan ke 1500 untuk pembulatan sistem)
-        if (Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya) > 1500) {
-           console.error(`⚠️ Manipulasi Detect: DB(${hargaSeharusnya}) vs User(${totalUserTanpaKodeUnik})`);
-           return NextResponse.json({ error: `Deteksi manipulasi harga! Silakan ulangi cek tagihan.` }, { status: 400 });
+        // Toleransi dinaikkan sedikit ke 2000 untuk menghindari pembulatan sistem
+        if (Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya) > 2000) {
+           console.error(`⚠️ Price Mismatch! DB: ${hargaSeharusnya}, User: ${totalUserTanpaKodeUnik}`);
+           return NextResponse.json({ error: `Harga tagihan tidak sinkron, silakan ulangi cek tagihan.` }, { status: 400 });
         }
       } catch (error: any) {
-        console.error("🔥 [FATAL ERROR PASCABAYAR]:", error.message);
+        console.error("🔥 Error Pascabayar Create:", error.message);
         return NextResponse.json({ error: "Gagal memproses data tagihan." }, { status: 500 });
       }
-    } else {
+    }
+    else {
       // LOGIKA PRABAYAR
       hargaSeharusnya = Math.floor(dbProduct.price * (1 - ((dbProduct.discount || 0) / 100)));
       if (Math.abs(totalInputUser - hargaSeharusnya) > 1500) {
