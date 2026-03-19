@@ -101,17 +101,26 @@ export async function GET(req: Request) {
             if (isPostpaid || isTokenPLN) {
               updatePayload.desc = digiData.desc || null;
               if (digiData.desc && typeof digiData.desc === 'object') {
-                updatePayload.customer_name = digiData.desc.nama || digiData.desc.nama_pelanggan || null;
+                // 🚀 FALLBACK DETAIL: Cek di .detail atau .tagihan.detail agar anti-meleset
+                const detail = digiData.desc.detail?.[0] || digiData.desc.tagihan?.detail?.[0];
+                
+                // Mapping Nama Pelanggan (Cari di semua kemungkinan folder)
+                updatePayload.customer_name = digiData.desc.nama || digiData.desc.nama_pelanggan || digiData.customer_name || null;
+                
+                // Ambil Tarif/Daya
                 const tarif = digiData.desc.tarif || "";
                 const daya = digiData.desc.daya || "";
                 if (tarif || daya) updatePayload.segment_power = `${tarif}${daya ? '/' + daya : ''}`;
                 
-                const detailTagihan = digiData.desc.tagihan?.detail?.[0];
-                if (detailTagihan && detailTagihan.meter_awal && detailTagihan.meter_akhir) {
-                  updatePayload.stand_meter = `${detailTagihan.meter_awal} - ${detailTagihan.meter_akhir}`;
+                // 🚀 UPDATE STAND METER: Pastikan info meteran masuk ke database
+                if (detail?.meter_awal && detail?.meter_akhir) {
+                  updatePayload.stand_meter = `${detail.meter_awal} - ${detail.meter_akhir}`;
                 } else if (digiData.desc.stand_meter) {
                   updatePayload.stand_meter = String(digiData.desc.stand_meter);
                 }
+                
+                // Update Raw Tagihan jika Postpaid (Agar struk sinkron dengan harga vendor)
+                if (isPostpaid) updatePayload.raw_tagihan = digiData.price || 0;
               }
             }
 

@@ -69,7 +69,9 @@ export async function runCheckoutPascabayar(order_id: string) {
             const tarif = digiData.desc.tarif || "";
             const daya = digiData.desc.daya || "";
             if (tarif || daya) updatePayload.segment_power = `${tarif}${daya ? '/' + daya : ''}`;
-            const detail = digiData.desc.tagihan?.detail?.[0];
+            // 🚀 Sekarang dia cek di .tagihan.detail atau langsung di .detail
+            const detail = digiData.desc.tagihan?.detail?.[0] || digiData.desc.detail?.[0];
+
             if (detail?.meter_awal && detail?.meter_akhir) {
                 updatePayload.stand_meter = `${detail.meter_awal} - ${detail.meter_akhir}`;
             }

@@ -76,12 +76,15 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
           >
             <span>NO. INVOICE</span> 
             <span className="font-bold text-right text-blue-600 flex items-center gap-1.5">
+              {/* Ikon dipindah ke kiri agar nomor invoice tetap rata kanan */}
+              <div className="flex items-center">
+                {copied ? (
+                  <CheckCircle2 size={11} className="text-emerald-500 animate-in zoom-in mr-1" />
+                ) : (
+                  <Copy size={11} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity mr-1" />
+                )}
+              </div>
               #{order.order_id}
-              {copied ? (
-                <CheckCircle2 size={12} className="text-emerald-500 animate-in zoom-in" />
-              ) : (
-                <Copy size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-              )}
             </span>
           </div>
           <div className="flex justify-between">

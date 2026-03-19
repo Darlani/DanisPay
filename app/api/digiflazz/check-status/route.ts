@@ -109,17 +109,23 @@ export async function POST(req: Request) {
       if (isPostpaid || isTokenPLN) {
         updatePayload.desc = digiData.desc || null;
         if (digiData.desc && typeof digiData.desc === 'object') {
-          updatePayload.customer_name = digiData.desc.nama || digiData.desc.nama_pelanggan || null;
+          // 🚀 FALLBACK DETAIL: Cari data di .detail atau .tagihan.detail
+          const detail = digiData.desc.detail?.[0] || digiData.desc.tagihan?.detail?.[0];
+          
+          updatePayload.customer_name = digiData.desc.nama || digiData.desc.nama_pelanggan || digiData.customer_name || null;
           const tarif = digiData.desc.tarif || "";
           const daya = digiData.desc.daya || "";
           if (tarif || daya) updatePayload.segment_power = `${tarif}${daya ? '/' + daya : ''}`;
           
-          const detailTagihan = digiData.desc.tagihan?.detail?.[0];
-          if (detailTagihan && detailTagihan.meter_awal && detailTagihan.meter_akhir) {
-            updatePayload.stand_meter = `${detailTagihan.meter_awal} - ${detailTagihan.meter_akhir}`;
+          // 🚀 UPDATE STAND METER: Pastikan info meteran masuk ke database
+          if (detail?.meter_awal && detail?.meter_akhir) {
+            updatePayload.stand_meter = `${detail.meter_awal} - ${detail.meter_akhir}`;
           } else if (digiData.desc.stand_meter) {
             updatePayload.stand_meter = String(digiData.desc.stand_meter);
           }
+
+          // Update Raw Tagihan khusus Pascabayar agar sinkron dengan harga asli vendor
+          if (isPostpaid) updatePayload.raw_tagihan = digiData.price || 0;
         }
       }
 

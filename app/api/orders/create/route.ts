@@ -161,6 +161,9 @@ if (isPascabayar) {
 
       customer_name: inquiry_result?.customerName || null,
       segment_power: inquiry_result?.segmentPower || null,
+      // 🚀 TAMBAHKAN BARIS INI: Agar stand meter masuk ke database sejak awal
+      stand_meter: inquiry_result?.standMeter || null, 
+      
       // Simpan seluruh object desc dari frontend
       desc: inquiry_result?.desc ? inquiry_result.desc : (isPascabayar ? { info: "Waiting for payment..." } : null), 
 

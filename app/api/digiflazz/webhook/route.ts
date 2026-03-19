@@ -90,17 +90,26 @@ export async function POST(req: Request) {
       if (isPostpaid || isTokenPLN) {
         updatePayload.desc = eventData.desc || null;
         if (eventData.desc && typeof eventData.desc === 'object') {
-          updatePayload.customer_name = eventData.desc.nama || eventData.desc.nama_pelanggan || null;
+          // 🚀 FALLBACK DETAIL: Cek di .detail atau .tagihan.detail agar anti-meleset
+          const detail = eventData.desc.detail?.[0] || eventData.desc.tagihan?.detail?.[0];
+          
+          // Ambil Nama Pelanggan (Cari di semua kemungkinan folder)
+          updatePayload.customer_name = eventData.desc.nama || eventData.desc.nama_pelanggan || eventData.customer_name || null;
+          
+          // Ambil Tarif/Daya
           const tarif = eventData.desc.tarif || "";
           const daya = eventData.desc.daya || "";
           if (tarif || daya) updatePayload.segment_power = `${tarif}${daya ? '/' + daya : ''}`;
           
-          const detailTagihan = eventData.desc.tagihan?.detail?.[0];
-          if (detailTagihan && detailTagihan.meter_awal && detailTagihan.meter_akhir) {
-            updatePayload.stand_meter = `${detailTagihan.meter_awal} - ${detailTagihan.meter_akhir}`;
+          // 🚀 UPDATE STAND METER: Pastikan info meteran masuk ke database
+          if (detail?.meter_awal && detail?.meter_akhir) {
+            updatePayload.stand_meter = `${detail.meter_awal} - ${detail.meter_akhir}`;
           } else if (eventData.desc.stand_meter) {
             updatePayload.stand_meter = String(eventData.desc.stand_meter);
           }
+
+          // Sinkronkan harga vendor ke raw_tagihan khusus Pascabayar
+          if (isPostpaid) updatePayload.raw_tagihan = eventData.price || 0;
         }
       }
 
