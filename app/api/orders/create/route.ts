@@ -69,36 +69,36 @@ export async function POST(req: Request) {
     const totalInputUser = total_amount + used_balance + (voucher_amount || 0);
     const namaKategori = (dbProduct.categories as any)?.name?.toLowerCase() || "";
     
-    const isPascabayar = productType === 'provider' && (namaKategori.includes('pascabayar') || dbProduct.sku.toLowerCase() === 'pln');
+const isPascabayar = productType === 'provider' && (namaKategori.includes('pascabayar') || dbProduct.sku.toLowerCase() === 'pln');
 
     if (isPascabayar) {
       try {
-        /**
-         * 🚀 PERBAIKAN SESUAI KAMUS DIGIFLAZZ:
-         * Kita HAPUS double inquiry di sini! Kita pakai data dari inquiry_result
-         * yang sudah didapatkan secara sah di frontend saat klik "Cek Tagihan".
-         */
-        
-        // Ambil data murni dari hasil Cek Tagihan frontend
+        // 1. Ambil Tagihan Murni (Tanpa admin supplier) dari hasil CEK di frontend
         tagihanMurni = Number(inquiry_result?.amount || 0);
-        const adminDigiflazz = Number(inquiry_result?.adminSupplier || 0);
         const adminToko = Number(dbProduct.price || 0); 
-        
-        modalPascabayar = tagihanMurni + adminDigiflazz;
+        const adminSupplier = Number(inquiry_result?.adminSupplier || 0);
+
+        // 2. Kalkulasi Ulang (Pastikan rumusnya sama 100% dengan Frontend)
         hargaJualPascabayar = tagihanMurni + adminToko;
+        modalPascabayar = tagihanMurni + adminSupplier; // Ini biaya asli Bos ke Digiflazz
+        
         hargaSeharusnya = hargaJualPascabayar;
         
-        // Hitung kode unik
+        // 3. Hitung Kode Unik (Beda harga bayar dan harga asli)
         const selisihMurni = Math.floor(totalInputUser - hargaSeharusnya);
         kodeUnikUser = (selisihMurni > 0 && selisihMurni < 1000) ? selisihMurni : 0;
-        const totalUserTanpaKodeUnik = totalInputUser - kodeUnikUser;
+        
+        // Angka yang benar-benar dibayar User dikurangi kode unik
+        const totalUserTanpaKodeUnik = Math.floor(totalInputUser - kodeUnikUser);
 
-        if (Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya) > 1000) {
-          return NextResponse.json({ error: `Deteksi manipulasi! DB: ${hargaSeharusnya}, Input: ${totalUserTanpaKodeUnik}` }, { status: 400 });
+        // 4. Validasi Keamanan (Toleransi selisih naikkan ke 1500 untuk pembulatan sistem)
+        if (Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya) > 1500) {
+           console.error(`⚠️ Manipulasi Detect: DB(${hargaSeharusnya}) vs User(${totalUserTanpaKodeUnik})`);
+           return NextResponse.json({ error: `Deteksi manipulasi harga! Silakan ulangi cek tagihan.` }, { status: 400 });
         }
       } catch (error: any) {
-        console.error("🔥 [FATAL ERROR PARSING INQUIRY]:", error.message);
-        return NextResponse.json({ error: "Gagal membaca data tagihan. Silakan ulangi pesanan." }, { status: 500 });
+        console.error("🔥 [FATAL ERROR PASCABAYAR]:", error.message);
+        return NextResponse.json({ error: "Gagal memproses data tagihan." }, { status: 500 });
       }
     } else {
       // LOGIKA PRABAYAR

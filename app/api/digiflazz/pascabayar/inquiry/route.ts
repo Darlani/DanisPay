@@ -86,17 +86,21 @@ export async function POST(req: Request) {
       }
     }
 
-  return NextResponse.json({
+// Ganti baris amount di dalam data: { ... }
+    return NextResponse.json({
       success: true,
       data: {
         customerName: customerName,
         segmentPower: segmentPower,
         standMeter: standMeter,
-        amount: digiData.price || 0,
+        // 🚀 KUNCI: Gunakan nilai_tagihan murni agar sinkron dengan frontend
+        amount: digiData.desc?.tagihan?.detail?.[0]?.nilai_tagihan 
+                 ? parseInt(digiData.desc.tagihan.detail[0].nilai_tagihan) 
+                 : (digiData.price || 0),
         adminSupplier: digiData.admin || 0,
         period: digiData.periode || "Bulan ini",
         desc: digiData.desc,
-        ref_id: ref_id // <--- 🚀 TAMBAHKAN BARIS INI AGAR ID INQUIRY TEREKAM
+        ref_id: ref_id 
       }
     });
 
