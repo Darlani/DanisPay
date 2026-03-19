@@ -117,16 +117,18 @@ const isReadyToCheckout = Boolean(
   };
 
 const onConfirmCheckout = () => {
-    setIsProcessing(true);
-    handleCheckout({
-      raw_tagihan: rawTagihan,
-      admin_digiflazz: adminDigiflazz,
-      override_price: totalPrice, // Ini sudah benar (rawTagihan + adminToko - diskon)
-      override_payment: localPayment,
-      override_cost: rawTagihan + adminDigiflazz, // Modal real Bos ke Digiflazz
-      override_label: `Tagihan ${inquiryData?.period || 'Pascabayar'}`
-    });
-  };
+    setIsProcessing(true);
+    handleCheckout({
+      raw_tagihan: rawTagihan,
+      admin_digiflazz: adminDigiflazz,
+      override_price: totalPrice,
+      override_payment: localPayment,
+      override_cost: rawTagihan + adminDigiflazz,
+      override_label: `Tagihan ${inquiryData?.period || 'Pascabayar'}`,
+      // 🚀 KIRIM DATA INQUIRY LENGKAP KE PAGE.TSX
+      inquiry_result: inquiryData 
+    });
+};
 
   return (
     <div className="min-h-screen bg-[#bcefe5] text-slate-900 font-sans tracking-tight relative pb-32">
