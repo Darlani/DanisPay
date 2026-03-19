@@ -1,12 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
+// IMPORT LANGSUNG FUNGSI CHECKOUT UNTUK BYPASS HTTP FETCH (Jalur Tol VVIP)
+import { POST as processPrabayar } from '@/app/api/digiflazz/prabayar/checkout/route';
+import { POST as processPascabayar } from '@/app/api/digiflazz/pascabayar/checkout/route';
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY! 
 );
 
-// --- 1. FUNGSI PEMBERSIH TEKS ---
 function escapeHtml(text: string) {
   if (!text) return "";
   return String(text)
@@ -16,8 +19,6 @@ function escapeHtml(text: string) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
-
-const WEBHOOK_SECRET = String(process.env.MACRODROID_SECRET || '');
 
 async function sendTelegram(message: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -33,26 +34,23 @@ async function sendTelegram(message: string) {
   }
 }
 
-// --- 3. GET: AMBIL RIWAYAT ORDER ---
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const email = searchParams.get('email'); 
 
-if (email) {
-      // Kita list kolom yang mau ditampilkan di tabel riwayat saja [cite: 2026-03-09]
+    if (email) {
       const userColumns = 'id, order_id, created_at, status, product_name, item_label, total_amount, payment_method, sn';
       const { data, error } = await supabaseAdmin.from('orders').select(userColumns).eq('email', email).order('created_at', { ascending: false });
       if (error) throw error;
       return NextResponse.json(data || []);
     }
 
-    // Gunakan sistem token yang sama dengan PATCH agar lebih aman [cite: 2026-03-06]
     const authHeader = req.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
     const isAdminCookie = req.headers.get('cookie')?.includes('isAdmin=true');
 
-    let hasAccess = isAdminCookie; // Fallback ke cookie jika token tidak ada
+    let hasAccess = isAdminCookie; 
 
     if (token) {
       const { data: { user } } = await supabaseAdmin.auth.getUser(token);
@@ -68,7 +66,6 @@ if (email) {
       return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau bukan Admin." }, { status: 403 });
     }
 
-// Kolom lengkap untuk Admin Dashboard (ditambah Notes & Email) [cite: 2026-03-09]
     const adminColumns = 'id, order_id, created_at, status, email, product_name, item_label, total_amount, payment_method, sn, notes';
     const { data, error } = await supabaseAdmin.from('orders').select(adminColumns).order('created_at', { ascending: false });
     if (error) throw error;
@@ -79,14 +76,10 @@ if (email) {
   }
 }
 
-// --- 4. PATCH: UPDATE STATUS, NOTIF, DAN LOGIKA FINANSIAL ---
 export async function PATCH(req: Request) {
   try {
     const { data: settings } = await supabaseAdmin.from('store_settings').select('is_digiflazz_active').single();
 
-    // =======================================================
-    // FIX ERROR 401: LOGIKA AUTENTIKASI YANG LEBIH TANGGUH
-    // =======================================================
     const cookieStore = req.headers.get('cookie');
     const isAdminCookie = cookieStore?.includes('isAdmin=true');
     const authHeader = req.headers.get('Authorization');
@@ -95,7 +88,6 @@ export async function PATCH(req: Request) {
     let adminEmail = "Admin (via Cookie)";
     let hasAccess = false;
 
-    // 1. Coba validasi token (Jika Frontend mengirimkan token JWT)
     if (token) {
       const { data: { user } } = await supabaseAdmin.auth.getUser(token);
       if (user) {
@@ -107,7 +99,6 @@ export async function PATCH(req: Request) {
       }
     }
 
-    // 2. Fallback: Kalau Frontend lupa kirim token, tapi cookie Admin ada, loloskan!
     if (!hasAccess && isAdminCookie) {
       hasAccess = true;
     }
@@ -116,12 +107,9 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Sesi expired atau Lu bukan Admin!" }, { status: 401 });
     }
 
-    // =======================================================
-
     const body = await req.json();
     const { id, status: currentStatus, email: user_email } = body;
 
-// Kita tambahkan 'category' ke dalam rombongan select agar tidak error di bawah [cite: 2026-03-09]
     const { data: oldOrder } = await supabaseAdmin
       .from('orders')
       .select('id, status, order_id, product_name, item_label, user_id, used_balance, total_amount, unique_code, cashback, buy_price, referred_by, category, raw_tagihan')
@@ -132,17 +120,16 @@ export async function PATCH(req: Request) {
 
     const oldStatusRaw = oldOrder.status || 'Pending';
 
-if (oldStatusRaw === currentStatus) {
-      return NextResponse.json({ message: "Status sudah sama." });
-    }
+    if (oldStatusRaw === currentStatus) {
+      return NextResponse.json({ message: "Status sudah sama." });
+    }
 
-    // Tambahkan updated_at agar Robot Auto-Check tahu ada perubahan manual dari Admin [cite: 2026-03-06]
-    const { error: updateError } = await supabaseAdmin.from('orders').update({ 
+    const { error: updateError } = await supabaseAdmin.from('orders').update({ 
       status: currentStatus,
       updated_at: new Date().toISOString() 
     }).eq('id', id);
     
-    if (updateError) throw updateError;
+    if (updateError) throw updateError;
 
     await supabaseAdmin.from('admin_logs').insert([{
       admin_email: adminEmail,
@@ -157,15 +144,10 @@ if (oldStatusRaw === currentStatus) {
     const safeInvoiceId = escapeHtml(oldOrder.order_id || id.slice(-8)); 
     const tipeUser = user_email && user_email !== 'null' ? `MEMBER (${safeEmail})` : "GUEST";
 
-    // =========================================================================
-    // PROTEKSI GANDA ANTI-BONCOS (Hanya jalan jika sebelumnya BUKAN Berhasil/Diproses)
-    // Berlaku untuk status "Diproses" (Nembak API) ATAU "Berhasil" (Produk Manual)
-    // =========================================================================
     const isFirstTimeSuccess = (currentStatus === 'Diproses' || currentStatus === 'Berhasil') && 
                                (oldStatusRaw !== 'Diproses' && oldStatusRaw !== 'Berhasil');
 
     if (isFirstTimeSuccess) {
-       // A. POTONG SALDO KOIN DAPAY
        if (oldOrder.used_balance > 0 && user_email && user_email !== 'null') {
          const { data: prof } = await supabaseAdmin.from('profiles').select('balance').eq('id', oldOrder.user_id).maybeSingle();
          if (prof) {
@@ -179,7 +161,6 @@ if (oldStatusRaw === currentStatus) {
          }
        }
 
-       // B. LOGIKA CASHBACK UNTUK MEMBER SPECIAL
        if (user_email && user_email !== 'null') {
          const { data: buyerProf } = await supabaseAdmin.from('profiles').select('member_type').eq('id', oldOrder.user_id).maybeSingle();
          if (buyerProf?.member_type?.toLowerCase() === 'special') {
@@ -198,7 +179,6 @@ if (oldStatusRaw === currentStatus) {
          }
        }
 
-       // C. LOGIKA BONUS WELCOME & KOMISI REFERRAL
        if (user_email && user_email !== 'null') {
          const { count } = await supabaseAdmin.from('orders')
           .select('*', { count: 'exact', head: true })
@@ -246,11 +226,9 @@ if (oldStatusRaw === currentStatus) {
             const realRevenue = (oldOrder.total_amount || 0) - (oldOrder.unique_code || 0) + (oldOrder.used_balance || 0);
 
             if (isPascabayar) {
-              // Profit Pascabayar = (Total User Bayar) - (Tagihan Murni + Admin Digiflazz) - Cashback
               const modalReal = (oldOrder.raw_tagihan || 0) + (oldOrder.buy_price || 0);
               profitMurni = realRevenue - modalReal - (oldOrder.cashback || 0);
             } else {
-              // Profit Prabayar = Revenue - Modal Supplier - Cashback
               profitMurni = realRevenue - (oldOrder.buy_price || 0) - (oldOrder.cashback || 0);
             }
 
@@ -278,15 +256,12 @@ if (oldStatusRaw === currentStatus) {
        }
     } 
 
-    // --- NOTIFIKASI TELEGRAM ---
     const usedCoin = oldOrder.used_balance || 0;
     const nominalTransfer = oldOrder.total_amount || 0;
     const grandTotal = usedCoin + nominalTransfer;
 
-    // --- HITUNG LABA BERSIH UNTUK LAPORAN TELEGRAM ---
     const kategoriNotif = (oldOrder.category || "").toLowerCase();
     const isPascaNotif = kategoriNotif.includes('pascabayar') || kategoriNotif.includes('pln');
-    // Modal = (Tagihan Murni + Admin Digi) untuk Pasca, atau cuma (Admin Digi/Cost) untuk Prabayar
     const modalNotif = isPascaNotif ? ((oldOrder.raw_tagihan || 0) + (oldOrder.buy_price || 0)) : (oldOrder.buy_price || 0);
     const untungBersih = (oldOrder.total_amount + oldOrder.used_balance) - modalNotif - (oldOrder.cashback || 0);
 
@@ -320,49 +295,42 @@ if (oldStatusRaw === currentStatus) {
 
     if (telegramMessage) await sendTelegram(telegramMessage);
 
-// =========================================================================
-    // 🚀 EKSEKUSI NEMBAK KE DIGIFLAZZ (HANYA JIKA STATUS "DIPROSES" DAN LIVE AKTIF)
+    // =========================================================================
+    // 🚀 EKSEKUSI NEMBAK KE DIGIFLAZZ (BYPASS HTTP FETCH)
     // =========================================================================
     if (currentStatus === 'Diproses' && settings?.is_digiflazz_active) {
-       console.log(`🚀 [ADMIN ACTION] Order #${oldOrder.order_id} diteruskan ke Digiflazz...`);
+       console.log(`🚀 [ADMIN ACTION] Memanggil fungsi internal untuk #${oldOrder.order_id}...`);
        
        try {
            const kategoriLengkap = (oldOrder.category || "").toLowerCase();
            const isPasca = kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('pln');
            
-           // GUNAKAN BASE_URL YANG ASLI (JANGAN 127.0.0.1)
-           // Jika di env tidak ada NEXT_PUBLIC_BASE_URL, pakai fallback request url
-           const reqUrl = new URL(req.url);
-           const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${reqUrl.protocol}//${reqUrl.host}`;
-           
-           const apiEndpoint = isPasca 
-               ? `${baseUrl}/api/digiflazz/pascabayar/checkout`
-               : `${baseUrl}/api/digiflazz/prabayar/checkout`;
-
-           console.log(`📡 Mengetuk pintu internal: ${apiEndpoint}`);
-
-           // WAJIB PAKAI AWAIT! Agar proses tidak dibunuh oleh Next.js sebelum selesai
-           const checkoutRes = await fetch(apiEndpoint, {
+           // Bikin objek Request "Palsu" untuk menipu fungsi checkout
+           const mockRequest = new Request('http://localhost', {
                method: 'POST',
-               headers: { 
-                   'Content-Type': 'application/json',
-                   'x-webhook-secret': WEBHOOK_SECRET
-               },
-               body: JSON.stringify({
-                   order_id: oldOrder.order_id,
-                   email: user_email,
-                   use_koin: false 
-               })
+               body: JSON.stringify({ order_id: oldOrder.order_id })
            });
 
-           if (!checkoutRes.ok) {
-               console.error(`❌ Gagal trigger Checkout! HTTP Status: ${checkoutRes.status}`);
+           // Panggil fungsi secara langsung berdasarkan kategori (Instant!)
+           let response;
+           if (isPasca) {
+               console.log("⚡ Eksekusi rute Pascabayar...");
+               response = await processPascabayar(mockRequest);
+           } else {
+               console.log("⚡ Eksekusi rute Prabayar...");
+               response = await processPrabayar(mockRequest);
+           }
+           
+           // BONGKAR BRANKAS ERROR JIKA GAGAL (Agar tampil di VPS)
+           if (response && !response.ok) {
+               const resJson = await response.json();
+               console.error(`❌ Checkout merespon ERROR:`, JSON.stringify(resJson, null, 2));
            } else {
                console.log(`✅ Sukses trigger Checkout untuk #${oldOrder.order_id}`);
            }
            
        } catch (apiErr: any) {
-           console.error("🔥 Gagal mengeksekusi ke Digiflazz:", apiErr.message);
+           console.error("🔥 Gagal memanggil fungsi Checkout internal:", apiErr.message);
        }
     }
 
@@ -373,10 +341,8 @@ if (oldStatusRaw === currentStatus) {
   }
 }
 
-// --- 5. DELETE: MENGHAPUS PESANAN ---
 export async function DELETE(req: Request) {
   try {
-    // Gunakan pengecekan Authorization yang ketat untuk fungsi hapus [cite: 2026-03-06]
     const authHeader = req.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
     

@@ -133,8 +133,10 @@ export async function POST(req: Request) {
         }
 
       } catch (axiosErr: any) {
-        console.error("🔥 Error Koneksi Digiflazz:", axiosErr.message);
-        return NextResponse.json({ error: "Gagal menghubungi server Digiflazz. Cek Jaringan/Saldo!" }, { status: 500 });
+        // BONGKAR PESAN ASLI DARI DIGIFLAZZ
+        const digiErrorMsg = axiosErr.response?.data?.data?.message || axiosErr.message;
+        console.error("🔥 Error Digiflazz (Checkout):", digiErrorMsg);
+        return NextResponse.json({ error: digiErrorMsg }, { status: 500 });
       }
 
     } else {
