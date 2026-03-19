@@ -241,7 +241,9 @@ const handleCheckout = async (customPayload?: any) => {
           cashback: (memberType?.toLowerCase() === 'special') ? estimasiCashback : 0, 
           voucher_amount: isPromoApplied ? discount : 0,
           raw_tagihan: customPayload?.raw_tagihan || 0,
-          admin_digiflazz: customPayload?.admin_digiflazz || 0
+          admin_digiflazz: customPayload?.admin_digiflazz || 0,
+          // 🚀 PAKSA KIRIM DATA INQUIRY AGAR API_REF_ID TERISI INQ-xxxx
+          inquiry_result: customPayload?.inquiry_result || null 
         })
       });
 
