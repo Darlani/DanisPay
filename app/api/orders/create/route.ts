@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 import { isPaymentAllowed } from '@/utils/LogicPembayaran';
-import crypto from 'crypto'; // WAJIB ADA UNTUK SIGNATURE
-import axios from 'axios'; // <-- TAMBAHAN AXIOS AGAR SINKRON DENGAN INQUIRY
+// crypto sudah tidak dipakai di sini, tapi saya biarkan agar tidak error jika ada module lain yang butuh
+import crypto from 'crypto'; 
 
 export async function POST(req: Request) {
   try {
@@ -16,35 +16,23 @@ export async function POST(req: Request) {
       voucher_code, inquiry_result
     } = body;
 
-    // --- 2. 🕵️ DETEKSI SUMBER PRODUK (Hybrid Search) ---
+    // --- 2. DETEKSI SUMBER PRODUK (Hybrid Search) ---
     let dbProduct: any = null;
     let productType: 'manual' | 'provider' = 'provider';
 
-    // A. Cek di product_semi_auto (Stok Mandiri Bos)
     const { data: semiAutoData } = await supabaseAdmin
       .from('product_semi_auto')
-      .select(`
-        id, sku, name, price_numeric, cost_numeric, discount, cashback,
-        categories ( name )
-      `)
+      .select('id, sku, name, price_numeric, cost_numeric, discount, cashback, categories(name)')
       .eq('sku', sku)
       .maybeSingle();
 
     if (semiAutoData) {
-      dbProduct = {
-        ...semiAutoData,
-        price: semiAutoData.price_numeric,
-        cost: semiAutoData.cost_numeric
-      };
+      dbProduct = { ...semiAutoData, price: semiAutoData.price_numeric, cost: semiAutoData.cost_numeric };
       productType = 'manual';
     } else {
-      // B. Jika tidak ada, baru cari di product_automatic (Digiflazz)
       const { data: providerData } = await supabaseAdmin
         .from('product_automatic')
-        .select(`
-          sku, name, price, cost, discount, cashback,
-          categories ( name )
-        `)
+        .select('sku, name, price, cost, discount, cashback, categories(name)')
         .eq('sku', sku)
         .single();
 
@@ -59,14 +47,10 @@ export async function POST(req: Request) {
     }
 
     // --- 2.5 CEK SAKLAR SIMULASI ---
-    const { data: settings } = await supabaseAdmin
-      .from('store_settings')
-      .select('is_digiflazz_active')
-      .single();
-    
+    const { data: settings } = await supabaseAdmin.from('store_settings').select('is_digiflazz_active').single();
     const isLive = settings?.is_digiflazz_active ?? true;
 
-    // --- 3. LOGIKA CASHBACK (KHUSUS MEMBER SPECIAL) ---
+    // --- 3. LOGIKA CASHBACK ---
     let finalCashback = 0;
     if (user_id) {
       const { data: userProfile } = await supabaseAdmin.from('profiles').select('member_type').eq('id', user_id).maybeSingle();
@@ -75,7 +59,7 @@ export async function POST(req: Request) {
       }
     } 
 
-    // --- 4. VALIDASI HARGA SERVER-SIDE (Anti-Cheat) ---
+    // --- 4. VALIDASI HARGA SERVER-SIDE ---
     let hargaSeharusnya = 0;
     let modalPascabayar = 0;
     let hargaJualPascabayar = 0;
@@ -85,52 +69,26 @@ export async function POST(req: Request) {
     const totalInputUser = total_amount + used_balance + (voucher_amount || 0);
     const namaKategori = (dbProduct.categories as any)?.name?.toLowerCase() || "";
     
-    // Proteksi: Pascabayar hanya berlaku untuk produk dari provider
     const isPascabayar = productType === 'provider' && (namaKategori.includes('pascabayar') || dbProduct.sku.toLowerCase() === 'pln');
 
     if (isPascabayar) {
       try {
         /**
-         * 🚀 PERBAIKAN FATAL: LANGSUNG TEMBAK DIGIFLAZZ MENGGUNAKAN AXIOS
-         * Agar selaras dengan inquiry dan tidak kena timeout prematur.
+         * 🚀 PERBAIKAN SESUAI KAMUS DIGIFLAZZ:
+         * Kita HAPUS double inquiry di sini! Kita pakai data dari inquiry_result
+         * yang sudah didapatkan secara sah di frontend saat klik "Cek Tagihan".
          */
-        const username = process.env.DIGIFLAZZ_USERNAME || "";
-        const apiKey = process.env.DIGIFLAZZ_API_KEY || "";
-        const ref_id_inq = `INQ-VAL-${Date.now()}`;
-        const sign_inq = crypto.createHash('md5').update(username + apiKey + ref_id_inq).digest('hex');
         
-        // Membersihkan ID sama persis dengan yang di API Inquiry
-        const cleanCustomerId = game_id.split('(')[0].trim();
-
-        // Ganti fetch dengan axios dan tambahkan timeout 60 detik
-        const inqRes = await axios.post("https://api.digiflazz.com/v1/transaction", {
-            commands: "inq-pasca",
-            username: username,
-            buyer_sku_code: dbProduct.sku.toLowerCase() === 'pln' ? 'pln' : dbProduct.sku,
-            customer_no: cleanCustomerId,
-            ref_id: ref_id_inq,
-            sign: sign_inq
-        }, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 60000 
-        });
-
-        const d = inqRes.data.data;
-
-        if (d?.status === 'Gagal') {
-          console.error("❌ Digiflazz Inq Fail:", d?.message);
-          return NextResponse.json({ error: `Gagal verifikasi tagihan: ${d?.message || 'Server Offline'}` }, { status: 400 });
-        }
-
-        // Ekstraksi data tagihan real dari Digiflazz
-        tagihanMurni = Number(d.desc?.detail?.[0]?.nilai_tagihan || 0);
-        const adminDigiflazz = Number(d.admin || 0);
+        // Ambil data murni dari hasil Cek Tagihan frontend
+        tagihanMurni = Number(inquiry_result?.amount || 0);
+        const adminDigiflazz = Number(inquiry_result?.adminSupplier || 0);
         const adminToko = Number(dbProduct.price || 0); 
         
         modalPascabayar = tagihanMurni + adminDigiflazz;
         hargaJualPascabayar = tagihanMurni + adminToko;
         hargaSeharusnya = hargaJualPascabayar;
         
+        // Hitung kode unik
         const selisihMurni = Math.floor(totalInputUser - hargaSeharusnya);
         kodeUnikUser = (selisihMurni > 0 && selisihMurni < 1000) ? selisihMurni : 0;
         const totalUserTanpaKodeUnik = totalInputUser - kodeUnikUser;
@@ -139,16 +97,12 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: `Deteksi manipulasi! DB: ${hargaSeharusnya}, Input: ${totalUserTanpaKodeUnik}` }, { status: 400 });
         }
       } catch (error: any) {
-        // INI PENTING: Biar Bos bisa liat di 'pm2 logs' error aslinya apa
-        console.error("🔥 [FATAL ERROR INQUIRY VALIDATION]:", error.message);
-        return NextResponse.json({ 
-          error: "Gagal koneksi ke server pusat untuk validasi. Server mungkin sibuk, coba lagi." 
-        }, { status: 500 });
+        console.error("🔥 [FATAL ERROR PARSING INQUIRY]:", error.message);
+        return NextResponse.json({ error: "Gagal membaca data tagihan. Silakan ulangi pesanan." }, { status: 500 });
       }
     } else {
-      // LOGIKA PRABAYAR (MANUAL ATAU PROVIDER)
+      // LOGIKA PRABAYAR
       hargaSeharusnya = Math.floor(dbProduct.price * (1 - ((dbProduct.discount || 0) / 100)));
-      
       if (Math.abs(totalInputUser - hargaSeharusnya) > 1500) {
         return NextResponse.json({ error: "Deteksi manipulasi harga prabayar!" }, { status: 400 });
       }
@@ -157,11 +111,9 @@ export async function POST(req: Request) {
     // --- 5. VALIDASI PEMBAYARAN ---
     const { data: payData } = await supabaseAdmin.from('payment_accounts').select('is_maintenance, start_hour, end_hour, min_price').eq('name', payment_method).maybeSingle();
     const allowed = isPaymentAllowed(payment_method, product_name || "General", total_amount, payData);
-    if (!allowed) {
-      return NextResponse.json({ error: "Metode pembayaran tidak tersedia." }, { status: 403 });
-    }
+    if (!allowed) return NextResponse.json({ error: "Metode pembayaran tidak tersedia." }, { status: 403 });
 
-    // --- 5.5 LOGIKA SMART UNIQUE CODE (Hanya untuk Prabayar) ---
+    // --- 5.5 LOGIKA SMART UNIQUE CODE ---
     const limaMenitLalu = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const { count: trafik } = await supabaseAdmin.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'Pending').gte('created_at', limaMenitLalu);
     const kodeUnikPusat = Math.floor(Math.random() * ((trafik || 0) > 15 ? 999 : ((trafik || 0) > 5 ? 500 : 200))) + 1;
@@ -207,6 +159,7 @@ export async function POST(req: Request) {
 
       customer_name: inquiry_result?.customerName || null,
       segment_power: inquiry_result?.segmentPower || null,
+      // Simpan seluruh object desc dari frontend
       desc: inquiry_result?.desc ? inquiry_result.desc : (isPascabayar ? { info: "Waiting for payment..." } : null), 
 
       created_at: new Date().toISOString(),
