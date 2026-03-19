@@ -20,7 +20,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Konfigurasi Digiflazz di .env belum lengkap!" }, { status: 500 });
     }
 
-    // 1. AMBIL DATA ORDER (ref_id harus sama dengan order_id saat Inquiry)
     const { data: order, error: orderErr } = await supabaseAdmin
       .from('orders')
       .select('id, order_id, status, sku, game_id, category')
@@ -31,60 +30,68 @@ export async function POST(req: Request) {
     const isLiveMode = settings?.is_digiflazz_active === true;
 
     if (orderErr || !order) return NextResponse.json({ error: "Pesanan tidak ditemukan!" }, { status: 404 });
-    
-    // Proteksi agar tidak re-order jika sudah sukses
     if (order.status === 'Berhasil') return NextResponse.json({ error: "Pesanan sudah sukses!" }, { status: 400 });
 
-    // 2. CABANG LOGIKA PEMBAYARAN
     if (isLiveMode) {
       console.log(`🚀 [PASCABAYAR LIVE] Mengeksekusi Pembayaran Order #${order_id}...`);
       
-      // FORMULA SIGNATURE: md5(username + apiKey + ref_id)
       const sign = crypto.createHash('md5').update(username + apiKey + order_id).digest('hex');
-
-      // Bersihkan No Pelanggan (Hapus spasi atau karakter bantuan UI)
       const cleanCustomerNo = order.game_id.split('(')[0].trim();
-      // Paksa SKU ke Uppercase sesuai standar Provider
       const upperSku = order.sku.toUpperCase();
 
       try {
         // =================================================================
-        // 🚀 TAMBAHAN: INQUIRY KILAT SEBELUM BAYAR
-        // Tembak inquiry dulu pakai order_id agar dikenali oleh Digiflazz
+        // 🚀 LANGKAH 1: INQUIRY KILAT SEBELUM BAYAR
         // =================================================================
-        await axios.post('https://api.digiflazz.com/v1/transaction', {
+        console.log(`[1/3] Menembak Inquiry ke Digiflazz untuk ref_id: ${order_id}`);
+        const inqRes = await axios.post('https://api.digiflazz.com/v1/transaction', {
           commands: "inq-pasca",
           username: username,
           buyer_sku_code: upperSku,
           customer_no: cleanCustomerNo,
-          ref_id: order_id, // Daftarkan order_id ini ke Digiflazz
+          ref_id: order_id, 
           sign: sign
         }, { 
           headers: { 'Content-Type': 'application/json' },
           timeout: 45000 
         });
-        // =================================================================
 
-        // Proses pembayaran (pay-pasca) asli milik Bos
+        const inqData = inqRes.data.data;
+        
+        // JIKA INQUIRY DITOLAK (Misal: Sudah dibayar / ID Salah), hentikan!
+        if (inqData?.status === "Gagal") {
+            console.error(`❌ Inquiry Ditolak Digiflazz: ${inqData.message}`);
+            return NextResponse.json({ error: inqData.message || "Gagal sinkronisasi data tagihan.", rc: inqData.rc }, { status: 400 });
+        }
+
+        // =================================================================
+        // ⏳ LANGKAH 2: JEDA NAPAS 1.5 DETIK (ANTI RACE-CONDITION)
+        // Memberi waktu server Digiflazz menyimpan ID kita
+        // =================================================================
+        console.log(`[2/3] Inquiry diterima. Menjeda 1.5 detik agar database vendor sinkron...`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // =================================================================
+        // 🚀 LANGKAH 3: PROSES PEMBAYARAN (PAY-PASCA)
+        // =================================================================
+        console.log(`[3/3] Menembak Pay-Pasca ke Digiflazz...`);
         const res = await axios.post('https://api.digiflazz.com/v1/transaction', {
           commands: "pay-pasca",
           username: username,
           buyer_sku_code: upperSku,
           customer_no: cleanCustomerNo,
-          ref_id: order_id, // Wajib sama dengan saat Inquiry
+          ref_id: order_id, // PASTI COCOK!
           sign: sign
         }, { 
           headers: { 'Content-Type': 'application/json' },
-          timeout: 45000 // Samakan timeoutnya biar aman
+          timeout: 45000 
         });
 
-        // Digiflazz membungkus respon di dalam objek "data"
         const digiData = res.data.data;
 
         if (digiData && (digiData.status === 'Sukses' || digiData.status === 'Pending')) {
           const isSuccess = digiData.status === 'Sukses';
           
-          // Siapkan Payload Update berdasarkan Response Doc
           const updatePayload: any = { 
             status: isSuccess ? 'Berhasil' : 'Diproses',
             sn: digiData.sn || 'Proses di Vendor',
@@ -93,28 +100,21 @@ export async function POST(req: Request) {
             updated_at: new Date().toISOString()
           };
 
-          // --- EKSTRAKSI DATA BERDASARKAN DOKUMENTASI ---
           if (digiData.desc && typeof digiData.desc === 'object') {
-              // Simpan seluruh objek desc sebagai JSON string agar data detail aman
               updatePayload.desc = JSON.stringify(digiData.desc);
-              
-              // Mapping field spesifik untuk database Bos
               updatePayload.raw_tagihan = digiData.price || 0;
               updatePayload.customer_name = digiData.customer_name || digiData.desc.nama || null;
               
-              // Khusus PLN: Tarif & Daya
               const tarif = digiData.desc.tarif || "";
               const daya = digiData.desc.daya || "";
               if (tarif || daya) updatePayload.segment_power = `${tarif}${daya ? '/' + daya : ''}`;
               
-              // Khusus PLN/PDAM: Stand Meter
               const detail = digiData.desc.tagihan?.detail?.[0];
               if (detail?.meter_awal && detail?.meter_akhir) {
                   updatePayload.stand_meter = `${detail.meter_awal} - ${detail.meter_akhir}`;
               }
           }
 
-          // Simpan ke Database Supabase
           await supabaseAdmin.from('orders').update(updatePayload).eq('order_id', order_id);
 
           return NextResponse.json({ 
@@ -125,7 +125,6 @@ export async function POST(req: Request) {
           });
 
         } else {
-          // GAGAL DARI PROVIDER
           console.error(`❌ [DIGIFLAZZ FAIL] Order #${order_id}: ${digiData?.message}`);
           return NextResponse.json({ 
             error: digiData?.message || "Gagal diproses oleh Vendor",
@@ -139,10 +138,8 @@ export async function POST(req: Request) {
       }
 
     } else {
-      // 🛠️ MODE SIMULASI (STORE SETTING OFF)
       console.log(`🛠️ [MODE SIMULASI] Order #${order_id} - Bypass Vendor.`);
       const dummySN = `SIM-${Math.floor(Math.random() * 99999999)}`;
-      
       await supabaseAdmin.from('orders').update({ 
         status: 'Berhasil', 
         sn: dummySN,

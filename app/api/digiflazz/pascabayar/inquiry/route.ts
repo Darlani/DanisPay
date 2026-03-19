@@ -7,8 +7,11 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { customer_id, sku, category, amount: userAmount } = body;
 
-    if (!customer_id || !sku) {
-      return NextResponse.json({ message: "Data tidak lengkap Bos!" }, { status: 400 });
+    // Bersihkan ID Pelanggan
+    const cleanId = customer_id ? String(customer_id).split('(')[0].trim() : "";
+
+    if (!cleanId || !sku) {
+      return NextResponse.json({ message: "Data ID atau SKU tidak lengkap Bos!" }, { status: 400 });
     }
 
     const username = process.env.DIGIFLAZZ_USERNAME?.trim() || "";
@@ -18,47 +21,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Konfigurasi server belum lengkap Bos!" }, { status: 500 });
     }
 
-    // 1. LOGIKA MAPPING SKU & HANDLING PRODUK KHUSUS
-    let inquirySku = sku; 
-    const lowerCat = category?.toLowerCase() || "";
-    const lowerName = sku.toLowerCase();
+    // ====================================================================
+    // 🚀 PERBAIKAN LOGIKA SKU:
+    // Gunakan SKU asli dari database Bos (yang sudah ter-mapping dengan Seller).
+    // Jangan di-hardcode ke 'pln' karena tiap seller SKU-nya beda-beda.
+    // ====================================================================
+    let inquirySku = String(sku).toLowerCase(); 
+    const lowerCat = String(category || "").toLowerCase();
 
-    if (lowerCat.includes('pln') || lowerName.includes('pln')) {
-      inquirySku = 'pln'; 
-    } else if (lowerCat.includes('pdam') || lowerName.includes('pdam')) {
-      inquirySku = 'pdam';
-    } else if (lowerCat.includes('bpjs') || lowerName.includes('bpjs')) {
-      inquirySku = 'bpjs';
-    } else if (lowerCat.includes('internet') || lowerCat.includes('telkom') || lowerName.includes('indihome')) {
-      inquirySku = 'internet';
-    } else if (lowerCat.includes('hp') || lowerCat.includes('halo')) {
-      inquirySku = 'hp'; 
+    // HANYA jika dari frontend mengirimkan SKU yang aneh/kosong, baru kita beri fallback
+    if (!inquirySku || inquirySku === 'undefined') {
+        if (lowerCat.includes('pln')) inquirySku = 'pln';
+        else if (lowerCat.includes('pdam')) inquirySku = 'pdam';
+        else if (lowerCat.includes('bpjs')) inquirySku = 'bpjs';
     }
 
     const ref_id = `INQ-${Date.now()}`;
     const sign = crypto.createHash('md5').update(username + apiKey + ref_id).digest('hex');
 
-    // KONSTRUKSI REQUEST SESUAI DOKUMEN
-// Kita bersihkan dulu ID-nya dari spasi atau tanda kurung (ex: 12345 (PLN) -> 12345)
-    const cleanId = String(customer_id).split('(')[0].trim();
-
     const payload: any = {
       commands: "inq-pasca",
       username: username,
-      buyer_sku_code: inquirySku.toLowerCase(),
-      customer_no: cleanId, // Pakai yang sudah bersih
+      buyer_sku_code: inquirySku, // Menggunakan SKU Seller yang sesuai
+      customer_no: cleanId,
       ref_id: ref_id,
       sign: sign
     };
 
-    // KHUSUS E-MONEY (Sesuai Dokumen: butuh parameter amount)
-    if (lowerCat.includes('e-money') || lowerName.includes('emoney')) {
+    if (lowerCat.includes('e-money') || inquirySku.includes('emoney')) {
       payload.amount = userAmount || 0;
     }
 
-    console.log(`📡 [INQUIRY] Tembak Digiflazz untuk SKU: ${inquirySku}...`);
+    console.log(`📡 [INQUIRY] Tembak Digiflazz untuk SKU Seller: ${inquirySku}...`);
 
-    // PERBAIKAN: Timeout dinaikkan ke 45 detik karena server pusat (PLN/PDAM) sering lemot
     const res = await axios.post("https://api.digiflazz.com/v1/transaction", payload, {
       headers: { 'Content-Type': 'application/json' },
       timeout: 60000 
@@ -75,7 +70,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: pesanUser, rc: digiData?.rc }, { status: 400 });
     }
 
-    // 2. MAGIS EKSTRAKSI DATA (Tetap Utuh Tanpa Korupsi)
     let customerName = digiData.customer_name || digiData.name || "Pelanggan";
     let segmentPower = "";
     let standMeter = "";
