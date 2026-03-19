@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
+import { runCheckoutPascabayar } from '@/app/api/digiflazz/pascabayar/checkout/route';
 
 const WEBHOOK_SECRET = process.env.MACRODROID_SECRET;
 
@@ -425,44 +426,62 @@ const { data: refProfile } = await supabaseAdmin.from('profiles').select('id, ba
 
 // --- FUNGSI PENDUKUNG: SMART ROUTING EKSEKUTOR ---
 async function processFulfillment(order: any) {
-   console.log(`🚀 [WEBHOOK BANK] Meneruskan Order #${order.order_id} ke Digiflazz...`);
-   
-   try {
-       // PENTING: Gunakan jalur dalam server (localhost) agar tembakan API super cepat & anti-gagal [cite: 2026-03-06]
-       const baseUrl = "http://127.0.0.1:3000"; 
-       
-       const kategoriLengkap = (order.category || "").toLowerCase();
-       
-// Arahkan ke rute baru yang sudah kita satukan di folder digiflazz [cite: 2026-03-06]
-       let apiEndpoint = `${baseUrl}/api/digiflazz/prabayar/checkout`; 
-       
-       if (kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('ppob')) {
-           apiEndpoint = `${baseUrl}/api/digiflazz/pascabayar/checkout`; 
-       }
+    console.log(`🚀 [WEBHOOK BANK] Meneruskan Order #${order.order_id} ke Digiflazz...`);
+    
+    try {
+        const kategoriLengkap = (order.category || "").toLowerCase();
+        const isPasca = kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('ppob');
 
-       console.log(`➡️ [ROUTE WEBHOOK BANK] Mengirim ke Jalur Internal: ${apiEndpoint}`);
+        // =====================================================================
+        // 🚀 CABANG KHUSUS PASCABAYAR (JALUR VVIP - DIRECT LOGIC)
+        // Kita perbaiki yang ini saja agar anti-macet & anti double inquiry
+        // =====================================================================
+        if (isPasca) {
+            console.log("⚡ [JALUR VVIP] Menjalankan Logika Pascabayar Langsung...");
+            
+            const result = await runCheckoutPascabayar(order.order_id);
+            
+            if (result.error) {
+                console.error(`❌ Gagal Eksekusi Pascabayar: ${result.error}`);
+                return "Gagal";
+            }
+            
+            console.log(`✅ Sukses Eksekusi Pascabayar: ${result.status}`);
+            return "Diproses";
+        } 
+        
+        // =====================================================================
+        // 🛡️ JALUR SOLID MILIK BOS (PRABAYAR - FETCH INTERNAL)
+        // Bagian ini tidak saya sentuh sama sekali, tetap sesuai kodingan Bos
+        // =====================================================================
+        else {
+            const baseUrl = "http://127.0.0.1:3000"; 
+            const apiEndpoint = `${baseUrl}/api/digiflazz/prabayar/checkout`; 
 
-       // Kita tambahkan AWAIT agar prosesnya ditunggu dan kita bisa lihat hasil/errornya [cite: 2026-03-06]
-  const response = await fetch(apiEndpoint, {
-           method: 'POST',
-           headers: { 
-               'Content-Type': 'application/json',
-               'x-webhook-secret': String(WEBHOOK_SECRET || '') 
-           },
-           body: JSON.stringify({
-               id: order.id, // Tambahkan ID Utama (UUID) agar database mencarinya secepat kilat
-               order_id: order.order_id,
-               email: order.email,
-               use_koin: false
-           })
-       });
+            console.log(`➡️ [ROUTE WEBHOOK BANK] Mengirim ke Jalur Internal (Solid): ${apiEndpoint}`);
 
-       const responseData = await response.json().catch(() => ({}));
-       console.log(`📥 [RESPONS CHECKOUT] HTTP ${response.status}:`, JSON.stringify(responseData));
-       
-       return "Diproses";
-   } catch (apiErr) {
-       console.error("❌ Gagal mengeksekusi rute Digiflazz:", apiErr);
-       return "Gagal";
-   }
+            const response = await fetch(apiEndpoint, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-webhook-secret': String(WEBHOOK_SECRET || '') 
+                },
+                body: JSON.stringify({
+                    id: order.id,
+                    order_id: order.order_id,
+                    email: order.email,
+                    use_koin: false
+                })
+            });
+
+            const responseData = await response.json().catch(() => ({}));
+            console.log(`📥 [RESPONS CHECKOUT] HTTP ${response.status}:`, JSON.stringify(responseData));
+            
+            return "Diproses";
+        }
+
+    } catch (apiErr: any) {
+        console.error("🔥 Gagal mengeksekusi rute Digiflazz:", apiErr.message);
+        return "Gagal";
+    }
 }
