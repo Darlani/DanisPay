@@ -127,6 +127,9 @@ export async function POST(req: Request) {
 
     const orderData = {
       order_id,
+      // 🚀 TAMBAHKAN BARIS INI: Ambil ref_id dari hasil inquiry frontend
+      api_ref_id: isPascabayar && inquiry_result?.ref_id ? inquiry_result.ref_id : order_id, 
+      
       sku: dbProduct.sku,
       product_name: safeProductName,
       item_label: isPascabayar ? (inquiry_result?.period ? `Tagihan ${inquiry_result.period}` : "Tagihan Listrik") : item_label,

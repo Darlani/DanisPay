@@ -86,7 +86,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({
+  return NextResponse.json({
       success: true,
       data: {
         customerName: customerName,
@@ -95,7 +95,8 @@ export async function POST(req: Request) {
         amount: digiData.price || 0,
         adminSupplier: digiData.admin || 0,
         period: digiData.periode || "Bulan ini",
-        desc: digiData.desc 
+        desc: digiData.desc,
+        ref_id: ref_id // <--- 🚀 TAMBAHKAN BARIS INI AGAR ID INQUIRY TEREKAM
       }
     });
 
