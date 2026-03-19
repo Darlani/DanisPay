@@ -48,6 +48,24 @@ export async function POST(req: Request) {
       const upperSku = order.sku.toUpperCase();
 
       try {
+        // =================================================================
+        // 🚀 TAMBAHAN: INQUIRY KILAT SEBELUM BAYAR
+        // Tembak inquiry dulu pakai order_id agar dikenali oleh Digiflazz
+        // =================================================================
+        await axios.post('https://api.digiflazz.com/v1/transaction', {
+          commands: "inq-pasca",
+          username: username,
+          buyer_sku_code: upperSku,
+          customer_no: cleanCustomerNo,
+          ref_id: order_id, // Daftarkan order_id ini ke Digiflazz
+          sign: sign
+        }, { 
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 45000 
+        });
+        // =================================================================
+
+        // Proses pembayaran (pay-pasca) asli milik Bos
         const res = await axios.post('https://api.digiflazz.com/v1/transaction', {
           commands: "pay-pasca",
           username: username,
@@ -57,7 +75,7 @@ export async function POST(req: Request) {
           sign: sign
         }, { 
           headers: { 'Content-Type': 'application/json' },
-          timeout: 30000 
+          timeout: 45000 // Samakan timeoutnya biar aman
         });
 
         // Digiflazz membungkus respon di dalam objek "data"
