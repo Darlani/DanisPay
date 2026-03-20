@@ -284,19 +284,19 @@ const onConfirmCheckout = () => {
                        </div>
                    </div>
 
-                   <div className="flex items-center gap-3 sm:gap-4 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100">
-                       <div className="bg-slate-800 p-2 sm:p-2.5 rounded-xl text-white"><CircleDollarSign size={18} /></div>
-                       <div>
-                           <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Total Tagihan (Rp Tag PLN)</p>
-                           <p className="text-xs sm:text-sm font-black text-slate-800">{formatRupiah(rawTagihan)}</p>
+                   {/* TOTAL HARUS DIBAYAR (SUDAH TERMASUK ADMIN) */}
+                   <div className="flex items-center gap-3 sm:gap-4 bg-blue-600 p-4 sm:p-5 rounded-2xl border-2 border-blue-400 shadow-lg shadow-blue-200 animate-in zoom-in duration-300">
+                       <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl text-white">
+                           <CircleDollarSign size={22} className="animate-pulse" />
                        </div>
-                   </div>
-
-                   <div className="flex items-center gap-3 sm:gap-4 bg-[#E0F2F1] p-3 sm:p-4 rounded-2xl border border-[#B2DFDB]">
-                       <div className="bg-[#00796B] p-2 sm:p-2.5 rounded-xl text-white"><ShieldCheck size={18} /></div>
                        <div>
-                           <p className="text-[9px] sm:text-[10px] font-bold text-[#00695C] lowercase first-letter:uppercase tracking-wide">Biaya Admin</p>
-                           <p className="text-xs sm:text-sm font-black text-[#004D40]">{formatRupiah(adminToko)}</p>
+                           <p className="text-[10px] sm:text-[11px] font-black text-blue-100 uppercase tracking-widest">Total Harus Dibayar</p>
+                           <p className="text-lg sm:text-xl font-black text-white leading-tight">
+                               {formatRupiah(dynamicBasePrice)}
+                           </p>
+                           <p className="text-[9px] font-bold text-blue-200 lowercase first-letter:uppercase italic mt-0.5">
+                               *Sudah termasuk biaya admin
+                           </p>
                        </div>
                    </div>
 
