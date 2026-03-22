@@ -42,17 +42,19 @@ function InvoiceContent() {
   useEffect(() => {
     if (!invoiceId) return;
 
-    const fetchTransaction = async () => {
+  const fetchTransaction = async () => {
       try {
-        const { data: orderData } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("order_id", invoiceId)
-          .maybeSingle();
+        // Hanya ambil kolom yang nampil di UI & Receipt
+      const { data: orderData } = await supabase
+        .from("orders")
+        .select("order_id, status, payment_method, created_at, total_amount, sku, category, user_id, sn, qris_string, game_id, item_label, user_contact, customer_name, desc, used_balance, stand_meter, segment_power")
+        .eq("order_id", invoiceId)
+        .maybeSingle();
 
+        // Ambil info akun pembayaran secara spesifik
         const { data: accounts } = await supabase
           .from("payment_accounts")
-          .select("*");
+          .select("name, account_no, account_name, logo_url, is_qr, method_key");
         
         if (accounts) setPaymentAccounts(accounts);
 
@@ -292,7 +294,21 @@ fetchTransaction();
                             <div className="bg-white p-4 rounded-3xl border-2 border-dashed border-blue-200 flex flex-col items-center shadow-sm relative">
                               <div id="qris-export-area" className="bg-white p-2 rounded-xl">
                                 {qrisString ? (
-                                  <QRCodeSVG value={qrisString} size={200} level="M" includeMargin={true} className="rounded-xl" />
+                                  <QRCodeSVG 
+                          value={qrisString} 
+                          size={200} 
+                          level="H" // Ubah ke High biar logo nggak ganggu scan
+                          includeMargin={true} 
+                          className="rounded-xl"
+                          imageSettings={{
+                            src: "/logo-DaPay.png", // Ganti dengan path logo lo
+                            x: undefined,
+                            y: undefined,
+                            height: 40,
+                            width: 40,
+                            excavate: true,
+                          }}
+                        />
                                 ) : (
                                   <div className="w-50 h-50 flex items-center justify-center bg-slate-50 rounded-xl border border-slate-100">
                                      <Loader2 className="animate-spin text-slate-300" size={32} />

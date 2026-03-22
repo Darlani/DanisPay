@@ -4,9 +4,14 @@ import { supabaseAdmin } from '@/utils/supabaseAdmin'; // Gunakan admin untuk qu
 // Kode mentah dari GoPay Bos
 const BASE_STATIC_QRIS = process.env.QRIS_BASE_STATIC || "";
 
+// Helper buat bersihin karakter haram (Spasi, Koma, Ampersand)
+function sanitizeString(str: string) {
+  return str.replace(/[ ,&]/g, ""); 
+}
+
 function generateDynamicQRIS(staticQRIS: string, nominal: number) {
-  // 1. Ubah ke Dinamis & Hapus CRC bawaan
-  let payload = staticQRIS.replace("010211", "010212").split("6304")[0];
+  // 1. Bersihkan payload dari karakter spesial & Ubah ke Dinamis
+  let payload = sanitizeString(staticQRIS).replace("010211", "010212").split("6304")[0];
   
   // 2. Format Amount (Tag 54)
   const amountStr = Math.floor(nominal).toString();
