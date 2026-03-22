@@ -10,28 +10,33 @@ function sanitizeString(str: string) {
 }
 
 function generateDynamicQRIS(staticQRIS: string, nominal: number) {
-  // 1. Ubah ke Dinamis & Hapus CRC bawaan (Gunakan string asli agar tag length tidak rusak)
+  // 1. Ubah ke Dinamis (010212) & Hapus CRC bawaan (6304...)
+  // Kita gunakan string asli dari .env tanpa sanitize agar panjang karakter aman
   let payload = staticQRIS.replace("010211", "010212").split("6304")[0];
   
   // 2. Format Amount (Tag 54)
   const amountStr = Math.floor(nominal).toString();
   const tag54 = `54${amountStr.length.toString().padStart(2, '0')}${amountStr}`;
 
-  // 3. Tambahkan Tag 55 (Tip Indicator) -> Standar EMVCo buat bank nasional
+  // 3. Tambahkan Tag 55 (Tip Indicator) -> Standar buat m-Banking
+  // 550201 artinya "No Tip"
   const tag55 = "550201";
 
-  // 4. Inject secara berurutan setelah Tag 53
+  // 4. Inject Amount & Tip setelah Tag 53 (Currency)
   if (payload.includes("5303360")) {
-    // Bersihkan tag 54/55 lama kalau ada
+    // Bersihkan dulu kalau-kalau ada sisa tag 54/55 lama
     payload = payload.replace(/54\d{2}\d+/, "").replace(/55\d{2}\d+/, "");
+    // Masukkan tag baru tepat setelah 5303360
     payload = payload.replace("5303360", `5303360${tag54}${tag55}`);
   } else {
+    // Jika tidak ketemu tag 53, tempel di paling belakang sebelum CRC
     payload += tag54 + tag55;
   }
 
+  // 5. Tambahkan Header CRC
   payload += "6304"; 
 
-  // 5. Hitung CRC16-CCITT
+  // 6. Hitung CRC16-CCITT
   let crc = 0xFFFF;
   for (let i = 0; i < payload.length; i++) {
     crc ^= payload.charCodeAt(i) << 8;
