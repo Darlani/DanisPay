@@ -4,26 +4,25 @@ import { supabaseAdmin } from '@/utils/supabaseAdmin'; // Gunakan admin untuk qu
 // Kode mentah dari GoPay Bos
 const BASE_STATIC_QRIS = process.env.QRIS_BASE_STATIC || "";
 
-// Helper buat bersihin karakter haram (Spasi, Koma, Ampersand)
+// Helper buat bersihin karakter (opsional, jangan dipakai ke seluruh string QRIS)
 function sanitizeString(str: string) {
   return str.replace(/[ ,&]/g, ""); 
 }
 
 function generateDynamicQRIS(staticQRIS: string, nominal: number) {
-  // 1. Bersihkan payload dari karakter spesial & Ubah ke Dinamis
-  let payload = sanitizeString(staticQRIS).replace("010211", "010212").split("6304")[0];
+  // 1. Ubah ke Dinamis & Hapus CRC bawaan (Gunakan string asli agar tag length tidak rusak)
+  let payload = staticQRIS.replace("010211", "010212").split("6304")[0];
   
   // 2. Format Amount (Tag 54)
   const amountStr = Math.floor(nominal).toString();
   const tag54 = `54${amountStr.length.toString().padStart(2, '0')}${amountStr}`;
 
-  // 3. Tambahkan Tag 55 (Tip Indicator) -> Sering bikin BNI/Mandiri gagal kalau absen
-  // 550201 artinya "No Tip"
+  // 3. Tambahkan Tag 55 (Tip Indicator) -> Standar EMVCo buat bank nasional
   const tag55 = "550201";
 
   // 4. Inject secara berurutan setelah Tag 53
   if (payload.includes("5303360")) {
-    // Pastikan kita hapus dulu tag 54/55 lama kalau-kalau ada di string statis
+    // Bersihkan tag 54/55 lama kalau ada
     payload = payload.replace(/54\d{2}\d+/, "").replace(/55\d{2}\d+/, "");
     payload = payload.replace("5303360", `5303360${tag54}${tag55}`);
   } else {
@@ -32,7 +31,7 @@ function generateDynamicQRIS(staticQRIS: string, nominal: number) {
 
   payload += "6304"; 
 
-  // 5. Hitung CRC16-CCITT (False)
+  // 5. Hitung CRC16-CCITT
   let crc = 0xFFFF;
   for (let i = 0; i < payload.length; i++) {
     crc ^= payload.charCodeAt(i) << 8;
