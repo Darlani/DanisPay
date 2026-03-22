@@ -17,9 +17,23 @@ export default function Setup2FAPage() {
     const setupMFA = async () => {
       setLoading(true);
       try {
-        // Meminta backend Supabase membuat secret & QR Code (Enrollment)
+        // 1. Bersihkan 'draf' factor yang menggantung dari testing sebelumnya
+        const { data: listData } = await supabase.auth.mfa.listFactors();
+        // Ambil dari properti .all sesuai standar tipe data Supabase terbaru
+        const unverifiedFactors = (listData?.all || []).filter(
+          (f: any) => f.status === 'unverified' && f.factor_type === 'totp'
+        );
+        
+        // Hapus draf lama
+        for (const factor of unverifiedFactors) {
+          await supabase.auth.mfa.unenroll({ factorId: factor.id });
+        }
+
+        // 2. Meminta backend Supabase membuat secret & QR Code baru (Enrollment)
         const { data, error } = await supabase.auth.mfa.enroll({
           factorType: "totp",
+          issuer: "DanisPay", // Nama toko Bos yang akan muncul di Google Authenticator
+          friendlyName: "Admin Akses", // Nama spesifik agar tidak bentrok
         });
 
         if (error) throw error;

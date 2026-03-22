@@ -32,15 +32,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Profil tidak ditemukan!" }, { status: 404 });
     }
 
-    const role = profile.role?.toLowerCase();
-    const isAdminOrManager = role === 'admin' || role === 'manager';
-
-    // 3. Kembalikan data ke Frontend
+    // 3. Kembalikan data ke Frontend (Lebih Padat & Cepat)
     return NextResponse.json({
       success: true,
       user: profile,
-      session: authData.session,
-      isPinRequired: isAdminOrManager // Jika admin/manager, wajib PIN
+      session: authData.session
     });
 
   } catch (error: any) {
