@@ -52,10 +52,25 @@ const [errorMsg, setErrorMsg] = useState("");
 
       if (sessionError) throw sessionError;
 
-      if (result.isPinRequired) {
-        setTempProfile(result.user);
-        setIsPinStage(true);
+      // Cek role dari response (jika tidak ada anggap member biasa)
+      const userRole = result.user.role || 'member';
+
+      if (userRole === 'admin' || userRole === 'manager') {
+        // Cek ke backend Supabase apakah admin/manager ini sudah mengaktifkan 2FA
+        const { data: mfaData } = await supabase.auth.mfa.listFactors();
+        // Pakai .all dan sesuaikan nama properti dengan typing Supabase (factor_type)
+        const totpFactor = mfaData?.all?.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
+
+        if (totpFactor) {
+          // Jika sudah punya 2FA, simpan ID factor-nya dan tampilkan form PIN
+          setTempProfile({ ...result.user, factorId: totpFactor.id });
+          setIsPinStage(true);
+        } else {
+          // Jika role Admin/Manager tapi belum pasang 2FA, paksa ke halaman Setup
+          router.push("/setup-2fa");
+        }
       } else {
+        // Jika member biasa, bebas akses tanpa 2FA
         localStorage.setItem("userEmail", result.user.email);
         localStorage.setItem("userName", result.user.full_name);
         localStorage.setItem("isUser", "true");
@@ -74,27 +89,28 @@ const [errorMsg, setErrorMsg] = useState("");
     setErrorMsg("");
 
     try {
-      const res = await fetch('/api/admin/verify-2fa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: tempProfile.id, pin: pin.trim() })
+      // Validasi PIN langsung ke Backend Supabase Auth untuk keamanan ekstra
+      const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: tempProfile.factorId,
+        code: pin.trim()
       });
 
-      const result = await res.json();
-
-      if (res.ok && result.success) {
-        localStorage.setItem("userEmail", tempProfile.email);
-        localStorage.setItem("userName", tempProfile.full_name);
-        localStorage.setItem("isAdmin", "true");
-        document.cookie = "isAdmin=true; path=/; max-age=86400; SameSite=Strict";
-        document.cookie = `userRole=${tempProfile.role}; path=/; max-age=86400; SameSite=Strict`;
-        router.push("/admin");
-      } else {
-        setErrorMsg(result.error || "PIN SALAH!");
-        setPin(""); 
+      if (error) {
+        setErrorMsg("KODE SALAH ATAU KADALUARSA! Coba lagi.");
+        setPin("");
+        return;
       }
+
+      // Jika berhasil, Supabase otomatis menaikkan sesi ke AAL2
+      localStorage.setItem("userEmail", tempProfile.email);
+      localStorage.setItem("userName", tempProfile.full_name);
+      localStorage.setItem("isAdmin", "true");
+      document.cookie = "isAdmin=true; path=/; max-age=86400; SameSite=Strict";
+      document.cookie = `userRole=${tempProfile.role}; path=/; max-age=86400; SameSite=Strict`;
+      
+      router.push("/admin");
     } catch (err) {
-      setErrorMsg("Koneksi bermasalah!");
+      setErrorMsg("Gagal terhubung ke server keamanan!");
     } finally {
       setLoading(false);
     }
