@@ -274,7 +274,7 @@ function RegisterForm() {
             {/* WIDGET 5 SYARAT (Animasi Halus Max-Height) */}
             <div 
               className={`transition-all duration-500 ease-in-out overflow-hidden ${
-                isPasswordFocused && !isPasswordValid ? "max-h-[250px] opacity-100 translate-y-0 mt-2" : "max-h-0 opacity-0 -translate-y-2 mt-0"
+                isPasswordFocused && !isPasswordValid ? "max-h-62.5 opacity-100 translate-y-0 mt-2" : "max-h-0 opacity-0 -translate-y-2 mt-0"
               }`}
             >
               <div className="bg-slate-900/80 p-4 rounded-xl border border-white/5 space-y-3">
