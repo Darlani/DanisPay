@@ -81,19 +81,28 @@ export default function Setup2FAPage() {
           </div>
         )}
 
-        {/* Area QR Code (Mobile First & Cepat) */}
+        {/* Area QR Code (DESAIN BARU - Pas, Bersih, Cepat) */}
         <div className="flex justify-center mb-6">
           {!qrCode ? (
-            <div className="w-48 h-48 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-white/5">
+            <div className="w-52 h-52 flex items-center justify-center bg-slate-900/50 rounded-[30px] border border-white/5">
               <Loader2 className="animate-spin text-amber-500" size={32} />
             </div>
           ) : (
             <div 
-              className="bg-white p-2 rounded-2xl"
-              // Render SVG murni dari Supabase
-              dangerouslySetInnerHTML={{ __html: qrCode }} 
-              style={{ width: "200px", height: "200px" }}
-            />
+              // Kontainer Putih Sempurna untuk Kontras Scan HP
+              className="bg-white p-5 rounded-[30px] shadow-inner shadow-black/10 flex items-center justify-center relative group"
+              style={{ width: "210px", height: "210px" }}
+            >
+              <div
+                // Tampilan QR Code (SVG Sempurna)
+                className="w-full h-full [&_svg]:w-full [&_svg]:h-full transition-transform duration-300 group-hover:scale-105"
+                dangerouslySetInnerHTML={{ 
+                  // Kita bersihkan dulu data:image text yang bocor tadi
+                  __html: qrCode.includes('<svg') ? qrCode : ''
+                }} 
+              />
+              <div className="absolute inset-0 bg-white rounded-[30px] -z-10 group-hover:blur-xl group-hover:opacity-10 transition-all duration-300"></div>
+            </div>
           )}
         </div>
 
