@@ -107,13 +107,10 @@ export default function Setup2FAPage() {
               className="bg-white p-5 rounded-[30px] shadow-inner shadow-black/10 flex items-center justify-center relative group"
               style={{ width: "210px", height: "210px" }}
             >
-              <div
-                // Tampilan QR Code (SVG Sempurna)
-                className="w-full h-full [&_svg]:w-full [&_svg]:h-full transition-transform duration-300 group-hover:scale-105"
-                dangerouslySetInnerHTML={{ 
-                  // Kita bersihkan dulu data:image text yang bocor tadi
-                  __html: qrCode.includes('<svg') ? qrCode : ''
-                }} 
+              <img 
+                src={qrCode} 
+                alt="QR Code 2FA" 
+                className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-white rounded-[30px] -z-10 group-hover:blur-xl group-hover:opacity-10 transition-all duration-300"></div>
             </div>
