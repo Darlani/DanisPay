@@ -10,46 +10,43 @@ function sanitizeString(str: string) {
 }
 
 function generateDynamicQRIS(staticQRIS: string, nominal: number) {
-  // 1. Bersihkan string dari spasi liar & pastikan menggunakan versi terbaru
+  // 1. Bersihkan string awal
   let base = staticQRIS.trim();
-
-  // Pagar Keamanan: Jika ada kode pos rusak (610A01), kita paksa balik ke standar atau hapus
-  // BNI sering gagal karena bagian ekor string yang tidak standar
-  if (base.includes("610A01")) {
-    base = base.replace("610A01", "610500000"); // Paksa ke kode pos standar 5 digit
+  
+  // 2. Fix Nama Merchant (Tag 59) -> BNI/Mandiri alergi karakter ',' dan '&'
+  // Kita ganti menjadi spasi agar tetap 23 karakter: "DAPAY  PULSA   INTERNET"
+  if (base.includes("5923DaPay, Pulsa & Internet")) {
+     base = base.replace("5923DaPay, Pulsa & Internet", "5923DAPAY PULSA DAN INTERNET");
   }
 
-  // 2. Ubah ke Dinamis & Potong sebelum Tag 63 (CRC)
+  // 3. Fix Kode Pos Rusak (Tag 61) -> Ganti '0A' menjadi standar '05' + 5 digit angka
+  if (base.includes("610A01")) {
+    base = base.replace("610A01", "610500000"); 
+  }
+
+  // 4. Ubah ke Dinamis (010212) & Potong sebelum Tag 63 (CRC)
   let payload = base.replace("010211", "010212").split("6304")[0];
   
-  // 3. Format Amount (Tag 54)
+  // 5. Format & Inject Nominal (Tag 54) + No Tip (Tag 55)
   const amountStr = Math.floor(nominal).toString();
   const tag54 = `54${amountStr.length.toString().padStart(2, '0')}${amountStr}`;
-
-  // 4. Tambahkan Tag 55 (No Tip) -> WAJIB untuk BNI/Mandiri
   const tag55 = "550201";
 
-  // 5. Inject Amount & Tip tepat setelah Tag 53 (Currency)
   if (payload.includes("5303360")) {
-    // Hapus tag 54/55 lama jika ada agar tidak double
     payload = payload.replace(/54\d{2}\d+/, "").replace(/55\d{2}\d+/, "");
     payload = payload.replace("5303360", `5303360${tag54}${tag55}`);
   } else {
     payload += tag54 + tag55;
   }
 
+  // 6. Hitung ulang CRC16 agar bank percaya ini data valid
   payload += "6304";
-
-  // 6. Hitung CRC16-CCITT
   let crc = 0xFFFF;
   for (let i = 0; i < payload.length; i++) {
     crc ^= payload.charCodeAt(i) << 8;
     for (let j = 0; j < 8; j++) {
-      if ((crc & 0x8000) !== 0) {
-        crc = (crc << 1) ^ 0x1021;
-      } else {
-        crc = crc << 1;
-      }
+      if ((crc & 0x8000) !== 0) crc = (crc << 1) ^ 0x1021;
+      else crc = crc << 1;
     }
   }
   
