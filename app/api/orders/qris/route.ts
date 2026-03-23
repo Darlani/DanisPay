@@ -10,37 +10,32 @@ function sanitizeString(str: string) {
 }
 
 function generateDynamicQRIS(staticQRIS: string, nominal: number) {
-  // 1. Bersihkan string awal
-  let base = staticQRIS.trim();
-  
-  // 2. Fix Nama Merchant (Tag 59) -> BNI/Mandiri alergi karakter ',' dan '&'
-  // Kita ganti menjadi spasi agar tetap 23 karakter: "DAPAY  PULSA   INTERNET"
-  if (base.includes("5923DaPay, Pulsa & Internet")) {
-     base = base.replace("5923DaPay, Pulsa & Internet", "5923DAPAY PULSA DAN INTERNET");
-  }
+  // 1. Ambil string sehat dari .env (tanpa di-sanitize aneh-aneh)
+  let payload = staticQRIS.trim();
 
-  // 3. Fix Kode Pos Rusak (Tag 61) -> Ganti '0A' menjadi standar '05' + 5 digit angka
-  if (base.includes("610A01")) {
-    base = base.replace("610A01", "610500000"); 
-  }
+  // 2. Ubah tipe dari Statis (11) ke Dinamis (12)
+  payload = payload.replace("010211", "010212");
 
-  // 4. Ubah ke Dinamis (010212) & Potong sebelum Tag 63 (CRC)
-  let payload = base.replace("010211", "010212").split("6304")[0];
-  
-  // 5. Format & Inject Nominal (Tag 54) + No Tip (Tag 55)
+  // 3. Buang CRC bawaan di paling belakang (Hapus 8 karakter: "6304" + "XXXX")
+  payload = payload.slice(0, -8);
+
+  // 4. Siapkan Nominal (Tag 54)
   const amountStr = Math.floor(nominal).toString();
   const tag54 = `54${amountStr.length.toString().padStart(2, '0')}${amountStr}`;
-  const tag55 = "550201";
 
+  // 5. Inject Nominal TEPAT setelah Tag 53 (Persis kelakuan aplikasi GoPay)
   if (payload.includes("5303360")) {
-    payload = payload.replace(/54\d{2}\d+/, "").replace(/55\d{2}\d+/, "");
-    payload = payload.replace("5303360", `5303360${tag54}${tag55}`);
+    const parts = payload.split("5303360");
+    // Gabungkan kembali: Bagian Kiri + 5303360 + Nominal + Bagian Kanan
+    payload = parts[0] + "5303360" + tag54 + parts[1];
   } else {
-    payload += tag54 + tag55;
+    payload += tag54;
   }
 
-  // 6. Hitung ulang CRC16 agar bank percaya ini data valid
+  // 6. Tutup dengan Header CRC
   payload += "6304";
+
+  // 7. Mesin Hitung CRC16 (Wajib agar Bank percaya)
   let crc = 0xFFFF;
   for (let i = 0; i < payload.length; i++) {
     crc ^= payload.charCodeAt(i) << 8;
@@ -49,7 +44,7 @@ function generateDynamicQRIS(staticQRIS: string, nominal: number) {
       else crc = crc << 1;
     }
   }
-  
+
   const crcHex = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
   return payload + crcHex;
 }
