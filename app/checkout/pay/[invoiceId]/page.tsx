@@ -300,14 +300,6 @@ fetchTransaction();
                           level="H" // Ubah ke High biar logo nggak ganggu scan
                           includeMargin={true} 
                           className="rounded-xl"
-                          imageSettings={{
-                            src: "/logo-DaPay.png", // Ganti dengan path logo lo
-                            x: undefined,
-                            y: undefined,
-                            height: 40,
-                            width: 40,
-                            excavate: true,
-                          }}
                         />
                                 ) : (
                                   <div className="w-50 h-50 flex items-center justify-center bg-slate-50 rounded-xl border border-slate-100">
