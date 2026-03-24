@@ -10,32 +10,48 @@ function sanitizeString(str: string) {
 }
 
 function generateDynamicQRIS(staticQRIS: string, nominal: number) {
-  // 1. Ambil string sehat dari .env (tanpa di-sanitize aneh-aneh)
+  // 1. Ambil string sehat dari .env
   let payload = staticQRIS.trim();
 
-  // 2. Ubah tipe dari Statis (11) ke Dinamis (12)
+  // 2. Ubah tipe ke Dinamis (12) dan Buang CRC bawaan
   payload = payload.replace("010211", "010212");
-
-  // 3. Buang CRC bawaan di paling belakang (Hapus 8 karakter: "6304" + "XXXX")
   payload = payload.slice(0, -8);
 
-  // 4. Siapkan Nominal (Tag 54)
+  // 3. Inject Nominal (Tag 54)
   const amountStr = Math.floor(nominal).toString();
   const tag54 = `54${amountStr.length.toString().padStart(2, '0')}${amountStr}`;
-
-  // 5. Inject Nominal TEPAT setelah Tag 53 (Persis kelakuan aplikasi GoPay)
+  
   if (payload.includes("5303360")) {
     const parts = payload.split("5303360");
-    // Gabungkan kembali: Bagian Kiri + 5303360 + Nominal + Bagian Kanan
     payload = parts[0] + "5303360" + tag54 + parts[1];
   } else {
     payload += tag54;
   }
 
-  // 6. Tutup dengan Header CRC
-  payload += "6304";
+  // 4. INJECT TAG 62 (ANTI-SPAM / ANTI-REFUND BANK)
+  // Kita buatkan ID unik persis seperti aplikasi GoPay Merchant
+  if (payload.includes("62070703A01")) {
+    const d = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    // Format Waktu: YYYYMMDDHHMMSS (Biar setiap detik QR beda)
+    const ts = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    
+    // Format ID Acak (10 Karakter)
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let rnd = '';
+    for(let i = 0; i < 10; i++) rnd += chars.charAt(Math.floor(Math.random() * chars.length));
 
-  // 7. Mesin Hitung CRC16 (Wajib agar Bank percaya)
+    // Rakit Tag 62 baru
+    const propData = `A1${ts}${rnd}ID`; // Panjang selalu 28
+    const tag62Value = `5028${propData}0703A01`; // Panjang selalu 39
+    const newTag62 = `6239${tag62Value}`;
+
+    // Ganti Tag 62 statis dengan yang dinamis
+    payload = payload.replace("62070703A01", newTag62);
+  }
+
+  // 5. Hitung CRC16
+  payload += "6304";
   let crc = 0xFFFF;
   for (let i = 0; i < payload.length; i++) {
     crc ^= payload.charCodeAt(i) << 8;
