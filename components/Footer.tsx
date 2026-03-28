@@ -38,7 +38,7 @@ export default function Footer() {
             <h4 className="text-white font-bold mb-6">Bantuan</h4>
             <ul className="space-y-4 text-sm text-slate-400">
               <li><a href="#" className="hover:text-blue-500 transition-colors">WhatsApp Kami</a></li>
-              <li><a href="#" className="hover:text-blue-500 transition-colors">Hubungi Email</a></li>
+              <li><a href="mailto:support@danispay.my.id" className="hover:text-blue-500 transition-colors">Hubungi Email</a></li>
               <li><a href="#" className="hover:text-blue-500 transition-colors">Metode Pembayaran</a></li>
             </ul>
           </div>
