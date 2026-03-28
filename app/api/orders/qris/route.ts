@@ -4,54 +4,31 @@ import { supabaseAdmin } from '@/utils/supabaseAdmin'; // Gunakan admin untuk qu
 // Kode mentah dari GoPay Bos
 const BASE_STATIC_QRIS = process.env.QRIS_BASE_STATIC || "";
 
-// Helper buat bersihin karakter (opsional, jangan dipakai ke seluruh string QRIS)
-function sanitizeString(str: string) {
-  return str.replace(/[ ,&]/g, ""); 
-}
-
 function generateDynamicQRIS(staticQRIS: string, nominal: number) {
-  // 1. Ambil string sehat dari .env
+  // 1. Ambil string asli dari .env
   let payload = staticQRIS.trim();
 
-  // 2. Ubah tipe ke Dinamis (12) dan Buang CRC bawaan
-  payload = payload.replace("010211", "010212");
-  payload = payload.slice(0, -8);
+  // PENTING: Jangan ubah "010211" menjadi "010212".
+  // Biarkan berstatus "Statis" (11) di mata Bank, TAPI kita injeksi nominal (Tag 54) ke dalamnya.
+  // Ini trik "Open-Static" aman untuk menghindari validasi Tag 62 dari bank.
+  
+  // 2. Buang CRC bawaan di paling belakang (Hapus 4 karakter hex: "XXXX")
+  // Kita HANYA buang nilainya, jangan buang tag "6304"-nya
+  payload = payload.slice(0, -4);
 
-  // 3. Inject Nominal (Tag 54)
+  // 3. Inject Nominal (Tag 54) persis sebelum Tag 58
   const amountStr = Math.floor(nominal).toString();
   const tag54 = `54${amountStr.length.toString().padStart(2, '0')}${amountStr}`;
   
-  if (payload.includes("5303360")) {
-    const parts = payload.split("5303360");
-    payload = parts[0] + "5303360" + tag54 + parts[1];
+  if (payload.includes("5802ID")) {
+    const parts = payload.split("5802ID");
+    payload = parts[0] + tag54 + "5802ID" + parts[1];
   } else {
-    payload += tag54;
+    // Fallback darurat jika aneh
+    payload = payload.replace("6304", tag54 + "6304"); 
   }
 
-  // 4. INJECT TAG 62 (ANTI-SPAM / ANTI-REFUND BANK)
-  // Kita buatkan ID unik persis seperti aplikasi GoPay Merchant
-  if (payload.includes("62070703A01")) {
-    const d = new Date();
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    // Format Waktu: YYYYMMDDHHMMSS (Biar setiap detik QR beda)
-    const ts = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-    
-    // Format ID Acak (10 Karakter)
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let rnd = '';
-    for(let i = 0; i < 10; i++) rnd += chars.charAt(Math.floor(Math.random() * chars.length));
-
-    // Rakit Tag 62 baru
-    const propData = `A1${ts}${rnd}ID`; // Panjang selalu 28
-    const tag62Value = `5028${propData}0703A01`; // Panjang selalu 39
-    const newTag62 = `6239${tag62Value}`;
-
-    // Ganti Tag 62 statis dengan yang dinamis
-    payload = payload.replace("62070703A01", newTag62);
-  }
-
-  // 5. Hitung CRC16
-  payload += "6304";
+  // 4. Hitung ulang CRC16
   let crc = 0xFFFF;
   for (let i = 0; i < payload.length; i++) {
     crc ^= payload.charCodeAt(i) << 8;
