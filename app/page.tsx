@@ -9,6 +9,7 @@ import CategoryShortcut from '../components/CategoryShortcut';
 import MaintenancePage from "@/utils/MaintenancePage"; 
 import { Loader2, Settings, Clock, ChevronRight, Zap, Smartphone, Gamepad2, Wifi, MonitorPlay } from "lucide-react";
 import FingerprintJS from '@fingerprintjs/fingerprintjs'; 
+import ContactModal from "@/components/ContactModal";
 
 export default function Home() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [shortcutCategories, setShortcutCategories] = useState<any[]>([]);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const checkMaintenanceAndData = async () => {
@@ -250,6 +252,34 @@ let ordersQuery = supabase
       <ProductSection title="Travel & Perjalanan" category="travel" id="travel" />
       
       <ProductSection title="Digital Services" category="digital services" id="digital" />
+      
+      {/* Floating Support Button - Hanya tampil di Beranda */}
+      <div className="fixed bottom-6 right-6 z-9999">
+        {/* Tampil di HP (Mobile-first): Buka aplikasi email */}
+        <a 
+          href="mailto:support@danispay.my.id?subject=Tanya%20Seputar%20Layanan%20DanisPay"
+          className="md:hidden flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 hover:scale-110 hover:bg-blue-500 active:scale-95 group"
+          aria-label="Contact Support Mobile"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-6 w-6 transition-transform group-hover:rotate-12">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+          </svg>
+        </a>
+
+        {/* Tampil di Desktop: Buka Modal UI */}
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="hidden md:flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 hover:scale-110 hover:bg-blue-500 active:scale-95 group"
+          aria-label="Contact Support Desktop"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-8 w-8 transition-transform group-hover:rotate-12">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Panggil Modalnya di sini */}
+      <ContactModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </main>
   );
 }

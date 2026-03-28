@@ -1,6 +1,11 @@
+"use client";
+import { useState } from "react";
 import { Instagram, Facebook, Twitter, ShieldCheck } from "lucide-react";
+import ContactModal from "./ContactModal";
 
 export default function Footer() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <footer className="bg-[#0f172a] border-t border-slate-800 pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-6">
@@ -38,7 +43,13 @@ export default function Footer() {
             <h4 className="text-white font-bold mb-6">Bantuan</h4>
             <ul className="space-y-4 text-sm text-slate-400">
               <li><a href="#" className="hover:text-blue-500 transition-colors">WhatsApp Kami</a></li>
-              <li><a href="mailto:support@danispay.my.id" className="hover:text-blue-500 transition-colors">Hubungi Email</a></li>
+              <li>
+                {/* Tampil di HP (Mobile-first): Buka aplikasi email */}
+                <a href="mailto:support@danispay.my.id" className="md:hidden hover:text-blue-500 transition-colors">Hubungi Email</a>
+                
+                {/* Tampil di Desktop: Buka Modal UI */}
+                <button onClick={() => setIsModalOpen(true)} className="hidden md:block hover:text-blue-500 transition-colors text-left w-full">Hubungi Email</button>
+              </li>
               <li><a href="#" className="hover:text-blue-500 transition-colors">Metode Pembayaran</a></li>
             </ul>
           </div>
@@ -72,6 +83,9 @@ export default function Footer() {
           </p>
         </div>
       </div>
+      
+      {/* Panggil Modalnya di sini */}
+      <ContactModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </footer>
   );
 }
