@@ -52,8 +52,8 @@ if (isLiveMode) {
 
       if (!mainProd) return NextResponse.json({ error: "Data produk tidak ditemukan di katalog." }, { status: 404 });
 
-      // Ekstraksi Nominal (Ubah "Telkomsel 2.000" jadi "2000" agar cocok dengan format apapun)
-      const nominalTarget = mainProd.name.replace(/[^0-9]/g, '');
+      // 1. AMBIL NAMA UTUH (KECILKAN HURUFNYA & BERSIHKAN SPASI KOSONG)
+      const exactTargetName = mainProd.name.toLowerCase().trim();
       const targetBrandSlug = slugify(mainProd.brand || "");
       const isZonasi = (mainProd.name || "").toUpperCase().includes('ZONASI');
 
@@ -65,15 +65,16 @@ if (isLiveMode) {
         .eq('is_active', true)
         .order('modal', { ascending: true }); // KUNCI UTAMA: Termurah di atas
 
-      // Filter manual agar nominal dan zonasi benar-benar pas
+      // 3. COCOKKAN NAMA 100% SAMA PERSIS (ANTI SALAH SASARAN!) [cite: 2026-03-07]
       let validAlternatives = (candidates || []).filter(item => {
-        const itemNominal = item.name.replace(/[^0-9]/g, '');
+        const itemName = item.name.toLowerCase().trim();
         const itemZona = (item.zona_type || "").toUpperCase() === 'ZONASI';
         
-        return itemNominal === nominalTarget && itemZona === isZonasi;
+        // Tolak mentah-mentah kalau namanya beda sehuruf pun!
+        return itemName === exactTargetName && itemZona === isZonasi;
       });
 
-      console.log(`🎯 Ditemukan ${validAlternatives.length} supplier untuk nominal ${nominalTarget}`);
+      console.log(`🎯 Ditemukan ${validAlternatives.length} supplier untuk produk ${exactTargetName}`);
 
       // 3. JIKA TIDAK ADA DI ITEMS, PAKAI SKU ASLI
       if (validAlternatives.length === 0) {

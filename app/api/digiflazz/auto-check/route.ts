@@ -153,10 +153,11 @@ export async function GET(req: Request) {
               if (match) currentAttempt = parseInt(match[1], 10);
 
               // Ganti ke nama tabel baru: product_automatic [cite: 2026-03-13]
-const { data: mainProd } = await supabaseAdmin.from('product_automatic').select('name, brand').eq('sku', order.sku).single();
+              const { data: mainProd } = await supabaseAdmin.from('product_automatic').select('name, brand').eq('sku', order.sku).single();
 
               if (mainProd) {
-                const nominalTarget = mainProd.name.replace(/[^0-9]/g, '');
+                // 1. AMBIL NAMA UTUH (KECILKAN HURUFNYA & BERSIHKAN SPASI KOSONG)
+                const exactTargetName = mainProd.name.toLowerCase().trim();
                 const targetBrandSlug = mainProd.brand?.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '') || "";
                 const isZonasi = (mainProd.name || "").toUpperCase().includes('ZONASI');
 
@@ -164,12 +165,15 @@ const { data: mainProd } = await supabaseAdmin.from('product_automatic').select(
                   .select('sku, modal, name, zona_type')
                   .eq('brand_slug', targetBrandSlug)
                   .eq('is_active', true)
-                  .order('modal', { ascending: true });
+                  .order('modal', { ascending: true }); // Tetap urutkan dari Termurah ke Termahal
 
+                // 2. COCOKKAN NAMA 100% SAMA PERSIS (ANTI SALAH SASARAN!) [cite: 2026-03-07]
                 const validAlternatives = (candidates || []).filter(item => {
-                  const itemNominal = item.name.replace(/[^0-9]/g, '');
+                  const itemName = item.name.toLowerCase().trim();
                   const itemZona = (item.zona_type || "").toUpperCase() === 'ZONASI';
-                  return itemNominal === nominalTarget && itemZona === isZonasi;
+                  
+                  // Kalau namanya gak sama persis, TOLAK MENTAH-MENTAH!
+                  return itemName === exactTargetName && itemZona === isZonasi;
                 });
 
                 if (currentAttempt < validAlternatives.length) {
