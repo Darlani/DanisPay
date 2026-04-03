@@ -36,18 +36,43 @@ export default function Navbar({ isSidebarOpen = false }: NavbarProps) {
 
   const isAdminPage = pathname.startsWith('/admin');
 
-  useEffect(() => {
-    const checkAuth = () => {
-      if (typeof window !== "undefined") {
-        const isAdmin = localStorage.getItem("isAdmin") === "true";
-        const isUser = localStorage.getItem("isUser") === "true";
-        if (isAdmin) setRole('admin');
-        else if (isUser) setRole('user');
-        else setRole(null);
-      }
-    };
-    checkAuth();
-  }, [pathname]);
+useEffect(() => {
+    const checkAuth = async () => {
+      if (typeof window !== "undefined") {
+        // Cek sesi asli dari Supabase terlebih dahulu
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          // Jika sesi sudah habis/tidak ada, bersihkan storage & sembunyikan menu akun
+          localStorage.removeItem("isAdmin");
+          localStorage.removeItem("isUser");
+          setRole(null);
+          return;
+        }
+
+        // Jika sesi masih valid, jalankan logika set role
+        const isAdmin = localStorage.getItem("isAdmin") === "true";
+        const isUser = localStorage.getItem("isUser") === "true";
+        if (isAdmin) setRole('admin');
+        else if (isUser) setRole('user');
+        else setRole(null);
+      }
+    };
+    checkAuth();
+
+    // Listener agar UI otomatis update jika sesi habis (misal dari tab lain)
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        localStorage.removeItem("isAdmin");
+        localStorage.removeItem("isUser");
+        setRole(null);
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [pathname]);
 
   // Listener untuk membuka modal dari BottomNav
   useEffect(() => {
