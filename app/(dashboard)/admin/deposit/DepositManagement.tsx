@@ -38,22 +38,61 @@ export default function DepositManagement() {
   };
 
   return (
-    <div className="animate-in fade-in duration-700 font-black italic uppercase text-slate-800 pb-20 px-4 max-w-350 mx-auto">
-      <div className="flex justify-between items-center mb-10 mt-6">
+    <div className="animate-in fade-in duration-700 font-black italic uppercase text-slate-800 pb-20 px-4 md:px-8 max-w-7xl mx-auto overflow-x-hidden">
+      <div className="flex justify-between items-start md:items-center mb-8 mt-4 md:mt-6">
         <div>
-          <h2 className="text-3xl tracking-tighter flex items-center gap-4 font-black">
-            <span className="bg-emerald-600 text-white p-3 rounded-2xl shadow-lg shadow-emerald-200"><CreditCard size={28} /></span>
-            DEPOSIT CONTROL v4
+          <h2 className="text-xl md:text-3xl tracking-tighter flex items-center gap-3 md:gap-4 font-black">
+            <span className="bg-emerald-600 text-white p-2 md:p-3 rounded-xl md:rounded-2xl shadow-lg shadow-emerald-200"><CreditCard size={24} className="md:w-7 md:h-7" /></span>
+            DEPOSIT v4
           </h2>
-          <p className="text-[10px] text-slate-400 mt-2 font-bold tracking-widest ml-16 leading-none underline">Verifikasi Pembayaran & Audit Saldo Aktif</p>
+          <p className="text-[8px] md:text-[10px] text-slate-400 mt-2 font-bold tracking-widest ml-12 md:ml-16 leading-none underline">Verifikasi Pembayaran & Audit Saldo</p>
         </div>
-        <button onClick={fetchDeposits} className="p-4 bg-white border-2 border-slate-900 rounded-2xl shadow-lg active:scale-95 transition-all">
-          <History size={20}/>
+        <button onClick={fetchDeposits} className="p-3 md:p-4 bg-white border-2 border-slate-900 rounded-xl md:rounded-2xl shadow-lg active:scale-95 transition-all shrink-0">
+          <History size={18} className="md:w-5 md:h-5"/>
         </button>
       </div>
 
-      <div className="bg-white rounded-[40px] border-2 border-slate-900 shadow-2xl overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-[30px] md:rounded-[40px] border-2 border-slate-900 shadow-xl md:shadow-2xl overflow-hidden">
+        
+        {/* --- VIEW MOBILE (CARD STACK) --- */}
+        <div className="md:hidden flex flex-col divide-y divide-slate-100">
+          {loading ? (
+            <div className="p-12 text-center text-[10px] font-black italic animate-pulse">MENGECEK MUTASI MASUK...</div>
+          ) : deposits.length === 0 ? (
+            <div className="p-12 text-center text-[10px] font-black italic text-slate-400">TIDAK ADA DATA DEPOSIT</div>
+          ) : deposits.map((d) => (
+            <div key={d.id} className={`p-5 flex flex-col gap-4 ${processingId === d.id ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-slate-900 text-xs lowercase tracking-tight truncate">{d.user_email}</span>
+                  <span className="text-[7px] text-slate-400 not-italic uppercase tracking-widest mt-0.5">{new Date(d.created_at).toLocaleString('id-ID')}</span>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-[7px] border-2 uppercase shrink-0 ${d.status === 'Pending' ? 'bg-amber-50 text-amber-600 border-amber-200 animate-pulse' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                  {d.status}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                <div className="flex flex-col">
+                  <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">NOMINAL (VIA {d.payment_method || '-'})</span>
+                  <span className="text-emerald-600 font-black text-base tracking-tighter">Rp {d.amount.toLocaleString()}</span>
+                </div>
+                <div>
+                  {d.status === 'Pending' ? (
+                    <button disabled={processingId === d.id} onClick={() => handleApprove(d.id)} className="p-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-md transition-all active:scale-90">
+                      {processingId === d.id ? <Loader2 className="animate-spin" size={16}/> : <Check size={16} strokeWidth={4}/>}
+                    </button>
+                  ) : (
+                    <div className="p-3 bg-emerald-100 text-emerald-500 rounded-xl flex justify-center"><Check size={16} strokeWidth={4}/></div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* --- VIEW DESKTOP (TABLE) --- */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-900 text-white text-[9px] tracking-widest italic border-b-2 border-slate-900">

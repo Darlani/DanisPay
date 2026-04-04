@@ -75,9 +75,18 @@ export default function SidebarAdmin({ isOpen, setIsOpen, activeMenu, setActiveM
   };
 
   return (
-    <aside className={`${isOpen ? "w-64" : "w-20"} bg-[#0B0E14] border-r border-white/5 flex flex-col fixed h-screen z-40 transition-all duration-300 shadow-2xl`}>
+    <>
+      {/* Overlay Backdrop Mobile */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
       
-      {/* HEADER */}
+      <aside className={`fixed h-screen z-50 bg-[#0B0E14] border-r border-white/5 flex flex-col transition-transform duration-300 shadow-2xl md:transition-all ${isOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0 md:w-20"}`}>
+        
+        {/* HEADER */}
       <div className="p-6 mb-4 flex items-center justify-between border-b border-white/5">
         {isOpen && (
           <h1 className="text-white font-black italic tracking-tighter text-xl uppercase">
@@ -144,7 +153,7 @@ export default function SidebarAdmin({ isOpen, setIsOpen, activeMenu, setActiveM
         </div>
       )}
 
-      {/* LOGOUT */}
+{/* LOGOUT */}
       <div className="p-4 border-t border-white/5">
         <button onClick={handleLogout} className={`w-full flex items-center gap-4 p-4 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all font-black italic uppercase tracking-widest ${!isOpen && 'justify-center'}`}>
           <LogOut size={20} />
@@ -152,5 +161,6 @@ export default function SidebarAdmin({ isOpen, setIsOpen, activeMenu, setActiveM
         </button>
       </div>
     </aside>
+   </>
   );
 }

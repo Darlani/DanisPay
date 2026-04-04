@@ -253,26 +253,26 @@ const handleCheckStatus = async (orderId: string) => {
     <div className="flex bg-[#F8FAFC] min-h-screen font-sans text-slate-600">
       <SidebarAdmin isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
 
-      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isSidebarOpen ? "md:ml-64" : "md:ml-20"}`}>
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isSidebarOpen ? "ml-0 md:ml-64" : "ml-0 md:ml-20"}`}>
         <Navbar isSidebarOpen={isSidebarOpen} />
 
-        <main className="flex-1 p-6 lg:p-12">
-          <div className="max-w-400 mx-auto space-y-10">
+        <main className="flex-1 p-4 md:p-6 lg:p-12 overflow-x-hidden">
+          <div className="max-w-7xl mx-auto space-y-6 md:space-y-10">
             
           {/* MODAL VALIDASI TRANSAKSI */}
             {selectedOrder && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-md" onClick={() => setSelectedOrder(null)} />
-                <div className="relative bg-white w-full max-w-xl rounded-[50px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 font-black italic uppercase">
-                  <div className="p-8 pb-0 flex justify-between items-center">
+                <div className="relative bg-white w-full max-w-xl max-h-[90vh] overflow-y-auto custom-scrollbar rounded-[30px] md:rounded-[50px] shadow-2xl animate-in zoom-in-95 duration-200 font-black italic uppercase">
+                  <div className="p-6 md:p-8 pb-0 flex justify-between items-center sticky top-0 bg-white/95 backdrop-blur-md z-10">
                     <div>
                       <h3 className="text-2xl text-slate-800 tracking-tighter font-black">VALIDASI TRANSAKSI</h3>
                       <p className="text-[10px] text-blue-600 tracking-widest">ID: #{selectedOrder.order_id}</p>
                     </div>
                     <button onClick={() => setSelectedOrder(null)} className="p-3 bg-slate-50 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><X size={24} /></button>
                   </div>
-                  <div className="p-8 space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
+                  <div className="p-6 md:p-8 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="bg-slate-50 p-5 rounded-[30px] border border-slate-100">
                         <p className="text-[9px] text-slate-400 mb-2 flex items-center gap-2"><Package size={12}/> DETAIL PRODUK</p>
                         <p className="text-xs text-slate-800 truncate">{selectedOrder.product_name}</p>
@@ -469,7 +469,7 @@ const handleCheckStatus = async (orderId: string) => {
                       <input type="text" placeholder="CARI ORDER / USER / HP..." className="w-full bg-slate-50 border border-slate-100 pl-9 pr-4 py-3 rounded-xl outline-none focus:border-blue-500 text-[10px] font-black" value={searchTermOrders} onChange={(e) => setSearchTermOrders(e.target.value)} />
                     </div>
                   </div>
-                  <div className="flex gap-2 mb-6 overflow-x-auto pb-2 px-8">
+                  <div className="flex gap-2 mb-6 overflow-x-auto custom-scrollbar pb-2 px-4 md:px-8">
                     {['All', 'Game', 'PPOB', 'Entertainment', 'Travel', 'Productivity', 'Sosial', 'Digital', 'Other'].map((cat) => (
                         <button key={cat} onClick={() => setActiveCategory(cat)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase italic transition-all border shrink-0 ${activeCategory === cat ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}>
                           <span>{cat}</span>

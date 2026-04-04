@@ -729,7 +729,7 @@ let cbPerItem = 0;
   };
 
   return (
-    <div className="animate-in fade-in duration-500 font-black italic uppercase text-slate-800 pb-10 px-4 max-w-400 mx-auto">
+    <div className="animate-in fade-in duration-500 font-black italic uppercase text-slate-800 pb-10 px-4 max-w-7xl mx-auto md:px-8 overflow-x-hidden">
       {/* HEADER UTAMA */}
       <div className="flex justify-between items-end mb-0 mt-4 border-b-2 border-slate-100 pb-3">
         <div className="flex flex-col gap-1">

@@ -100,24 +100,97 @@ setProcessingIds(prev => new Set(prev).add(req.id));
   };
 
   return (
-    <div className="animate-in fade-in duration-700 font-black italic uppercase text-slate-800 pb-20 px-4 max-w-350 mx-auto">
+    <div className="animate-in fade-in duration-700 font-black italic uppercase text-slate-800 pb-20 px-4 md:px-8 max-w-7xl mx-auto overflow-x-hidden">
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-6 mt-4">
+      <div className="flex justify-between items-start md:items-center mb-6 mt-4 md:mt-6">
         <div>
-          <h2 className="text-2xl tracking-tighter flex items-center gap-3 font-black text-slate-900">
-            <span className="bg-slate-900 text-white p-2.5 rounded-xl"><ArrowDownCircle size={24} /></span>
-            WITHDRAW CONTROL v4
+          <h2 className="text-xl md:text-2xl tracking-tighter flex items-center gap-3 font-black text-slate-900">
+            <span className="bg-slate-900 text-white p-2 md:p-2.5 rounded-xl"><ArrowDownCircle size={20} className="md:w-6 md:h-6" /></span>
+            WITHDRAW v4
           </h2>
-          <p className="text-[9px] text-slate-400 font-bold italic mt-1 ml-14 uppercase tracking-widest leading-none underline">Sistem Audit Saldo Awal & Akhir Aktif</p>
+          <p className="text-[7px] md:text-[9px] text-slate-400 font-bold italic mt-1 ml-10 md:ml-14 uppercase tracking-widest leading-none underline">Sistem Audit Saldo Aktif</p>
         </div>
-        <button onClick={fetchRequests} className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-slate-900 rounded-2xl text-[10px] hover:bg-slate-900 hover:text-white transition-all shadow-lg active:scale-95">
-          <History size={16} /> REFRESH
+        <button onClick={fetchRequests} className="flex items-center gap-2 px-4 py-2.5 md:px-6 md:py-3 bg-white border-2 border-slate-900 rounded-xl md:rounded-2xl text-[8px] md:text-[10px] hover:bg-slate-900 hover:text-white transition-all shadow-lg active:scale-95 shrink-0">
+          <History size={14} className="md:w-4 md:h-4" /> <span className="hidden sm:inline">REFRESH</span>
         </button>
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white rounded-[40px] shadow-2xl border-2 border-slate-900 overflow-hidden">
-        <div className="overflow-x-auto">
+      {/* WRAPPER KONTEN */}
+      <div className="bg-white rounded-[30px] md:rounded-[40px] shadow-xl md:shadow-2xl border-2 border-slate-900 overflow-hidden">
+        
+        {/* --- VIEW MOBILE (CARD STACK) --- */}
+        <div className="md:hidden flex flex-col divide-y divide-slate-100">
+          {loading ? (
+            <div className="p-12 text-center text-[10px] font-black italic animate-pulse">AUDITING DATABASE...</div>
+          ) : requests.map((req) => {
+            const currentEditFee = editingFees[req.id] !== undefined ? editingFees[req.id] : (req.admin_fee || 0);
+            const isProcessing = processingIds.has(req.id);
+
+            return (
+              <div key={req.id} className={`p-5 flex flex-col gap-4 ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-slate-900 text-xs lowercase tracking-tight truncate">{req.user_email}</span>
+                    <span className="text-[7px] text-slate-400 not-italic uppercase tracking-widest mt-0.5">ID: {req.id.slice(0,8)}</span>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-[7px] font-black tracking-wider border-2 uppercase shrink-0 ${
+                    req.status === 'Pending' ? 'bg-amber-50 text-amber-600 border-amber-200 animate-pulse' :
+                    req.status === 'Success' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-rose-50 text-rose-600 border-rose-200'
+                  }`}>
+                    {req.status}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">PENARIKAN</span>
+                    <span className="text-blue-600 font-black text-sm">Rp {req.amount.toLocaleString()}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">ADMIN FEE</span>
+                    {req.status === 'Pending' ? (
+                      <input type="number" className="w-20 bg-rose-50 border border-rose-200 p-1.5 rounded-lg text-center font-black text-rose-600 outline-none text-[10px]" value={currentEditFee} onChange={(e) => handleFeeChange(req.id, e.target.value)} />
+                    ) : (
+                      <span className="text-rose-500 font-black text-[10px]">Rp {req.admin_fee?.toLocaleString() || "0"}</span>
+                    )}
+                  </div>
+
+                  <div className="h-px w-full bg-slate-200 my-1"></div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest">TOTAL POTONG</span>
+                    <span className="text-slate-900 font-black text-sm">Rp {(req.amount + currentEditFee).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-end">
+                  <div className="flex flex-col">
+                    <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">TUJUAN (BANK/E-WALLET)</span>
+                    <span className="text-slate-900 font-black text-[10px] uppercase">{req.bank_name}</span>
+                    <span className="text-[9px] text-slate-500 not-italic font-bold">{req.account_number}</span>
+                  </div>
+                  
+                  {req.status === 'Pending' ? (
+                    <div className="flex gap-2">
+                      <button disabled={isProcessing} onClick={() => approveWithdraw(req)} className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 active:scale-95 transition-all shadow-md">
+                        {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={4}/>}
+                      </button>
+                      <button disabled={isProcessing} onClick={() => rejectWithdraw(req)} className="p-2.5 bg-rose-500 text-white rounded-xl hover:bg-rose-600 active:scale-95 transition-all shadow-md">
+                        {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <X size={16} strokeWidth={4}/>}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-2.5 bg-slate-100 text-slate-400 rounded-xl"><Trash2 size={16} /></div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* --- VIEW DESKTOP (TABLE) --- */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-900 text-white text-[9px] tracking-[0.2em] uppercase italic border-b-2 border-slate-900">

@@ -7,7 +7,7 @@ import BannerCarousel from '@/components/BannerCarousel';
 import ProductSection from '@/components/ProductSection';
 import CategoryShortcut from '../components/CategoryShortcut';
 import MaintenancePage from "@/utils/MaintenancePage"; 
-import { Loader2, Settings, Clock, ChevronRight, Zap, Smartphone, Gamepad2, Wifi, MonitorPlay } from "lucide-react";
+import { Loader2, Settings, Clock, ChevronRight, Zap, Smartphone, Gamepad2, Wifi, MonitorPlay, Headset } from "lucide-react";
 import FingerprintJS from '@fingerprintjs/fingerprintjs'; 
 import ContactModal from "@/components/ContactModal";
 
@@ -18,6 +18,7 @@ export default function Home() {
   const [shortcutCategories, setShortcutCategories] = useState<any[]>([]);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSupportMenuOpen, setIsSupportMenuOpen] = useState(false); // State baru untuk menu melayang
 
   useEffect(() => {
     const checkMaintenanceAndData = async () => {
@@ -253,28 +254,45 @@ let ordersQuery = supabase
       
       <ProductSection title="Digital Services" category="digital services" id="digital" />
       
-      {/* Floating Support Button - Hanya tampil di Beranda */}
-      <div className="fixed bottom-6 right-6 z-9999">
-        {/* Tampil di HP (Mobile-first): Buka aplikasi email */}
-        <a 
-          href="mailto:support@danispay.my.id?subject=Tanya%20Seputar%20Layanan%20DanisPay"
-          className="md:hidden flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 hover:scale-110 hover:bg-blue-500 active:scale-95 group"
-          aria-label="Contact Support Mobile"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-6 w-6 transition-transform group-hover:rotate-12">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-          </svg>
-        </a>
+{/* Floating Support Button & Menu */}
+      {/* Kita pakai bottom-[72px] biar pas nempel sejajar di atas menu bawah HP. 
+          Kalau dirasa kurang turun/naik, bos tinggal ubah angka 72px itu (misal 65px atau 80px) */}
+      <div className="fixed bottom-18 md:bottom-6 right-4 md:right-6 z-9999 flex flex-col items-end">
+{/* Menu Dropup (Ukurannya dikecilkan di HP, normal di Desktop) */}
+        {isSupportMenuOpen && (
+          <div className="mb-2 w-36 md:w-48 bg-[#2d2438] border border-slate-700 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-slate-700">
+              <span className="text-white font-bold text-[11px] md:text-sm">Hubungi CS</span>
+            </div>
+            <div className="flex flex-col">
+              <button 
+                onClick={() => {
+                  setIsSupportMenuOpen(false); // Tutup menu
+                  setIsModalOpen(true); // Buka modal
+                }}
+                className="px-3 md:px-4 py-2.5 md:py-3 text-left text-slate-200 hover:bg-slate-700 transition-colors text-[11px] md:text-sm border-b border-slate-700/50"
+              >
+                Email
+              </button>
+              <a 
+                href="https://wa.me/6281234567890" // JANGAN LUPA GANTI NOMOR WA BOS DI SINI!
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 md:px-4 py-2.5 md:py-3 text-left text-slate-200 hover:bg-slate-700 transition-colors text-[11px] md:text-sm"
+              >
+                Whatsapp
+              </a>
+            </div>
+          </div>
+        )}
 
-        {/* Tampil di Desktop: Buka Modal UI */}
+        {/* Tombol Utama (Padding dan Teks lebih compact di HP) */}
         <button 
-          onClick={() => setIsModalOpen(true)}
-          className="hidden md:flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 hover:scale-110 hover:bg-blue-500 active:scale-95 group"
-          aria-label="Contact Support Desktop"
+          onClick={() => setIsSupportMenuOpen(!isSupportMenuOpen)}
+          className="flex items-center gap-1.5 md:gap-2 bg-[#5bc0de] hover:bg-[#46b8da] text-white px-3.5 py-2 md:px-5 md:py-3 rounded-lg md:rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 active:scale-95"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-8 w-8 transition-transform group-hover:rotate-12">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-          </svg>
+          <Headset className="w-4 h-4 md:w-5 md:h-5" />
+          <span className="font-bold text-[10px] md:text-sm tracking-wide">HUBUNGI CS</span>
         </button>
       </div>
 

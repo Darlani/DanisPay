@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import "./globals.css"; 
 import ClientLayout from "@/components/ClientLayout";
 import GlobalErrorTracker from "@/components/GlobalErrorTracker";
 
