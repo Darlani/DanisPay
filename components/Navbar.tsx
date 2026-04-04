@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { 
   Gamepad2, LogOut, Search, Loader2, X, 
-  Globe, Newspaper, Tag, ReceiptText, UserCircle
+  Globe, Newspaper, Tag, ReceiptText, UserCircle, Menu
 } from 'lucide-react';
 import TransactionHistoryModal from '@/components/TransactionHistoryModal'; 
 import { supabase } from "@/utils/supabaseClient";
@@ -14,9 +14,10 @@ import { Turnstile } from '@marsidev/react-turnstile';
 
 interface NavbarProps {
   isSidebarOpen?: boolean;
+  setIsSidebarOpen?: (val: boolean) => void;
 }
 
-export default function Navbar({ isSidebarOpen = false }: NavbarProps) {
+export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: NavbarProps) {
   const [role, setRole] = useState<'admin' | 'user' | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const pathname = usePathname();
@@ -147,10 +148,21 @@ useEffect(() => {
   return (
     <>
       <nav className={`bg-[#0f172a] border-b border-slate-800 sticky top-0 z-50 shadow-xl w-full transition-all duration-300 ${isAdminPage ? (isSidebarOpen ? "md:pl-0" : "md:pl-0") : ""}`}>
-        <div className={`mx-auto px-4 md:px-12 py-3 flex items-center justify-between transition-all duration-300 ${isAdminPage ? "max-w-400" : "max-w-7xl"}`}>
+        <div className={`mx-auto px-4 md:px-12 py-3 flex items-center justify-between transition-all duration-300 ${isAdminPage ? "max-w-7xl" : "max-w-7xl"}`}>
           
-          {/* LOGO */}
-          <Link href="/" className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
+            {/* TOMBOL MENU KHUSUS ADMIN MOBILE */}
+            {isAdminPage && setIsSidebarOpen && (
+              <button 
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+                className="md:hidden p-2 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors"
+              >
+                <Menu size={20} />
+              </button>
+            )}
+
+            {/* LOGO */}
+            <Link href="/" className="flex items-center gap-2">
             <div className="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-500/20">
               <Gamepad2 className="text-white w-5 h-5 sm:w-6 sm:h-6" />
             </div>
@@ -158,6 +170,7 @@ useEffect(() => {
               Danis<span className="text-blue-500">Pay</span>
             </span>
           </Link>
+        </div> {/* Penutup div pembungkus Menu & Logo */}
 
           {/* SEARCH BAR (Tengah) */}
           <div ref={searchRef} className="flex-1 max-w-md mx-4 sm:mx-8 relative">
@@ -243,7 +256,10 @@ useEffect(() => {
 
       {/* --- MODAL SARAN (Sama seperti sebelumnya) --- */}
       {isSuggestionOpen && (
-        <div className="fixed inset-0 z-1000 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div 
+          className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          style={{ zIndex: 1000 }}
+        >
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
               <h3 className="text-lg font-black text-slate-800 uppercase italic">Kasih saran produk</h3>

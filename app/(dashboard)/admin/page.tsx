@@ -254,7 +254,8 @@ const handleCheckStatus = async (orderId: string) => {
       <SidebarAdmin isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
 
       <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isSidebarOpen ? "ml-0 md:ml-64" : "ml-0 md:ml-20"}`}>
-        <Navbar isSidebarOpen={isSidebarOpen} />
+        {/* Tambahkan setIsSidebarOpen agar Navbar bisa mengontrol sidebar */}
+        <Navbar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
 
         <main className="flex-1 p-4 md:p-6 lg:p-12 overflow-x-hidden">
           <div className="max-w-7xl mx-auto space-y-6 md:space-y-10">

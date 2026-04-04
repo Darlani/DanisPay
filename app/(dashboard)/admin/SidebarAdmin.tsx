@@ -79,12 +79,16 @@ export default function SidebarAdmin({ isOpen, setIsOpen, activeMenu, setActiveM
       {/* Overlay Backdrop Mobile */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm md:hidden"
+          style={{ zIndex: 60 }}
           onClick={() => setIsOpen(false)}
         />
       )}
       
-      <aside className={`fixed h-screen z-50 bg-[#0B0E14] border-r border-white/5 flex flex-col transition-transform duration-300 shadow-2xl md:transition-all ${isOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0 md:w-20"}`}>
+      <aside 
+        className={`fixed h-screen bg-[#0B0E14] border-r border-white/5 flex flex-col transition-transform duration-300 shadow-2xl md:transition-all ${isOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0 md:w-20"}`}
+        style={{ zIndex: 70 }}
+      >
         
         {/* HEADER */}
       <div className="p-6 mb-4 flex items-center justify-between border-b border-white/5">
