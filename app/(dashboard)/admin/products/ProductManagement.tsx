@@ -183,10 +183,12 @@ async function fetchLiveBalance() {
       const [autoRes, semiRes] = await Promise.all([
         supabase.from('product_automatic')
           .select('*, categories!product_automatic_category_id_fkey(name), brands!product_automatic_brand_id_fkey(name)')
-          .order('updated_at', { ascending: false }),
+          .order('updated_at', { ascending: false })
+          .limit(3000), // Batasi 3000 data terbaru biar gak "Failed to fetch" bos!
         supabase.from('product_semi_auto')
           .select('*, categories!product_semi_auto_category_id_fkey(name), brands!product_semi_auto_brand_id_fkey(name)')
           .order('updated_at', { ascending: false })
+          .limit(1000)
       ]);
 
       // Munculkan error ke layar Bos biar kita tahu penyakitnya!

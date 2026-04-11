@@ -55,8 +55,10 @@ export async function GET(req: Request) {
     // 1. AMBIL SETTINGS & MASTER DATA
     const { data: settingsData } = await supabaseAdmin
       .from('store_settings')
-      .select('margin_json, balance_digiflazz, is_maintenance_digiflazz, admin_fee_pasca')
+      .select('margin_json, cashback_percent, balance_digiflazz, is_maintenance_digiflazz, admin_fee_pasca')
       .single();
+
+    const globalCashback = settingsData?.cashback_percent || 3;
 
     if (settingsData?.is_maintenance_digiflazz) {
       return NextResponse.json({ success: true, message: "MAINTENANCE AKTIF bos!" });
@@ -133,10 +135,12 @@ export async function GET(req: Request) {
     const itemsData: any[] = [];
     const productGroups = new Map();
 
-    // SEKARANG KITA KENALAN PAKAI NAMA + BRAND_ID, BUKAN SKU LAGI! [cite: 2026-03-13]
-    const { data: existingProducts } = await supabaseAdmin.from('product_automatic').select('name, brand_id, lock_margin, price, margin_item, discount');
-    // Key Map: Gabungan brand_id dan nama (biar unik banget)
-    const existingProductMap = new Map(existingProducts?.map((p: any) => [`${p.brand_id}-${p.name.toLowerCase().trim()}`, p]));
+    // SEKARANG KITA KENALAN PAKAI NAMA + BRAND_ID, TAPI TETAP BACKUP PAKAI SKU!
+    const { data: existingProducts } = await supabaseAdmin.from('product_automatic').select('sku, name, brand_id, lock_margin, price, margin_item, discount');
+    
+    // Buat 2 jaring pengaman agar gembok tidak gampang lepas walau nama diedit di UI
+    const existingNameMap = new Map(existingProducts?.map((p: any) => [`${p.brand_id}-${p.name.toLowerCase().trim()}`, p]));
+    const existingSkuMap = new Map(existingProducts?.map((p: any) => [p.sku, p]));
 
     digiItems.forEach((item: any) => {
       const isHealthy = item.buyer_product_status && item.seller_product_status;
@@ -252,9 +256,10 @@ export async function GET(req: Request) {
       let finalPrice = 0;
       let marginInfo = 0;
 
-      // Cek gembok pakai Nama + ID Brand, biarpun SKU-nya berubah, gemboknya gak bakal lepas!
+      // Cek gembok pakai Nama + ID Brand, JIKA GAGAL KARENA DIEDIT, tangkap pakai jaring SKU
       const productKey = `${bInfo.id}-${group.webName.toLowerCase().trim()}`;
-      const existing = existingProductMap.get(productKey);
+      const existing = existingNameMap.get(productKey) || existingSkuMap.get(group.baseSku);
+      
       const isLocked = existing?.lock_margin === true || String(existing?.lock_margin).toLowerCase() === 'true';
 
       if (isLocked) {
@@ -275,6 +280,18 @@ export async function GET(req: Request) {
         }
       }
 
+      // --- RUMUS CASHBACK OTOMATIS SAAT SYNC ---
+      const currentDiscount = existing?.discount || 0;
+      const hargaSetelahDiskon = finalPrice - Math.floor(finalPrice * (currentDiscount / 100));
+      const profitKotor = hargaSetelahDiskon - group.maxModal;
+      let finalCashback = 0;
+
+      if (profitKotor > 0) {
+        const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100));
+        const plafonMaks = Math.floor(profitKotor * (globalCashback / 10)); // Capped anti-rugi
+        finalCashback = Math.min(cbNormal, plafonMaks);
+      }
+
       productsToUpsert.push({
         sku: group.baseSku,
         name: group.webName, 
@@ -286,7 +303,8 @@ export async function GET(req: Request) {
         price: finalPrice, 
         stock: 999, 
         margin_item: marginInfo,
-        discount: existing?.discount || 0, 
+        discount: currentDiscount, 
+        cashback: finalCashback, // <-- INI OBAT CASHBACK NOL KEMARIN
         lock_margin: isLocked, 
         is_active: true,
         provider: 'DIGIFLAZZ',

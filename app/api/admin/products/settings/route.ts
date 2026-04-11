@@ -3,13 +3,13 @@ import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 export async function POST(req: Request) {
   try {
-    // 1. SATPAM INTERNAL: Hanya Admin atau Manager yang boleh ubah strategi [cite: 2026-03-06]
     const cookieStore = req.headers.get('cookie') || "";
-    const isAdmin = cookieStore.includes('isAdmin=true');
-    const userRole = cookieStore.split(';').find(c => c.trim().startsWith('userRole='))?.split('=')[1]?.toLowerCase();
+    
+    // Satpam cukup cek apakah ada tanda Admin ATAU Manager di Cookie
+    const isAuthorized = cookieStore.includes('isAdmin=true') || cookieStore.toLowerCase().includes('userrole=manager');
 
-    if (!isAdmin || (userRole !== 'admin' && userRole !== 'manager')) {
-      return NextResponse.json({ error: "Akses Ditolak! Lu bukan Admin/Manager Bos." }, { status: 403 });
+    if (!isAuthorized) {
+      return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau Anda bukan Admin/Manager." }, { status: 403 });
     }
 
 const body = await req.json();
