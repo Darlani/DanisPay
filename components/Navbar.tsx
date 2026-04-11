@@ -19,7 +19,8 @@ interface NavbarProps {
 
 export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: NavbarProps) {
   const [role, setRole] = useState<'admin' | 'user' | null>(null);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true); // State baru untuk loading
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -40,14 +41,14 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
 useEffect(() => {
     const checkAuth = async () => {
       if (typeof window !== "undefined") {
-        // Cek user asli langsung ke server Supabase demi keamanan
+// Cek user asli langsung ke server Supabase demi keamanan
         const { data: { user }, error } = await supabase.auth.getUser();
         
         if (!user || error) {
-          // Jika sesi sudah habis/tidak ada, bersihkan storage & sembunyikan menu akun
           localStorage.removeItem("isAdmin");
           localStorage.removeItem("isUser");
           setRole(null);
+          setIsCheckingAuth(false); // Stop loading karena sesi habis
           return;
         }
 
@@ -57,6 +58,8 @@ useEffect(() => {
         if (isAdmin) setRole('admin');
         else if (isUser) setRole('user');
         else setRole(null);
+        
+        setIsCheckingAuth(false); // Stop loading karena sesi valid
       }
     };
     checkAuth();
@@ -232,8 +235,13 @@ useEffect(() => {
                  <ReceiptText size={14} /> Lacak Pesanan
               </button>
 
-              {role ? (
-                <div className="flex items-center gap-2 ml-2 border-l border-slate-700 pl-4">
+          {isCheckingAuth ? (
+                <div className="flex items-center gap-2 ml-2 border-l border-slate-700 pl-4">
+                  {/* Skeleton Loading UI agar terlihat pro */}
+                  <div className="h-8 w-20 bg-slate-800 animate-pulse rounded-lg"></div>
+                </div>
+              ) : role ? (
+                <div className="flex items-center gap-2 ml-2 border-l border-slate-700 pl-4">
                   <Link href={role === 'admin' ? "/admin" : "/user"} className="flex items-center gap-1.5 bg-blue-600/10 text-blue-500 px-4 py-2 rounded-lg text-[10px] font-bold uppercase border border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all">
                     <UserCircle size={14} /> Akun
                   </Link>
