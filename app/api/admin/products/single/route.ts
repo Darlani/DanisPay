@@ -6,6 +6,14 @@ export async function PUT(req: Request) { return handleRequest(req, 'PUT'); }
 
 async function handleRequest(req: Request, method: string) {
   try {
+    // --- SATPAM TERPADU (Admin & Manager) ---
+    const cookieStore = req.headers.get('cookie') || "";
+    const isAuthorized = cookieStore.includes('isAdmin=true') || cookieStore.toLowerCase().includes('userrole=manager');
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau bukan Admin/Manager." }, { status: 403 });
+    }
+
     const payload = await req.json(); // Abaikan globalCashback dari payload
 
     // ======================================================================

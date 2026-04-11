@@ -32,13 +32,12 @@ async function reportToTelegram(message: string) {
 
 export async function GET(req: Request) {
   try {
-    // --- 2. SATPAM INTERNAL (Hanya Admin atau Manager) ---
+    // --- 2. SATPAM TERPADU (Admin & Manager Lolos) ---
     const cookieStore = req.headers.get('cookie') || "";
-    const isAdmin = cookieStore.includes('isAdmin=true');
-    const userRole = cookieStore.split(';').find(c => c.trim().startsWith('userRole='))?.split('=')[1]?.toLowerCase();
+    const isAuthorized = cookieStore.includes('isAdmin=true') || cookieStore.toLowerCase().includes('userrole=manager');
 
-    if (!isAdmin || (userRole !== 'admin' && userRole !== 'manager')) {
-      return NextResponse.json({ error: "Akses Ditolak! Khusus Admin/Manager Bos." }, { status: 403 });
+    if (!isAuthorized) {
+      return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau bukan Admin/Manager." }, { status: 403 });
     }
 
     // --- 3. AMBIL CREDENTIAL DARI ENV ---

@@ -19,6 +19,21 @@ async function reportToTelegram(message: string) {
 
 export async function POST(req: Request) {
   try {
+    // --- SATPAM TERPADU (Admin, Manager, & Secret Key untuk Patrol) ---
+    const { searchParams } = new URL(req.url);
+    const querySecret = searchParams.get('secret');
+    const WEBHOOK_SECRET = process.env.MACRODROID_SECRET;
+
+    const cookieStore = req.headers.get('cookie') || "";
+    const isAuthorized = 
+      cookieStore.includes('isAdmin=true') || 
+      cookieStore.toLowerCase().includes('userrole=manager') ||
+      (querySecret === WEBHOOK_SECRET && WEBHOOK_SECRET);
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau Kunci Salah." }, { status: 403 });
+    }
+
     const { order_id } = await req.json();
 
     if (!order_id) {

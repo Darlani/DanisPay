@@ -3,8 +3,16 @@ import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 export async function POST(req: Request) {
   try {
-// Kita abaikan globalCashback dari frontend demi keamanan
-     const { allStrategies } = await req.json();
+    // --- SATPAM INTERNAL (Anti-Iseng) ---
+    const cookieStore = req.headers.get('cookie') || "";
+    const isAuthorized = cookieStore.includes('isAdmin=true') || cookieStore.toLowerCase().includes('userrole=manager');
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: "Akses Ditolak! Lu bukan Admin/Manager Bos." }, { status: 403 });
+    }
+
+    // Kita abaikan globalCashback dari frontend demi keamanan
+    const { allStrategies } = await req.json();
 
 // 1. Panggil data dari 2 Gudang + Store Settings (Limit 50.000 agar muat banyak)
      const [autoRes, semiRes, settingsRes] = await Promise.all([

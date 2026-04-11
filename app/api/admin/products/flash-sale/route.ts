@@ -3,6 +3,14 @@ import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 export async function POST(req: Request) {
   try {
+    // --- SATPAM INTERNAL (WAJIB ADA!) ---
+    const cookieStore = req.headers.get('cookie') || "";
+    const isAuthorized = cookieStore.includes('isAdmin=true') || cookieStore.toLowerCase().includes('userrole=manager');
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: "Akses Ditolak! Lu bukan Admin/Manager Bos." }, { status: 403 });
+    }
+
     // globalCashback dari frontend kita abaikan, ambil dari DB langsung
     const { selectedIds, launchOptions, promoLabel, allStrategies } = await req.json();
 
