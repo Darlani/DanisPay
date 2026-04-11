@@ -24,10 +24,12 @@ export async function GET(request: Request, context: any) {
     // 2. TAHAP 2: Ambil Produk dari Dua Jalur (Semi-Auto & Automatic) [cite: 2026-03-13]
     const [autoRes, semiRes] = await Promise.all([
       supabase.from('product_automatic')
-        .select('id, name, price, sku, cost, cashback, discount, sub_brand, is_active')
+        // Tambahkan promo_label di bawah ini
+        .select('id, name, price, sku, cost, cashback, discount, promo_label, sub_brand, is_active')
         .eq('brand_id', brandData.id).eq('is_active', true),
       supabase.from('product_semi_auto')
-        .select('id, name, price_numeric, sku, cost_numeric, cashback, discount, sub_brand, is_active')
+        // Tambahkan promo_label di bawah ini juga
+        .select('id, name, price_numeric, sku, cost_numeric, cashback, discount, promo_label, sub_brand, is_active')
         .eq('brand_id', brandData.id).eq('is_active', true)
     ]);
 
@@ -46,6 +48,7 @@ export async function GET(request: Request, context: any) {
       ...item,
       id: item.id.toString(),
       label: item.name,
+      promo_label: item.promo_label, // <-- Pastikan ini ikut terkirim
       sub_brand: getSubBrandSlug(brandData.name || '', item.name || '', brandData.category || '', '')
     }));
 
