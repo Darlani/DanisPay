@@ -32,15 +32,18 @@ const getStrategyKey = (rawCat: string) => {
 };
 
 export async function GET(req: Request) {
-// 1. SATPAM DUAL JALUR (Cookie untuk Admin, Secret untuk Robot VPS) [cite: 2026-03-06]
+// 1. SATPAM TIGA JALUR (Admin, Manager, dan Secret VPS)
   const { searchParams } = new URL(req.url);
   const querySecret = searchParams.get('secret');
   const WEBHOOK_SECRET = process.env.MACRODROID_SECRET;
 
-  const cookieStore = req.headers.get('cookie');
-  const isAdmin = cookieStore?.includes('isAdmin=true');
-
-  const isAuthorized = (isAdmin) || (querySecret === WEBHOOK_SECRET && WEBHOOK_SECRET);
+  const cookieStore = req.headers.get('cookie') || "";
+  
+  // Sekarang kita izinkan Admin ATAU Manager ATAU Robot VPS (lewat Secret)
+  const isAuthorized = 
+    cookieStore.includes('isAdmin=true') || 
+    cookieStore.toLowerCase().includes('userrole=manager') || 
+    (querySecret === WEBHOOK_SECRET && WEBHOOK_SECRET);
 
   if (!isAuthorized) {
     return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau Kunci Salah." }, { status: 403 });
