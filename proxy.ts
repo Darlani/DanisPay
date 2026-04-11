@@ -45,14 +45,54 @@ export default async function proxy(request: NextRequest) {
     }
   }
 
-  // 3. Proteksi halaman frontend /admin
-  if (pathname.startsWith('/admin')) {
-    const isAdmin = request.cookies.get('isAdmin')?.value === 'true';
-    const userRole = request.cookies.get('userRole')?.value?.toLowerCase();
-    
-    const isAuthorized = isAdmin && (userRole === 'manager' || userRole === 'admin');
+// 3. Proteksi ketat halaman frontend /admin & /user dengan Token Supabase
+  const isAdminRoute = pathname.startsWith('/admin');
+  const isUserRoute = pathname.startsWith('/user');
 
-    if (!isAuthorized) {
+  if (isAdminRoute || isUserRoute) {
+    const token = request.cookies.get('sb-access-token')?.value;
+    const userRole = request.cookies.get('userRole')?.value?.toLowerCase();
+
+    // Jika tidak ada token di cookie sama sekali, lempar ke login
+    if (!token) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; 
+
+      // Validasi token asli langsung ke server Supabase (Edge-compatible)
+      const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'apikey': supabaseKey!
+        }
+      });
+
+      // Jika response tidak ok (token hangus, palsu, atau kedaluwarsa)
+      if (!res.ok) {
+        // Hapus paksa cookie yang kedaluwarsa dari response agar browser bersih
+        const response = NextResponse.redirect(new URL('/login', request.url));
+        response.cookies.delete('sb-access-token');
+        response.cookies.delete('userRole');
+        return response;
+      }
+
+      // --- Otorisasi Berdasarkan Role ---
+      // Jika mengakses /admin, pastikan rolenya memiliki hak akses
+      if (isAdminRoute) {
+        const isAuthorizedAdmin = userRole === 'manager' || userRole === 'admin';
+        if (!isAuthorizedAdmin) {
+          // Jika member biasa mencoba masuk /admin, kembalikan ke dashboard user
+          return NextResponse.redirect(new URL('/user', request.url));
+        }
+      }
+      // Jika mengakses /user, semua role (termasuk admin/member) boleh lewat selama token valid,
+      // sehingga tidak perlu validasi tambahan.
+
+    } catch (error) {
+      console.error("Gagal validasi token:", error);
       return NextResponse.redirect(new URL('/login', request.url));
     }
   }

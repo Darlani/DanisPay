@@ -70,11 +70,15 @@ const [errorMsg, setErrorMsg] = useState("");
           router.push("/setup-2fa");
         }
       } else {
-        // Jika member biasa, bebas akses tanpa 2FA
-        localStorage.setItem("userEmail", result.user.email);
-        localStorage.setItem("userName", result.user.full_name);
-        localStorage.setItem("isUser", "true");
-        router.push("/user");
+// Jika member biasa, bebas akses tanpa 2FA
+        localStorage.setItem("userEmail", result.user.email);
+        localStorage.setItem("userName", result.user.full_name);
+        
+        // Simpan token ke cookie agar proxy.ts bisa membacanya
+        document.cookie = `sb-access-token=${result.session.access_token}; path=/; max-age=604800; Secure; SameSite=Lax`;
+        document.cookie = `userRole=member; path=/; max-age=604800; Secure; SameSite=Lax`;
+        
+        router.push("/user");
       }
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -101,12 +105,16 @@ const [errorMsg, setErrorMsg] = useState("");
         return;
       }
 
-      // Jika berhasil, Supabase otomatis menaikkan sesi ke AAL2
-      localStorage.setItem("userEmail", tempProfile.email);
-      localStorage.setItem("userName", tempProfile.full_name);
-      localStorage.setItem("isAdmin", "true");
-      document.cookie = "isAdmin=true; path=/; max-age=86400; SameSite=Strict";
-      document.cookie = `userRole=${tempProfile.role}; path=/; max-age=86400; SameSite=Strict`;
+// Jika berhasil, Supabase otomatis menaikkan sesi ke AAL2
+      localStorage.setItem("userEmail", tempProfile.email);
+      localStorage.setItem("userName", tempProfile.full_name);
+      
+      // Ambil session terbaru yang sudah AAL2 setelah verifikasi PIN
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session) {
+        document.cookie = `sb-access-token=${sessionData.session.access_token}; path=/; max-age=604800; Secure; SameSite=Lax`;
+        document.cookie = `userRole=${tempProfile.role}; path=/; max-age=604800; Secure; SameSite=Lax`;
+      }
       
       router.push("/admin");
     } catch (err) {

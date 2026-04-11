@@ -40,10 +40,10 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
 useEffect(() => {
     const checkAuth = async () => {
       if (typeof window !== "undefined") {
-        // Cek sesi asli dari Supabase terlebih dahulu
-        const { data: { session } } = await supabase.auth.getSession();
+        // Cek user asli langsung ke server Supabase demi keamanan
+        const { data: { user }, error } = await supabase.auth.getUser();
         
-        if (!session) {
+        if (!user || error) {
           // Jika sesi sudah habis/tidak ada, bersihkan storage & sembunyikan menu akun
           localStorage.removeItem("isAdmin");
           localStorage.removeItem("isUser");
