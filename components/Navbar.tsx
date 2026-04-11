@@ -126,12 +126,20 @@ useEffect(() => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const handleLogout = () => {
-    if (confirm("Yakin ingin keluar?")) {
-      localStorage.clear();
-      window.location.href = "/";
-    }
-  };
+const handleLogout = async () => {
+    if (confirm("Yakin ingin keluar?")) {
+      // 1. Hapus sesi langsung dari server Supabase
+      await supabase.auth.signOut();
+      
+      // 2. Hapus cookie keamanan agar proxy.ts tahu kita sudah logout
+      document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+      document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+      
+      // 3. Bersihkan memori lokal
+      localStorage.clear();
+      window.location.href = "/";
+    }
+  };
 
   const handleSendSuggestion = async () => {
     if (!suggestionText.trim() || !captchaToken) return alert("Selesaikan verifikasi keamanan dulu!");

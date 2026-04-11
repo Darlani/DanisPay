@@ -78,6 +78,9 @@ const [errorMsg, setErrorMsg] = useState("");
         document.cookie = `sb-access-token=${result.session.access_token}; path=/; max-age=604800; Secure; SameSite=Lax`;
         document.cookie = `userRole=member; path=/; max-age=604800; Secure; SameSite=Lax`;
         
+        // KEMBALIKAN PENANDA LOKAL UNTUK NAVBAR
+        localStorage.setItem("isUser", "true");
+        
         router.push("/user");
       }
     } catch (err: any) {
@@ -109,14 +112,17 @@ const [errorMsg, setErrorMsg] = useState("");
       localStorage.setItem("userEmail", tempProfile.email);
       localStorage.setItem("userName", tempProfile.full_name);
       
-      // Ambil session terbaru yang sudah AAL2 setelah verifikasi PIN
+// Ambil session terbaru yang sudah AAL2 setelah verifikasi PIN
       const { data: sessionData } = await supabase.auth.getSession();
       if (sessionData?.session) {
         document.cookie = `sb-access-token=${sessionData.session.access_token}; path=/; max-age=604800; Secure; SameSite=Lax`;
         document.cookie = `userRole=${tempProfile.role}; path=/; max-age=604800; Secure; SameSite=Lax`;
       }
-      
-      router.push("/admin");
+      
+      // KEMBALIKAN PENANDA LOKAL UNTUK NAVBAR ADMIN
+      localStorage.setItem("isAdmin", "true");
+      
+      router.push("/admin");
     } catch (err) {
       setErrorMsg("Gagal terhubung ke server keamanan!");
     } finally {
