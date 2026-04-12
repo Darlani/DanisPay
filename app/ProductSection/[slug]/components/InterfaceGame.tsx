@@ -63,15 +63,20 @@ export default function InterfaceGame(props: InterfaceGameProps) {
     usedCoinsAmount, isMaintenanceDigiflazz, isAdmin, dbPayments
   } = props;
 
-const [isProcessing, setIsProcessing] = useState(false); 
-  const [activeTab, setActiveTab] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false); 
+  const [activeTab, setActiveTab] = useState("");
+
+  // State khusus Navigasi Bertingkat (FF & MLBB)
+  const [advRegion, setAdvRegion] = useState("Indonesia");
+  const [advCategory, setAdvCategory] = useState("Diamond");
+  const [advSubCategory, setAdvSubCategory] = useState("Semua");
 
   // Tambahkan state untuk Cek ID Game [cite: 2026-03-06]
   const [isChecking, setIsChecking] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-const handleInquiryGame = async () => {
+  const handleInquiryGame = async () => {
     if (!accId || accId.length < 3) { setErrorMsg("ID terlalu pendek!"); return false; }
     setIsChecking(true);
     setErrorMsg("");
@@ -125,20 +130,104 @@ const handleInquiryGame = async () => {
     }
   }, [availableSubBrands, activeTab]);
 
-  const filteredItems = useMemo(() => {
+  // --- MESIN LOGIKA AUTO-HIDE TABS MULTI-TIER (FF & MLBB) ---
+  const processedItems = useMemo(() => {
     if (!product?.items) return [];
-    if (availableSubBrands.length === 0) return product.items; 
+    const isFreeFire = product?.name?.toLowerCase().includes('free fire');
+    const isMLBB = product?.name?.toLowerCase().includes('mobile legends') || product?.name?.toLowerCase().includes('mlbb');
+    
+    return product.items.map((item: any) => {
+      const name = String(item.label || item.name || "").toLowerCase();
+      let region = "Indonesia";
+      let category = "Diamond"; // Default
+      let subCat = "Semua";
 
-    return product.items.filter((item: any) => {
-      const matchTab = String(item.sub_brand).toLowerCase() === String(activeTab).toLowerCase();
-      const providerName = String(item.provider || "").toUpperCase();
-      
-      if (isMaintenanceDigiflazz && !isAdmin) {
-        return matchTab && providerName !== 'DIGIFLAZZ';
+      // 1. DETEKSI REGION UMUM
+      if (name.includes("singapura") || name.includes("singapore")) region = "Singapura";
+      else if (name.includes("malaysia")) region = "Malaysia";
+      else if (name.includes("global")) region = "Global";
+      else if (name.includes("filipina") || name.includes("philippines")) region = "Filipina";
+      else if (name.includes("thailand")) region = "Thailand";
+      else if (name.includes("brazil")) region = "Brazil";
+      else if (name.includes("russia")) region = "Russia";
+      else if (name.includes("turkey")) region = "Turkey";
+      else if (name.includes("vietnam")) region = "Vietnam";
+
+      // 2. KATEGORI KHUSUS FREE FIRE
+      if (isFreeFire) {
+        if (name.includes("membership") || name.includes("mingguan") || name.includes("bulanan")) category = "Membership";
+        else if (name.includes("level up pass")) category = "Level Up Pass";
+
+        if (category === "Membership") {
+          if (name.includes("+")) subCat = "+ Diamond";
+          else if (name.match(/x2|x3|x4|x5/)) subCat = "Paket Multiplier";
+          else subCat = "Reguler";
+        }
+      } 
+      // 3. KATEGORI KHUSUS MOBILE LEGENDS
+      else if (isMLBB) {
+        if (name.includes("pass") || name.includes("starlight") || name.includes("member") || name.includes("bundle")) category = "Membership & Pass";
+
+        if (category === "Membership & Pass") {
+          if (name.includes("weekly")) {
+            if (name.match(/2x|3x|4x|5x/)) subCat = "Paket Multiplier";
+            else subCat = "Weekly Pass";
+          }
+          else if (name.includes("starlight")) subCat = "Starlight";
+          else if (name.includes("twilight")) subCat = "Twilight Pass";
+          else if (name.includes("coupon")) subCat = "Coupon Pass";
+          else if (name.includes("monthly")) subCat = "Monthly Pass";
+          else subCat = "Lainnya";
+        }
       }
-      return matchTab;
+
+      return { ...item, advRegion: region, advCategory: category, advSubCategory: subCat, isAdvGame: isFreeFire || isMLBB };
     });
-  }, [product?.items, activeTab, availableSubBrands, isMaintenanceDigiflazz, isAdmin]);
+  }, [product?.items, product?.name]);
+
+  // Kalkulasi Tombol Menu yang Tersedia
+  const availableRegions = useMemo(() => {
+    const regions = new Set(processedItems.filter((i: any) => i.isAdvGame).map((i: any) => i.advRegion).filter(Boolean));
+    return ["Indonesia", "Singapura", "Malaysia", "Global", "Filipina", "Thailand", "Brazil", "Russia", "Turkey", "Vietnam"].filter(r => regions.has(r));
+  }, [processedItems]);
+
+  const availableCategories = useMemo(() => {
+    const categories = new Set(processedItems.filter((i: any) => i.advRegion === advRegion && i.isAdvGame).map((i: any) => i.advCategory));
+    return ["Diamond", "Membership", "Level Up Pass", "Membership & Pass", "Bundle"].filter(c => categories.has(c));
+  }, [processedItems, advRegion]);
+
+  const availableSubCats = useMemo(() => {
+    const subCats = new Set(processedItems.filter((i: any) => i.advRegion === advRegion && i.advCategory === advCategory && i.isAdvGame).map((i: any) => i.advSubCategory));
+    const validSubs = ["Reguler", "+ Diamond", "Paket Multiplier", "Weekly Pass", "Starlight", "Twilight Pass", "Coupon Pass", "Monthly Pass", "Lainnya"].filter(sc => subCats.has(sc));
+    if (validSubs.length > 0) return ["Semua", ...validSubs];
+    return [];
+  }, [processedItems, advRegion, advCategory]);
+
+  // Auto-Select untuk menghindari tab kosong
+  useEffect(() => { if (availableRegions.length > 0 && !availableRegions.includes(advRegion)) setAdvRegion(availableRegions[0]); }, [availableRegions, advRegion]);
+  useEffect(() => { if (availableCategories.length > 0 && !availableCategories.includes(advCategory)) setAdvCategory(availableCategories[0]); }, [availableCategories, advCategory]);
+  useEffect(() => { if (availableSubCats.length > 0 && !availableSubCats.includes(advSubCategory)) setAdvSubCategory(availableSubCats[0]); }, [availableSubCats, advSubCategory]);
+
+  const filteredItems = useMemo(() => {
+    if (!processedItems) return [];
+    
+    return processedItems.filter((item: any) => {
+      const providerName = String(item.provider || "").toUpperCase();
+      if (isMaintenanceDigiflazz && !isAdmin && providerName === 'DIGIFLAZZ') return false;
+
+      // Filter khusus MLBB dan FF
+      if (item.isAdvGame) {
+        if (item.advRegion !== advRegion) return false;
+        if (item.advCategory !== advCategory) return false;
+        if ((item.advCategory === "Membership" || item.advCategory === "Membership & Pass") && advSubCategory !== "Semua" && item.advSubCategory !== advSubCategory) return false;
+        return true;
+      }
+
+      // Filter Game Default
+      if (availableSubBrands.length === 0) return true;
+      return String(item.sub_brand).toLowerCase() === String(activeTab).toLowerCase();
+    });
+  }, [processedItems, activeTab, availableSubBrands, isMaintenanceDigiflazz, isAdmin, advRegion, advCategory, advSubCategory]);
 
   const isMLBB = product.name.toLowerCase().includes('legends');
   
@@ -208,8 +297,8 @@ const handleInquiryGame = async () => {
         <div className="relative z-10 max-w-6xl mx-auto px-4 pt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">    
           
           {/* KOLOM KIRI (INFO PRODUK) */}
-          <div className="lg:col-span-1 space-y-4">
-            <div className="bg-white p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-900/10 border border-slate-100 sticky top-24">
+          <div className="lg:col-span-1 sticky top-24 self-start z-20 space-y-4">
+            <div className="bg-white p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-900/10 border border-slate-100">
               <div className="flex flex-col items-center text-center lg:items-start lg:text-left gap-4 mb-10">
                 <div className="relative w-full lg:w-fit flex justify-center">
                   <div className="absolute inset-0 bg-blue-500/10 blur-3xl rounded-full lg:block hidden" />
@@ -277,9 +366,7 @@ const handleInquiryGame = async () => {
           <div className="lg:col-span-2 space-y-8">
             
             {/* STEP 1: PILIH NOMINAL */}
-{/* Mengikuti lengkungan kolom kiri: rounded-2xl untuk mobile, rounded-3xl untuk desktop */}
-<section className="bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-[#B2DFDB]/40 overflow-hidden relative">
-{/* Header Step 1 Ribbon Design persis seperti gambar [cite: 2026-03-09] */}
+            <section className="bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-[#B2DFDB]/40 overflow-hidden relative">
               <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
                 <div className="bg-[#00695C] w-8 sm:w-10 flex items-center justify-center text-white font-black text-base sm:text-lg shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
                   1
@@ -291,28 +378,81 @@ const handleInquiryGame = async () => {
               </div>
               
               <div className="p-2 sm:p-8 space-y-6">
-                {availableSubBrands.length > 1 && (
-                  /* pb-2 untuk merapatkan jarak ke grid nominal di bawahnya [cite: 2026-03-09] */
+                {/* RENDER MENU TABS DINAMIS */}
+                {product.name.toLowerCase().includes('free fire') || product.name.toLowerCase().includes('mobile legends') || product.name.toLowerCase().includes('mlbb') ? (
+                  <div className="flex flex-col gap-3">
+                    {/* TIER 1: REGION */}
+                    {availableRegions.length > 0 && (
+                      <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 hide-scrollbar select-none scroll-smooth">
+                        {availableRegions.map((reg) => (
+                          <button
+                            key={reg}
+                            onClick={() => { setAdvRegion(reg); setShowAllItems(false); }}
+                            className={`px-2.5 sm:px-4 h-7 sm:h-10 flex items-center justify-center rounded-xl sm:rounded-2xl text-[9px] sm:text-[12px] font-black tracking-tight sm:tracking-normal transition-all border sm:border-2 shrink-0 whitespace-nowrap cursor-pointer ${
+                              advRegion === reg 
+                                ? "bg-[#64d1c4] border-[#63cdc1] text-white shadow-md shadow-teal-900/20 flex-1" 
+                                : "bg-[#F5FBFA] border-[#E0F2F1] text-slate-400 hover:border-[#80CBC4] flex-1"
+                            }`}
+                          >
+                            {reg === "Indonesia" ? "🇮🇩 " : reg === "Singapura" ? "🇸🇬 " : reg === "Malaysia" ? "🇲🇾 " : reg === "Filipina" ? "🇵🇭 " : reg === "Thailand" ? "🇹🇭 " : reg === "Brazil" ? "🇧🇷 " : reg === "Russia" ? "🇷🇺 " : reg === "Turkey" ? "🇹🇷 " : reg === "Vietnam" ? "🇻🇳 " : "🌍 "}{reg}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* TIER 2: KATEGORI */}
+                    {availableCategories.length > 0 && (
+                      <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 hide-scrollbar select-none scroll-smooth animate-in slide-in-from-top-2 fade-in">
+                        {availableCategories.map((cat) => (
+                          <button
+                            key={cat}
+                            onClick={() => { setAdvCategory(cat); setShowAllItems(false); }}
+                            className={`px-3 sm:px-5 h-7 sm:h-9 flex items-center justify-center rounded-full text-[9px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                              advCategory === cat 
+                                ? "bg-[#00695C] text-white shadow-sm" 
+                                : "bg-white border border-[#B2DFDB] text-slate-500 hover:bg-[#E0F2F1]"
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* TIER 3: SUB-KATEGORI */}
+                    {(advCategory === "Membership" || advCategory === "Membership & Pass") && availableSubCats.length > 1 && (
+                      <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 sm:pb-4 hide-scrollbar select-none scroll-smooth animate-in slide-in-from-left-4 fade-in">
+                        {availableSubCats.map((sub) => (
+                          <button
+                            key={sub}
+                            onClick={() => { setAdvSubCategory(sub); setShowAllItems(false); }}
+                            className={`px-2.5 sm:px-3 h-6 sm:h-8 flex items-center justify-center rounded-lg text-[8px] sm:text-[10px] font-bold italic tracking-tight transition-all border shrink-0 whitespace-nowrap cursor-pointer ${
+                              advSubCategory === sub 
+                                ? "bg-[#FFC107] border-[#FFB300] text-slate-900 shadow-sm" 
+                                : "bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-50"
+                            }`}
+                          >
+                            {sub === "Paket Multiplier" ? "Mingguan x2, x3..." : sub}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : availableSubBrands.length > 1 ? (
                   <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 sm:pb-4 hide-scrollbar select-none scroll-smooth">
                     {availableSubBrands.map((tab: string) => (
                       <button
                         key={tab}
-                        onClick={() => { 
-                          setActiveTab(tab); 
-                          setShowAllItems(false); 
-                        }}
-                        /* h-7, font 9px, border tipis, dan rounded-xl khusus untuk mobile [cite: 2026-03-06, 2026-03-09] */
+                        onClick={() => { setActiveTab(tab); setShowAllItems(false); }}
                         className={`px-2.5 sm:px-4 h-7 sm:h-10 flex items-center justify-center rounded-xl sm:rounded-2xl text-[9px] sm:text-[12px] font-black capitalize tracking-tight sm:tracking-normal transition-all border sm:border-2 shrink-0 whitespace-nowrap cursor-pointer ${
-                          activeTab === tab 
-                            ? "bg-[#64d1c4] border-[#63cdc1] text-white shadow-md sm:shadow-lg shadow-teal-900/20" 
-                            : "bg-white border-[#E0F2F1] text-slate-400 hover:border-[#80CBC4]"
+                          activeTab === tab ? "bg-[#64d1c4] border-[#63cdc1] text-white shadow-md sm:shadow-lg shadow-teal-900/20" : "bg-white border-[#E0F2F1] text-slate-400 hover:border-[#80CBC4]"
                         }`}
                       >
                         {tab.replace(/-/g, ' ')}
                       </button>
                     ))}
                   </div>
-                )}
+                ) : null}
 
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-2 sm:gap-3 px-0">
                   {filteredItems.map((opt: any, index: number) => {
@@ -516,7 +656,7 @@ const handleInquiryGame = async () => {
                       </p>
                     )}
                     {errorMsg && <p className="text-[10px] font-black text-rose-500 italic">{errorMsg}</p>}
-                  </div>
+                  </div>
 
                   {isMLBB && (
                     <div className="w-full md:w-1/3 space-y-3 animate-in fade-in slide-in-from-left-4 duration-500">

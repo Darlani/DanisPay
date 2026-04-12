@@ -14,9 +14,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id" className="bg-[#0f172a]">
+    <html lang="id" className="bg-[#0f172a]" suppressHydrationWarning>
       <head />
-      <body className="antialiased bg-[#0f172a] text-slate-200">
+      <body className="antialiased bg-[#0f172a] text-slate-200" suppressHydrationWarning>
         <GlobalErrorTracker />
         {/* Pindahkan semua logic Client (pathname, maintenance) ke sini */}
         <ClientLayout>
