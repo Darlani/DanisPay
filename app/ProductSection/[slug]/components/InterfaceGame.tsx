@@ -297,7 +297,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
         <div className="relative z-10 max-w-6xl mx-auto px-4 pt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">    
           
           {/* KOLOM KIRI (INFO PRODUK) */}
-          <div className="lg:col-span-1 sticky top-24 self-start z-20 space-y-4">
+          <div className="lg:col-span-1 lg:sticky lg:top-24 lg:self-start z-20 space-y-4 relative">
             <div className="bg-white p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-900/10 border border-slate-100">
               <div className="flex flex-col items-center text-center lg:items-start lg:text-left gap-4 mb-10">
                 <div className="relative w-full lg:w-fit flex justify-center">
