@@ -64,12 +64,18 @@ useEffect(() => {
     };
     checkAuth();
 
-    // Listener agar UI otomatis update jika sesi habis (misal dari tab lain)
+    // Listener agar UI dan Server (proxy.ts) selalu sinkron
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
         localStorage.removeItem("isAdmin");
         localStorage.removeItem("isUser");
         setRole(null);
+        // Bersihkan cookie juga biar server benar-benar tahu kita logout
+        document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+        document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+        // SINKRONISASI: Kalau Supabase perpanjang token, segera update cookie-nya!
+        document.cookie = `sb-access-token=${session.access_token}; path=/; max-age=86400; Secure; SameSite=Lax`;
       }
     });
 
