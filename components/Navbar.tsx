@@ -37,6 +37,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const isAdminPage = pathname.startsWith('/admin');
+  const isLoginPage = pathname === '/login'; // Aturan untuk mendeteksi halaman login
 
 useEffect(() => {
     const checkAuth = async () => {
@@ -254,7 +255,7 @@ const handleLogout = async () => {
                   {/* Skeleton Loading UI agar terlihat pro */}
                   <div className="h-8 w-20 bg-slate-800 animate-pulse rounded-lg"></div>
                 </div>
-              ) : role ? (
+              ) : role && !isLoginPage ? (
                 <div className="flex items-center gap-2 ml-2 border-l border-slate-700 pl-4">
                   <Link href={role === 'admin' ? "/admin" : "/user"} className="flex items-center gap-1.5 bg-blue-600/10 text-blue-500 px-4 py-2 rounded-lg text-[10px] font-bold uppercase border border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all">
                     <UserCircle size={14} /> Akun
