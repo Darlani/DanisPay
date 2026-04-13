@@ -42,7 +42,19 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
 useEffect(() => {
     const checkAuth = async () => {
       if (typeof window !== "undefined") {
-// Cek user asli langsung ke server Supabase demi keamanan
+        // 1. CEK COOKIE TERLEBIH DAHULU SEBAGAI PATOKAN UTAMA (1 HARI)
+        const hasCookie = document.cookie.includes('sb-access-token');
+        if (!hasCookie) {
+          // Jika cookie hangus, paksa hapus sesi di frontend agar Navbar langsung "Sign In"
+          await supabase.auth.signOut();
+          localStorage.removeItem("isAdmin");
+          localStorage.removeItem("isUser");
+          setRole(null);
+          setIsCheckingAuth(false);
+          return;
+        }
+
+        // 2. Cek user asli langsung ke server Supabase demi keamanan
         const { data: { user }, error } = await supabase.auth.getUser();
         
         if (!user || error) {
