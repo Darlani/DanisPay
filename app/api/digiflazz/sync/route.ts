@@ -18,17 +18,9 @@ const fetchDigiBalance = async (username: string, apiKey: string) => {
   return data.data ? data.data.deposit : 0;
 };
 
+// Hapus getStrategyKey lama karena namanya tidak sinkron dengan format JSON Database.
 const FALLBACK_STRATEGIES: any = {
-  DEFAULT: [{ minCost: 0, maxCost: 999999999, min: 10 }]
-};
-
-const getStrategyKey = (rawCat: string) => {
-  const c = (rawCat || "").toUpperCase();
-  if (c.includes("GAME") || c.includes("MOBILE LEGEND") || c.includes("FREE FIRE")) return "GAME";
-  if (c.includes("PULSA") || c.includes("DATA") || c.includes("PAKET") || c.includes("PLN") || c.includes("LISTRIK")) return "PPOB";
-  if (c.includes("E-MONEY") || c.includes("WALLET") || c.includes("DANA") || c.includes("GOPAY")) return "E-MONEY";
-  if (c.includes("STREAMING") || c.includes("VIDEO") || c.includes("NETFLIX")) return "ENTERTAINMENT";
-  return "DEFAULT";
+  DEFAULT: [{ minCost: 0, maxCost: 999999999, min: 10, max: 15 }]
 };
 
 export async function GET(req: Request) {
@@ -73,6 +65,10 @@ export async function GET(req: Request) {
 
     const { data: dbCategories } = await supabaseAdmin.from('categories').select('id, name');
     const categoryMap = new Map(dbCategories?.map((c: any) => [c.name.toLowerCase(), c.id]));
+    
+    // Tambahkan Peta ID ke Nama Kategori (Huruf Besar) untuk mencocokkan kunci Strategi Margin
+    const catIdToNameMap = new Map(dbCategories?.map((c: any) => [c.id, c.name.toUpperCase()]));
+    
     const ACTIVE_STRATEGIES = settingsData?.margin_json || FALLBACK_STRATEGIES;
     const MY_ADMIN_PROFIT = settingsData?.admin_fee_pasca || 2500; // Markup Khusus Pasca
 
@@ -265,22 +261,25 @@ export async function GET(req: Request) {
       
       const isLocked = existing?.lock_margin === true || String(existing?.lock_margin).toLowerCase() === 'true';
 
-      if (isLocked) {
-        finalPrice = existing.price || 0;
-        marginInfo = existing.margin_item || 0;
+      // Perbaikan Logika Lock Margin & Pencocokan Kategori (Anti-Boncos)
+      if (group.isPasca) {
+        finalPrice = group.maxModal + MY_ADMIN_PROFIT;
+        marginInfo = MY_ADMIN_PROFIT;
       } else {
-        if (group.isPasca) {
-          finalPrice = group.maxModal + MY_ADMIN_PROFIT;
-          marginInfo = MY_ADMIN_PROFIT;
+        // 1. Tentukan Margin: Jika digembok pakai margin lama, jika tidak pakai strategi dari Kategori DB!
+        if (isLocked) {
+          marginInfo = Number(existing.margin_item || 0);
         } else {
-          const sKey = getStrategyKey(group.category);
-          const strategy = ACTIVE_STRATEGIES[sKey] || ACTIVE_STRATEGIES.DEFAULT;
+          const sKey = catIdToNameMap.get(bInfo.category_id) || "DEFAULT";
+          const strategy = ACTIVE_STRATEGIES[sKey] || ACTIVE_STRATEGIES["DEFAULT"] || FALLBACK_STRATEGIES.DEFAULT;
           const range = strategy.find((s: any) => group.maxModal >= s.minCost && group.maxModal <= s.maxCost) || strategy[0];
-          const margin = range.min || 10;
-          
-          finalPrice = Math.ceil((group.maxModal * (1 + margin / 100)) / 100) * 100;
-          marginInfo = margin;
+          marginInfo = range.min || 10;
         }
+        
+        // 2. Hitung Harga Baru (Agar harga naik otomatis jika modal Digiflazz naik, walau margin digembok!)
+        finalPrice = marginInfo === 0 
+          ? group.maxModal 
+          : Math.ceil((group.maxModal * (1 + marginInfo / 100)) / 100) * 100;
       }
 
       // --- RUMUS CASHBACK OTOMATIS SAAT SYNC ---

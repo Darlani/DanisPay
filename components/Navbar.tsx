@@ -87,8 +87,9 @@ useEffect(() => {
         document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
         document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
       } else if (event === 'TOKEN_REFRESHED' && session) {
-        // SINKRONISASI: Kalau Supabase perpanjang token, segera update cookie-nya!
-        document.cookie = `sb-access-token=${session.access_token}; path=/; max-age=86400; Secure; SameSite=Lax`;
+        // SINKRONISASI: Ambil umur token terbaru dari pusat dan segera update cookie-nya!
+        const refreshExpiresIn = session.expires_in;
+        document.cookie = `sb-access-token=${session.access_token}; path=/; max-age=${refreshExpiresIn}; Secure; SameSite=Lax`;
       }
     });
 
