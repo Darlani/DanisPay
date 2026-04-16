@@ -57,17 +57,22 @@ const [allStrategies, setAllStrategies] = useState<any>({
       { label: "SERVICE", minCost: 0, maxCost: 99999999, min: 10, max: 20, minDisc: 1, maxDisc: 5 },
     ],
     "E-WALLET & SALDO": [
-      { label: "TOPUP", minCost: 0, maxCost: 99999999, min: 1, max: 3, minDisc: 0, maxDisc: 1 },
+      { label: "KECIL", minCost: 0, maxCost: 9999, min: 25, max: 35, minDisc: 5, maxDisc: 10 },
+      { label: "MEDIUM", minCost: 10000, maxCost: 50000, min: 15, max: 25, minDisc: 5, maxDisc: 12 },
+      { label: "SULTAN", minCost: 50001, maxCost: 100000, min: 10, max: 18, minDisc: 3, maxDisc: 8 },
+      { label: "WHALE", minCost: 100001, maxCost: 500000, min: 8, max: 12, minDisc: 1, maxDisc: 5 },
+      { label: "PAUS", minCost: 500001, maxCost: 999999999, min: 9, max: 11, minDisc: 1, maxDisc: 5 },
     ],
     "ENTERTAINMENT & SUBSCRIPTION": [ 
       { label: "STREAM/VOD", minCost: 0, maxCost: 100000, min: 15, max: 25, minDisc: 3, maxDisc: 7 },
       { label: "EVENT/TIKET", minCost: 100001, maxCost: 99999999, min: 10, max: 15, minDisc: 1, maxDisc: 5 },
     ],
     GAME: [
-      { label: "KECIL", minCost: 0, maxCost: 15000, min: 25, max: 35, minDisc: 5, maxDisc: 10 },
-      { label: "MEDIUM", minCost: 15001, maxCost: 100000, min: 15, max: 25, minDisc: 5, maxDisc: 12 },
-      { label: "SULTAN", minCost: 100001, maxCost: 500000, min: 10, max: 18, minDisc: 3, maxDisc: 8 },
-      { label: "WHALE", minCost: 500001, maxCost: 999999999, min: 8, max: 12, minDisc: 1, maxDisc: 5 },
+      { label: "KECIL", minCost: 0, maxCost: 9999, min: 25, max: 35, minDisc: 5, maxDisc: 10 },
+      { label: "MEDIUM", minCost: 10000, maxCost: 50000, min: 15, max: 25, minDisc: 5, maxDisc: 12 },
+      { label: "SULTAN", minCost: 50001, maxCost: 100000, min: 10, max: 18, minDisc: 3, maxDisc: 8 },
+      { label: "WHALE", minCost: 100001, maxCost: 500000, min: 8, max: 12, minDisc: 1, maxDisc: 5 },
+      { label: "PAUS", minCost: 500001, maxCost: 999999999, min: 9, max: 11, minDisc: 1, maxDisc: 5 },
     ],
     MARKETPLACE: [
       { label: "GIFT CARD", minCost: 0, maxCost: 99999999, min: 3, max: 6, minDisc: 0, maxDisc: 1 },
@@ -79,9 +84,11 @@ const [allStrategies, setAllStrategies] = useState<any>({
       { label: "TOOLS", minCost: 0, maxCost: 99999999, min: 15, max: 30, minDisc: 2, maxDisc: 8 },
     ],
     "PULSA & DATA SELULER": [
-      { label: "KECIL", minCost: 0, maxCost: 15000, min: 2, max: 4, minDisc: 0, maxDisc: 0 },
-      { label: "MEDIUM", minCost: 15001, maxCost: 100000, min: 1.5, max: 3, minDisc: 0, maxDisc: 1 },
-      { label: "BESAR", minCost: 100001, maxCost: 99999999, min: 1, max: 2, minDisc: 0, maxDisc: 1 },
+      { label: "SANGAT KECIL", minCost: 0, maxCost: 9999, min: 20, max: 30, minDisc: 2, maxDisc: 5 },
+      { label: "KECIL", minCost: 10000, maxCost: 50000, min: 18, max: 23, minDisc: 3, maxDisc: 7 },
+      { label: "MEDIUM", minCost: 50001, maxCost: 100000, min: 15, max: 20, minDisc: 5, maxDisc: 10 },
+      { label: "BESAR", minCost: 100001, maxCost: 500000, min: 13, max: 17, minDisc: 5, maxDisc: 15 },
+      { label: "SANGAT BESAR", minCost: 500001, maxCost: 999999999, min: 10, max: 15, minDisc: 2, maxDisc: 8 },
     ],
     "SOCIAL & KONTEN": [
       { label: "BOOSTING", minCost: 0, maxCost: 50000, min: 30, max: 60, minDisc: 5, maxDisc: 15 },
