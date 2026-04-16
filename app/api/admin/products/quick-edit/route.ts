@@ -83,6 +83,17 @@ export async function POST(req: Request) {
     const { error: updateErr } = await supabaseAdmin.from(targetTable).update(updateData).eq('id', id);
     if (updateErr) throw updateErr;
 
+    // --- CATAT LOG AKTIVITAS ---
+    try {
+      await supabaseAdmin.from('activity_logs').insert([{
+        action: "QUICK EDIT",
+        details: `Mengubah ${field} menjadi ${value} pada produk ID: ${id.slice(0, 8)}...`,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (logErr) {
+      console.error("Gagal log:", logErr);
+    }
+
     const returnedData = {
       ...updateData,
       price: isSemiAuto ? updateData.price_numeric : updateData.price

@@ -335,10 +335,22 @@ export async function GET(req: Request) {
             if (errProducts) throw new Error("Gagal upsert Products: " + errProducts.message);
         }
 
+        // KEMBALIKAN BARIS INI: Membersihkan etalase dari produk yang sudah tutup/hilang di Digiflazz
         const { error: errorDelete } = await supabaseAdmin.from('product_automatic')
             .delete()
             .eq('provider', 'DIGIFLAZZ')
             .lt('updated_at', syncTime); 
+
+        // --- CATAT LOG AKTIVITAS ROBOT SYNC ---
+        try {
+          await supabaseAdmin.from('activity_logs').insert([{
+            action: "AUTO SYNC",
+            details: `Robot berhasil sinkronisasi ${productsToUpsert.length} produk dari Digiflazz.`,
+            created_at: new Date().toISOString()
+          }]);
+        } catch (logErr) {
+          console.error("Gagal log sync:", logErr);
+        } 
             
         return NextResponse.json({ 
                     success: true, 

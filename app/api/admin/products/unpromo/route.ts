@@ -76,6 +76,18 @@ export async function POST(req: Request) {
 
     await Promise.all(promises);
 
+    // --- CATAT LOG AKTIVITAS ---
+    try {
+      const totalUpdated = updatesAuto.length + updatesSemi.length;
+      await supabaseAdmin.from('activity_logs').insert([{
+        action: "STOP PROMO",
+        details: `Menghentikan promo dan reset diskon untuk ${totalUpdated} produk.`,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (logErr) {
+      console.error("Gagal log:", logErr);
+    }
+
     return NextResponse.json({ success: true, updatedCount: updatesAuto.length + updatesSemi.length });
   } catch (error: any) {
     console.error("UNPROMO_ERROR:", error.message);

@@ -89,6 +89,18 @@ async function handleRequest(req: Request, method: string) {
       if (error) throw error;
     }
 
+    // --- CATAT LOG AKTIVITAS ---
+    try {
+      const actionName = method === 'PUT' ? "UPDATE PRODUK" : "TAMBAH PRODUK";
+      await supabaseAdmin.from('activity_logs').insert([{
+        action: actionName,
+        details: `${actionName}: ${payload.name} (${payload.provider})`,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (logErr) {
+      console.error("Gagal log:", logErr);
+    }
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("🔥 Error API Single Product:", error.message);

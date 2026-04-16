@@ -122,9 +122,22 @@ export async function POST(req: Request) {
              supabaseAdmin.from('product_semi_auto').update(upd).eq('id', upd.id)
          );
          await Promise.all(promises);
+     } // <--- INI YANG HILANG (Kurung kurawal penutup loop)
+
+     // --- CATAT LOG AKTIVITAS KE BACKEND (ANTI ERROR 403) ---
+     // Kita taruh di sini supaya log cuma tercipta kalau update produknya sukses
+     try {
+       await supabaseAdmin.from('activity_logs').insert([{
+         action: "BULK UPDATE",
+         details: `Melakukan update harga massal pada ${updateCount} produk via dashboard admin.`,
+         created_at: new Date().toISOString()
+       }]);
+     } catch (logErr) {
+       // Kita log ke console saja kalau gagal catat aktivitas, jangan sampai gagalkan proses bulk-nya
+       console.error("Gagal mencatat log aktivitas:", logErr);
      }
 
-     return NextResponse.json({ success: true, updatedCount: updateCount });
+     return NextResponse.json({ success: true, updatedCount: updateCount });
   } catch (error: any) {
      console.error("BULK UPDATE ERROR:", error.message);
      return NextResponse.json({ success: false, error: error.message }, { status: 500 });

@@ -35,6 +35,17 @@ const body = await req.json();
 
     if (error) throw error;
 
+    // --- CATAT LOG AKTIVITAS ---
+    try {
+      await supabaseAdmin.from('activity_logs').insert([{
+        action: "UPDATE STRATEGI",
+        details: `Profil strategi dan Global Cashback (${safeCashback}%) berhasil disimpan via server.`,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (logErr) {
+      console.error("Gagal log:", logErr);
+    }
+
     return NextResponse.json({ success: true, message: "Strategi & Cashback Berhasil Disimpan!" });
 
   } catch (error: any) {

@@ -137,19 +137,6 @@ const [allStrategies, setAllStrategies] = useState<any>({
     });
   };
 
-  const logActivity = async (action: string, details: string) => {
-    try {
-      await supabase.from('activity_logs').insert({ 
-        action: action, 
-        details: details, 
-        created_at: new Date().toISOString()
-      });
-      fetchLogs(); 
-    } catch (err) {
-      console.error("GAGAL CATAT LOG:", err);
-    }
-  };
-
   const fetchLogs = async () => {
     const { data } = await supabase
       .from('activity_logs')
@@ -332,7 +319,6 @@ const handleQuickUpdate = async (id: string, field: string, value: any) => {
       });
       if (!res.ok) throw new Error("Gagal simpan setting");
       setAllStrategies(updatedStrategies);
-      logActivity("UPDATE STRATEGI", `Profil ${activeStrategyName} Berhasil Disimpan.`);
       alert(`STRATEGI ${activeStrategyName} BERHASIL DISIMPAN VIA SERVER!`);
     } catch (err: any) {
       alert("GAGAL SIMPAN: " + err.message);
@@ -352,7 +338,6 @@ const handleQuickUpdate = async (id: string, field: string, value: any) => {
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error);
-      logActivity("SMART UPDATE", `Sukses update ${result.updatedCount} produk via Server.`);
       alert(`BERHASIL! ${result.updatedCount} PRODUK DI-UPDATE OLEH SERVER.`);
       fetchData(); 
     } catch (err: any) {
@@ -384,7 +369,6 @@ const handleFlashSale = async () => {
         })
       });
       if (!res.ok) throw new Error("Gagal Flash Sale");
-      logActivity("SMART LAUNCH", `${tasks.join(" & ")} aktif untuk ${selectedIds.length} produk.`);
       alert(`BERHASIL! ${tasks.join(" & ")} SUDAH AKTIF VIA SERVER.`);
       setSelectedIds([]); 
       fetchData();
@@ -400,20 +384,19 @@ const handleStopLock = async () => {
     if (!confirm(`BUKA SEMUA GEMBOK (UNLOCK) UNTUK ${selectedIds.length} PRODUK?`)) return;
     setSyncing(true);
     try {
-      const autoIds = products.filter(p => selectedIds.includes(p.id) && p.source_table === 'product_automatic').map(p => p.id);
-      const semiIds = products.filter(p => selectedIds.includes(p.id) && p.source_table === 'product_semi_auto').map(p => p.id);
-
-      if (autoIds.length > 0) await supabase.from('product_automatic').update({ lock_margin: false }).in('id', autoIds);
-      if (semiIds.length > 0) await supabase.from('product_semi_auto').update({ lock_margin: false }).in('id', semiIds);
-      
-      logActivity("STOP LOCK", `Membuka kunci margin untuk ${selectedIds.length} produk.`);
+      const res = await fetch('/api/admin/products/toggle-lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedIds, lockValue: false })
+      });
+      if (!res.ok) throw new Error("Gagal unlock via server");
       alert("SEMUA GEMBOK BERHASIL DIBUKA!");
       setSelectedIds([]);
       fetchData();
-    } catch (err: any) {
-      alert("GAGAL: " + err.message);
-    } finally {
-      setSyncing(false);
+    } catch (err: any) { 
+      alert("GAGAL: " + err.message); 
+    } finally { 
+      setSyncing(false); 
     }
   };
 
@@ -435,7 +418,6 @@ const handleStopFlashSale = async () => {
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || "Gagal Unpromo");
 
-    logActivity("STOP PROMO", `Menghentikan promo untuk ${selectedIds.length} produk.`);
     alert(`BOOM! PROMO MATI. ${result.updatedCount} PRODUK KEMBALI NORMAL.`);
     setSelectedIds([]);
     fetchData();
@@ -573,35 +555,28 @@ const handleStopFlashSale = async () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-// Tambahkan parameter sourceTable
-  const handleDelete = async (id: string, name: string, sourceTable: string) => {
+const handleDelete = async (id: string, name: string) => {
     if (!confirm(`YAKIN HAPUS PRODUK: ${name.toUpperCase()}?`)) return;
     try {
-      // Hapus dari gudang yang tepat
-      const { error } = await supabase.from(sourceTable).delete().eq('id', id);
-      logActivity("HAPUS PRODUK", `Menghapus produk: ${name.toUpperCase()}`);
-      if (error) throw error;
+      const res = await fetch('/api/admin/products/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedIds: [id] })
+      });
+      if (!res.ok) throw new Error("Gagal hapus via server");
       fetchData();
     } catch (err: any) { alert(err.message); }
   };
 
-const handleBulkDelete = async () => {
+  const handleBulkDelete = async () => {
     if (!confirm(`YAKIN HAPUS ${selectedIds.length} PRODUK SEKALIGUS?`)) return;
     try {
-      // Pisahkan ID berdasarkan gudangnya
-      const autoIds = products.filter(p => selectedIds.includes(p.id) && p.source_table === 'product_automatic').map(p => p.id);
-      const semiIds = products.filter(p => selectedIds.includes(p.id) && p.source_table === 'product_semi_auto').map(p => p.id);
-
-      if (autoIds.length > 0) {
-        const { error } = await supabase.from('product_automatic').delete().in('id', autoIds);
-        if (error) throw error;
-      }
-      if (semiIds.length > 0) {
-        const { error } = await supabase.from('product_semi_auto').delete().in('id', semiIds);
-        if (error) throw error;
-      }
-
-      logActivity("HAPUS MASAL", `Menghapus ${selectedIds.length} produk sekaligus.`);
+      const res = await fetch('/api/admin/products/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedIds })
+      });
+      if (!res.ok) throw new Error("Gagal hapus masal via server");
       setSelectedIds([]);
       fetchData();
       alert("SEMUA PRODUK TERPILIH BERHASIL DIHAPUS!");
@@ -1230,7 +1205,7 @@ let cbPerItem = 0;
                     <td className="px-3 py-1.5 text-center">
                       <div className="flex justify-center gap-1">
                         <button onClick={() => handleEditClick(item)} className="p-1 text-amber-500 hover:bg-amber-100 rounded-lg"><Edit3 size={12}/></button>
-                        <button onClick={() => handleDelete(item.id, item.name, item.source_table)} className="p-1 text-rose-500 hover:bg-rose-100 rounded-lg"><Trash2 size={12}/></button>
+                        <button onClick={() => handleDelete(item.id, item.name)} className="p-1 text-rose-500 hover:bg-rose-100 rounded-lg"><Trash2 size={12}/></button>
                       </div>
                     </td>
                   </tr>
