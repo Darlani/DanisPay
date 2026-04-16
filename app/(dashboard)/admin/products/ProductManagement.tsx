@@ -219,7 +219,6 @@ async function fetchLiveBalance() {
       if (settingsData && settingsData.margin_json) {
         setAllStrategies((prev: any) => ({
           ...prev, 
-          ...settingsData.margin_json 
         }));
 
         const dbMargin = settingsData.margin_json[activeStrategyName];
