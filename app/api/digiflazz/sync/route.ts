@@ -3,6 +3,10 @@ import crypto from 'crypto';
 import { supabaseAdmin } from '@/utils/supabaseAdmin'; 
 import { getSubBrandSlug } from '@/lib/constants/product-mappings';
 
+// === MATIKAN CACHE NEXT.JS AGAR ROBOT MEMBACA DATABASE TERBARU ===
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // --- HELPER ---
 const slugify = (text: string) => 
   text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -114,9 +118,9 @@ export async function GET(req: Request) {
       const rawCat = (item.category || "").toLowerCase();
       let matchedId = categoryMap.get(rawCat);
 
-      if (!matchedId) {
+if (!matchedId) {
         if (rawCat.includes("game")) matchedId = categoryMap.get("games");
-        else if (rawCat.includes("pulsa") || rawCat.includes("data")) matchedId = categoryMap.get("pulsa & data");
+        else if (rawCat.includes("pulsa") || rawCat.includes("data")) matchedId = categoryMap.get("pulsa & data seluler"); 
         else if (rawCat.includes("pln") || rawCat.includes("listrik") || rawCat.includes("pdam") || rawCat.includes("bpjs")) matchedId = categoryMap.get("ppob");
         else if (rawCat.includes("emoney") || rawCat.includes("wallet")) matchedId = categoryMap.get("e-money");
       }
