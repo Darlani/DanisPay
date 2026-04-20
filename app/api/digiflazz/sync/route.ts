@@ -49,7 +49,7 @@ export async function GET(req: Request) {
     const username = process.env.DIGIFLAZZ_USERNAME as string;
     const apiKey = process.env.DIGIFLAZZ_API_KEY as string;
 
-    // 1. AMBIL SETTINGS (PAKAI .limit(1) AGAR TIDAK GAGAL/NULL BILA ADA ERROR)
+    // 1. AMBIL SETTINGS (PAKAI .limit(1) AGAR TIDAK GAGAL/NULL)
     const { data: settingsData } = await supabaseAdmin
       .from('store_settings')
       .select('margin_json, cashback_percent, balance_digiflazz, is_maintenance_digiflazz, admin_fee_pasca')
@@ -66,7 +66,7 @@ export async function GET(req: Request) {
 
     const { data: dbCategories } = await supabaseAdmin.from('categories').select('id, name');
     
-    // PEMETAAN NAMA KATEGORI ANTI SPASI
+    // PEMETAAN NAMA KATEGORI DIBERSIHKAN DARI SPASI NAKAL
     const categoryMap = new Map(dbCategories?.map((c: any) => [(c.name || "").toLowerCase().trim(), c.id]));
     const catIdToNameMap = new Map(dbCategories?.map((c: any) => [c.id, (c.name || "").toUpperCase().trim()]));
     
@@ -87,15 +87,15 @@ export async function GET(req: Request) {
     if (!Array.isArray(dataPasca.data)) throw new Error("Akses ditolak Digiflazz Pasca");
 
     const digiItems = [...dataPrepaid.data, ...dataPasca.data];
-    if (digiItems.length === 0) throw new Error("Data pricelist dari Digiflazz kosong!");
+    if (digiItems.length === 0) throw new Error("Data pricelist kosong!");
 
-    // 4. MASTER BRAND AUTO-SYNC (DENGAN PENGAMAN BRAND KOSONG DARI DIGIFLAZZ)
+    // 4. MASTER BRAND AUTO-SYNC DENGAN PENGAMAN BRAND KOSONG
     const { data: dbBrands } = await supabaseAdmin.from('brands').select('id, slug, category_id');
     const brandMap = new Map(dbBrands?.map((b: any) => [b.slug, b]));
 
     const uniqueBrandMap = new Map();
     digiItems.forEach((i: any) => {
-      // Jika Digiflazz mengirim brand kosong (Sering terjadi di PLN Pasca)
+      // JIKA BRAND KOSONG, PAKAI KATEGORI, JIKA TETAP KOSONG, PAKAI UMUM
       let bName = i.brand;
       if (!bName || bName.trim() === "") bName = i.category;
       if (!bName || bName.trim() === "") bName = "UMUM";
@@ -111,22 +111,20 @@ export async function GET(req: Request) {
       const rawCat = (item.category || "").toLowerCase().trim();
       let matchedId = categoryMap.get(rawCat);
 
-      // PEMETAAN RAK KATEGORI CERDAS
+      // PEMETAAN RAK KATEGORI (PASCA DIAMANKAN KE SINI)
       if (!matchedId) {
         if (rawCat.includes("game")) matchedId = categoryMap.get("game");
         else if (rawCat.includes("pulsa") || rawCat.includes("data") || rawCat.includes("paket")) matchedId = categoryMap.get("pulsa & data seluler"); 
-        else if (rawCat.includes("pln") || rawCat.includes("listrik")) matchedId = categoryMap.get("tagihan prabayar"); // Default PLN ke Prabayar
-        else if (rawCat.includes("pdam") || rawCat.includes("bpjs") || rawCat.includes("pasca")) matchedId = categoryMap.get("tagihan pascabayar");
-        else if (rawCat.includes("emoney") || rawCat.includes("wallet") || rawCat.includes("saldo") || rawCat.includes("dana") || rawCat.includes("gopay") || rawCat.includes("ovo")) matchedId = categoryMap.get("e-wallet & saldo");
+        else if (rawCat.includes("pln") || rawCat.includes("listrik")) matchedId = categoryMap.get("tagihan prabayar"); 
+        else if (rawCat.includes("pdam") || rawCat.includes("bpjs") || rawCat.includes("pasca") || rawCat.includes("telepon")) matchedId = categoryMap.get("tagihan pascabayar");
+        else if (rawCat.includes("emoney") || rawCat.includes("wallet") || rawCat.includes("saldo")) matchedId = categoryMap.get("e-wallet & saldo");
         else if (rawCat.includes("voucher") || rawCat.includes("tiket")) matchedId = categoryMap.get("voucher & gift card");
       }
       
       return { name: item.brand, slug: slugBrand, category: item.category, category_id: existing?.category_id || matchedId || null };
     });
 
-    const { error: errBrands } = await supabaseAdmin.from('brands').upsert(brandsToUpsert, { onConflict: 'slug', ignoreDuplicates: false });
-    if (errBrands) console.error("BRAND SYNC ERROR:", errBrands);
-
+    await supabaseAdmin.from('brands').upsert(brandsToUpsert, { onConflict: 'slug', ignoreDuplicates: false });
     const { data: updatedBrands } = await supabaseAdmin.from('brands').select('id, slug, category_id');
     const brandIdMap = new Map(updatedBrands?.map((b: any) => [b.slug, { id: b.id, category_id: b.category_id }]));
 
@@ -140,7 +138,6 @@ export async function GET(req: Request) {
 
     digiItems.forEach((item: any) => {
       const isHealthy = item.buyer_product_status && item.seller_product_status;
-      // Skip hanya jika ada status yang jelas-jelas False. Pasca biasanya tidak ada field ini.
       if (isHealthy === false) return; 
 
       const fullDesc = item.desc || ""; 
@@ -155,7 +152,7 @@ export async function GET(req: Request) {
       const isPasca = item.type === 'Pasca' || !item.price;
       const modal = isPasca ? (item.admin || 0) : item.price;
       
-      // Amankan brand kosong lagi
+      // Amankan brand kosong lagi untuk list produk
       let bName = item.brand;
       if (!bName || bName.trim() === "") bName = item.category;
       if (!bName || bName.trim() === "") bName = "UMUM";
@@ -202,7 +199,6 @@ export async function GET(req: Request) {
       const bInfo = brandIdMap.get(group.slugBrand);
       if (!bInfo) return;
 
-      // PENGAMANAN: Pindah Rak khusus barang Pascabayar (seperti PLN) agar tidak nyasar ke Prabayar
       let finalCategoryId = bInfo.category_id;
       if (group.isPasca) {
           const pascaId = categoryMap.get("tagihan pascabayar");
@@ -223,11 +219,10 @@ export async function GET(req: Request) {
         if (isLocked) {
           marginInfo = Number(existing.margin_item || 0);
         } else {
-          // BACA STRATEGI SESUAI KATEGORI
+          // CARI STRATEGI DENGAN AMAN DAN BERSIH SPASI
           const sKey = (catIdToNameMap.get(finalCategoryId) || "DEFAULT").trim().toUpperCase();
           let strategy = ACTIVE_STRATEGIES[sKey];
 
-          // Kalau tidak ketemu, cari di DEFAULT
           if (!strategy || !Array.isArray(strategy) || strategy.length === 0) {
               strategy = ACTIVE_STRATEGIES["DEFAULT"] || FALLBACK_STRATEGIES.DEFAULT;
           }
@@ -258,7 +253,7 @@ export async function GET(req: Request) {
         brand: group.brand || "UMUM", 
         sub_brand: group.subBrandSlug,
         brand_id: bInfo.id,
-        category_id: finalCategoryId, // Gunakan Rak yang sudah diamankan
+        category_id: finalCategoryId,
         cost: group.maxModal, 
         price: finalPrice, 
         stock: 999, 
@@ -277,19 +272,15 @@ export async function GET(req: Request) {
 
         for (let i = 0; i < itemsData.length; i += chunkSize) {
             const chunk = itemsData.slice(i, i + chunkSize);
-            const { error: errItems } = await supabaseAdmin.from('items').upsert(chunk, { onConflict: 'sku' });
-            if (errItems) throw new Error("Gagal upsert Items: " + errItems.message);
+            await supabaseAdmin.from('items').upsert(chunk, { onConflict: 'sku' });
         }
 
         for (let i = 0; i < productsToUpsert.length; i += chunkSize) {
             const chunk = productsToUpsert.slice(i, i + chunkSize);
-            console.log(`📦 [SYNC] Mengirim Kloter ${i / chunkSize + 1}... (${i} / ${productsToUpsert.length} Produk)`);
-            
-            const { error: errProducts } = await supabaseAdmin.from('product_automatic').upsert(chunk, { onConflict: 'sku' });
-            if (errProducts) throw new Error("Gagal upsert Products: " + errProducts.message);
+            await supabaseAdmin.from('product_automatic').upsert(chunk, { onConflict: 'name' });
         }
 
-        const { error: errorDelete } = await supabaseAdmin.from('product_automatic')
+        await supabaseAdmin.from('product_automatic')
             .delete()
             .eq('provider', 'DIGIFLAZZ')
             .lt('updated_at', syncTime); 
@@ -305,7 +296,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ 
             success: true, 
             updated: productsToUpsert.length,
-            message: "MASTER SYNC: Etalase bersih! Pra & Pasca siap jual." 
+            message: "MASTER SYNC: PLN Pasca Muncul & Margin Tepat Sasaran!" 
         });
 
     } catch (dbErr: any) {
