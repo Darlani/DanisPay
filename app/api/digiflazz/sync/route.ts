@@ -3,9 +3,8 @@ import crypto from 'crypto';
 import { supabaseAdmin } from '@/utils/supabaseAdmin'; 
 import { getSubBrandSlug } from '@/lib/constants/product-mappings';
 
-// === BENTENG ANTI-CACHE NEXT.JS ===
+// === MATIKAN CACHE NEXT.JS AGAR ROBOT MEMBACA DATABASE TERBARU ===
 export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
 // --- HELPER ---
@@ -23,17 +22,20 @@ const fetchDigiBalance = async (username: string, apiKey: string) => {
   return data.data ? data.data.deposit : 0;
 };
 
+// Hapus getStrategyKey lama karena namanya tidak sinkron dengan format JSON Database.
 const FALLBACK_STRATEGIES: any = {
   DEFAULT: [{ minCost: 0, maxCost: 999999999, min: 10, max: 15 }]
 };
 
 export async function GET(req: Request) {
+// 1. SATPAM TIGA JALUR (Admin, Manager, dan Secret VPS)
   const { searchParams } = new URL(req.url);
   const querySecret = searchParams.get('secret');
   const WEBHOOK_SECRET = process.env.MACRODROID_SECRET;
 
   const cookieStore = req.headers.get('cookie') || "";
   
+  // Sekarang kita izinkan Admin ATAU Manager ATAU Robot VPS (lewat Secret)
   const isAuthorized = 
     cookieStore.includes('isAdmin=true') || 
     cookieStore.toLowerCase().includes('userrole=manager') || 
@@ -49,12 +51,12 @@ export async function GET(req: Request) {
     const username = process.env.DIGIFLAZZ_USERNAME as string;
     const apiKey = process.env.DIGIFLAZZ_API_KEY as string;
 
-    // 1. AMBIL SETTINGS (PAKAI .limit(1) AGAR TIDAK GAGAL/NULL)
-    const { data: settingsData } = await supabaseAdmin
-      .from('store_settings')
-      .select('margin_json, cashback_percent, balance_digiflazz, is_maintenance_digiflazz, admin_fee_pasca')
+// 1. AMBIL SETTINGS & MASTER DATA
+    const { data: settingsData } = await supabaseAdmin
+      .from('store_settings')
+      .select('margin_json, cashback_percent, balance_digiflazz, is_maintenance_digiflazz, admin_fee_pasca')
       .limit(1)
-      .single();
+      .single();
 
     const globalCashback = settingsData?.cashback_percent || 3;
 
@@ -62,17 +64,20 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, message: "MAINTENANCE AKTIF bos!" });
     }
 
+    // --- RESET TABEL ITEMS AGAR ID MULAI DARI 1 ---
+    // Pastikan sudah menjalankan 'ALTER SEQUENCE items_id_seq RESTART WITH 1;' di SQL Editor
     await supabaseAdmin.from('items').delete().neq('sku', 'KOSONGKAN_SEMUA_DATA');
 
     const { data: dbCategories } = await supabaseAdmin.from('categories').select('id, name');
-    
-    // PEMETAAN NAMA KATEGORI DIBERSIHKAN DARI SPASI NAKAL
-    const categoryMap = new Map(dbCategories?.map((c: any) => [(c.name || "").toLowerCase().trim(), c.id]));
-    const catIdToNameMap = new Map(dbCategories?.map((c: any) => [c.id, (c.name || "").toUpperCase().trim()]));
+const categoryMap = new Map(dbCategories?.map((c: any) => [(c.name || "").toLowerCase().trim(), c.id]));
+    
+    // Tambahkan Peta ID ke Nama Kategori (Huruf Besar) untuk mencocokkan kunci Strategi Margin
+    const catIdToNameMap = new Map(dbCategories?.map((c: any) => [c.id, (c.name || "").toUpperCase().trim()]));
     
     const ACTIVE_STRATEGIES = settingsData?.margin_json || FALLBACK_STRATEGIES;
-    const MY_ADMIN_PROFIT = settingsData?.admin_fee_pasca || 2500;
+    const MY_ADMIN_PROFIT = settingsData?.admin_fee_pasca || 2500; // Markup Khusus Pasca
 
+    // 3. TARIK HARGA DIGIFLAZZ (DUAL FETCH: PRABAYAR & PASCABAYAR) [cite: 2026-02-11]
     const signature = crypto.createHash('md5').update(username + apiKey + 'pricelist').digest('hex');
     
     const [resPrepaid, resPasca] = await Promise.all([
@@ -83,109 +88,171 @@ export async function GET(req: Request) {
     const dataPrepaid = await resPrepaid.json();
     const dataPasca = await resPasca.json();
 
-    if (!Array.isArray(dataPrepaid.data)) throw new Error("Akses ditolak Digiflazz Prabayar");
-    if (!Array.isArray(dataPasca.data)) throw new Error("Akses ditolak Digiflazz Pasca");
+    // Cek jika respon Digiflazz bukan array (biasanya nolak karena IP belum whitelist atau API Key salah)
+    if (!Array.isArray(dataPrepaid.data)) {
+        console.error("DIGIFLAZZ PREPAID ERROR:", dataPrepaid);
+        throw new Error(typeof dataPrepaid.data === 'string' ? dataPrepaid.data : "Akses ditolak Digiflazz (Cek Whitelist IP/Key Prabayar)");
+    }
+    if (!Array.isArray(dataPasca.data)) {
+        console.error("DIGIFLAZZ PASCA ERROR:", dataPasca);
+        throw new Error(typeof dataPasca.data === 'string' ? dataPasca.data : "Akses ditolak Digiflazz (Cek Whitelist IP/Key Pascabayar)");
+    }
 
+    // Gabungkan data keduanya
     const digiItems = [...dataPrepaid.data, ...dataPasca.data];
-    if (digiItems.length === 0) throw new Error("Data pricelist kosong!");
+    if (digiItems.length === 0) throw new Error("Data pricelist dari Digiflazz kosong bos!");
 
-    // 4. MASTER BRAND AUTO-SYNC DENGAN PENGAMAN BRAND KOSONG
+    // 4. ===[ MASTER BRAND AUTO-SYNC & AUTO-MAPPING ]===
     const { data: dbBrands } = await supabaseAdmin.from('brands').select('id, slug, category_id');
     const brandMap = new Map(dbBrands?.map((b: any) => [b.slug, b]));
 
-    const uniqueBrandMap = new Map();
-    digiItems.forEach((i: any) => {
-      // JIKA BRAND KOSONG, PAKAI KATEGORI, JIKA TETAP KOSONG, PAKAI UMUM
+const uniqueBrandMap = new Map();
+    digiItems.forEach((i: any) => {
       let bName = i.brand;
       if (!bName || bName.trim() === "") bName = i.category;
       if (!bName || bName.trim() === "") bName = "UMUM";
 
-      const slug = slugify(bName);
-      if (!uniqueBrandMap.has(slug)) uniqueBrandMap.set(slug, { brand: bName, category: i.category });
-    });
+      const slug = slugify(bName);
+      if (!uniqueBrandMap.has(slug)) uniqueBrandMap.set(slug, { brand: bName, category: i.category });
+    });
 
     const brandsToUpsert = Array.from(uniqueBrandMap.values()).map((item: any) => {
       const slugBrand = slugify(item.brand);
       const existing = brandMap.get(slugBrand);
       
-      const rawCat = (item.category || "").toLowerCase().trim();
+      const rawCat = (item.category || "").toLowerCase();
       let matchedId = categoryMap.get(rawCat);
 
-      // PEMETAAN RAK KATEGORI (PASCA DIAMANKAN KE SINI)
-      if (!matchedId) {
-        if (rawCat.includes("game")) matchedId = categoryMap.get("game");
-        else if (rawCat.includes("pulsa") || rawCat.includes("data") || rawCat.includes("paket")) matchedId = categoryMap.get("pulsa & data seluler"); 
-        else if (rawCat.includes("pln") || rawCat.includes("listrik")) matchedId = categoryMap.get("tagihan prabayar"); 
-        else if (rawCat.includes("pdam") || rawCat.includes("bpjs") || rawCat.includes("pasca") || rawCat.includes("telepon")) matchedId = categoryMap.get("tagihan pascabayar");
-        else if (rawCat.includes("emoney") || rawCat.includes("wallet") || rawCat.includes("saldo")) matchedId = categoryMap.get("e-wallet & saldo");
-        else if (rawCat.includes("voucher") || rawCat.includes("tiket")) matchedId = categoryMap.get("voucher & gift card");
+if (!matchedId) {
+        if (rawCat.includes("game")) matchedId = categoryMap.get("games");
+        else if (rawCat.includes("pulsa") || rawCat.includes("data")) matchedId = categoryMap.get("pulsa & data seluler"); 
+        else if (rawCat.includes("pln") || rawCat.includes("listrik") || rawCat.includes("pdam") || rawCat.includes("bpjs")) matchedId = categoryMap.get("ppob");
+        else if (rawCat.includes("emoney") || rawCat.includes("wallet")) matchedId = categoryMap.get("e-money");
       }
       
       return { name: item.brand, slug: slugBrand, category: item.category, category_id: existing?.category_id || matchedId || null };
     });
 
-    await supabaseAdmin.from('brands').upsert(brandsToUpsert, { onConflict: 'slug', ignoreDuplicates: false });
+    const { error: errBrands } = await supabaseAdmin.from('brands').upsert(brandsToUpsert, { onConflict: 'slug', ignoreDuplicates: false });
+    if (errBrands) console.error("BRAND SYNC ERROR:", errBrands);
+
     const { data: updatedBrands } = await supabaseAdmin.from('brands').select('id, slug, category_id');
     const brandIdMap = new Map(updatedBrands?.map((b: any) => [b.slug, { id: b.id, category_id: b.category_id }]));
 
+// 5. SMART FILTERING, ZONASI, & IRON GUARD LOGIC
     const itemsData: any[] = [];
     const productGroups = new Map();
 
+    // SEKARANG KITA KENALAN PAKAI NAMA + BRAND_ID, TAPI TETAP BACKUP PAKAI SKU!
     const { data: existingProducts } = await supabaseAdmin.from('product_automatic').select('sku, name, brand_id, lock_margin, price, margin_item, discount');
     
+    // Buat 2 jaring pengaman agar gembok tidak gampang lepas walau nama diedit di UI
     const existingNameMap = new Map(existingProducts?.map((p: any) => [`${p.brand_id}-${p.name.toLowerCase().trim()}`, p]));
     const existingSkuMap = new Map(existingProducts?.map((p: any) => [p.sku, p]));
 
     digiItems.forEach((item: any) => {
       const isHealthy = item.buyer_product_status && item.seller_product_status;
-      if (isHealthy === false) return; 
+      if (!isHealthy) return; // Skip yang lagi gangguan
 
+// --- DETEKSI ZONASI & DESKRIPSI LENGKAP ---
       const fullDesc = item.desc || ""; 
       const descUpper = fullDesc.toUpperCase();
       
-      const regionalKeywords = ["ZONASI", "LOKAL", "JAWA", "SUMATERA", "KALIMANTAN", "SULAWESI", "JABAR", "JATENG", "JATIM", "NTB", "NTT"];
-      const isZonasiMatch = regionalKeywords.some(key => descUpper.includes(key) || item.product_name.toUpperCase().includes(key));
+      // Daftar kata kunci wilayah yang memicu tag ZONASI
+      const regionalKeywords = [
+        // --- ISTILAH UMUM ---
+        "ZONA", "ZONASI", "LOKAL", "AREA", "REGIONAL", "CLUSTER", "PROMO WILAYAH", "KHUSUS",
+
+        // --- PULAU & CLUSTER OPERATOR ---
+        "JAWA", "SUMATERA", "KALIMANTAN", "SULAWESI", "BALI", "NUSA TENGGARA", "NUSRA", 
+        "PAPUA", "MALUKU", "SULAMPUA", "KALISUMAPA", "SUMBAGSEL", "SUMBAGUT",
+
+        // --- PROVINSI & SINGKATAN (JAWA) ---
+        "JABAR", "JATENG", "JATIM", "DIY", "YOGYAKARTA", "JABODETABEK", "BANTEN", "JAKARTA", "MADURA",
+
+        // --- PROVINSI & SINGKATAN (SUMATERA) ---
+        "ACEH", "SUMUT", "SUMBAR", "RIAU", "KEPRI", "JAMBI", "BENGKULU", "SUMSEL", "BABEL", "LAMPUNG",
+
+        // --- PROVINSI & SINGKATAN (KALIMANTAN) ---
+        "KALBAR", "KALTENG", "KALSEL", "KALTIM", "KALTARA",
+
+        // --- PROVINSI & SINGKATAN (SULAWESI) ---
+        "SULUT", "SULTENG", "SULSEL", "SULTRA", "GORONTALO", "SULBAR",
+
+        // --- PROVINSI & SINGKATAN (BALI & NUSA TENGGARA) ---
+        "NTB", "NTT",
+
+        // --- PROVINSI & SINGKATAN (PAPUA & MALUKU) ---
+        "TERNATE", "AMBON", "PAPUA BARAT", "PAPUA SELATAN", "PAPUA TENGAH", "PAPUA PEGUNUNGAN"
+      ];
+
+      // Cek apakah ada salah satu kata kunci di deskripsi atau nama produk
+      const isZonasiMatch = regionalKeywords.some(key => 
+        descUpper.includes(key) || item.product_name.toUpperCase().includes(key)
+      );
+
+      // 1. Definisikan rawCat di sini agar bisa digunakan di bawahnya
       const rawCat = (item.category || "").toLowerCase();
-      const isZonasiTarget = rawCat.includes("pulsa") || rawCat.includes("data");
+
+      // 2. Set ZONASI jika kategori sesuai (Pulsa/Data/Internet) dan kata kunci wilayah ditemukan
+      const isZonasiTarget = rawCat.includes("pulsa") || rawCat.includes("data") || rawCat.includes("internet");
       const zonaTag = (isZonasiTarget && isZonasiMatch) ? "ZONASI" : null;
 
-      const isPasca = item.type === 'Pasca' || !item.price;
-      const modal = isPasca ? (item.admin || 0) : item.price;
-      
-      // Amankan brand kosong lagi untuk list produk
+// SETTING MODAL & BRAND
+      const isPasca = item.type === 'Pasca' || !item.price;
+      const modal = isPasca ? (item.admin || 0) : item.price;
+
       let bName = item.brand;
       if (!bName || bName.trim() === "") bName = item.category;
       if (!bName || bName.trim() === "") bName = "UMUM";
-      const slugBrand = slugify(bName);
 
-      const subBrandSlug = isPasca ? 'PASCABAYAR' : getSubBrandSlug(bName, item.product_name, item.category, item.type || "");
+      const slugBrand = slugify(bName);
+      const subBrandSlug = isPasca ? 'PASCABAYAR' : getSubBrandSlug(bName, item.product_name, item.category, item.type || "");
 
+// NAMA PRODUK (Utuh & Hapus kata ganda di depan)
       let webProductName = item.product_name;
       const words = webProductName.split(/\s+/);
+      
+      // Jika kata pertama dan kedua sama (misal: "INDOSAT INDOSAT"), ambil dari kata kedua dst.
       if (words.length > 1 && words[0].toLowerCase() === words[1].toLowerCase()) {
         webProductName = words.slice(1).join(" ");
       }
 
-      if (zonaTag === "ZONASI") webProductName = `[ZONASI] ${webProductName}`;
+      // Tambahkan label [ZONASI] di depan nama jika terdeteksi zonasi
+      if (zonaTag === "ZONASI") {
+        webProductName = `[ZONASI] ${webProductName}`;
+      }
 
+      // --- 1. SIMPAN SEMUA VARIASI KE TABEL ITEMS ---
       itemsData.push({
         sku: item.buyer_sku_code,
         brand_slug: slugBrand,
-        name: item.product_name, 
+        name: item.product_name, // Kolom name Items dibiarkan utuh asli Digiflazz
         modal: modal,
         sub_brand_slug: subBrandSlug,
-        desc: fullDesc, 
+        desc: fullDesc, // Informasi lengkap sesuai dari Digiflazz
         zona_type: zonaTag,
         is_active: true,
         last_sync: syncTime
       });
 
+// --- 2. KELOMPOKKAN UNTUK TABEL PRODUCTS (Cari Modal Termahal) ---
+      // Tambahkan slugBrand agar produk nominal sama antar brand (misal: Axis 5k vs XL 5k) tidak bentrok
       const groupKey = `${slugBrand}-${webProductName.toLowerCase().trim()}`;
 
       if (!productGroups.has(groupKey)) {
-        productGroups.set(groupKey, { ...item, webName: webProductName, maxModal: modal, baseSku: item.buyer_sku_code, subBrandSlug, isPasca, slugBrand });
+        productGroups.set(groupKey, { 
+          ...item, 
+          webName: webProductName, 
+          maxModal: modal, 
+          baseSku: item.buyer_sku_code, 
+          subBrandSlug, 
+          isPasca, 
+          slugBrand 
+        });
       } else {
         const existingGroup = productGroups.get(groupKey);
+        // Jika nemu yang namanya sama tapi harganya lebih MAHAL, update acuan modalnya!
         if (modal > existingGroup.maxModal) {
           existingGroup.maxModal = modal;
           existingGroup.baseSku = item.buyer_sku_code;
@@ -199,43 +266,42 @@ export async function GET(req: Request) {
       const bInfo = brandIdMap.get(group.slugBrand);
       if (!bInfo) return;
 
-      let finalCategoryId = bInfo.category_id;
-      if (group.isPasca) {
-          const pascaId = categoryMap.get("tagihan pascabayar");
-          if (pascaId) finalCategoryId = pascaId;
-      }
-
       let finalPrice = 0;
       let marginInfo = 0;
 
+      // Cek gembok pakai Nama + ID Brand, JIKA GAGAL KARENA DIEDIT, tangkap pakai jaring SKU
       const productKey = `${bInfo.id}-${group.webName.toLowerCase().trim()}`;
       const existing = existingNameMap.get(productKey) || existingSkuMap.get(group.baseSku);
+      
       const isLocked = existing?.lock_margin === true || String(existing?.lock_margin).toLowerCase() === 'true';
 
+      // Perbaikan Logika Lock Margin & Pencocokan Kategori (Anti-Boncos)
       if (group.isPasca) {
         finalPrice = group.maxModal + MY_ADMIN_PROFIT;
         marginInfo = MY_ADMIN_PROFIT;
       } else {
+        // 1. Tentukan Margin: Jika digembok pakai margin lama, jika tidak pakai strategi dari Kategori DB!
         if (isLocked) {
           marginInfo = Number(existing.margin_item || 0);
         } else {
-          // CARI STRATEGI DENGAN AMAN DAN BERSIH SPASI
-          const sKey = (catIdToNameMap.get(finalCategoryId) || "DEFAULT").trim().toUpperCase();
+const sKey = (catIdToNameMap.get(bInfo.category_id) || "DEFAULT").trim();
           let strategy = ACTIVE_STRATEGIES[sKey];
-
+          
           if (!strategy || !Array.isArray(strategy) || strategy.length === 0) {
               strategy = ACTIVE_STRATEGIES["DEFAULT"] || FALLBACK_STRATEGIES.DEFAULT;
           }
 
-          const range = strategy.find((s: any) => group.maxModal >= s.minCost && group.maxModal <= s.maxCost) || strategy[0];
-          marginInfo = range.min ?? 10;
+          const range = strategy.find((s: any) => group.maxModal >= s.minCost && group.maxModal <= s.maxCost) || strategy[0];
+          marginInfo = range.min ?? 10;
         }
         
+        // 2. Hitung Harga Baru (Agar harga naik otomatis jika modal Digiflazz naik, walau margin digembok!)
         finalPrice = marginInfo === 0 
           ? group.maxModal 
           : Math.ceil((group.maxModal * (1 + marginInfo / 100)) / 100) * 100;
       }
 
+      // --- RUMUS CASHBACK OTOMATIS SAAT SYNC ---
       const currentDiscount = existing?.discount || 0;
       const hargaSetelahDiskon = finalPrice - Math.floor(finalPrice * (currentDiscount / 100));
       const profitKotor = hargaSetelahDiskon - group.maxModal;
@@ -243,23 +309,23 @@ export async function GET(req: Request) {
 
       if (profitKotor > 0) {
         const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100));
-        const plafonMaks = Math.floor(profitKotor * (globalCashback / 10)); 
+        const plafonMaks = Math.floor(profitKotor * (globalCashback / 10)); // Capped anti-rugi
         finalCashback = Math.min(cbNormal, plafonMaks);
       }
 
       productsToUpsert.push({
         sku: group.baseSku,
         name: group.webName, 
-        brand: group.brand || "UMUM", 
+        brand: group.brand || "Umum", 
         sub_brand: group.subBrandSlug,
         brand_id: bInfo.id,
-        category_id: finalCategoryId,
+        category_id: bInfo.category_id,
         cost: group.maxModal, 
         price: finalPrice, 
         stock: 999, 
         margin_item: marginInfo,
         discount: currentDiscount, 
-        cashback: finalCashback, 
+        cashback: finalCashback, // <-- INI OBAT CASHBACK NOL KEMARIN
         lock_margin: isLocked, 
         is_active: true,
         provider: 'DIGIFLAZZ',
@@ -267,37 +333,50 @@ export async function GET(req: Request) {
       });
     });
 
+    // 6. ===[ FINAL PUSH DENGAN CHUNKING BATCH ]===
     try {
-        const chunkSize = 500; 
+        const chunkSize = 500; // Pecah pengiriman jadi 500 produk per kloter biar Supabase bernafas
 
-        for (let i = 0; i < itemsData.length; i += chunkSize) {
-            const chunk = itemsData.slice(i, i + chunkSize);
-            await supabaseAdmin.from('items').upsert(chunk, { onConflict: 'sku' });
-        }
+// Chunking untuk tabel ITEMS
+        for (let i = 0; i < itemsData.length; i += chunkSize) {
+            const chunk = itemsData.slice(i, i + chunkSize);
+            // Ganti upsert jadi insert biasa karena tabel sudah otomatis dikosongkan sebelumnya (Bebas error SQL!)
+            const { error: errItems } = await supabaseAdmin.from('items').insert(chunk);
+            if (errItems) throw new Error("Gagal insert Items: " + errItems.message);
+        }
 
+// Chunking untuk tabel PRODUCTS dengan Audit Log [cite: 2026-03-06]
         for (let i = 0; i < productsToUpsert.length; i += chunkSize) {
             const chunk = productsToUpsert.slice(i, i + chunkSize);
-            await supabaseAdmin.from('product_automatic').upsert(chunk, { onConflict: 'name' });
+            console.log(`📦 [SYNC] Mengirim Kloter ${i / chunkSize + 1}... (${i} / ${productsToUpsert.length} Produk)`);
+            
+            // JANGKARNYA PINDAH KE NAMA, BIAR ID UUID TIDAK BERUBAH-UBAH! [cite: 2026-03-13]
+      const { error: errProducts } = await supabaseAdmin.from('product_automatic').upsert(chunk, { onConflict: 'name' });
+            if (errProducts) throw new Error("Gagal upsert Products: " + errProducts.message);
         }
 
-        await supabaseAdmin.from('product_automatic')
+        // KEMBALIKAN BARIS INI: Membersihkan etalase dari produk yang sudah tutup/hilang di Digiflazz
+        const { error: errorDelete } = await supabaseAdmin.from('product_automatic')
             .delete()
             .eq('provider', 'DIGIFLAZZ')
             .lt('updated_at', syncTime); 
 
+        // --- CATAT LOG AKTIVITAS ROBOT SYNC ---
         try {
           await supabaseAdmin.from('activity_logs').insert([{
             action: "AUTO SYNC",
-            details: `Sukses sinkronisasi ${productsToUpsert.length} produk. PLN Pasca & Margin Aman!`,
+            details: `Robot berhasil sinkronisasi ${productsToUpsert.length} produk dari Digiflazz.`,
             created_at: new Date().toISOString()
           }]);
-        } catch (logErr) {} 
+        } catch (logErr) {
+          console.error("Gagal log sync:", logErr);
+        } 
             
         return NextResponse.json({ 
-            success: true, 
-            updated: productsToUpsert.length,
-            message: "MASTER SYNC: PLN Pasca Muncul & Margin Tepat Sasaran!" 
-        });
+                    success: true, 
+                    updated: productsToUpsert.length,
+                    message: "MASTER SYNC: Etalase dibersihkan! Pra & Pasca siap jual." 
+                });
 
     } catch (dbErr: any) {
         return NextResponse.json({ success: false, error: dbErr.message }, { status: 500 });
