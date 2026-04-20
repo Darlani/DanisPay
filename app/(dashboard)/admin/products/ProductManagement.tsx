@@ -174,16 +174,16 @@ async function fetchLiveBalance() {
     setLoading(true);
     try {
       // 1. Tarik dari 2 gudang dengan paksaan jalur relasi (Hint) [cite: 2026-03-07]
-      const [autoRes, semiRes] = await Promise.all([
-        supabase.from('product_automatic')
-          .select('*, categories!product_automatic_category_id_fkey(name), brands!product_automatic_brand_id_fkey(name)')
-          .order('updated_at', { ascending: false })
-          .limit(3000), // Batasi 3000 data terbaru biar gak "Failed to fetch" bos!
-        supabase.from('product_semi_auto')
-          .select('*, categories!product_semi_auto_category_id_fkey(name), brands!product_semi_auto_brand_id_fkey(name)')
-          .order('updated_at', { ascending: false })
-          .limit(1000)
-      ]);
+const [autoRes, semiRes] = await Promise.all([
+        supabase.from('product_automatic')
+          .select('*, categories!product_automatic_category_id_fkey(name), brands!product_automatic_brand_id_fkey(name)')
+          .order('updated_at', { ascending: false })
+          .limit(6000), // Buka jadi 6000 agar semua produk Digiflazz (termasuk Pascabayar) ikut keangkut!
+        supabase.from('product_semi_auto')
+          .select('*, categories!product_semi_auto_category_id_fkey(name), brands!product_semi_auto_brand_id_fkey(name)')
+          .order('updated_at', { ascending: false })
+          .limit(3000) // Naikkan sedikit untuk jaga-jaga produk manual
+      ]);
 
       // Munculkan error ke layar Bos biar kita tahu penyakitnya!
       if (autoRes.error) alert("ERROR GUDANG AUTO: " + autoRes.error.message);
