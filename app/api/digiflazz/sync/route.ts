@@ -102,40 +102,41 @@ const categoryMap = new Map(dbCategories?.map((c: any) => [(c.name || "").toLowe
     const digiItems = [...dataPrepaid.data, ...dataPasca.data];
     if (digiItems.length === 0) throw new Error("Data pricelist dari Digiflazz kosong bos!");
 
-    // 4. ===[ MASTER BRAND AUTO-SYNC & AUTO-MAPPING ]===
+// 4. ===[ MASTER BRAND AUTO-SYNC ANTI GAGAL ]===
     const { data: dbBrands } = await supabaseAdmin.from('brands').select('id, slug, category_id');
-    const brandMap = new Map(dbBrands?.map((b: any) => [b.slug, b]));
+    const existingBrandSlugs = new Set(dbBrands?.map((b: any) => b.slug));
 
-const uniqueBrandMap = new Map();
-    digiItems.forEach((i: any) => {
+    const newBrandsMap = new Map();
+    digiItems.forEach((i: any) => {
       let bName = i.brand;
       if (!bName || bName.trim() === "") bName = i.category;
       if (!bName || bName.trim() === "") bName = "UMUM";
 
-      const slug = slugify(bName);
-      if (!uniqueBrandMap.has(slug)) uniqueBrandMap.set(slug, { brand: bName, category: i.category });
-    });
+      const slug = slugify(bName);
+      // HANYA DAFTARKAN MERK BARU YANG BELUM ADA DI DATABASE!
+      if (!existingBrandSlugs.has(slug) && !newBrandsMap.has(slug)) {
+        const rawCat = (i.category || "").toLowerCase().trim();
+        let matchedId = categoryMap.get(rawCat);
 
-    const brandsToUpsert = Array.from(uniqueBrandMap.values()).map((item: any) => {
-      const slugBrand = slugify(item.brand);
-      const existing = brandMap.get(slugBrand);
-      
-      const rawCat = (item.category || "").toLowerCase();
-      let matchedId = categoryMap.get(rawCat);
-
-if (!matchedId) {
-        if (rawCat.includes("game")) matchedId = categoryMap.get("games");
-        else if (rawCat.includes("pulsa") || rawCat.includes("data")) matchedId = categoryMap.get("pulsa & data seluler"); 
-        else if (rawCat.includes("pln") || rawCat.includes("listrik") || rawCat.includes("pdam") || rawCat.includes("bpjs")) matchedId = categoryMap.get("ppob");
-        else if (rawCat.includes("emoney") || rawCat.includes("wallet")) matchedId = categoryMap.get("e-money");
+        if (!matchedId) {
+          if (rawCat.includes("game")) matchedId = categoryMap.get("games");
+          else if (rawCat.includes("pulsa") || rawCat.includes("data") || rawCat.includes("paket")) matchedId = categoryMap.get("pulsa & data seluler"); 
+          else if (rawCat.includes("pln") || rawCat.includes("listrik")) matchedId = categoryMap.get("tagihan prabayar"); 
+          else if (rawCat.includes("pdam") || rawCat.includes("bpjs") || rawCat.includes("pasca") || rawCat.includes("telepon")) matchedId = categoryMap.get("tagihan pascabayar");
+          else if (rawCat.includes("emoney") || rawCat.includes("wallet") || rawCat.includes("saldo")) matchedId = categoryMap.get("e-wallet & saldo");
+          else if (rawCat.includes("voucher") || rawCat.includes("tiket")) matchedId = categoryMap.get("voucher & gift card");
+        }
+        newBrandsMap.set(slug, { name: bName, slug: slug, category: i.category, category_id: matchedId || null });
       }
-      
-      return { name: item.brand, slug: slugBrand, category: item.category, category_id: existing?.category_id || matchedId || null };
     });
 
-    const { error: errBrands } = await supabaseAdmin.from('brands').upsert(brandsToUpsert, { onConflict: 'slug', ignoreDuplicates: false });
-    if (errBrands) console.error("BRAND SYNC ERROR:", errBrands);
+    // MASUKKAN MERK BARU DENGAN CARA INSERT (BEBAS ERROR SQL)
+    if (newBrandsMap.size > 0) {
+      const brandsToInsert = Array.from(newBrandsMap.values());
+      await supabaseAdmin.from('brands').insert(brandsToInsert);
+    }
 
+    // AMBIL ULANG SELURUH DATA MERK YANG SUDAH LENGKAP
     const { data: updatedBrands } = await supabaseAdmin.from('brands').select('id, slug, category_id');
     const brandIdMap = new Map(updatedBrands?.map((b: any) => [b.slug, { id: b.id, category_id: b.category_id }]));
 
@@ -199,15 +200,16 @@ if (!matchedId) {
       const zonaTag = (isZonasiTarget && isZonasiMatch) ? "ZONASI" : null;
 
 // SETTING MODAL & BRAND
-      const isPasca = item.type === 'Pasca' || !item.price;
-      const modal = isPasca ? (item.admin || 0) : item.price;
+      const isPasca = item.type === 'Pasca' || !item.price;
+      const modal = isPasca ? (item.admin || 0) : item.price;
 
+      // KAMU TERLEWAT BAGIAN INI BOS! 👇
       let bName = item.brand;
       if (!bName || bName.trim() === "") bName = item.category;
       if (!bName || bName.trim() === "") bName = "UMUM";
 
-      const slugBrand = slugify(bName);
-      const subBrandSlug = isPasca ? 'PASCABAYAR' : getSubBrandSlug(bName, item.product_name, item.category, item.type || "");
+      const slugBrand = slugify(bName);
+      const subBrandSlug = isPasca ? 'PASCABAYAR' : getSubBrandSlug(bName, item.product_name, item.category, item.type || "");
 
 // NAMA PRODUK (Utuh & Hapus kata ganda di depan)
       let webProductName = item.product_name;
@@ -262,9 +264,17 @@ if (!matchedId) {
 
     const productsToUpsert: any[] = [];
 
-    Array.from(productGroups.values()).forEach((group: any) => {
+Array.from(productGroups.values()).forEach((group: any) => {
       const bInfo = brandIdMap.get(group.slugBrand);
       if (!bInfo) return;
+
+      // TAMBAHKAN KODE INI AGAR PASCABAYAR MASUK RAK YANG BENAR 👇
+      let finalCategoryId = bInfo.category_id;
+      if (group.isPasca) {
+          const pascaId = categoryMap.get("tagihan pascabayar");
+          if (pascaId) finalCategoryId = pascaId;
+      }
+      // SAMPAI SINI 👆
 
       let finalPrice = 0;
       let marginInfo = 0;
@@ -319,7 +329,7 @@ const sKey = (catIdToNameMap.get(bInfo.category_id) || "DEFAULT").trim();
         brand: group.brand || "Umum", 
         sub_brand: group.subBrandSlug,
         brand_id: bInfo.id,
-        category_id: bInfo.category_id,
+        category_id: finalCategoryId,
         cost: group.maxModal, 
         price: finalPrice, 
         stock: 999, 
@@ -337,13 +347,15 @@ const sKey = (catIdToNameMap.get(bInfo.category_id) || "DEFAULT").trim();
     try {
         const chunkSize = 500; // Pecah pengiriman jadi 500 produk per kloter biar Supabase bernafas
 
-// Chunking untuk tabel ITEMS
-        for (let i = 0; i < itemsData.length; i += chunkSize) {
-            const chunk = itemsData.slice(i, i + chunkSize);
-            // Ganti upsert jadi insert biasa karena tabel sudah otomatis dikosongkan sebelumnya (Bebas error SQL!)
-            const { error: errItems } = await supabaseAdmin.from('items').insert(chunk);
-            if (errItems) throw new Error("Gagal insert Items: " + errItems.message);
-        }
+// Saring data duplikat dari Digiflazz sebelum masuk gudang agar aman 100%
+        const uniqueItemsData = Array.from(new Map(itemsData.map(item => [item.sku, item])).values());
+
+        // Chunking untuk tabel ITEMS
+        for (let i = 0; i < uniqueItemsData.length; i += chunkSize) {
+            const chunk = uniqueItemsData.slice(i, i + chunkSize);
+            const { error: errItems } = await supabaseAdmin.from('items').insert(chunk);
+            if (errItems) console.error("PERINGATAN GUDANG ITEMS:", errItems.message); // Tidak throw error agar etalase tetap update!
+        }
 
 // Chunking untuk tabel PRODUCTS dengan Audit Log [cite: 2026-03-06]
         for (let i = 0; i < productsToUpsert.length; i += chunkSize) {
