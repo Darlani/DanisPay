@@ -285,7 +285,7 @@ export async function GET(req: Request) {
             const chunk = productsToUpsert.slice(i, i + chunkSize);
             console.log(`📦 [SYNC] Mengirim Kloter ${i / chunkSize + 1}... (${i} / ${productsToUpsert.length} Produk)`);
             
-            const { error: errProducts } = await supabaseAdmin.from('product_automatic').upsert(chunk, { onConflict: 'name' });
+            const { error: errProducts } = await supabaseAdmin.from('product_automatic').upsert(chunk, { onConflict: 'sku' });
             if (errProducts) throw new Error("Gagal upsert Products: " + errProducts.message);
         }
 
