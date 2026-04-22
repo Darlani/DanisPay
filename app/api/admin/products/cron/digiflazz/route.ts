@@ -179,8 +179,13 @@ export async function GET(req: Request) {
       const isLocked = existing?.lock_margin === true || String(existing?.lock_margin).toLowerCase() === 'true';
 
       if (group.isPasca) {
-        finalPrice = group.maxModal + MY_ADMIN_PROFIT;
-        marginInfo = MY_ADMIN_PROFIT;
+        // PERBAIKAN: Hormati gembok pascabayar! Jika dikunci, pakai margin lama. Jika tidak, pakai Admin Fee 2500.
+        if (isLocked) {
+          marginInfo = Number(existing.margin_item || 0);
+        } else {
+          marginInfo = MY_ADMIN_PROFIT;
+        }
+        finalPrice = group.maxModal + marginInfo;
       } else {
         if (isLocked) {
           marginInfo = Number(existing.margin_item || 0);
