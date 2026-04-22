@@ -67,9 +67,11 @@ export async function GET(req: Request) {
 const categoryMap = new Map(dbCategories?.map((c: any) => [(c.name || "").toLowerCase().trim(), c.id]));
     
     // Tambahkan Peta ID ke Nama Kategori (Huruf Besar) untuk mencocokkan kunci Strategi Margin
-    const catIdToNameMap = new Map(dbCategories?.map((c: any) => [c.id, (c.name || "").toUpperCase().trim()]));
+    // PAKSA ID JADI TEKS BIKIN PENCOCOKAN GAK MUNGKIN MELESET
+    const catIdToNameMap = new Map(dbCategories?.map((c: any) => [String(c.id), (c.name || "").toUpperCase().trim()]));
     
-    const ACTIVE_STRATEGIES = settingsData?.margin_json || FALLBACK_STRATEGIES;
+    let ACTIVE_STRATEGIES = settingsData?.margin_json || FALLBACK_STRATEGIES;
+    if (typeof ACTIVE_STRATEGIES === 'string') ACTIVE_STRATEGIES = JSON.parse(ACTIVE_STRATEGIES); // Jaga-jaga kalau json nyangkut jadi teks
     const MY_ADMIN_PROFIT = settingsData?.admin_fee_pasca || 2500; // Markup Khusus Pasca
 
     // 3. TARIK HARGA DIGIFLAZZ (DUAL FETCH: PRABAYAR & PASCABAYAR) [cite: 2026-02-11]
@@ -293,9 +295,9 @@ Array.from(productGroups.values()).forEach((group: any) => {
         // 1. Tentukan Margin: Jika digembok pakai margin lama, jika tidak pakai strategi dari Kategori DB!
         if (isLocked) {
           marginInfo = Number(existing.margin_item || 0);
-} else {
+        } else {
           // Pakai finalCategoryId (bukan bInfo) dan paksa UPPERCASE agar cocok dengan kunci strategi
-          const sKey = (catIdToNameMap.get(finalCategoryId) || "DEFAULT").toUpperCase().trim();
+          const sKey = (catIdToNameMap.get(String(finalCategoryId)) || "DEFAULT").toUpperCase().trim();
           let strategy = ACTIVE_STRATEGIES[sKey];
           
           if (!strategy || !Array.isArray(strategy) || strategy.length === 0) {
