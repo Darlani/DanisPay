@@ -29,21 +29,15 @@ const FALLBACK_STRATEGIES: any = {
 };
 
 export async function GET(req: Request) {
-// 1. SATPAM TIGA JALUR (Admin, Manager, dan Secret VPS)
-  const { searchParams } = new URL(req.url);
-  const querySecret = searchParams.get('secret');
-  const WEBHOOK_SECRET = process.env.MACRODROID_SECRET;
-
+// 1. SATPAM INTERNAL (Khusus Admin & Manager via Dashboard)
   const cookieStore = req.headers.get('cookie') || "";
   
-  // Sekarang kita izinkan Admin ATAU Manager ATAU Robot VPS (lewat Secret)
   const isAuthorized = 
     cookieStore.includes('isAdmin=true') || 
-    cookieStore.toLowerCase().includes('userrole=manager') || 
-    (querySecret === WEBHOOK_SECRET && WEBHOOK_SECRET);
+    cookieStore.toLowerCase().includes('userrole=manager');
 
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau Kunci Salah." }, { status: 403 });
+    return NextResponse.json({ error: "Akses Ditolak! Sesi Expired. Silakan login kembali." }, { status: 403 });
   }
 
   const syncTime = new Date().toISOString();
@@ -378,11 +372,11 @@ Array.from(productGroups.values()).forEach((group: any) => {
             .eq('provider', 'DIGIFLAZZ')
             .lt('updated_at', syncTime); 
 
-        // --- CATAT LOG AKTIVITAS ROBOT SYNC ---
+        // --- CATAT LOG AKTIVITAS MANUAL SYNC ---
         try {
           await supabaseAdmin.from('activity_logs').insert([{
-            action: "AUTO SYNC",
-            details: `Robot berhasil sinkronisasi ${productsToUpsert.length} produk dari Digiflazz.`,
+            action: "MANUAL SYNC",
+            details: `Admin berhasil sinkronisasi ${productsToUpsert.length} produk dari Digiflazz via Dashboard.`,
             created_at: new Date().toISOString()
           }]);
         } catch (logErr) {
