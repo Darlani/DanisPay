@@ -282,8 +282,13 @@ Array.from(productGroups.values()).forEach((group: any) => {
 
       // Perbaikan Logika Lock Margin & Pencocokan Kategori (Anti-Boncos)
       if (group.isPasca) {
-        finalPrice = group.maxModal + MY_ADMIN_PROFIT;
-        marginInfo = MY_ADMIN_PROFIT;
+        // Jika Pascabayar digembok, gunakan nominal lama. Jika tidak, pakai Admin Fee Default.
+        if (isLocked) {
+          marginInfo = Number(existing.margin_item || 0);
+        } else {
+          marginInfo = MY_ADMIN_PROFIT;
+        }
+        finalPrice = group.maxModal + marginInfo;
       } else {
         // 1. Tentukan Margin: Jika digembok pakai margin lama, jika tidak pakai strategi dari Kategori DB!
         if (isLocked) {
