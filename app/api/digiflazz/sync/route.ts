@@ -5,6 +5,7 @@ import { getSubBrandSlug } from '@/lib/constants/product-mappings';
 
 // === MATIKAN CACHE NEXT.JS AGAR ROBOT MEMBACA DATABASE TERBARU ===
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
 // --- HELPER ---
@@ -293,16 +294,20 @@ Array.from(productGroups.values()).forEach((group: any) => {
         // 1. Tentukan Margin: Jika digembok pakai margin lama, jika tidak pakai strategi dari Kategori DB!
         if (isLocked) {
           marginInfo = Number(existing.margin_item || 0);
-        } else {
-const sKey = (catIdToNameMap.get(bInfo.category_id) || "DEFAULT").trim();
+} else {
+          // Pakai finalCategoryId (bukan bInfo) dan paksa UPPERCASE agar cocok dengan kunci strategi
+          const sKey = (catIdToNameMap.get(finalCategoryId) || "DEFAULT").toUpperCase().trim();
           let strategy = ACTIVE_STRATEGIES[sKey];
           
           if (!strategy || !Array.isArray(strategy) || strategy.length === 0) {
               strategy = ACTIVE_STRATEGIES["DEFAULT"] || FALLBACK_STRATEGIES.DEFAULT;
           }
 
-          const range = strategy.find((s: any) => group.maxModal >= s.minCost && group.maxModal <= s.maxCost) || strategy[0];
-          marginInfo = range.min ?? 10;
+          // Pastikan perbandingan angka menggunakan tipe Number
+          const currentModal = Number(group.maxModal);
+          const range = strategy.find((s: any) => currentModal >= Number(s.minCost) && currentModal <= Number(s.maxCost)) || strategy[0];
+          
+          marginInfo = Number(range.min ?? 10);
         }
         
         // 2. Hitung Harga Baru (Agar harga naik otomatis jika modal Digiflazz naik, walau margin digembok!)
