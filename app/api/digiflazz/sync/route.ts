@@ -282,40 +282,28 @@ Array.from(productGroups.values()).forEach((group: any) => {
       
       const isLocked = existing?.lock_margin === true || String(existing?.lock_margin).toLowerCase() === 'true';
 
-      // Perbaikan Logika Lock Margin & Pencocokan Kategori (Anti-Boncos)
-      if (group.isPasca) {
-        // Jika Pascabayar digembok, gunakan nominal lama. Jika tidak, pakai Admin Fee Default.
-        if (isLocked) {
-          marginInfo = Number(existing.margin_item || 0);
-        } else {
-          marginInfo = MY_ADMIN_PROFIT;
-        }
-        finalPrice = group.maxModal + marginInfo;
-      } else {
-        // 1. Tentukan Margin: Jika digembok pakai margin lama, jika tidak pakai strategi dari Kategori DB!
-        if (isLocked) {
-          marginInfo = Number(existing.margin_item || 0);
-        } else {
-          // Pakai finalCategoryId (bukan bInfo) dan paksa UPPERCASE agar cocok dengan kunci strategi
-          const sKey = (catIdToNameMap.get(String(finalCategoryId)) || "DEFAULT").toUpperCase().trim();
-          let strategy = ACTIVE_STRATEGIES[sKey];
-          
-          if (!strategy || !Array.isArray(strategy) || strategy.length === 0) {
-              strategy = ACTIVE_STRATEGIES["DEFAULT"] || FALLBACK_STRATEGIES.DEFAULT;
-          }
-
-          // Pastikan perbandingan angka menggunakan tipe Number
-          const currentModal = Number(group.maxModal);
-          const range = strategy.find((s: any) => currentModal >= Number(s.minCost) && currentModal <= Number(s.maxCost)) || strategy[0];
-          
-          marginInfo = Number(range.min ?? 10);
-        }
-        
-        // 2. Hitung Harga Baru (Agar harga naik otomatis jika modal Digiflazz naik, walau margin digembok!)
-        finalPrice = marginInfo === 0 
-          ? group.maxModal 
-          : Math.ceil((group.maxModal * (1 + marginInfo / 100)) / 100) * 100;
+      // --- LOGIKA MARGIN UNIVERSAL (SAMA PERSIS DENGAN BULK UPDATE) ---
+      const sKey = (catIdToNameMap.get(String(finalCategoryId)) || "DEFAULT").toUpperCase().trim();
+      let strategy = ACTIVE_STRATEGIES[sKey];
+      
+      if (!strategy || !Array.isArray(strategy) || strategy.length === 0) {
+          strategy = ACTIVE_STRATEGIES["DEFAULT"] || FALLBACK_STRATEGIES.DEFAULT;
       }
+
+      const currentModal = Number(group.maxModal);
+      const range = strategy.find((s: any) => currentModal >= Number(s.minCost) && currentModal <= Number(s.maxCost)) || strategy[0];
+      
+      // Jika digembok pakai yang lama, jika tidak pakai persentase dari strategi
+      if (isLocked) {
+        marginInfo = Number(existing.margin_item || 0);
+      } else {
+        marginInfo = Number(range.min ?? 10);
+      }
+      
+      // Hitung Harga Baru dengan Persentase
+      finalPrice = marginInfo === 0 
+        ? currentModal 
+        : Math.ceil((currentModal * (1 + marginInfo / 100)) / 100) * 100;
 
       // --- RUMUS CASHBACK OTOMATIS SAAT SYNC ---
       const currentDiscount = existing?.discount || 0;
