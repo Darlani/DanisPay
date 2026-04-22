@@ -273,63 +273,11 @@ Array.from(productGroups.values()).forEach((group: any) => {
       }
       // SAMPAI SINI 👆
 
-      let finalPrice = 0;
-      let marginInfo = 0;
-
-      // Cek gembok pakai Nama + ID Brand, JIKA GAGAL KARENA DIEDIT, tangkap pakai jaring SKU
+      // Cek produk lama di database untuk mengambil data harga terakhir
       const productKey = `${bInfo.id}-${group.webName.toLowerCase().trim()}`;
       const existing = existingNameMap.get(productKey) || existingSkuMap.get(group.baseSku);
-      
-      const isLocked = existing?.lock_margin === true || String(existing?.lock_margin).toLowerCase() === 'true';
 
-      // --- LOGIKA BACA margin_json LANGSUNG DARI DATABASE ---
-      let sKey = "DEFAULT";
-      const rawCat = (group.category || "").toUpperCase();
-      
-      // Petakan teks Digiflazz langsung ke nama kunci JSON di database
-      if (group.isPasca) sKey = "TAGIHAN PASCABAYAR";
-      else if (rawCat.includes("PULSA") || rawCat.includes("DATA") || rawCat.includes("PAKET")) sKey = "PULSA & DATA SELULER";
-      else if (rawCat.includes("GAME")) sKey = "GAME";
-      else if (rawCat.includes("PLN") || rawCat.includes("LISTRIK") || rawCat.includes("TOKEN")) sKey = "TAGIHAN PRABAYAR";
-      else if (rawCat.includes("EMONEY") || rawCat.includes("WALLET") || rawCat.includes("SALDO")) sKey = "E-WALLET & SALDO";
-      else if (rawCat.includes("VOUCHER") || rawCat.includes("TIKET")) sKey = "VOUCHER & GIFT CARD";
-      else if (rawCat.includes("STREAM") || rawCat.includes("VOD") || rawCat.includes("SUBSCRIPTION")) sKey = "ENTERTAINMENT & SUBSCRIPTION";
-      else if (rawCat.includes("SOCIAL") || rawCat.includes("KONTEN")) sKey = "SOCIAL & KONTEN";
-
-      // Ambil strategi dari margin_json database
-      let strategy = ACTIVE_STRATEGIES[sKey];
-      
-      if (!strategy || !Array.isArray(strategy) || strategy.length === 0) {
-          strategy = ACTIVE_STRATEGIES["DEFAULT"] || FALLBACK_STRATEGIES.DEFAULT;
-      }
-
-      const currentModal = Number(group.maxModal);
-      const range = strategy.find((s: any) => currentModal >= Number(s.minCost) && currentModal <= Number(s.maxCost)) || strategy[0];
-      
-      // Eksekusi Gembok (Lock Margin)
-      if (isLocked) {
-        marginInfo = Number(existing.margin_item || 0);
-      } else {
-        marginInfo = Number(range.min ?? 10);
-      }
-      
-      // Hitung Harga Baru (Pra & Pasca)
-      finalPrice = marginInfo === 0 
-        ? currentModal 
-        : Math.ceil((currentModal * (1 + marginInfo / 100)) / 100) * 100;
-
-      // --- RUMUS CASHBACK OTOMATIS SAAT SYNC ---
-      const currentDiscount = existing?.discount || 0;
-      const hargaSetelahDiskon = finalPrice - Math.floor(finalPrice * (currentDiscount / 100));
-      const profitKotor = hargaSetelahDiskon - group.maxModal;
-      let finalCashback = 0;
-
-      if (profitKotor > 0) {
-        const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100));
-        const plafonMaks = Math.floor(profitKotor * (globalCashback / 10)); // Capped anti-rugi
-        finalCashback = Math.min(cbNormal, plafonMaks);
-      }
-
+      // 5. UPDATE MODAL SAJA (Pertahankan harga & margin lama agar tidak rusak sebelum di-Bulk Update)
       productsToUpsert.push({
         sku: group.baseSku,
         name: group.webName, 
@@ -337,13 +285,17 @@ Array.from(productGroups.values()).forEach((group: any) => {
         sub_brand: group.subBrandSlug,
         brand_id: bInfo.id,
         category_id: finalCategoryId,
-        cost: group.maxModal, 
-        price: finalPrice, 
+        cost: group.maxModal, // <--- FOKUS UPDATE MODAL TERBARU
+        
+        // --- PERTAHANKAN DATA LAMA ---
+        price: existing?.price || 0,
+        margin_item: existing?.margin_item || 0,
+        discount: existing?.discount || 0,
+        cashback: existing?.cashback || 0,
+        lock_margin: existing?.lock_margin || false,
+        // -----------------------------
+        
         stock: 999, 
-        margin_item: marginInfo,
-        discount: currentDiscount, 
-        cashback: finalCashback, // <-- INI OBAT CASHBACK NOL KEMARIN
-        lock_margin: isLocked, 
         is_active: true,
         provider: 'DIGIFLAZZ',
         updated_at: syncTime
