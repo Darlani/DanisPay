@@ -34,6 +34,7 @@ export async function GET(req: Request) {
     const { data: settingsData } = await supabaseAdmin
       .from('store_settings')
       .select('margin_json, cashback_percent, balance_digiflazz, is_maintenance_digiflazz, admin_fee_pasca')
+      .not('margin_json', 'is', null) // <-- Tambahan pengaman anti baris kosong
       .limit(1)
       .single();
 
@@ -180,30 +181,41 @@ export async function GET(req: Request) {
       const existing = existingNameMap.get(productKey) || existingSkuMap.get(group.baseSku);
       const isLocked = existing?.lock_margin === true || String(existing?.lock_margin).toLowerCase() === 'true';
 
-      if (group.isPasca) {
-        // PERBAIKAN: Hormati gembok pascabayar! Jika dikunci, pakai margin lama. Jika tidak, pakai Admin Fee 2500.
-        if (isLocked) {
-          marginInfo = Number(existing.margin_item || 0);
-        } else {
-          marginInfo = MY_ADMIN_PROFIT;
-        }
-        finalPrice = group.maxModal + marginInfo;
-      } else {
-        if (isLocked) {
-          marginInfo = Number(existing.margin_item || 0);
-        } else {
-          // Panggil pakai String agar match 100% dengan Map di atas
-          const sKey = (catIdToNameMap.get(String(finalCategoryId)) || "DEFAULT").toUpperCase().trim();
-          let strategy = ACTIVE_STRATEGIES[sKey];
-          if (!strategy || !Array.isArray(strategy) || strategy.length === 0) {
-              strategy = ACTIVE_STRATEGIES["DEFAULT"] || FALLBACK_STRATEGIES.DEFAULT;
-          }
-          const currentModal = Number(group.maxModal);
-          const range = strategy.find((s: any) => currentModal >= Number(s.minCost) && currentModal <= Number(s.maxCost)) || strategy[0];
-          marginInfo = Number(range.min ?? 10);
-        }
-        finalPrice = marginInfo === 0 ? group.maxModal : Math.ceil((group.maxModal * (1 + marginInfo / 100)) / 100) * 100;
+      // --- LOGIKA BACA margin_json LANGSUNG DARI DATABASE ---
+      let sKey = "DEFAULT";
+      const rawCat = (group.category || "").toUpperCase();
+      
+      // Petakan teks Digiflazz langsung ke nama kunci JSON di database
+      if (group.isPasca) sKey = "TAGIHAN PASCABAYAR";
+      else if (rawCat.includes("PULSA") || rawCat.includes("DATA") || rawCat.includes("PAKET")) sKey = "PULSA & DATA SELULER";
+      else if (rawCat.includes("GAME")) sKey = "GAME";
+      else if (rawCat.includes("PLN") || rawCat.includes("LISTRIK") || rawCat.includes("TOKEN")) sKey = "TAGIHAN PRABAYAR";
+      else if (rawCat.includes("EMONEY") || rawCat.includes("WALLET") || rawCat.includes("SALDO")) sKey = "E-WALLET & SALDO";
+      else if (rawCat.includes("VOUCHER") || rawCat.includes("TIKET")) sKey = "VOUCHER & GIFT CARD";
+      else if (rawCat.includes("STREAM") || rawCat.includes("VOD") || rawCat.includes("SUBSCRIPTION")) sKey = "ENTERTAINMENT & SUBSCRIPTION";
+      else if (rawCat.includes("SOCIAL") || rawCat.includes("KONTEN")) sKey = "SOCIAL & KONTEN";
+
+      // Ambil strategi dari margin_json database
+      let strategy = ACTIVE_STRATEGIES[sKey];
+      
+      if (!strategy || !Array.isArray(strategy) || strategy.length === 0) {
+          strategy = ACTIVE_STRATEGIES["DEFAULT"] || FALLBACK_STRATEGIES.DEFAULT;
       }
+
+      const currentModal = Number(group.maxModal);
+      const range = strategy.find((s: any) => currentModal >= Number(s.minCost) && currentModal <= Number(s.maxCost)) || strategy[0];
+      
+      // Eksekusi Gembok (Lock Margin)
+      if (isLocked) {
+        marginInfo = Number(existing.margin_item || 0);
+      } else {
+        marginInfo = Number(range.min ?? 10);
+      }
+      
+      // Hitung Harga Baru (Pra & Pasca)
+      finalPrice = marginInfo === 0 
+        ? currentModal 
+        : Math.ceil((currentModal * (1 + marginInfo / 100)) / 100) * 100;
 
       const currentDiscount = existing?.discount || 0;
       const hargaSetelahDiskon = finalPrice - Math.floor(finalPrice * (currentDiscount / 100));

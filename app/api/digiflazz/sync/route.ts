@@ -282,8 +282,21 @@ Array.from(productGroups.values()).forEach((group: any) => {
       
       const isLocked = existing?.lock_margin === true || String(existing?.lock_margin).toLowerCase() === 'true';
 
-      // --- LOGIKA MARGIN UNIVERSAL (SAMA PERSIS DENGAN BULK UPDATE) ---
-      const sKey = (catIdToNameMap.get(String(finalCategoryId)) || "DEFAULT").toUpperCase().trim();
+      // --- LOGIKA BACA margin_json LANGSUNG DARI DATABASE ---
+      let sKey = "DEFAULT";
+      const rawCat = (group.category || "").toUpperCase();
+      
+      // Petakan teks Digiflazz langsung ke nama kunci JSON di database
+      if (group.isPasca) sKey = "TAGIHAN PASCABAYAR";
+      else if (rawCat.includes("PULSA") || rawCat.includes("DATA") || rawCat.includes("PAKET")) sKey = "PULSA & DATA SELULER";
+      else if (rawCat.includes("GAME")) sKey = "GAME";
+      else if (rawCat.includes("PLN") || rawCat.includes("LISTRIK") || rawCat.includes("TOKEN")) sKey = "TAGIHAN PRABAYAR";
+      else if (rawCat.includes("EMONEY") || rawCat.includes("WALLET") || rawCat.includes("SALDO")) sKey = "E-WALLET & SALDO";
+      else if (rawCat.includes("VOUCHER") || rawCat.includes("TIKET")) sKey = "VOUCHER & GIFT CARD";
+      else if (rawCat.includes("STREAM") || rawCat.includes("VOD") || rawCat.includes("SUBSCRIPTION")) sKey = "ENTERTAINMENT & SUBSCRIPTION";
+      else if (rawCat.includes("SOCIAL") || rawCat.includes("KONTEN")) sKey = "SOCIAL & KONTEN";
+
+      // Ambil strategi dari margin_json database
       let strategy = ACTIVE_STRATEGIES[sKey];
       
       if (!strategy || !Array.isArray(strategy) || strategy.length === 0) {
@@ -293,14 +306,14 @@ Array.from(productGroups.values()).forEach((group: any) => {
       const currentModal = Number(group.maxModal);
       const range = strategy.find((s: any) => currentModal >= Number(s.minCost) && currentModal <= Number(s.maxCost)) || strategy[0];
       
-      // Jika digembok pakai yang lama, jika tidak pakai persentase dari strategi
+      // Eksekusi Gembok (Lock Margin)
       if (isLocked) {
         marginInfo = Number(existing.margin_item || 0);
       } else {
         marginInfo = Number(range.min ?? 10);
       }
       
-      // Hitung Harga Baru dengan Persentase
+      // Hitung Harga Baru (Pra & Pasca)
       finalPrice = marginInfo === 0 
         ? currentModal 
         : Math.ceil((currentModal * (1 + marginInfo / 100)) / 100) * 100;
