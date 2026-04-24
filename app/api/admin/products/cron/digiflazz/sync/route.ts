@@ -127,10 +127,16 @@ export async function GET(req: Request) {
     for (let i = 0; i < uniqueItems.length; i += chunkSize) await supabaseAdmin.from('items').insert(uniqueItems.slice(i, i + chunkSize));
     for (let i = 0; i < productsToUpsert.length; i += chunkSize) await supabaseAdmin.from('product_automatic').upsert(productsToUpsert.slice(i, i + chunkSize), { onConflict: 'name' });
 
-    // Bersihkan produk yang sudah tidak ada di Digiflazz
-    await supabaseAdmin.from('product_automatic').delete().eq('provider', 'DIGIFLAZZ').lt('updated_at', syncTime);
-
-    return NextResponse.json({ success: true, message: "SYNC MODAL BERHASIL! Silakan panggil Bulk Update." });
+    // --- CATAT LOG AKTIVITAS SYNC (Biar nggak jadi Ninja!) ---
+    try {
+      await supabaseAdmin.from('activity_logs').insert([{
+        action: "AUTO SYNC (CRON)",
+        details: `Robot Jam 4 Pagi sukses sinkronisasi modal dasar ${productsToUpsert.length} produk Digiflazz.`,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (logErr) {
+      console.error("Gagal catat log sync:", logErr);
+    }
 
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

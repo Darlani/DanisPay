@@ -128,7 +128,7 @@ export async function POST(req: Request) {
      // Kita taruh di sini supaya log cuma tercipta kalau update produknya sukses
      try {
        await supabaseAdmin.from('activity_logs').insert([{
-         action: "BULK UPDATE",
+         action: "MANUAL BULK UPDATE",
          details: `Melakukan update harga massal pada ${updateCount} produk via dashboard admin.`,
          created_at: new Date().toISOString()
        }]);
