@@ -16,11 +16,12 @@ export async function GET(req: Request) {
   }
 
   try {
-    // 2. AMBIL DATA STRATEGI & SETTINGS DARI DATABASE
+    // 2. AMBIL DATA STRATEGI & SETTINGS (Pake Limit Anti Crash)
     const { data: settings } = await supabaseAdmin
       .from('store_settings')
       .select('margin_json, cashback_percent')
       .not('margin_json', 'is', null)
+      .limit(1) // <--- PENGAMAN 1 (Anti Error Multiple Rows)
       .single();
 
     if (!settings?.margin_json) throw new Error("Strategi margin_json tidak ditemukan di database!");
@@ -30,14 +31,16 @@ export async function GET(req: Request) {
       : settings.margin_json;
     const dbCashbackPercent = Number(settings.cashback_percent || 3);
 
-    // 3. TARIK PRODUK KHUSUS DIGIFLAZZ (AUTO & SEMI-AUTO)
+    // 3. TARIK PRODUK KHUSUS DIGIFLAZZ (Pake Limit Anti Timeout)
     const [autoRes, semiRes] = await Promise.all([
       supabaseAdmin.from('product_automatic')
         .select('id, cost, margin_item, discount, lock_margin, category_id, categories(name)')
-        .eq('provider', 'DIGIFLAZZ'),
+        .eq('provider', 'DIGIFLAZZ')
+        .limit(50000), // <--- PENGAMAN 2
       supabaseAdmin.from('product_semi_auto')
         .select('id, cost_numeric, margin_item, discount, lock_margin, category_id, categories(name)')
         .eq('provider', 'DIGIFLAZZ')
+        .limit(50000) // <--- PENGAMAN 2
     ]);
 
     const autoProducts = autoRes.data || [];
@@ -46,7 +49,7 @@ export async function GET(req: Request) {
     const updatesAuto: any[] = [];
     const updatesSemi: any[] = [];
 
-    // 4. FUNGSI EKSEKUTOR (Identik dengan Logika Manual Kamu)
+    // 4. FUNGSI EKSEKUTOR
     const processProducts = (products: any[], isSemiAuto: boolean, targetArray: any[]) => {
       for (const product of products) {
         const isLocked = product.lock_margin === true || String(product.lock_margin).toLowerCase() === 'true';
@@ -102,16 +105,21 @@ export async function GET(req: Request) {
       await Promise.all(chunk.map(upd => supabaseAdmin.from('product_semi_auto').update(upd).eq('id', upd.id)));
     }
 
-    // 6. LOG AKTIVITAS
-    await supabaseAdmin.from('activity_logs').insert([{
-      action: "AUTO BULK DIGIFLAZZ (CRON)",
-      details: `Robot otomatis merapikan harga ${updateCount} produk Digiflazz sesuai Save Strategy.`,
-      created_at: new Date().toISOString()
-    }]);
+    // 6. LOG AKTIVITAS (Dibungkus Try-Catch agar tidak menggagalkan fungsi utama)
+    try {
+      await supabaseAdmin.from('activity_logs').insert([{
+        action: "AUTO BULK DIGIFLAZZ (CRON)",
+        details: `Robot otomatis merapikan harga ${updateCount} produk Digiflazz sesuai Save Strategy.`,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (logErr) {
+      console.error("Gagal catat log cron bulk:", logErr);
+    }
 
     return NextResponse.json({ success: true, message: `Auto Bulk Digiflazz Berhasil: ${updateCount} Produk.` });
 
   } catch (error: any) {
+    console.error("CRON BULK ERROR:", error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
