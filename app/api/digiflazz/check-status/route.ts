@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     // --- SATPAM TERPADU (Admin, Manager, & Secret Key untuk Patrol) ---
     const { searchParams } = new URL(req.url);
     const querySecret = searchParams.get('secret');
-    const WEBHOOK_SECRET = process.env.MACRODROID_SECRET;
+    const WEBHOOK_SECRET = process.env.ADMIN_SECRET;
 
     const cookieStore = req.headers.get('cookie') || "";
     const isAuthorized = 

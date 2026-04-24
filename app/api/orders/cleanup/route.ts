@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 export async function GET(req: Request) {
-  // 1. SATPAM API
+  // 1. SATPAM API (Khusus Robot Tukang Sapu)
   const { searchParams } = new URL(req.url);
   const querySecret = searchParams.get('secret');
   const authHeader = req.headers.get('Authorization');
-  const WEBHOOK_SECRET = process.env.MACRODROID_SECRET;
+  const WEBHOOK_SECRET = process.env.CRON_SECRET;
 
   const isAuthorized = authHeader === `Bearer ${WEBHOOK_SECRET}` || querySecret === WEBHOOK_SECRET;
 

@@ -13,7 +13,7 @@ const slugify = (text: string) =>
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const querySecret = searchParams.get('secret');
-  const WEBHOOK_SECRET = process.env.MACRODROID_SECRET;
+  const WEBHOOK_SECRET = process.env.CRON_SECRET;
 
   if (!WEBHOOK_SECRET || querySecret !== WEBHOOK_SECRET) {
     return NextResponse.json({ error: "Akses Ditolak!" }, { status: 403 });
@@ -137,6 +137,9 @@ export async function GET(req: Request) {
     } catch (logErr) {
       console.error("Gagal catat log sync:", logErr);
     }
+
+    // WAJIB ADA AGAR BROWSER TAHU PROSESNYA SELESAI
+    return NextResponse.json({ success: true, message: "CRON SYNC SUCCESS!" });
 
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

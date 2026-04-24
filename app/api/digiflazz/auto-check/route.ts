@@ -22,7 +22,7 @@ export async function GET(req: Request) {
     // 1. SATPAM API
     const { searchParams } = new URL(req.url);
     const querySecret = searchParams.get('secret');
-    const WEBHOOK_SECRET = process.env.MACRODROID_SECRET;
+    const WEBHOOK_SECRET = process.env.CRON_SECRET;
 
     if (querySecret !== WEBHOOK_SECRET) {
       return NextResponse.json({ error: "Akses Ditolak!" }, { status: 401 });
