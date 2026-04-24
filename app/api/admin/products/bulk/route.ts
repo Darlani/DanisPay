@@ -129,7 +129,7 @@ export async function POST(req: Request) {
      try {
        await supabaseAdmin.from('activity_logs').insert([{
          action: "MANUAL BULK UPDATE",
-         details: `Melakukan update harga massal pada ${updateCount} produk via dashboard admin.`,
+         details: `Admin berhasil merapikan harga ${updateCount} produk Digiflazz secara manual via dashboard.`,
          created_at: new Date().toISOString()
        }]);
      } catch (logErr) {
