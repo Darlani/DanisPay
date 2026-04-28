@@ -72,15 +72,25 @@ export async function POST(req: Request) {
 const isPascabayar = productType === 'provider' && (namaKategori.includes('pascabayar') || dbProduct.sku.toLowerCase() === 'pln');
 
 if (isPascabayar) {
-      try {
-        // 1. Ambil data dari hasil inquiry yang dikirim frontend
-        tagihanMurni = Number(inquiry_result?.amount || 0);
-        const adminToko = Number(dbProduct.price || 0); 
-        const adminSupplier = Number(inquiry_result?.adminSupplier || 0);
+      try {
+        // 1. Ambil data dari hasil inquiry yang dikirim frontend
+        tagihanMurni = Number(inquiry_result?.amount || 0);
+        const adminToko = Number(dbProduct.price || 0); 
+        const adminSupplier = Number(inquiry_result?.adminSupplier || 0);
 
-        // 2. Hitung harga yang seharusnya dibayar user
-        hargaJualPascabayar = tagihanMurni + adminToko;
-        modalPascabayar = tagihanMurni + adminSupplier; // Modal asli Bos ke Digiflazz
+        // 1.5 EKSTRAK DENDA DARI DESC JSON
+        let dendaTagihan = 0;
+        try {
+            if (inquiry_result?.desc?.detail && inquiry_result.desc.detail.length > 0) {
+                dendaTagihan = Number(inquiry_result.desc.detail[0].denda) || 0;
+            }
+        } catch (e) {
+            console.error("Gagal ekstrak denda:", e);
+        }
+
+        // 2. Hitung harga yang seharusnya dibayar user (WAJIB TAMBAH DENDA)
+        hargaJualPascabayar = tagihanMurni + adminToko + dendaTagihan;
+        modalPascabayar = tagihanMurni + adminSupplier + dendaTagihan; // Modal asli Bos ke Digiflazz (tambah denda)
         
         hargaSeharusnya = hargaJualPascabayar;
         
