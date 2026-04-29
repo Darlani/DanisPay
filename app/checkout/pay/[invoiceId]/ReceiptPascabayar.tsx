@@ -101,8 +101,8 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
           
           {/* INFO HEADER */}
           <div className="flex justify-between items-center w-full">
-            <span className="text-slate-500 uppercase">Tanggal</span> 
-            <span className="font-bold text-slate-800 text-right">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span>
+            <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Tanggal</span> 
+            <span className="font-bold text-slate-800 text-right block text-[13px]">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span>
           </div>
           
           <div 
@@ -110,8 +110,8 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
             className="flex justify-between items-center w-full cursor-pointer group hover:bg-slate-50 p-1 -mx-1 rounded-lg transition-all active:scale-95"
             title="Klik untuk salin Invoice"
           >
-            <span className="text-slate-500 uppercase">No. Invoice</span> 
-            <span className="font-bold text-right text-blue-600 flex items-center gap-1.5">
+            <span className="text-slate-500 uppercase block text-[9px] tracking-widest">No. Invoice</span> 
+            <span className="font-bold text-right text-blue-600 flex items-center gap-1.5 text-[13px]">
               <div className="flex items-center">
                 {copied ? (
                   <CheckCircle2 size={11} className="text-emerald-500 animate-in zoom-in mr-1" />
@@ -124,79 +124,79 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
           </div>
           
           <div className="flex justify-between items-center w-full">
-            <span className="text-slate-500 uppercase">Metode</span> 
-            <span className="font-bold text-slate-800 text-right uppercase">{order.payment_method}</span>
+            <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Metode</span> 
+            <span className="font-bold text-slate-800 text-right uppercase block text-[13px]">{order.payment_method}</span>
           </div>
           
           <div className="border-t border-dashed border-slate-200 my-3"></div>
 
-          {/* INFO PRODUK & PELANGGAN */}
-          <div className="flex justify-between items-center w-full">
-            <span className="text-slate-500 uppercase">Produk</span>
-            <span className="font-bold text-slate-800 text-right uppercase leading-tight max-w-[60%]">
+          {/* --- INFO PRODUK & PELANGGAN (Sekarang Rata Tengah) --- */}
+          <div className="text-center space-y-1 w-full">
+            <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Produk</span>
+            <span className="font-bold text-slate-800 uppercase block leading-tight text-[12px]">
               {order.product_name}
             </span>
           </div>
           
           {order.customer_name && (
-            <div className="flex justify-between items-center w-full">
-              <span className="text-slate-500 uppercase">Nama Pelanggan</span>
-              <span className="font-bold text-slate-800 text-right uppercase max-w-[60%]">{order.customer_name}</span>
+            <div className="text-center space-y-1 w-full">
+              <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Nama Pelanggan</span>
+              <span className="font-bold text-slate-800 uppercase block text-[13px]">{order.customer_name}</span>
             </div>
           )}
 
-          <div className="flex justify-between items-center w-full">
-            <span className="text-slate-500 uppercase">Nomor Tujuan / ID</span>
-            <span className="font-bold text-slate-800 text-right tracking-widest">{order.game_id}</span>
+          <div className="text-center space-y-1 w-full">
+            <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Nomor Tujuan / ID</span>
+            <span className="font-black text-slate-900 block text-[15px] tracking-widest">{order.game_id}</span>
           </div>
 
           {/* KOTAK DETAIL TAGIHAN */}
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 w-full mt-3">
-            <p className="text-[10px] text-slate-500 font-black uppercase text-center border-b border-slate-200 pb-2 mb-3">Detail Tagihan</p>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mt-2 w-full text-left">
+            <p className="text-[10px] text-slate-500 font-black uppercase text-center border-b border-slate-200 pb-3 mb-3">Detail Tagihan</p>
             
-            <div className="space-y-2">
-              <div className="flex justify-between items-center w-full text-[10px]">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between w-full text-[10px]">
                 <span className="text-slate-500 uppercase">Tarif/Daya</span>
-                <span className="font-bold text-slate-800 text-right">{order.segment_power || "-"}</span>
+                <span className="font-bold text-slate-800 text-right text-[12px]">{order.segment_power || "-"}</span>
               </div>
 
               {periode && (
-                <div className="flex justify-between items-center w-full text-[10px]">
+                <div className="flex items-center justify-between w-full text-[10px]">
                   <span className="text-slate-500 uppercase">Bulan/Tahun</span>
-                  <span className="font-bold text-slate-800 uppercase text-right">{periode}</span>
+                  <span className="font-bold text-slate-800 uppercase text-right text-[12px]">{periode}</span>
                 </div>
               )}
               
               {order.stand_meter && (
-                <div className="flex justify-between items-center w-full text-[10px]">
+                <div className="flex items-center justify-between w-full text-[10px]">
                   <span className="text-slate-500 uppercase">Stand Meter</span>
-                  <span className="font-bold text-slate-800 text-right">{order.stand_meter}</span>
+                  <span className="font-bold text-slate-800 text-right text-[12px]">{order.stand_meter}</span>
                 </div>
               )}
             </div>
 
-            <div className="border-t border-slate-200 mt-3 pt-3 space-y-2">
-              <div className="flex justify-between items-center w-full text-[10px]">
+            <div className="border-t border-slate-200 mt-3 pt-3 space-y-2.5">
+              <div className="flex items-center justify-between w-full text-[10px]">
                 <span className="text-slate-500 uppercase">Rp Tagihan PLN</span>
-                <span className="font-bold text-slate-800 text-right">Rp {tagihanPLN.toLocaleString('id-ID')}</span>
+                <span className="font-bold text-slate-800 text-right text-[12px]">Rp {tagihanPLN.toLocaleString('id-ID')}</span>
               </div>
 
               {dendaPLN > 0 && (
-                <div className="flex justify-between items-center w-full text-[10px]">
-                  <span className="text-rose-500 font-bold uppercase">Denda</span>
-                  <span className="font-bold text-rose-600 text-right">Rp {dendaPLN.toLocaleString('id-ID')}</span>
+                <div className="flex items-center justify-between w-full text-[10px]">
+                  <span className="text-rose-500 uppercase">Denda</span>
+                  <span className="font-bold text-rose-600 text-right text-[12px]">Rp {dendaPLN.toLocaleString('id-ID')}</span>
                 </div>
               )}
 
-              <div className="flex justify-between items-center w-full text-[10px]">
+              <div className="flex items-center justify-between w-full text-[10px]">
                 <span className="text-slate-500 uppercase">Biaya Admin</span>
-                <span className="font-bold text-slate-800 text-right">Rp {adminPLN.toLocaleString('id-ID')}</span>
+                <span className="font-bold text-slate-800 text-right text-[12px]">Rp {adminPLN.toLocaleString('id-ID')}</span>
               </div>
 
               {biayaLayanan > 0 && (
-                <div className="flex justify-between items-center w-full text-[10px]">
+                <div className="flex items-center justify-between w-full text-[10px]">
                   <span className="text-slate-500 uppercase">Biaya Layanan</span>
-                  <span className="font-bold text-slate-800 text-right">Rp {biayaLayanan.toLocaleString('id-ID')}</span>
+                  <span className="font-bold text-slate-800 text-right text-[12px]">Rp {biayaLayanan.toLocaleString('id-ID')}</span>
                 </div>
               )}
             </div>
@@ -206,7 +206,7 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
           {order.sn && (
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-center mt-2 w-full">
               <p className="text-[9px] text-slate-400 uppercase mb-1">Serial Number / SN / Struk PLN</p>
-              <p className="font-bold text-[12px] break-all text-emerald-600">{order.sn}</p>
+              <p className="font-bold break-all text-emerald-600 tracking-wide text-[13px]">{order.sn}</p>
             </div>
           )}
         </div>
@@ -214,8 +214,8 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
         {/* TOTAL LUNAS */}
         <div className="border-t-2 border-dashed border-slate-200 my-4 pt-4">
           <div className="flex justify-between items-center bg-blue-600 text-white p-3 rounded-xl shadow-lg shadow-blue-200">
-            <span className="font-bold italic uppercase">Total Lunas</span>
-            <span className="text-lg font-black italic">
+            <span className="font-bold italic uppercase block text-[13px]">Total Lunas</span>
+            <span className="text-lg font-black italic block text-[20px]">
               Rp {totalBayar.toLocaleString('id-ID')}
             </span>
           </div>
