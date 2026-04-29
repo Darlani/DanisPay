@@ -96,58 +96,60 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
           </p>
         </div>
 
-        {/* --- KONTEN INFORMASI DENGAN ALIGNMENT RATA KANAN KIRI MURNI --- */}
-        <div className="space-y-3 text-[11px] w-full text-left">
+        {/* --- KONTEN INFORMASI --- */}
+        <div className="w-full text-left">
           
           {/* INFO HEADER */}
-          <div className="flex justify-between items-center w-full">
-            <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Tanggal</span> 
-            <span className="font-bold text-slate-800 text-right block text-[13px]">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span>
-          </div>
-          
-          <div 
-            onClick={handleCopyInvoice}
-            className="flex justify-between items-center w-full cursor-pointer group hover:bg-slate-50 p-1 -mx-1 rounded-lg transition-all active:scale-95"
-            title="Klik untuk salin Invoice"
-          >
-            <span className="text-slate-500 uppercase block text-[9px] tracking-widest">No. Invoice</span> 
-            <span className="font-bold text-right text-blue-600 flex items-center gap-1.5 text-[13px]">
-              <div className="flex items-center">
-                {copied ? (
-                  <CheckCircle2 size={11} className="text-emerald-500 animate-in zoom-in mr-1" />
-                ) : (
-                  <Copy size={11} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity mr-1" />
-                )}
-              </div>
-              #{order.order_id}
-            </span>
-          </div>
-          
-          <div className="flex justify-between items-center w-full">
-            <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Metode</span> 
-            <span className="font-bold text-slate-800 text-right uppercase block text-[13px]">{order.payment_method}</span>
-          </div>
-          
-          <div className="border-t border-dashed border-slate-200 my-3"></div>
-
-          {/* --- INFO PRODUK & PELANGGAN (Sekarang Rata Tengah) --- */}
-          <div className="text-center space-y-1 w-full">
-            <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Produk</span>
-            <span className="font-bold text-slate-800 uppercase block leading-tight text-[12px]">
-              {order.product_name}
-            </span>
-          </div>
-          
-          {order.customer_name && (
-            <div className="text-center space-y-1 w-full">
-              <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Nama Pelanggan</span>
-              <span className="font-bold text-slate-800 uppercase block text-[13px]">{order.customer_name}</span>
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center w-full">
+              <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Tanggal</span> 
+              <span className="font-bold text-slate-800 text-right block text-[13px]">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span>
             </div>
-          )}
+            
+            <div 
+              onClick={handleCopyInvoice}
+              className="flex justify-between items-center w-full cursor-pointer group hover:bg-slate-50 py-1 -my-1 rounded-md transition-all active:scale-95"
+              title="Klik untuk salin Invoice"
+            >
+              <span className="text-slate-500 uppercase block text-[9px] tracking-widest">No. Invoice</span> 
+              <span className="font-bold text-blue-600 flex items-center justify-end gap-1.5 text-[13px]">
+                {copied ? (
+                  <CheckCircle2 size={13} className="text-emerald-500 animate-in zoom-in" />
+                ) : (
+                  <Copy size={13} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
+                #{order.order_id}
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center w-full">
+              <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Metode</span> 
+              <span className="font-bold text-slate-800 text-right uppercase block text-[13px]">{order.payment_method}</span>
+            </div>
+          </div>
+          
+          <div className="border-t border-dashed border-slate-200 my-4"></div>
 
-          <div className="text-center space-y-1 w-full">
-            <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Nomor Tujuan / ID</span>
-            <span className="font-black text-slate-900 block text-[15px] tracking-widest">{order.game_id}</span>
+          {/* --- INFO PRODUK & PELANGGAN --- */}
+          <div className="space-y-3">
+            <div className="text-center space-y-1 w-full">
+              <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Produk</span>
+              <span className="font-bold text-slate-800 uppercase block leading-tight text-[12px]">
+                {order.product_name}
+              </span>
+            </div>
+            
+            {order.customer_name && (
+              <div className="text-center space-y-1 w-full">
+                <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Nama Pelanggan</span>
+                <span className="font-bold text-slate-800 uppercase block text-[13px]">{order.customer_name}</span>
+              </div>
+            )}
+
+            <div className="text-center space-y-1 w-full">
+              <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Nomor Tujuan / ID</span>
+              <span className="font-black text-slate-900 block text-[15px] tracking-widest">{order.game_id}</span>
+            </div>
           </div>
 
           {/* KOTAK DETAIL TAGIHAN */}
@@ -183,7 +185,7 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
 
               {dendaPLN > 0 && (
                 <div className="flex items-center justify-between w-full text-[10px]">
-                  <span className="text-rose-500 uppercase">Denda</span>
+                  <span className="text-rose-500 font-bold uppercase">Denda</span>
                   <span className="font-bold text-rose-600 text-right text-[12px]">Rp {dendaPLN.toLocaleString('id-ID')}</span>
                 </div>
               )}
