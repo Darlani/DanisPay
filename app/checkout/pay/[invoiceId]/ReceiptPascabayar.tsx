@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react"; // Tambah useState
-import { Download, Printer, CheckCircle2, Copy } from "lucide-react"; // Tambah Copy
+import { useRef, useState } from "react";
+import { Download, Printer, CheckCircle2, Copy } from "lucide-react";
 import { toPng } from "html-to-image";
 
 export default function ReceiptPascabayar({ order }: { order: any }) {
   const receiptRef = useRef<HTMLDivElement>(null);
-  const [copied, setCopied] = useState(false); // State feedback
+  const [copied, setCopied] = useState(false);
 
   const handleCopyInvoice = () => {
     if (order?.order_id) {
@@ -38,42 +38,42 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
 
   if (!order || order.status !== "Berhasil") return null;
 
-// --- LOGIKA HITUNGAN REAL DARI DATABASE ---
-  const totalBayar = (order.total_amount || 0) + (order.used_balance || 0); 
-  const biayaLayanan = order.unique_code || 0;
+  // --- LOGIKA HITUNGAN REAL DARI DATABASE ---
+  const totalBayar = (order.total_amount || 0) + (order.used_balance || 0); 
+  const biayaLayanan = order.unique_code || 0;
 
-  // Ekstrak langsung dari JSON
-  let tagihanPLN = order.raw_tagihan || 0;
-  let dendaPLN = 0;
-  let adminPLN = 0;
-  let periode = "";
-  
-  try {
-    if (order.desc) {
-      const parsedDesc = typeof order.desc === 'string' ? JSON.parse(order.desc) : order.desc;
-      if (parsedDesc?.detail && parsedDesc.detail.length > 0) {
-        const detailJson = parsedDesc.detail[0];
-        
-        // Ambil nilai sesuai request Bos
-        tagihanPLN = parseInt(detailJson.nilai_tagihan) || tagihanPLN;
-        dendaPLN = parseInt(detailJson.denda) || 0;
-        adminPLN = parseInt(detailJson.admin) || 0;
-        
-        // Format periode otomatis (202604 -> April 2026)
-        const rawPeriode = detailJson.periode;
-        if (rawPeriode && rawPeriode.length === 6) {
-          const year = rawPeriode.substring(0, 4);
-          const month = parseInt(rawPeriode.substring(4, 6)) - 1;
-          const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-          periode = `${months[month]} ${year}`;
-        } else {
-          periode = rawPeriode || "";
-        }
-      }
-    }
-  } catch (e) {
-    console.error("Gagal parse desc:", e);
-  }
+  // Ekstrak langsung dari JSON
+  let tagihanPLN = order.raw_tagihan || 0;
+  let dendaPLN = 0;
+  let adminPLN = 0;
+  let periode = "";
+  
+  try {
+    if (order.desc) {
+      const parsedDesc = typeof order.desc === 'string' ? JSON.parse(order.desc) : order.desc;
+      if (parsedDesc?.detail && parsedDesc.detail.length > 0) {
+        const detailJson = parsedDesc.detail[0];
+        
+        // Ambil nilai sesuai request Bos
+        tagihanPLN = parseInt(detailJson.nilai_tagihan) || tagihanPLN;
+        dendaPLN = parseInt(detailJson.denda) || 0;
+        adminPLN = parseInt(detailJson.admin) || 0;
+        
+        // Format periode otomatis (202604 -> April 2026)
+        const rawPeriode = detailJson.periode;
+        if (rawPeriode && rawPeriode.length === 6) {
+          const year = rawPeriode.substring(0, 4);
+          const month = parseInt(rawPeriode.substring(4, 6)) - 1;
+          const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+          periode = `${months[month]} ${year}`;
+        } else {
+          periode = rawPeriode || "";
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Gagal parse desc:", e);
+  }
 
   return (
     <div className="flex flex-col items-center gap-3 w-full animate-in fade-in zoom-in duration-500">
@@ -96,19 +96,22 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
           </p>
         </div>
 
-        <div className="space-y-2 text-[11px]">
-          <div className="flex justify-between">
-            <span>TANGGAL</span> 
-            <span className="font-bold text-right">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span>
+        {/* --- KONTEN INFORMASI DENGAN ALIGNMENT RATA KANAN KIRI MURNI --- */}
+        <div className="space-y-3 text-[11px] w-full text-left">
+          
+          {/* INFO HEADER */}
+          <div className="flex justify-between items-center w-full">
+            <span className="text-slate-500 uppercase">Tanggal</span> 
+            <span className="font-bold text-slate-800 text-right">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span>
           </div>
+          
           <div 
             onClick={handleCopyInvoice}
-            className="flex justify-between items-center cursor-pointer group hover:bg-slate-50 p-1 -m-1 rounded-lg transition-all active:scale-95"
+            className="flex justify-between items-center w-full cursor-pointer group hover:bg-slate-50 p-1 -mx-1 rounded-lg transition-all active:scale-95"
             title="Klik untuk salin Invoice"
           >
-            <span>NO. INVOICE</span> 
+            <span className="text-slate-500 uppercase">No. Invoice</span> 
             <span className="font-bold text-right text-blue-600 flex items-center gap-1.5">
-              {/* Ikon dipindah ke kiri agar nomor invoice tetap rata kanan */}
               <div className="flex items-center">
                 {copied ? (
                   <CheckCircle2 size={11} className="text-emerald-500 animate-in zoom-in mr-1" />
@@ -119,99 +122,102 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
               #{order.order_id}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span>METODE</span> 
-            <span className="font-bold text-right uppercase">{order.payment_method}</span>
+          
+          <div className="flex justify-between items-center w-full">
+            <span className="text-slate-500 uppercase">Metode</span> 
+            <span className="font-bold text-slate-800 text-right uppercase">{order.payment_method}</span>
           </div>
           
-          <div className="border-t border-dashed border-slate-200 my-4"></div>
+          <div className="border-t border-dashed border-slate-200 my-3"></div>
 
-          <div className="space-y-3">
-            <div>
-              <p className="text-slate-400">PRODUK</p>
-              <p className="font-bold uppercase text-[12px] leading-tight">
-                {order.product_name}
-              </p>
+          {/* INFO PRODUK & PELANGGAN */}
+          <div className="flex justify-between items-center w-full">
+            <span className="text-slate-500 uppercase">Produk</span>
+            <span className="font-bold text-slate-800 text-right uppercase leading-tight max-w-[60%]">
+              {order.product_name}
+            </span>
+          </div>
+          
+          {order.customer_name && (
+            <div className="flex justify-between items-center w-full">
+              <span className="text-slate-500 uppercase">Nama Pelanggan</span>
+              <span className="font-bold text-slate-800 text-right uppercase max-w-[60%]">{order.customer_name}</span>
             </div>
-            
-            {/* MENAMPILKAN NAMA PELANGGAN DARI DB */}
-            {order.customer_name && (
-               <div>
-                 <p className="text-slate-400 uppercase text-[9px]">Nama Pelanggan</p>
-                 <p className="font-bold uppercase text-[12px]">{order.customer_name}</p>
-               </div>
-            )}
+          )}
 
-            <div>
-              <p className="text-slate-400">NOMOR TUJUAN / ID PEL</p>
-              <p className="font-bold text-[14px] tracking-widest">{order.game_id}</p>
-            </div>
-
-<div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-left mt-2 w-full">
-              <p className="text-[10px] text-slate-500 font-black uppercase text-center border-b border-slate-200 pb-3 mb-3">Detail Tagihan</p>              
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-slate-500 uppercase">Tarif/Daya</span>
-                  <span className="font-bold text-right">{order.segment_power || "-"}</span>
-                </div>
-
-                {periode && (
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-slate-500 uppercase">Bulan/Tahun</span>
-                    <span className="font-bold uppercase text-right">{periode}</span>
-                  </div>
-                )}
-                
-                {order.stand_meter && (
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-slate-500 uppercase">Stand Meter</span>
-                    <span className="font-bold text-right">{order.stand_meter}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="border-t border-slate-200 mt-3 pt-3 space-y-2.5">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-slate-500 uppercase">Rp Tagihan PLN</span>
-                  <span className="font-bold text-right">Rp {tagihanPLN.toLocaleString('id-ID')}</span>
-                </div>
-
-                {dendaPLN > 0 && (
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-rose-500 uppercase">Denda</span>
-                    <span className="font-bold text-rose-600 text-right">Rp {dendaPLN.toLocaleString('id-ID')}</span>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-slate-500 uppercase">Biaya Admin</span>
-                  <span className="font-bold text-right">Rp {adminPLN.toLocaleString('id-ID')}</span>
-                </div>
-
-                {biayaLayanan > 0 && (
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-slate-500 uppercase">Biaya Layanan</span>
-                    <span className="font-bold text-right">Rp {biayaLayanan.toLocaleString('id-ID')}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {order.sn && (
-              <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                <p className="text-[9px] text-slate-400 uppercase">Serial Number / SN / Struk PLN</p>
-                <p className="font-bold text-[11px] break-all text-emerald-600">{order.sn}</p>
-              </div>
-            )}
+          <div className="flex justify-between items-center w-full">
+            <span className="text-slate-500 uppercase">Nomor Tujuan / ID</span>
+            <span className="font-bold text-slate-800 text-right tracking-widest">{order.game_id}</span>
           </div>
 
-          <div className="border-t-2 border-dashed border-slate-200 my-4 pt-4">
-            <div className="flex justify-between items-center bg-blue-600 text-white p-3 rounded-xl shadow-lg shadow-blue-200">
-              <span className="font-bold italic uppercase">Total Lunas</span>
-              <span className="text-lg font-black italic">
-                Rp {totalBayar.toLocaleString('id-ID')}
-              </span>
+          {/* KOTAK DETAIL TAGIHAN */}
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 w-full mt-3">
+            <p className="text-[10px] text-slate-500 font-black uppercase text-center border-b border-slate-200 pb-2 mb-3">Detail Tagihan</p>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center w-full text-[10px]">
+                <span className="text-slate-500 uppercase">Tarif/Daya</span>
+                <span className="font-bold text-slate-800 text-right">{order.segment_power || "-"}</span>
+              </div>
+
+              {periode && (
+                <div className="flex justify-between items-center w-full text-[10px]">
+                  <span className="text-slate-500 uppercase">Bulan/Tahun</span>
+                  <span className="font-bold text-slate-800 uppercase text-right">{periode}</span>
+                </div>
+              )}
+              
+              {order.stand_meter && (
+                <div className="flex justify-between items-center w-full text-[10px]">
+                  <span className="text-slate-500 uppercase">Stand Meter</span>
+                  <span className="font-bold text-slate-800 text-right">{order.stand_meter}</span>
+                </div>
+              )}
             </div>
+
+            <div className="border-t border-slate-200 mt-3 pt-3 space-y-2">
+              <div className="flex justify-between items-center w-full text-[10px]">
+                <span className="text-slate-500 uppercase">Rp Tagihan PLN</span>
+                <span className="font-bold text-slate-800 text-right">Rp {tagihanPLN.toLocaleString('id-ID')}</span>
+              </div>
+
+              {dendaPLN > 0 && (
+                <div className="flex justify-between items-center w-full text-[10px]">
+                  <span className="text-rose-500 font-bold uppercase">Denda</span>
+                  <span className="font-bold text-rose-600 text-right">Rp {dendaPLN.toLocaleString('id-ID')}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center w-full text-[10px]">
+                <span className="text-slate-500 uppercase">Biaya Admin</span>
+                <span className="font-bold text-slate-800 text-right">Rp {adminPLN.toLocaleString('id-ID')}</span>
+              </div>
+
+              {biayaLayanan > 0 && (
+                <div className="flex justify-between items-center w-full text-[10px]">
+                  <span className="text-slate-500 uppercase">Biaya Layanan</span>
+                  <span className="font-bold text-slate-800 text-right">Rp {biayaLayanan.toLocaleString('id-ID')}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* SERIAL NUMBER */}
+          {order.sn && (
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-center mt-2 w-full">
+              <p className="text-[9px] text-slate-400 uppercase mb-1">Serial Number / SN / Struk PLN</p>
+              <p className="font-bold text-[12px] break-all text-emerald-600">{order.sn}</p>
+            </div>
+          )}
+        </div>
+
+        {/* TOTAL LUNAS */}
+        <div className="border-t-2 border-dashed border-slate-200 my-4 pt-4">
+          <div className="flex justify-between items-center bg-blue-600 text-white p-3 rounded-xl shadow-lg shadow-blue-200">
+            <span className="font-bold italic uppercase">Total Lunas</span>
+            <span className="text-lg font-black italic">
+              Rp {totalBayar.toLocaleString('id-ID')}
+            </span>
           </div>
         </div>
 
@@ -221,7 +227,7 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
         </div>
       </div>
 
-      {/* ACTION BUTTONS TETAP SAMA */}
+      {/* ACTION BUTTONS */}
       <div className="flex flex-col sm:flex-row gap-2 w-full max-w-md mx-auto no-print">
         <button 
           onClick={() => window.print()}
