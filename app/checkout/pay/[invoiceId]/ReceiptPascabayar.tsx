@@ -147,9 +147,8 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
               <p className="font-bold text-[14px] tracking-widest">{order.game_id}</p>
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <p className="text-[10px] text-slate-500 font-black uppercase text-center border-b border-slate-200 pb-3 mb-3">Detail Tagihan</p>
-              
+<div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-left mt-2 w-full">
+              <p className="text-[10px] text-slate-500 font-black uppercase text-center border-b border-slate-200 pb-3 mb-3">Detail Tagihan</p>              
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between text-[10px]">
                   <span className="text-slate-500 uppercase">Tarif/Daya</span>
