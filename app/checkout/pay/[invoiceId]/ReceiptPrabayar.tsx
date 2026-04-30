@@ -135,11 +135,11 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
               {/* KHUSUS PLN */}
               {isPln && (
                 <>
-                  <div className="flex justify-between items-center w-full text-[11px] sm:text-[14px]">
+                  <div className="flex justify-between items-center w-full text-[10px] sm:text-[12px]">
                     <span className="text-slate-500 uppercase">Tarif/Daya</span>
                     <span className="font-bold text-slate-800">{plnTarifDaya}</span>
                   </div>
-                  <div className="flex justify-between items-center w-full text-[11px] sm:text-[14px]">
+                  <div className="flex justify-between items-center w-full text-[10px] sm:text-[12px]">
                     <span className="text-slate-500 uppercase">Jumlah Listrik</span>
                     <span className="font-bold text-slate-800">{plnKwh} KWH</span>
                   </div>
@@ -149,24 +149,24 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
               {/* KHUSUS GAME / PULSA / DATA (SN Masuk Detail) */}
               {!isPln && (
                 <>
-                  <div className="flex justify-between items-start w-full text-[11px] sm:text-[14px]">
+                  <div className="flex justify-between items-start w-full text-[10px] sm:text-[12px]">
                     <span className="text-slate-500 uppercase shrink-0">Serial Number</span>
                     <span className="font-bold text-slate-800 text-right break-all ml-4 uppercase">{formattedToken}</span>
                   </div>
-                  <div className="flex justify-between items-center w-full text-[11px] sm:text-[14px] border-t border-slate-200 border-opacity-30 pt-1.5">
+                  <div className="flex justify-between items-center w-full text-[10px] sm:text-[12px] border-t border-slate-200 border-opacity-30 pt-1.5">
                     <span className="text-slate-500 uppercase">Nomor Tujuan</span>
                     <span className="font-bold text-slate-800 tracking-widest">{order.game_id}</span>
                   </div>
                 </>
               )}
               
-              <div className={`flex justify-between items-center w-full text-[11px] sm:text-[14px] ${isPln ? 'border-t border-slate-200 border-opacity-30 pt-1.5 sm:pt-2.5' : ''}`}>
+              <div className={`flex justify-between items-center w-full text-[10px] sm:text-[12px] ${isPln ? 'border-t border-slate-200 border-opacity-30 pt-1.5 sm:pt-2.5' : ''}`}>
                 <span className="text-slate-500 uppercase">Harga Produk</span>
                 <span className="font-bold text-slate-800">Rp {hargaProduk.toLocaleString('id-ID')}</span>
               </div>
 
               {biayaLayanan > 0 && (
-                <div className="flex justify-between items-center w-full text-[11px] sm:text-[14px]">
+                <div className="flex justify-between items-center w-full text-[10px] sm:text-[12px]">
                   <span className="text-slate-500 uppercase">Biaya Layanan</span>
                   <span className="font-bold text-slate-800">Rp {biayaLayanan.toLocaleString('id-ID')}</span>
                 </div>
