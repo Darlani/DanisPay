@@ -151,21 +151,21 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
               )}
 
               {isPulsaData && (
-                <div className="flex justify-between items-center w-full text-[11px] sm:text-[14px]">
+                <div className="flex justify-between items-center w-full text-[8.5px] sm:text-[10px]">
                   <span className="text-slate-500 uppercase">Nomor Tujuan</span>
-                  <span className="font-bold text-slate-800 tracking-widest">{order.game_id}</span>
+                  <span className="font-bold text-slate-800 tracking-widest text-[10px] sm:text-[12px]">{order.game_id}</span>
                 </div>
               )}
               
-              <div className={`flex justify-between items-center w-full text-[11px] sm:text-[14px] ${isPln || isPulsaData ? 'border-t border-slate-200 border-opacity-30 pt-1.5 sm:pt-2.5' : ''}`}>
+              <div className={`flex justify-between items-center w-full text-[8.5px] sm:text-[10px] ${isPln || isPulsaData ? 'border-t border-slate-200 border-opacity-30 pt-1.5 sm:pt-2.5' : ''}`}>
                 <span className="text-slate-500 uppercase">Harga Produk</span>
-                <span className="font-bold text-slate-800">Rp {hargaProduk.toLocaleString('id-ID')}</span>
+                <span className="font-bold text-slate-800 text-[10px] sm:text-[12px]">Rp {hargaProduk.toLocaleString('id-ID')}</span>
               </div>
 
               {biayaLayanan > 0 && (
-                <div className="flex justify-between items-center w-full text-[11px] sm:text-[14px]">
+                <div className="flex justify-between items-center w-full text-[8.5px] sm:text-[10px]">
                   <span className="text-slate-500 uppercase">Biaya Layanan</span>
-                  <span className="font-bold text-slate-800">Rp {biayaLayanan.toLocaleString('id-ID')}</span>
+                  <span className="font-bold text-slate-800 text-[10px] sm:text-[12px]">Rp {biayaLayanan.toLocaleString('id-ID')}</span>
                 </div>
               )}
             </div>
