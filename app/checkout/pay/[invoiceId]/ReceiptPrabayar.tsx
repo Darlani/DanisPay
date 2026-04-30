@@ -1,14 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Download, Printer, CheckCircle2, Gamepad2, Smartphone, Zap, Copy } from "lucide-react";
 import { toPng } from "html-to-image";
 
-import { useState } from "react"; // Tambahkan import useState
-
 export default function ReceiptPrabayar({ order }: { order: any }) {
   const receiptRef = useRef<HTMLDivElement>(null);
-  const [copied, setCopied] = useState(false); // State untuk feedback copy
+  const [copied, setCopied] = useState(false);
 
   const handleCopyInvoice = () => {
     if (order?.order_id) {
@@ -44,7 +42,7 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
   // 2. GAME: Langsung tembak dari nama category
   const isGame = cat.includes('game');
   
-  // 3. PULSA / DATA: Jika bukan PLN dan bukan Game (Ini akan otomatis menangkap category 'pulsa-data-token' untuk produk selain PLN)
+  // 3. PULSA / DATA: Jika bukan PLN dan bukan Game
   const isPulsaData = !isPln && !isGame;
 
   // --- 2. THEME CONFIG ---
@@ -59,7 +57,6 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
   let plnNama = order.customer_name || "-";
   let plnTarifDaya = order.segment_power || "-";
 
-  // Jika SN dari Digiflazz formatnya (Token/Nama/Tarif/Daya)
   if (isPln && order.sn?.includes('/')) {
     const parts = order.sn.split('/');
     plnToken = parts[0];
@@ -69,10 +66,10 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
   const formattedToken = isPln ? (plnToken.replace(/[^0-9]/g, '').match(/.{1,4}/g)?.join('-') || plnToken) : order.sn;
 
   return (
-    <div className="flex flex-col items-center gap-3 w-full animate-in fade-in zoom-in duration-500">
+    <div className="flex flex-col items-center gap-2 sm:gap-3 w-full animate-in fade-in zoom-in duration-500">
       
       {/* AREA STRUK */}
-      <div ref={receiptRef} className={`w-full max-w-md mx-auto bg-white text-slate-800 p-6 shadow-2xl border-t-8 ${theme.border} rounded-b-2xl font-mono text-sm relative overflow-hidden`}>
+      <div ref={receiptRef} className={`w-full max-w-md mx-auto bg-white text-slate-800 p-4 sm:p-6 shadow-2xl border-t-8 ${theme.border} rounded-b-2xl font-mono text-sm relative overflow-hidden`}>
         
         {/* Watermark Logo */}
         <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] rotate-[-35deg] pointer-events-none ${theme.color}`}>
@@ -80,70 +77,78 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
         </div>
 
         {/* HEADER */}
-        <div className="text-center border-b-2 border-dashed border-slate-200 pb-4 mb-4">
-          <h2 className="text-xl font-black tracking-tighter italic uppercase">
+        <div className="text-center border-b-2 border-dashed border-slate-200 pb-3 mb-3 sm:pb-4 sm:mb-4">
+          <h2 className="text-lg sm:text-xl font-black tracking-tighter italic uppercase">
             DANISPAY <span className={theme.color}>STORE</span>
           </h2>
-          <div className={`flex items-center justify-center gap-1.5 text-[9px] font-bold uppercase mt-1 ${theme.color}`}>
+          <div className={`flex items-center justify-center gap-1.5 text-[8px] sm:text-[9px] font-bold uppercase mt-1 ${theme.color}`}>
             {theme.icon} {isPln ? "Struk Token Listrik" : isGame ? "Bukti Top Up Game" : "Bukti Pengisian Pulsa/Data"}
           </div>
         </div>
 
-        {/* INFO TRANSAKSI UMUM */}
-        <div className="space-y-1.5 text-[10px]">
-          <div className="flex justify-between"><span>TANGGAL</span> <span className="font-bold text-right">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span></div>
-          <div 
-          onClick={handleCopyInvoice}
-          className="flex justify-between items-center cursor-pointer group hover:bg-slate-50 p-1 -m-1 rounded-lg transition-all active:scale-95"
-          title="Klik untuk salin Invoice"
-        >
-          <span>NO. INVOICE</span> 
-          <span className={`font-bold text-right ${theme.color} flex items-center gap-1.5`}>
-            {/* Ikon dipindah ke kiri agar nomor invoice tetap rata kanan */}
-            <div className="flex items-center">
-              {copied ? (
-                <CheckCircle2 size={11} className="text-emerald-500 animate-in zoom-in mr-1" />
-              ) : (
-                <Copy size={11} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity mr-1" />
-              )}
-            </div>
-            #{order.order_id}
-          </span>
-        </div>
-          <div className="flex justify-between"><span>METODE</span> <span className="font-bold text-right uppercase">{order.payment_method}</span></div>
+        {/* --- KONTEN INFORMASI --- */}
+        <div className="w-full text-left">
           
-          <div className="border-t border-dashed border-slate-200 my-3"></div>
+          {/* INFO HEADER TRANSAKSI (Rata Kanan Kiri) */}
+          <div className="space-y-1 sm:space-y-1.5">
+            <div className="flex justify-between items-center w-full">
+              <span className="text-slate-500 uppercase block text-[8px] sm:text-[9px] tracking-widest">Tanggal</span> 
+              <span className="font-bold text-slate-800 text-right block text-[11px] sm:text-[13px]">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span>
+            </div>
+            
+            <div 
+              onClick={handleCopyInvoice}
+              className="flex justify-between items-center w-full cursor-pointer group hover:bg-slate-50 py-1 -my-1 rounded-md transition-all active:scale-95"
+              title="Klik untuk salin Invoice"
+            >
+              <span className="text-slate-500 uppercase block text-[8px] sm:text-[9px] tracking-widest">No. Invoice</span> 
+              <span className={`font-bold ${theme.color} flex items-center justify-end gap-1.5 text-[11px] sm:text-[13px]`}>
+                {copied ? (
+                  <CheckCircle2 size={13} className="text-emerald-500 animate-in zoom-in" />
+                ) : (
+                  <Copy size={13} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
+                #{order.order_id}
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center w-full">
+              <span className="text-slate-500 uppercase block text-[8px] sm:text-[9px] tracking-widest">Metode</span> 
+              <span className="font-bold text-slate-800 text-right uppercase block text-[11px] sm:text-[13px]">{order.payment_method}</span>
+            </div>
+          </div>
+          
+          <div className="border-t border-dashed border-slate-200 my-3 sm:my-4"></div>
 
           {/* DETAIL PRODUK */}
-          <div className="space-y-3">
-            <div>
-            <p className="text-slate-400 uppercase text-[9px]">Produk / Item</p>
-            <p className="font-bold uppercase text-[12px] leading-tight">
-              {/* Hanya ambil dari database (product_name) agar anti-manipulasi */}
-              {order.product_name}
-            </p>
+          <div className="space-y-2 sm:space-y-3">
+            <div className="text-center space-y-1 w-full">
+              <p className="text-slate-500 uppercase block text-[8px] sm:text-[9px] tracking-widest">Produk / Item</p>
+              <p className="font-bold text-slate-800 uppercase block leading-tight text-[11px] sm:text-[12px]">
+                {order.product_name}
+              </p>
             </div>
 
             {/* --- LAYOUT 1: KHUSUS PLN (LENGKAP) --- */}
             {isPln && (
-              <div className="space-y-3">
-                <div className={`${theme.bg} p-3 rounded-xl border border-amber-100 space-y-2`}>
-                  <div className="flex justify-between text-[11px]">
-                    <p className="text-slate-500">ID PELANGGAN</p>
-                    <p className="font-bold tracking-wider">{order.game_id}</p>
+              <div className="space-y-2 sm:space-y-3 pt-2">
+                <div className={`${theme.bg} p-2.5 sm:p-3 rounded-xl border border-amber-100 space-y-1.5 sm:space-y-2`}>
+                  <div className="flex justify-between items-center w-full text-[10px] sm:text-[11px]">
+                    <span className="text-slate-500 uppercase">ID Pelanggan</span>
+                    <span className="font-bold text-slate-800 text-right tracking-wider">{order.game_id}</span>
                   </div>
-                  <div className="flex justify-between text-[11px] border-t border-amber-200/50 pt-1.5">
-                    <p className="text-slate-500">NAMA PEL</p>
-                    <p className="font-bold uppercase">{plnNama}</p>
+                  <div className="flex justify-between items-center w-full text-[10px] sm:text-[11px] border-t border-amber-200/50 pt-1.5">
+                    <span className="text-slate-500 uppercase">Nama Pel</span>
+                    <span className="font-bold text-slate-800 text-right uppercase">{plnNama}</span>
                   </div>
-                  <div className="flex justify-between text-[11px]">
-                    <p className="text-slate-500">TARIF/DAYA</p>
-                    <p className="font-bold uppercase">{plnTarifDaya}</p>
+                  <div className="flex justify-between items-center w-full text-[10px] sm:text-[11px]">
+                    <span className="text-slate-500 uppercase">Tarif/Daya</span>
+                    <span className="font-bold text-slate-800 text-right uppercase">{plnTarifDaya}</span>
                   </div>
                 </div>
                 <div className="text-center py-2">
-                  <p className="text-slate-400 uppercase text-[9px] mb-1">Nomor Token / Stroom</p>
-                  <p className="font-black text-2xl tracking-[0.15em] text-slate-900 bg-amber-50 py-4 rounded-lg border-2 border-dashed border-amber-400 shadow-inner">
+                  <p className="text-slate-400 uppercase text-[8px] sm:text-[9px] mb-1">Nomor Token / Stroom</p>
+                  <p className="font-black text-xl sm:text-2xl tracking-[0.15em] text-slate-900 bg-amber-50 py-3 sm:py-4 rounded-lg border-2 border-dashed border-amber-400 shadow-inner break-all px-2">
                     {formattedToken}
                   </p>
                 </div>
@@ -152,34 +157,34 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
 
             {/* --- LAYOUT 2: KHUSUS GAME (NICKNAME + ID) --- */}
             {isGame && (
-              <div className={`${theme.bg} p-3 rounded-xl border border-indigo-100 space-y-2`}>
-                <div className="flex justify-between text-[11px]">
-                  <p className="text-slate-500">ID PLAYER</p>
-                  <p className="font-bold tracking-wider">{order.game_id}</p>
+              <div className={`${theme.bg} p-2.5 sm:p-3 rounded-xl border border-indigo-100 space-y-1.5 sm:space-y-2 mt-2`}>
+                <div className="flex justify-between items-center w-full text-[10px] sm:text-[11px]">
+                  <span className="text-slate-500 uppercase">ID Player</span>
+                  <span className="font-bold text-slate-800 text-right tracking-wider">{order.game_id}</span>
                 </div>
                 {order.customer_name && (
-                  <div className="flex justify-between text-[11px] border-t border-indigo-200/50 pt-1.5">
-                    <p className="text-slate-500">NICKNAME</p>
-                    <p className="font-bold uppercase">{order.customer_name}</p>
+                  <div className="flex justify-between items-center w-full text-[10px] sm:text-[11px] border-t border-indigo-200/50 pt-1.5">
+                    <span className="text-slate-500 uppercase">Nickname</span>
+                    <span className="font-bold text-slate-800 text-right uppercase">{order.customer_name}</span>
                   </div>
                 )}
-                <div className="pt-2">
-                  <p className="text-slate-400 uppercase text-[9px]">Status SN</p>
-                  <p className="font-bold text-[13px] text-indigo-700 break-all">{order.sn}</p>
+                <div className="pt-2 text-center border-t border-indigo-200/50 mt-1.5">
+                  <p className="text-slate-400 uppercase text-[8px] sm:text-[9px]">Status / SN</p>
+                  <p className="font-bold text-[11px] sm:text-[13px] text-indigo-700 break-all">{order.sn || "Sukses"}</p>
                 </div>
               </div>
             )}
 
             {/* --- LAYOUT 3: KHUSUS PULSA & DATA (RINGKAS) --- */}
             {isPulsaData && (
-              <div className={`${theme.bg} p-3 rounded-xl border border-emerald-100 space-y-3`}>
-                <div className="flex justify-between text-[11px]">
-                  <p className="text-slate-500">NOMOR TUJUAN</p>
-                  <p className="font-bold text-[14px] tracking-widest">{order.game_id}</p>
+              <div className={`${theme.bg} p-2.5 sm:p-3 rounded-xl border border-emerald-100 space-y-2 sm:space-y-3 mt-2`}>
+                <div className="flex justify-between items-center w-full text-[10px] sm:text-[11px]">
+                  <span className="text-slate-500 uppercase">Nomor Tujuan</span>
+                  <span className="font-bold text-slate-800 text-right text-[12px] sm:text-[14px] tracking-widest">{order.game_id}</span>
                 </div>
-                <div className="pt-1">
-                  <p className="text-slate-400 uppercase text-[9px]">Serial Number (SN)</p>
-                  <p className="font-bold text-[13px] text-emerald-700 break-all">{order.sn || "Sukses Terisi"}</p>
+                <div className="pt-1 text-center border-t border-emerald-200/50 mt-1">
+                  <p className="text-slate-400 uppercase text-[8px] sm:text-[9px]">Serial Number (SN)</p>
+                  <p className="font-bold text-[11px] sm:text-[13px] text-emerald-700 break-all">{order.sn || "Sukses Terisi"}</p>
                 </div>
               </div>
             )}
@@ -187,10 +192,10 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
           </div>
 
           {/* TOTAL BAYAR */}
-          <div className="border-t-2 border-dashed border-slate-200 my-4 pt-4">
-            <div className={`flex justify-between items-center ${isPln ? 'bg-amber-600' : isGame ? 'bg-indigo-600' : 'bg-emerald-600'} text-white p-3 rounded-xl shadow-lg`}>
-              <span className="font-bold italic uppercase text-[10px]">Total Lunas</span>
-              <span className="text-lg font-black italic">
+          <div className="border-t-2 border-dashed border-slate-200 my-3 sm:my-4 pt-3 sm:pt-4">
+            <div className={`flex justify-between items-center ${isPln ? 'bg-amber-600' : isGame ? 'bg-indigo-600' : 'bg-emerald-600'} text-white p-2.5 sm:p-3 rounded-xl shadow-lg`}>
+              <span className="font-bold italic uppercase text-[9px] sm:text-[10px]">Total Lunas</span>
+              <span className="text-base sm:text-lg font-black italic">
                 Rp {(order.total_amount + (order.used_balance || 0)).toLocaleString('id-ID')}
               </span>
             </div>
@@ -198,7 +203,7 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
         </div>
 
         {/* FOOTER */}
-        <div className="text-center mt-6 pt-4 border-t border-dashed border-slate-200 text-[8px] text-slate-400 leading-relaxed uppercase font-bold italic">
+        <div className="text-center mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-dashed border-slate-200 text-[7px] sm:text-[8px] text-slate-400 leading-relaxed uppercase font-bold italic">
           <p>Terima kasih telah bertransaksi di DanisPay</p>
           <p className={theme.color}>Layanan Digital Tercepat & Terpercaya</p>
         </div>
@@ -206,8 +211,8 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
 
       {/* ACTION BUTTONS */}
       <div className="flex flex-col sm:flex-row gap-2 w-full max-w-md mx-auto no-print px-2">
-        <button onClick={() => window.print()} className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl font-black italic uppercase text-[10px] sm:text-xs flex items-center justify-center gap-1.5 hover:opacity-90 transition-all active:scale-95 shadow-md"><Printer size={14} /> Cetak</button>
-        <button onClick={handleDownloadImage} className={`flex-1 ${isPln ? 'bg-amber-600' : isGame ? 'bg-indigo-600' : 'bg-emerald-600'} text-white py-2.5 rounded-xl font-black italic uppercase text-[10px] sm:text-xs flex items-center justify-center gap-1.5 hover:opacity-90 transition-all active:scale-95 shadow-md`}><Download size={14} /> Simpan</button>
+        <button onClick={() => window.print()} className="flex-1 bg-slate-900 text-white py-2 sm:py-2.5 rounded-xl font-black italic uppercase text-[10px] sm:text-xs flex items-center justify-center gap-1.5 hover:opacity-90 transition-all active:scale-95 shadow-md"><Printer size={14} /> Cetak</button>
+        <button onClick={handleDownloadImage} className={`flex-1 ${isPln ? 'bg-amber-600' : isGame ? 'bg-indigo-600' : 'bg-emerald-600'} text-white py-2 sm:py-2.5 rounded-xl font-black italic uppercase text-[10px] sm:text-xs flex items-center justify-center gap-1.5 hover:opacity-90 transition-all active:scale-95 shadow-md`}><Download size={14} /> Simpan</button>
       </div>
 
       <style jsx global>{`@media print { .no-print { display: none !important; } body { background: white !important; } }`}</style>

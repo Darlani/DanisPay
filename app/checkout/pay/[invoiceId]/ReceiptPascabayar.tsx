@@ -76,22 +76,22 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 w-full animate-in fade-in zoom-in duration-500">
+    <div className="flex flex-col items-center gap-2 sm:gap-3 w-full animate-in fade-in zoom-in duration-500">
       
       {/* --- AREA STRUK YANG DI-DOWNLOAD --- */}
       <div 
         ref={receiptRef}
-        className="w-full max-w-md mx-auto bg-white text-slate-800 p-6 shadow-2xl border-t-8 border-blue-600 rounded-b-2xl font-mono text-sm relative overflow-hidden"
+        className="w-full max-w-md mx-auto bg-white text-slate-800 p-4 sm:p-6 shadow-2xl border-t-8 border-blue-600 rounded-b-2xl font-mono text-sm relative overflow-hidden"
       >
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] rotate-[-35deg] pointer-events-none">
           <CheckCircle2 size={250} />
         </div>
 
-        <div className="text-center border-b-2 border-dashed border-slate-200 pb-4 mb-4">
-          <h2 className="text-xl font-black tracking-tighter italic uppercase">
+        <div className="text-center border-b-2 border-dashed border-slate-200 pb-3 mb-3 sm:pb-4 sm:mb-4">
+          <h2 className="text-lg sm:text-xl font-black tracking-tighter italic uppercase">
             DANISPAY <span className="text-blue-600">STORE</span>
           </h2>
-          <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">
+          <p className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase mt-1">
             Bukti Pembayaran Sah / Struk Digital
           </p>
         </div>
@@ -100,10 +100,10 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
         <div className="w-full text-left">
           
           {/* INFO HEADER */}
-          <div className="space-y-1.5">
+          <div className="space-y-1 sm:space-y-1.5">
             <div className="flex justify-between items-center w-full">
-              <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Tanggal</span> 
-              <span className="font-bold text-slate-800 text-right block text-[13px]">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span>
+              <span className="text-slate-500 uppercase block text-[8px] sm:text-[9px] tracking-widest">Tanggal</span> 
+              <span className="font-bold text-slate-800 text-right block text-[11px] sm:text-[13px]">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span>
             </div>
             
             <div 
@@ -111,8 +111,8 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
               className="flex justify-between items-center w-full cursor-pointer group hover:bg-slate-50 py-1 -my-1 rounded-md transition-all active:scale-95"
               title="Klik untuk salin Invoice"
             >
-              <span className="text-slate-500 uppercase block text-[9px] tracking-widest">No. Invoice</span> 
-              <span className="font-bold text-blue-600 flex items-center justify-end gap-1.5 text-[13px]">
+              <span className="text-slate-500 uppercase block text-[8px] sm:text-[9px] tracking-widest">No. Invoice</span> 
+              <span className="font-bold text-blue-600 flex items-center justify-end gap-1.5 text-[11px] sm:text-[13px]">
                 {copied ? (
                   <CheckCircle2 size={13} className="text-emerald-500 animate-in zoom-in" />
                 ) : (
@@ -123,82 +123,82 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
             </div>
             
             <div className="flex justify-between items-center w-full">
-              <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Metode</span> 
-              <span className="font-bold text-slate-800 text-right uppercase block text-[13px]">{order.payment_method}</span>
+              <span className="text-slate-500 uppercase block text-[8px] sm:text-[9px] tracking-widest">Metode</span> 
+              <span className="font-bold text-slate-800 text-right uppercase block text-[11px] sm:text-[13px]">{order.payment_method}</span>
             </div>
           </div>
           
-          <div className="border-t border-dashed border-slate-200 my-4"></div>
+          <div className="border-t border-dashed border-slate-200 my-3 sm:my-4"></div>
 
           {/* --- INFO PRODUK & PELANGGAN --- */}
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             <div className="text-center space-y-1 w-full">
-              <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Produk</span>
-              <span className="font-bold text-slate-800 uppercase block leading-tight text-[12px]">
+              <span className="text-slate-500 uppercase block text-[8px] sm:text-[9px] tracking-widest">Produk</span>
+              <span className="font-bold text-slate-800 uppercase block leading-tight text-[11px] sm:text-[12px]">
                 {order.product_name}
               </span>
             </div>
             
             {order.customer_name && (
               <div className="text-center space-y-1 w-full">
-                <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Nama Pelanggan</span>
-                <span className="font-bold text-slate-800 uppercase block text-[13px]">{order.customer_name}</span>
+                <span className="text-slate-500 uppercase block text-[8px] sm:text-[9px] tracking-widest">Nama Pelanggan</span>
+                <span className="font-bold text-slate-800 uppercase block text-[11px] sm:text-[13px]">{order.customer_name}</span>
               </div>
             )}
 
             <div className="text-center space-y-1 w-full">
-              <span className="text-slate-500 uppercase block text-[9px] tracking-widest">Nomor Tujuan / ID</span>
-              <span className="font-black text-slate-900 block text-[15px] tracking-widest">{order.game_id}</span>
+              <span className="text-slate-500 uppercase block text-[8px] sm:text-[9px] tracking-widest">Nomor Tujuan / ID</span>
+              <span className="font-black text-slate-900 block text-[13px] sm:text-[15px] tracking-widest">{order.game_id}</span>
             </div>
           </div>
 
           {/* KOTAK DETAIL TAGIHAN */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mt-2 w-full text-left">
-            <p className="text-[10px] text-slate-500 font-black uppercase text-center border-b border-slate-200 pb-3 mb-3">Detail Tagihan</p>
+          <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 mt-2 w-full text-left">
+            <p className="text-[9px] sm:text-[10px] text-slate-500 font-black uppercase text-center border-b border-slate-200 pb-2 sm:pb-3 mb-2 sm:mb-3">Detail Tagihan</p>
             
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between w-full text-[10px]">
+            <div className="space-y-1.5 sm:space-y-2.5">
+              <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
                 <span className="text-slate-500 uppercase">Tarif/Daya</span>
-                <span className="font-bold text-slate-800 text-right text-[12px]">{order.segment_power || "-"}</span>
+                <span className="font-bold text-slate-800 text-right text-[11px] sm:text-[12px]">{order.segment_power || "-"}</span>
               </div>
 
               {periode && (
-                <div className="flex items-center justify-between w-full text-[10px]">
+                <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
                   <span className="text-slate-500 uppercase">Bulan/Tahun</span>
-                  <span className="font-bold text-slate-800 uppercase text-right text-[12px]">{periode}</span>
+                  <span className="font-bold text-slate-800 uppercase text-right text-[11px] sm:text-[12px]">{periode}</span>
                 </div>
               )}
               
               {order.stand_meter && (
-                <div className="flex items-center justify-between w-full text-[10px]">
+                <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
                   <span className="text-slate-500 uppercase">Stand Meter</span>
-                  <span className="font-bold text-slate-800 text-right text-[12px]">{order.stand_meter}</span>
+                  <span className="font-bold text-slate-800 text-right text-[11px] sm:text-[12px]">{order.stand_meter}</span>
                 </div>
               )}
             </div>
 
-            <div className="border-t border-slate-200 mt-3 pt-3 space-y-2.5">
-              <div className="flex items-center justify-between w-full text-[10px]">
+            <div className="border-t border-slate-200 mt-2 sm:mt-3 pt-2 sm:pt-3 space-y-1.5 sm:space-y-2.5">
+              <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
                 <span className="text-slate-500 uppercase">Rp Tagihan PLN</span>
-                <span className="font-bold text-slate-800 text-right text-[12px]">Rp {tagihanPLN.toLocaleString('id-ID')}</span>
+                <span className="font-bold text-slate-800 text-right text-[11px] sm:text-[12px]">Rp {tagihanPLN.toLocaleString('id-ID')}</span>
               </div>
 
               {dendaPLN > 0 && (
-                <div className="flex items-center justify-between w-full text-[10px]">
+                <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
                   <span className="text-rose-500 font-bold uppercase">Denda</span>
-                  <span className="font-bold text-rose-600 text-right text-[12px]">Rp {dendaPLN.toLocaleString('id-ID')}</span>
+                  <span className="font-bold text-rose-600 text-right text-[11px] sm:text-[12px]">Rp {dendaPLN.toLocaleString('id-ID')}</span>
                 </div>
               )}
 
-              <div className="flex items-center justify-between w-full text-[10px]">
+              <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
                 <span className="text-slate-500 uppercase">Biaya Admin</span>
-                <span className="font-bold text-slate-800 text-right text-[12px]">Rp {adminPLN.toLocaleString('id-ID')}</span>
+                <span className="font-bold text-slate-800 text-right text-[11px] sm:text-[12px]">Rp {adminPLN.toLocaleString('id-ID')}</span>
               </div>
 
               {biayaLayanan > 0 && (
-                <div className="flex items-center justify-between w-full text-[10px]">
+                <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
                   <span className="text-slate-500 uppercase">Biaya Layanan</span>
-                  <span className="font-bold text-slate-800 text-right text-[12px]">Rp {biayaLayanan.toLocaleString('id-ID')}</span>
+                  <span className="font-bold text-slate-800 text-right text-[11px] sm:text-[12px]">Rp {biayaLayanan.toLocaleString('id-ID')}</span>
                 </div>
               )}
             </div>
@@ -206,24 +206,24 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
 
           {/* SERIAL NUMBER */}
           {order.sn && (
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-center mt-2 w-full">
-              <p className="text-[9px] text-slate-400 uppercase mb-1">Serial Number / SN / Struk PLN</p>
-              <p className="font-bold break-all text-emerald-600 tracking-wide text-[13px]">{order.sn}</p>
+            <div className="bg-slate-50 p-2 sm:p-3 rounded-lg border border-slate-100 text-center mt-2 w-full">
+              <p className="text-[8px] sm:text-[9px] text-slate-400 uppercase mb-1">Serial Number / SN / Struk PLN</p>
+              <p className="font-bold break-all text-emerald-600 tracking-wide text-[11px] sm:text-[13px]">{order.sn}</p>
             </div>
           )}
         </div>
 
         {/* TOTAL LUNAS */}
-        <div className="border-t-2 border-dashed border-slate-200 my-4 pt-4">
-          <div className="flex justify-between items-center bg-blue-600 text-white p-3 rounded-xl shadow-lg shadow-blue-200">
-            <span className="font-bold italic uppercase block text-[13px]">Total Lunas</span>
-            <span className="text-lg font-black italic block text-[20px]">
+        <div className="border-t-2 border-dashed border-slate-200 my-3 sm:my-4 pt-3 sm:pt-4">
+          <div className="flex justify-between items-center bg-blue-600 text-white p-2.5 sm:p-3 rounded-xl shadow-lg shadow-blue-200">
+            <span className="font-bold italic uppercase block text-[11px] sm:text-[13px]">Total Lunas</span>
+            <span className="text-base sm:text-[20px] font-black italic block">
               Rp {totalBayar.toLocaleString('id-ID')}
             </span>
           </div>
         </div>
 
-        <div className="text-center mt-6 pt-4 border-t border-dashed border-slate-200 text-[9px] text-slate-400 leading-relaxed uppercase font-bold italic">
+        <div className="text-center mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-dashed border-slate-200 text-[8px] sm:text-[9px] text-slate-400 leading-relaxed uppercase font-bold italic">
           <p>Terima kasih telah bertransaksi</p>
           <p className="text-blue-600">Simpan struk ini sebagai bukti pembayaran</p>
         </div>
@@ -233,13 +233,13 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
       <div className="flex flex-col sm:flex-row gap-2 w-full max-w-md mx-auto no-print">
         <button 
           onClick={() => window.print()}
-          className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl font-black italic uppercase text-[10px] sm:text-xs flex items-center justify-center gap-1.5 hover:bg-blue-600 transition-all active:scale-95 shadow-md"
+          className="flex-1 bg-slate-900 text-white py-2 sm:py-2.5 rounded-xl font-black italic uppercase text-[10px] sm:text-xs flex items-center justify-center gap-1.5 hover:bg-blue-600 transition-all active:scale-95 shadow-md"
         >
           <Printer size={14} /> Cetak Struk
         </button>
         <button 
           onClick={handleDownloadImage}
-          className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl font-black italic uppercase text-[10px] sm:text-xs flex items-center justify-center gap-1.5 hover:bg-emerald-500 transition-all active:scale-95 shadow-md"
+          className="flex-1 bg-emerald-600 text-white py-2 sm:py-2.5 rounded-xl font-black italic uppercase text-[10px] sm:text-xs flex items-center justify-center gap-1.5 hover:bg-emerald-500 transition-all active:scale-95 shadow-md"
         >
           <Download size={14} /> Simpan Gambar
         </button>
