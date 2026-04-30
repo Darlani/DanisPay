@@ -65,7 +65,6 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
   return (
     <div className="flex flex-col items-center gap-2 sm:gap-3 w-full animate-in fade-in zoom-in duration-500 px-4">
       
-      {/* KARTU STRUK RESPONSIVE */}
       <div 
         ref={receiptRef} 
         className={`w-full max-w-md mx-auto bg-white text-slate-800 p-3 sm:p-6 shadow-2xl border-t-8 ${theme.border} rounded-b-2xl font-mono text-[11px] relative overflow-hidden`}
@@ -86,7 +85,6 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
         </div>
 
         <div className="w-full text-left">
-          {/* INFO HEADER - Dinamis Spacing */}
           <div className="space-y-0.5 sm:space-y-1.5">
             <div className="flex justify-between items-center w-full">
               <span className="text-slate-400 uppercase text-[7.5px] sm:text-[9px] tracking-widest leading-none">Tanggal</span> 
@@ -111,13 +109,11 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
 
           {/* --- INFO CENTER --- */}
           <div className="space-y-2 sm:space-y-3 mb-2 sm:mb-4">
-            {/* PRODUK */}
             <div className="text-center w-full">
               <span className="text-slate-400 uppercase block text-[7.5px] sm:text-[9px] tracking-widest">Produk</span>
               <span className="font-bold text-slate-800 uppercase block text-[11px] sm:text-[13px] mt-0.5">{order.product_name}</span>
             </div>
             
-            {/* NAMA PELANGGAN */}
             {(isPln || (isGame && order.customer_name)) && (
               <div className="text-center w-full">
                 <span className="text-slate-400 uppercase block text-[7.5px] sm:text-[9px] tracking-widest">{isPln ? "Nama Pelanggan" : "Nickname"}</span>
@@ -125,7 +121,6 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
               </div>
             )}
 
-            {/* ID / NOMOR TUJUAN */}
             {(isPln || isGame) && (
               <div className="text-center w-full">
                 <span className="text-slate-400 uppercase block text-[7.5px] sm:text-[9px] tracking-widest">{isPln ? "ID Pelanggan" : "ID Player"}</span>
@@ -134,54 +129,64 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
             )}
           </div>
 
-          {/* --- KOTAK DETAIL --- */}
+          {/* --- KOTAK DETAIL (SN GABUNG DI SINI UNTUK GAME/PULSA) --- */}
           <div className={`${theme.bg} p-2.5 sm:p-4 rounded-xl border ${theme.border} border-opacity-10 w-full`}>
             <div className="space-y-1.5 sm:space-y-2.5">
+              {/* KHUSUS PLN */}
               {isPln && (
                 <>
-                  <div className="flex justify-between items-center w-full text-[8.5px] sm:text-[10px]">
+                  <div className="flex justify-between items-center w-full text-[11px] sm:text-[14px]">
                     <span className="text-slate-500 uppercase">Tarif/Daya</span>
-                    <span className="font-bold text-slate-800 text-[10px] sm:text-[12px]">{plnTarifDaya}</span>
+                    <span className="font-bold text-slate-800">{plnTarifDaya}</span>
                   </div>
-                  <div className="flex justify-between items-center w-full text-[8.5px] sm:text-[10px]">
+                  <div className="flex justify-between items-center w-full text-[11px] sm:text-[14px]">
                     <span className="text-slate-500 uppercase">Jumlah Listrik</span>
-                    <span className="font-bold text-slate-800 text-[10px] sm:text-[12px]">{plnKwh} KWH</span>
+                    <span className="font-bold text-slate-800">{plnKwh} KWH</span>
                   </div>
                 </>
               )}
 
-              {isPulsaData && (
-                <div className="flex justify-between items-center w-full text-[8.5px] sm:text-[10px]">
-                  <span className="text-slate-500 uppercase">Nomor Tujuan</span>
-                  <span className="font-bold text-slate-800 tracking-widest text-[10px] sm:text-[12px]">{order.game_id}</span>
-                </div>
+              {/* KHUSUS GAME / PULSA / DATA (SN Masuk Detail) */}
+              {!isPln && (
+                <>
+                  <div className="flex justify-between items-start w-full text-[11px] sm:text-[14px]">
+                    <span className="text-slate-500 uppercase shrink-0">Serial Number</span>
+                    <span className="font-bold text-slate-800 text-right break-all ml-4 uppercase">{formattedToken}</span>
+                  </div>
+                  <div className="flex justify-between items-center w-full text-[11px] sm:text-[14px] border-t border-slate-200 border-opacity-30 pt-1.5">
+                    <span className="text-slate-500 uppercase">Nomor Tujuan</span>
+                    <span className="font-bold text-slate-800 tracking-widest">{order.game_id}</span>
+                  </div>
+                </>
               )}
               
-              <div className={`flex justify-between items-center w-full text-[8.5px] sm:text-[10px] ${isPln || isPulsaData ? 'border-t border-slate-200 border-opacity-30 pt-1.5 sm:pt-2.5' : ''}`}>
+              <div className={`flex justify-between items-center w-full text-[11px] sm:text-[14px] ${isPln ? 'border-t border-slate-200 border-opacity-30 pt-1.5 sm:pt-2.5' : ''}`}>
                 <span className="text-slate-500 uppercase">Harga Produk</span>
-                <span className="font-bold text-slate-800 text-[10px] sm:text-[12px]">Rp {hargaProduk.toLocaleString('id-ID')}</span>
+                <span className="font-bold text-slate-800">Rp {hargaProduk.toLocaleString('id-ID')}</span>
               </div>
 
               {biayaLayanan > 0 && (
-                <div className="flex justify-between items-center w-full text-[8.5px] sm:text-[10px]">
+                <div className="flex justify-between items-center w-full text-[11px] sm:text-[14px]">
                   <span className="text-slate-500 uppercase">Biaya Layanan</span>
-                  <span className="font-bold text-slate-800 text-[10px] sm:text-[12px]">Rp {biayaLayanan.toLocaleString('id-ID')}</span>
+                  <span className="font-bold text-slate-800">Rp {biayaLayanan.toLocaleString('id-ID')}</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* NOMOR TOKEN / SN */}
-          <div className="text-center py-3 sm:py-6">
-            <p className="text-slate-400 uppercase text-[7.5px] sm:text-[9px] mb-0.5 sm:mb-1">{isPln ? "Nomor Token / Stroom" : "Serial Number / SN"}</p>
-            <p className={`font-black ${isPln ? 'text-[14px] sm:text-[16px] tracking-widest' : 'text-[12px] sm:text-[14px]'} text-slate-900 bg-slate-50 py-2.5 sm:py-4 rounded-lg border-2 border-dashed ${theme.border} border-opacity-30 break-all px-2 shadow-inner`}>
-              {formattedToken}
-            </p>
-          </div>
+          {/* NOMOR TOKEN (HANYA MUNCUL JIKA PLN) */}
+          {isPln && (
+            <div className="text-center py-3 sm:py-6">
+              <p className="text-slate-400 uppercase text-[7.5px] sm:text-[9px] mb-0.5 sm:mb-1">Nomor Token / Stroom</p>
+              <p className="font-black text-[14px] sm:text-[16px] tracking-widest text-slate-900 bg-slate-50 py-2.5 sm:py-4 rounded-lg border-2 border-dashed border-amber-400 border-opacity-30 break-all px-2 shadow-inner">
+                {formattedToken}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* TOTAL LUNAS */}
-        <div className="border-t border-dashed border-slate-200 pt-3 sm:pt-4">
+        <div className={`border-t border-dashed border-slate-200 ${isPln ? 'pt-0' : 'pt-3 sm:pt-4'} mt-3`}>
           <div className={`flex justify-between items-center ${isPln ? 'bg-amber-600' : isGame ? 'bg-indigo-600' : 'bg-emerald-600'} text-white px-3 py-2 sm:px-4 sm:py-3 rounded-xl shadow-lg`}>
             <span className="font-bold italic uppercase text-[8px] sm:text-[10px]">Total Lunas</span>
             <span className="text-sm sm:text-lg font-black italic">Rp {totalLunas.toLocaleString('id-ID')}</span>
