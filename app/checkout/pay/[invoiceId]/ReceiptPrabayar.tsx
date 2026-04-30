@@ -24,9 +24,7 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
         link.download = `DanisPay-${order.order_id}.png`;
         link.href = dataUrl;
         link.click();
-      } catch (err) {
-        alert("Gagal menyimpan gambar, Bos!");
-      }
+      } catch (err) { alert("Gagal menyimpan gambar, Bos!"); }
     }
   };
 
@@ -63,11 +61,12 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
   const totalLunas = order.total_amount || 0;
 
   return (
-    <div className="flex flex-col items-center gap-2 sm:gap-3 w-full animate-in fade-in zoom-in duration-500 px-4">
+    <div className="flex flex-col items-center gap-2 sm:gap-3 w-full animate-in fade-in zoom-in duration-500">
       
+      {/* AREA STRUK - Lebar disamakan dengan Pascabayar (p-4 sm:p-6) */}
       <div 
         ref={receiptRef} 
-        className={`w-full max-w-md mx-auto bg-white text-slate-800 p-3 sm:p-6 shadow-2xl border-t-8 ${theme.border} rounded-b-2xl font-mono text-[11px] relative overflow-hidden`}
+        className={`w-full max-w-md mx-auto bg-white text-slate-800 p-4 sm:p-6 shadow-2xl border-t-8 ${theme.border} rounded-b-2xl font-mono text-[11px] relative overflow-hidden`}
       >
         
         <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.02] rotate-[-35deg] pointer-events-none ${theme.color}`}>
@@ -75,7 +74,7 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
         </div>
 
         {/* HEADER */}
-        <div className="text-center border-b border-dashed border-slate-200 pb-2 mb-2 sm:pb-4 sm:mb-4">
+        <div className="text-center border-b border-dashed border-slate-200 pb-3 mb-3 sm:pb-4 sm:mb-4">
           <h2 className="text-base sm:text-xl font-black tracking-tighter italic uppercase leading-none">
             DANISPAY <span className={theme.color}>STORE</span>
           </h2>
@@ -86,7 +85,7 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
 
         <div className="w-full text-left">
           {/* INFO HEADER */}
-          <div className="space-y-0.5 sm:space-y-1.5">
+          <div className="space-y-1 sm:space-y-1.5">
             <div className="flex justify-between items-center w-full">
               <span className="text-slate-400 uppercase text-[7.5px] sm:text-[9px] tracking-widest leading-none">Tanggal</span> 
               <span className="font-bold text-slate-800 text-right text-[10px] sm:text-[13px]">{new Date(order.updated_at || order.created_at).toLocaleString('id-ID')}</span>
@@ -106,10 +105,10 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
             </div>
           </div>
           
-          <div className="border-t border-dashed border-slate-200 my-2 sm:my-4"></div>
+          <div className="border-t border-dashed border-slate-200 my-3 sm:my-4"></div>
 
           {/* --- INFO CENTER --- */}
-          <div className="space-y-2 sm:space-y-3 mb-2 sm:mb-4">
+          <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
             <div className="text-center w-full">
               <span className="text-slate-400 uppercase block text-[7.5px] sm:text-[9px] tracking-widest">Produk</span>
               <span className="font-bold text-slate-800 uppercase block text-[11px] sm:text-[13px] mt-0.5">{order.product_name}</span>
@@ -130,10 +129,9 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
             )}
           </div>
 
-          {/* --- KOTAK DETAIL (Seragam 10px / 12px) --- */}
-          <div className={`${theme.bg} p-2.5 sm:p-4 rounded-xl border ${theme.border} border-opacity-10 w-full text-[10px] sm:text-[12px]`}>
+          {/* --- KOTAK DETAIL (10px / 12px) --- */}
+          <div className={`${theme.bg} p-3 sm:p-4 rounded-xl border ${theme.border} border-opacity-10 w-full text-[10px] sm:text-[12px]`}>
             <div className="space-y-1.5 sm:space-y-2">
-              
               {isPln && (
                 <>
                   <div className="flex justify-between items-center w-full">
@@ -165,7 +163,6 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
                   <span className="text-slate-500 uppercase">Harga Produk</span>
                   <span className="font-bold text-slate-800">Rp {hargaProduk.toLocaleString('id-ID')}</span>
                 </div>
-
                 {biayaLayanan > 0 && (
                   <div className="flex justify-between items-center w-full">
                     <span className="text-slate-500 uppercase">Biaya Layanan</span>
@@ -178,9 +175,9 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
 
           {/* NOMOR TOKEN (HANYA PLN) */}
           {isPln && (
-            <div className="text-center py-3 sm:py-6">
-              <p className="text-slate-400 uppercase text-[7.5px] sm:text-[9px] mb-0.5 sm:mb-1">Nomor Token / Stroom</p>
-              <p className="font-black text-[14px] sm:text-[16px] tracking-widest text-slate-900 bg-slate-50 py-2.5 sm:py-4 rounded-lg border-2 border-dashed border-amber-400 border-opacity-30 break-all px-2 shadow-inner">
+            <div className="text-center py-4 sm:py-6">
+              <p className="text-slate-400 uppercase text-[7.5px] sm:text-[9px] mb-1">Nomor Token / Stroom</p>
+              <p className={`font-black text-[14px] sm:text-[16px] tracking-widest text-slate-900 bg-slate-50 py-3 sm:py-4 rounded-lg border-2 border-dashed border-amber-400 border-opacity-30 break-all px-2 shadow-inner`}>
                 {formattedToken}
               </p>
             </div>
@@ -188,21 +185,21 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
         </div>
 
         {/* TOTAL LUNAS */}
-        <div className={`border-t border-dashed border-slate-200 ${isPln ? 'pt-0' : 'pt-3 sm:pt-4'} mt-3`}>
-          <div className={`flex justify-between items-center ${isPln ? 'bg-amber-600' : isGame ? 'bg-indigo-600' : 'bg-emerald-600'} text-white px-3 py-2 sm:px-4 sm:py-3 rounded-xl shadow-lg`}>
+        <div className={`border-t border-dashed border-slate-200 ${isPln ? 'pt-0' : 'pt-4'} mt-3`}>
+          <div className={`flex justify-between items-center ${isPln ? 'bg-amber-600' : isGame ? 'bg-indigo-600' : 'bg-emerald-600'} text-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl shadow-lg`}>
             <span className="font-bold italic uppercase text-[8px] sm:text-[10px]">Total Lunas</span>
             <span className="text-sm sm:text-lg font-black italic">Rp {totalLunas.toLocaleString('id-ID')}</span>
           </div>
         </div>
 
-        <div className="text-center mt-3 sm:mt-6 pt-3 sm:pt-4 border-t border-dashed border-slate-200 text-[7px] sm:text-[8px] text-slate-400 uppercase font-bold italic leading-relaxed">
+        <div className="text-center mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-dashed border-slate-200 text-[7px] sm:text-[8px] text-slate-400 uppercase font-bold italic leading-relaxed">
           <p>Terima kasih telah bertransaksi di DanisPay</p>
           <p className={theme.color}>Simpan struk ini sebagai bukti pembayaran</p>
         </div>
       </div>
 
       {/* ACTION BUTTONS */}
-      <div className="flex flex-row gap-2 w-full max-w-md mx-auto no-print">
+      <div className="flex flex-row gap-2 w-full max-w-md mx-auto no-print px-1">
         <button onClick={() => window.print()} className="flex-1 bg-slate-900 text-white py-2 sm:py-2.5 rounded-xl font-black italic uppercase text-[9px] sm:text-[10px] flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-95 shadow-md"><Printer size={14} /> Cetak</button>
         <button onClick={handleDownloadImage} className={`flex-1 ${isPln ? 'bg-amber-600' : isGame ? 'bg-indigo-600' : 'bg-emerald-600'} text-white py-2 sm:py-2.5 rounded-xl font-black italic uppercase text-[9px] sm:text-[10px] flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-95 shadow-md`}><Download size={14} /> Simpan</button>
       </div>
