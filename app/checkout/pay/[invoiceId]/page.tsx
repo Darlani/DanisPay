@@ -47,7 +47,7 @@ function InvoiceContent() {
         // Hanya ambil kolom yang nampil di UI & Receipt
       const { data: orderData } = await supabase
         .from("orders")
-        .select("order_id, status, payment_method, created_at, total_amount, sku, category, user_id, sn, qris_string, game_id, item_label, user_contact, customer_name, desc, used_balance, stand_meter, segment_power, raw_tagihan, unique_code, product_name")
+        .select("order_id, status, payment_method, created_at, total_amount, sku, category, user_id, sn, qris_string, game_id, item_label, user_contact, customer_name, desc, used_balance, stand_meter, segment_power, raw_tagihan, unique_code, product_name, price")
         .eq("order_id", invoiceId)
         .maybeSingle();
 
