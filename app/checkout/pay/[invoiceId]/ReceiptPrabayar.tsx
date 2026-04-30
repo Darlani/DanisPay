@@ -197,7 +197,7 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
 
         <div className="text-center mt-3 sm:mt-6 pt-3 sm:pt-4 border-t border-dashed border-slate-200 text-[7px] sm:text-[8px] text-slate-400 uppercase font-bold italic leading-relaxed">
           <p>Terima kasih telah bertransaksi di DanisPay</p>
-          <p className={theme.color}>Layanan Digital Tercepat & Terpercaya</p>
+          <p className={theme.color}>Simpan struk ini sebagai bukti pembayaran</p>
         </div>
       </div>
 
