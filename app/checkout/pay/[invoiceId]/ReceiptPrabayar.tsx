@@ -109,24 +109,27 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
           
           <div className="border-t border-dashed border-slate-200 my-2 sm:my-4"></div>
 
-          {/* --- INFO CENTER - Center Alignment --- */}
-          <div className="space-y-1.5 sm:space-y-3 mb-2 sm:mb-4">
+          {/* --- INFO CENTER --- */}
+          <div className="space-y-2 sm:space-y-3 mb-2 sm:mb-4">
+            {/* PRODUK */}
             <div className="text-center w-full">
-              <span className="text-slate-400 uppercase block text-[7.5px] sm:text-[9px] tracking-widest leading-none">Produk</span>
-              <span className="font-bold text-slate-800 uppercase block leading-tight text-[11px] sm:text-[12px]">{order.product_name}</span>
+              <span className="text-slate-400 uppercase block text-[7.5px] sm:text-[9px] tracking-widest">Produk</span>
+              <span className="font-bold text-slate-800 uppercase block text-[11px] sm:text-[12px] mt-0.5">{order.product_name}</span>
             </div>
             
+            {/* NAMA PELANGGAN */}
             {(isPln || (isGame && order.customer_name)) && (
               <div className="text-center w-full">
-                <span className="text-slate-400 uppercase block text-[7.5px] sm:text-[9px] tracking-widest leading-none">{isPln ? "Nama Pelanggan" : "Nickname"}</span>
-                <span className="font-bold text-slate-800 uppercase block text-[11px] sm:text-[13px]">{isPln ? plnNama : order.customer_name}</span>
+                <span className="text-slate-400 uppercase block text-[7.5px] sm:text-[9px] tracking-widest">{isPln ? "Nama Pelanggan" : "Nickname"}</span>
+                <span className="font-bold text-slate-800 uppercase block text-[11px] sm:text-[13px] mt-0.5">{isPln ? plnNama : order.customer_name}</span>
               </div>
             )}
 
+            {/* ID / NOMOR TUJUAN */}
             {(isPln || isGame) && (
               <div className="text-center w-full">
-                <span className="text-slate-400 uppercase block text-[7.5px] sm:text-[9px] tracking-widest leading-none">{isPln ? "ID Pelanggan" : "ID Player"}</span>
-                <span className="font-black text-slate-900 block text-[13px] sm:text-[15px] tracking-widest">{order.game_id}</span>
+                <span className="text-slate-400 uppercase block text-[7.5px] sm:text-[9px] tracking-widest">{isPln ? "ID Pelanggan" : "ID Player"}</span>
+                <span className="font-black text-slate-900 block text-[13px] sm:text-[15px] tracking-widest mt-0.5">{order.game_id}</span>
               </div>
             )}
           </div>
