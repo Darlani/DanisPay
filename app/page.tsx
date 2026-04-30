@@ -255,9 +255,9 @@ let ordersQuery = supabase
       <ProductSection title="Digital Services" category="digital services" id="digital" />
       
 {/* Floating Support Button & Menu */}
-      {/* Kita pakai bottom-[72px] biar pas nempel sejajar di atas menu bawah HP. 
-          Kalau dirasa kurang turun/naik, bos tinggal ubah angka 72px itu (misal 65px atau 80px) */}
-      <div className="fixed bottom-18 md:bottom-6 right-4 md:right-6 z-9999 flex flex-col items-end">
+{/* Kita pakai bottom-[72px] biar pas nempel sejajar di atas menu bawah HP. 
+          Kalau dirasa kurang turun/naik, bos tinggal ubah angka 72px itu (misal 65px atau 80px) */}
+      <div className="fixed bottom-18 md:bottom-6 right-4 md:right-6 z-40 flex flex-col items-end">
 {/* Menu Dropup (Ukurannya dikecilkan di HP, normal di Desktop) */}
         {isSupportMenuOpen && (
           <div className="mb-2 w-36 md:w-48 bg-[#2d2438] border border-slate-700 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">

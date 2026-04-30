@@ -82,27 +82,27 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
   if (!isOpen) return null;
 
 return (
-    <div className="fixed inset-0 z-1000 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-      {/* Container: Bottom sheet di Mobile, Centered Modal di Tablet/PC */}
-      <div className="bg-white w-full h-[90vh] sm:h-auto sm:max-w-lg rounded-t-4xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
+    <div className="fixed inset-0 z-1000 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+      {/* Container: Centered Modal untuk semua device agar rapi di tengah */}
+      <div className="bg-white w-full max-w-lg max-h-[95vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
         
         {/* HEADER */}
-        <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-              <Search size={20} />
-            </div>
-            <h3 className="font-bold text-slate-800 text-lg">Lacak Pesanan</h3>
-          </div>
-          <button onClick={handleClose} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-full transition-colors">
-            <X size={20}/>
-          </button>
-        </div>
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+              <Search size={20} />
+            </div>
+            <h3 className="font-bold text-slate-800 text-lg">Lacak Pesanan</h3>
+          </div>
+          <button onClick={handleClose} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-full transition-colors">
+            <X size={20}/>
+          </button>
+        </div>
 
-        {/* CONTENT (Scrollable Area) */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 custom-scrollbar">
-          
-          <form onSubmit={handleTrackOrder} className="space-y-4">
+        {/* CONTENT (Scrollable Area) */}
+        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+          
+          <form onSubmit={handleTrackOrder} className="space-y-3">
             <div className="relative">
               <input 
                 type="text"
@@ -132,13 +132,13 @@ return (
           </form>
 
           {/* AREA HASIL PENCARIAN */}
-          <div className="mt-8 flex flex-col items-center justify-center min-h-50">
-            {order ? (
-              <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {/* AREA STRUK INVOICE */}
-                <div ref={receiptRef} className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm relative">
-                  
-                  <div className="flex items-center justify-center gap-3 mb-6">
+          <div className="mt-4 flex flex-col items-center justify-center min-h-32">
+            {order ? (
+              <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* AREA STRUK INVOICE */}
+                <div ref={receiptRef} className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm relative">
+                  
+                  <div className="flex items-center justify-center gap-3 mb-4">
                     <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-md shadow-blue-200 shrink-0">
                       <Gamepad2 className="text-white" size={20} />
                     </div>
@@ -180,22 +180,22 @@ return (
                   </div>
                 </div>
 
-                {/* TOMBOL AKSI (Mobile: Tumpuk, Tablet/PC: Bersebelahan) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
-                  <button 
-                    onClick={handleDownloadImage}
-                    className="flex items-center justify-center gap-2 bg-slate-50 border border-slate-200 text-slate-700 py-3.5 rounded-2xl font-bold text-sm hover:bg-slate-100 transition-all active:scale-[0.98]"
-                  >
-                    <Download size={18} /> Simpan Gambar
-                  </button>
-                  <Link 
-                    href={`/checkout/pay/${order.order_id}`}
-                    onClick={onClose}
-                    className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3.5 rounded-2xl font-bold text-sm shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-[0.98]"
-                  >
-                    Lihat Detail <ChevronRight size={18} />
-                  </Link>
-                </div>
+                {/* TOMBOL AKSI */}
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  <button 
+                    onClick={handleDownloadImage}
+                    className="flex items-center justify-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 py-2.5 rounded-xl font-bold text-xs hover:bg-slate-100 transition-all active:scale-[0.98]"
+                  >
+                    <Download size={16} /> Simpan
+                  </button>
+                  <Link 
+                    href={`/checkout/pay/${order.order_id}`}
+                    onClick={onClose}
+                    className="flex items-center justify-center gap-1.5 bg-blue-600 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-[0.98]"
+                  >
+                    Detail <ChevronRight size={16} />
+                  </Link>
+                </div>
               </div>
             ) : error ? (
               <div className="text-center py-8 animate-in fade-in">
