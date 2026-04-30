@@ -114,7 +114,7 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
             {/* PRODUK */}
             <div className="text-center w-full">
               <span className="text-slate-400 uppercase block text-[7.5px] sm:text-[9px] tracking-widest">Produk</span>
-              <span className="font-bold text-slate-800 uppercase block text-[11px] sm:text-[12px] mt-0.5">{order.product_name}</span>
+              <span className="font-bold text-slate-800 uppercase block text-[11px] sm:text-[13px] mt-0.5">{order.product_name}</span>
             </div>
             
             {/* NAMA PELANGGAN */}
@@ -129,7 +129,7 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
             {(isPln || isGame) && (
               <div className="text-center w-full">
                 <span className="text-slate-400 uppercase block text-[7.5px] sm:text-[9px] tracking-widest">{isPln ? "ID Pelanggan" : "ID Player"}</span>
-                <span className="font-black text-slate-900 block text-[13px] sm:text-[15px] tracking-widest mt-0.5">{order.game_id}</span>
+                <span className="font-black text-slate-900 block text-[11px] sm:text-[13px] tracking-widest mt-0.5">{order.game_id}</span>
               </div>
             )}
           </div>
