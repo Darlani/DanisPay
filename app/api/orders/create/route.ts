@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       sku, payment_method, total_amount, used_balance, user_id, email,
       product_name, order_id, game_id, item_label, user_contact,
       ip_address, device_id, referred_by, voucher_amount,
-      voucher_code, inquiry_result
+      voucher_code, inquiry_result, unique_code
     } = body;
 
     // --- 2. DETEKSI SUMBER PRODUK (Hybrid Search) ---
@@ -122,11 +122,6 @@ if (isPascabayar) {
     const allowed = isPaymentAllowed(payment_method, product_name || "General", total_amount, payData);
     if (!allowed) return NextResponse.json({ error: "Metode pembayaran tidak tersedia." }, { status: 403 });
 
-    // --- 5.5 LOGIKA SMART UNIQUE CODE ---
-    const limaMenitLalu = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const { count: trafik } = await supabaseAdmin.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'Pending').gte('created_at', limaMenitLalu);
-    const kodeUnikPusat = Math.floor(Math.random() * ((trafik || 0) > 15 ? 999 : ((trafik || 0) > 5 ? 500 : 200))) + 1;
-
     // --- 6. PEMETAAN DATA KE TABEL ORDERS ---
     const safeProductName = dbProduct.name || product_name || "Produk Digital";
     let dynamicLabel = safeProductName; 
@@ -149,7 +144,7 @@ if (isPascabayar) {
       voucher_code: voucher_code || null,
       voucher_amount: voucher_amount || 0,
       cashback: finalCashback, 
-      unique_code: isPascabayar ? kodeUnikUser : kodeUnikPusat,
+      unique_code: isPascabayar ? kodeUnikUser : Number(unique_code || 0),
       total_amount: total_amount, 
       payment_method,
       
@@ -180,6 +175,17 @@ if (isPascabayar) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString() 
     };
+
+    // --- 6.5 VALIDASI TABRAKAN & PEMBERSIHAN RESERVASI (CARA PRO) ---
+    // Cek sekali lagi apakah nominal ini tiba-tiba dipakai orang lain dalam jeda milidetik
+    const { data: duplicate } = await supabaseAdmin.from('orders').select('id').eq('status', 'Pending').eq('total_amount', total_amount).maybeSingle();
+    
+    if (duplicate) {
+      return NextResponse.json({ error: "Nominal ini baru saja diambil orang lain, silakan klik Beli Sekarang lagi." }, { status: 409 });
+    }
+
+    // Hapus booking di tabel reservasi karena nominal sudah resmi jadi Order
+    await supabaseAdmin.from('code_reservations').delete().eq('total_amount', total_amount);
 
     // --- 7. EKSEKUSI INSERT ---
     const { error: insertError } = await supabaseAdmin.from('orders').insert([orderData]); 

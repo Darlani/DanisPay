@@ -20,16 +20,22 @@ interface ModalProps {
   handleCheckout: () => void;
   dynamicLabel: string;
   isMounted: boolean;
+  uniqueCode: number;
 }
 
 export default function OrderConfirmationModal(props: ModalProps) {
   const {
     isOpen, onClose, product, selectedItem, accId, selectedPayment,
     totalPrice, nominalHemat, usedCoinsAmount, estimasiCashback,
-    memberType, formatRupiah, isProcessing, handleCheckout, dynamicLabel, isMounted
+    memberType, formatRupiah, isProcessing, handleCheckout, dynamicLabel, isMounted,
+    uniqueCode // <--- Tambahkan uniqueCode di sini agar bisa dipakai di bawah
   } = props;
 
   if (!isOpen) return null;
+
+  const basePrice = totalPrice; 
+  // Gunakan ternary agar Total Bayar tidak muncul sebelum kode unik siap
+  const finalTotalAmount = uniqueCode > 0 ? (totalPrice + uniqueCode) : null;
 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
@@ -117,11 +123,36 @@ export default function OrderConfirmationModal(props: ModalProps) {
           </div>
 
           {totalPrice > 0 ? (
-            <div className="pt-2">
-              <p className="text-xs font-semibold text-slate-500 mb-1">Total Bayar</p>
-              <h4 className="text-2xl font-bold text-blue-600 tracking-tight" suppressHydrationWarning>
-                {isMounted ? formatRupiah(totalPrice) : "..."}
+            <div className="pt-2 space-y-2">
+              {/* Rincian Transparansi Harga */}
+              <div className="space-y-1 px-1 border-b border-dashed border-slate-200 pb-2 mb-2">
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-500 font-medium">Harga Produk</span>
+                  <span className="text-slate-700 font-bold">{isMounted ? formatRupiah(basePrice) : "..."}</span>
+                </div>
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-slate-500 font-medium">Biaya Layanan</span>
+                {uniqueCode > 0 ? (
+                  <span className="text-blue-600 font-black italic animate-in zoom-in duration-300">
+                    +{formatRupiah(uniqueCode)}
+                  </span>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <Loader2 size={10} className="animate-spin text-blue-600" />
+                    <span className="text-blue-400 italic text-[9px] animate-pulse">Menghitung...</span>
+                  </div>
+                )}
+              </div>
+              </div>
+
+          <div>
+              <p className="text-xs font-semibold text-slate-500 mb-1 leading-none">Total Bayar</p>
+              <h4 className={`text-2xl font-bold text-blue-600 tracking-tight leading-none ${finalTotalAmount ? 'animate-in fade-in duration-500' : ''}`} suppressHydrationWarning>
+                {isMounted ? (
+                  finalTotalAmount ? formatRupiah(finalTotalAmount) : "..."
+                ) : "..."} 
               </h4>
+            </div>
             </div>
           ) : (
             <div className="pt-2 animate-in zoom-in duration-500">
@@ -143,10 +174,11 @@ export default function OrderConfirmationModal(props: ModalProps) {
 
         <div className="p-5 sm:p-6 pt-0 grid grid-cols-2 gap-3">
           <button type="button" onClick={onClose} className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-all active:scale-95 cursor-pointer">Batal</button>
-          <button 
-            type="button" 
-            disabled={isProcessing} 
-            onClick={handleCheckout} 
+        <button 
+          type="button" 
+          // 🚀 KUNCI TOMBOL jika kode unik belum dapet dari backend
+          disabled={isProcessing || uniqueCode === 0} 
+          onClick={handleCheckout}
             className={`py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${isProcessing ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 active:scale-95 cursor-pointer'}`}
           >
             {isProcessing ? (

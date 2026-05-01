@@ -236,9 +236,13 @@ fetchTransaction();
     </div>
   );
 
-  const nominalString = trx.total_amount.toString();
-  const uniqueCode = nominalString.slice(-3);
-  const mainNominal = new Intl.NumberFormat("id-ID").format(Math.floor(trx.total_amount / 1000));
+  const nominalString = trx.total_amount?.toString() || "0"; 
+  const formattedTotal = new Intl.NumberFormat("id-ID").format(trx.total_amount || 0);
+  
+  // Kita pecah angkanya di sini agar bisa dipanggil di mana saja
+  const mainNominalPart = formattedTotal.slice(0, -3); // Mengambil semua angka kecuali 3 terakhir
+  const uniqueCodePart = formattedTotal.slice(-3);     // Mengambil hanya 3 angka terakhir
+
   const payDetail = getPaymentDetails(trx.payment_method);
 
   return (
@@ -308,7 +312,7 @@ fetchTransaction();
                                 )}
                               </div>
                               <p className="text-[10px] font-black text-slate-400 mt-3 uppercase tracking-widest text-center">
-                                Scan & Bayar Rp {mainNominal}.{uniqueCode}
+                                Scan & Bayar Rp {mainNominalPart}<span className="text-blue-600">{uniqueCodePart}</span>
                               </p>
                               {qrisString && (
                                 <button 
@@ -343,9 +347,9 @@ fetchTransaction();
                           <div className="space-y-2">
                             <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Total Transfer</p>
                             <div className="flex items-center justify-center gap-2">
-                              <h2 className="text-3xl font-bold text-slate-900 tracking-tighter">
-                                Rp {mainNominal}.<span className="text-blue-600">{uniqueCode}</span>
-                              </h2>
+                          <h2 className="text-3xl font-bold text-slate-900 tracking-tighter">
+                            Rp {mainNominalPart}<span className="text-blue-600">{uniqueCodePart}</span>
+                          </h2>
                               <button onClick={() => copyToClipboard(nominalString, "nominal")} className="bg-slate-100 p-2 rounded-xl active:scale-95 transition-all">
                                 {copiedId === "nominal" ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
                               </button>

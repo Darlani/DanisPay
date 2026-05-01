@@ -51,6 +51,9 @@ interface InterfacePulsaProps {
   isMaintenanceDigiflazz: boolean;
   isAdmin: boolean;
   dbPayments: any[];
+  uniqueCode: number;
+  isLoading: boolean;
+  onPreCheckout: () => Promise<void>;
 }
 
 export default function InterfacePulsa(props: InterfacePulsaProps) {
@@ -61,7 +64,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
     isModalOpen, setIsModalOpen, totalPrice, formatRupiah, handleCheckout,
     isPromoApplied, setIsPromoApplied, checkPromo, basePrice, currentUser, memberType,
     estimasiCashback, isMounted, userCoins, useCoins, setUseCoins, usedCoinsAmount, isMaintenanceDigiflazz,
-    isAdmin, dbPayments
+    isAdmin, dbPayments, uniqueCode, isLoading, onPreCheckout
   } = props;
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -718,6 +721,8 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
           currentUser={currentUser}
           memberType={memberType}
           isMounted={isMounted}
+          isLoading={isLoading}
+          onPreCheckout={onPreCheckout}
         />
 
         <OrderConfirmationModal 
@@ -737,6 +742,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
           handleCheckout={onConfirmCheckout}
           dynamicLabel={getDynamicLabel()}
           isMounted={isMounted}
+          uniqueCode={uniqueCode}
         />
 
       </div>

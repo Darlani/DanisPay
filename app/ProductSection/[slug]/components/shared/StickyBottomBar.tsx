@@ -18,21 +18,27 @@ interface StickyProps {
   isMounted: boolean;
   onCheckInquiry?: () => Promise<boolean>;
   isChecking?: boolean;
+  isLoading?: boolean; 
+  onPreCheckout?: () => Promise<void>;
 }
 
 export default function StickyBottomBar(props: StickyProps) {
   const {
     selectedItemId, selectedItem, totalPrice, formatRupiah, isReadyToCheckout,
     setIsModalOpen, nominalHemat, usedCoinsAmount, estimasiCashback,
-    currentUser, memberType, isMounted, onCheckInquiry, isChecking
+    currentUser, memberType, isMounted, onCheckInquiry, isChecking, isLoading, onPreCheckout
   } = props;
 
   const handleBuyClick = async () => {
+    // 1. Jika ada fungsi cek ID (Inquiry), jalankan dulu
     if (onCheckInquiry) {
       const isValid = await onCheckInquiry();
-      if (isValid) {
-        setIsModalOpen(true);
-      }
+      if (!isValid) return; // Berhenti jika ID salah
+    }
+
+    // 2. Jalankan Pre-Checkout (Minta kode unik ke backend)
+    if (onPreCheckout) {
+      await onPreCheckout();
     } else {
       setIsModalOpen(true);
     }
@@ -160,10 +166,10 @@ export default function StickyBottomBar(props: StickyProps) {
         {/* ========================================= */}
         {/* BAGIAN BAWAH (Mobile) / KANAN (Desktop) */}
         {/* ========================================= */}
-        <button 
-          disabled={!isReadyToCheckout || isChecking}
-          onClick={handleBuyClick}
-          className={`w-full sm:w-auto px-4 sm:px-10 py-2.5 sm:py-4 rounded-[14px] sm:rounded-[20px] border-b-4 shadow-xl flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 shrink-0 transition-all ${(!isReadyToCheckout || isChecking) ? 'bg-slate-400 border-slate-600 text-slate-200 cursor-not-allowed' : 'bg-[#2962FF] border-[#0039CB] text-white hover:bg-[#1E40FF] active:scale-95 cursor-pointer'}`}
+      <button 
+        disabled={!isReadyToCheckout || isChecking || isLoading}
+        onClick={handleBuyClick} // Gunakan fungsi internal yang sudah menggabung inquiry & precheckout
+        className={`w-full sm:w-auto px-4 sm:px-10 py-2.5 sm:py-4 rounded-[14px] sm:rounded-[20px] border-b-4 shadow-xl flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 shrink-0 transition-all ${(!isReadyToCheckout || isChecking) ? 'bg-slate-400 border-slate-600 text-slate-200 cursor-not-allowed' : 'bg-[#2962FF] border-[#0039CB] text-white hover:bg-[#1E40FF] active:scale-95 cursor-pointer'}`}
         >
           {/* Teks diubah responsif: HP = BELI SEKARANG full width */}
           <span className="font-black text-[11px] sm:text-sm italic uppercase">

@@ -21,7 +21,7 @@ export default function InterfacePascabayar(props: any) {
     promoCode, setPromoCode, showAllPayment, setShowAllPayment,
     isModalOpen, setIsModalOpen, isPromoApplied, setIsPromoApplied,
     checkPromo, currentUser, memberType, userCoins, useCoins, setUseCoins,
-    isMounted, handleCheckout
+    isMounted, handleCheckout, uniqueCode, isLoading, onPreCheckout, setSelectedItemId
   } = props;
 
   // --- STATE KHUSUS PASCABAYAR ---
@@ -43,7 +43,7 @@ export default function InterfacePascabayar(props: any) {
 
 // --- KALKULASI HARGA & ADMIN ---
 // Gunakan Math.ceil atau pastikan Number benar-benar menangkap digit terakhir
-  const rawTagihan = parseInt(inquiryData?.desc?.detail?.[0]?.nilai_tagihan || "0");
+  const rawTagihan = Number(inquiryData?.amount || inquiryData?.desc?.detail?.[0]?.nilai_tagihan || 0);
   const adminToko = parseInt(product?.items?.[0]?.price || "0");
   
   // 3. Admin Digiflazz (Hanya untuk keperluan record modal di backend nanti)
@@ -105,6 +105,7 @@ const isReadyToCheckout = Boolean(
       const result = await res.json();
       if (res.ok) {
         setInquiryData(result.data);
+        setSelectedItemId("pascabayar-item"); // <--- MOCK ID ini dikirim ke page.tsx agar lolos validasi handlePreCheckout
         scrollToNext(step3Ref);
       } else {
         setErrorMsg(result.message || "ID Pelanggan tidak ditemukan.");
@@ -322,7 +323,10 @@ const onConfirmCheckout = () => {
                   showAllPayment={showAllPayment}
                   setShowAllPayment={setShowAllPayment}
                   selectedPayment={localPayment}
-                  setSelectedPayment={setLocalPayment}
+                  setSelectedPayment={(val) => {
+                    setLocalPayment(val);
+                    setSelectedPayment(val);
+                  }}
                   totalPrice={finalTotalPrice}
                   productName={product.name}
                   scrollToNext={scrollToNext}
@@ -370,6 +374,8 @@ const onConfirmCheckout = () => {
         currentUser={currentUser}
         memberType={memberType}
         isMounted={isMounted}
+        isLoading={isLoading}
+        onPreCheckout={onPreCheckout}
       />
 
       {/* --- MODAL KONFIRMASI (SHARED) --- */}
@@ -390,6 +396,7 @@ const onConfirmCheckout = () => {
         handleCheckout={onConfirmCheckout}
         dynamicLabel={getDynamicLabel()}
         isMounted={isMounted}
+        uniqueCode={uniqueCode}
       />
 
     </div>

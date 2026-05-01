@@ -42,6 +42,7 @@ function DetailContent({ slug }: { slug: string }) {
   const [showAllItems, setShowAllItems] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPromoApplied, setIsPromoApplied] = useState(false);
+  const [uniqueCode, setUniqueCode] = useState(0); // State baru untuk simpan kode unik
   const [isLoading, setIsLoading] = useState(false);
   const [discount, setDiscount] = useState(0);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -193,6 +194,32 @@ const getBrowserData = async () => {
     } catch (err) { return { success: false }; }
   };
 
+const handlePreCheckout = async () => {
+    if (!selectedItemId || !selectedPayment) return;
+    
+    // 🚀 LANGSUNG BUKA MODAL (Render < 50ms)
+    setIsModalOpen(true); 
+    setUniqueCode(0); // Reset kode lama
+    
+    setIsLoading(true); // Loading hanya untuk bagian Biaya Layanan
+    try {
+      const res = await fetch('/api/orders/generate-uniquecode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ basePrice: priceBeforeBalance })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        setUniqueCode(data.uniqueCode);
+      }
+    } catch (err) {
+      console.error("Gagal ambil kode unik");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 const handleCheckout = async (customPayload?: any) => {
     // 1. Hapus validasi !selectedItem karena pascabayar gak pake pilih item
     if (isLoading) return; 
@@ -205,7 +232,7 @@ const handleCheckout = async (customPayload?: any) => {
       const activeLabel = customPayload?.override_label || selectedItem?.label || "Tagihan Pascabayar";
       const activeSku = selectedItem?.sku || productData?.items?.[0]?.sku || "PASCABAYAR";
 
-      const uniqueCode = activePrice > 0 ? Math.floor(Math.random() * 999) + 1 : 0;
+      // Gunakan uniqueCode dari state, bukan diacak lagi di sini
       const totalAmount = Number(activePrice) + uniqueCode; 
       const isFullCoin = totalAmount === 0;
       const orderIdStr = `DANISH-${Math.floor(Math.random() * 90000) + 10000}`;
@@ -269,10 +296,10 @@ const handleCheckout = async (customPayload?: any) => {
   const commonProps = {
     product: productData, selectedItemId, setSelectedItemId, setSelectedPayment, accId, setAccId, zoneId, setZoneId, 
     waNumber, setWaNumber, promoCode, setPromoCode, showAllPayment, setShowAllPayment, showAllItems, setShowAllItems,
-    isModalOpen, setIsModalOpen, totalPrice, formatRupiah, selectedPayment: selectedPayment, 
+    isModalOpen, setIsModalOpen, uniqueCode, totalPrice, formatRupiah, selectedPayment: selectedPayment, 
     handleCheckout, isPromoApplied, setIsPromoApplied, checkPromo, basePrice, estimasiCashback, isMounted, currentUser, memberType,
     additionalData, setAdditionalData, userCoins, useCoins, setUseCoins, usedCoinsAmount, 
-    isMaintenanceDigiflazz: productData?.is_maintenance_digiflazz || false, isAdmin, dbPayments 
+    isMaintenanceDigiflazz: productData?.is_maintenance_digiflazz || false, isAdmin, dbPayments, onPreCheckout: handlePreCheckout, isLoading: isLoading
   };
 
   if (isFetchingDB && !productData) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;

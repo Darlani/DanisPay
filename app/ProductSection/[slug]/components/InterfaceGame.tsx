@@ -50,6 +50,9 @@ interface InterfaceGameProps {
   isMaintenanceDigiflazz: boolean;
   isAdmin: boolean;
   dbPayments: any[];
+  uniqueCode: number;
+  isLoading: boolean;              // <--- Tambahkan ini
+  onPreCheckout: () => Promise<void>; // <--- Tambahkan ini
 }
 
 export default function InterfaceGame(props: InterfaceGameProps) {
@@ -60,7 +63,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
     isModalOpen, setIsModalOpen, totalPrice, formatRupiah, handleCheckout,
     isPromoApplied, setIsPromoApplied, checkPromo, basePrice, currentUser, memberType,
     estimasiCashback, isMounted, userCoins, useCoins, setUseCoins,
-    usedCoinsAmount, isMaintenanceDigiflazz, isAdmin, dbPayments
+    usedCoinsAmount, isMaintenanceDigiflazz, isAdmin, dbPayments, uniqueCode, isLoading, onPreCheckout
   } = props;
 
   const [isProcessing, setIsProcessing] = useState(false); 
@@ -733,6 +736,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           isMounted={isMounted}
           onCheckInquiry={handleInquiryGame}
           isChecking={isChecking}
+          isLoading={isLoading}
+          onPreCheckout={onPreCheckout}
         />
 
         {/* MODAL KONFIRMASI */}
@@ -753,6 +758,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           handleCheckout={onConfirmCheckout}
           dynamicLabel={getDynamicLabel()}
           isMounted={isMounted}
+          uniqueCode={uniqueCode}
         />
 
       </div>
