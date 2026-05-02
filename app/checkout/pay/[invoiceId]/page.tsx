@@ -239,9 +239,13 @@ fetchTransaction();
   const nominalString = trx.total_amount?.toString() || "0"; 
   const formattedTotal = new Intl.NumberFormat("id-ID").format(trx.total_amount || 0);
   
-  // Kita pecah angkanya di sini agar bisa dipanggil di mana saja
-  const mainNominalPart = formattedTotal.slice(0, -3); // Mengambil semua angka kecuali 3 terakhir
-  const uniqueCodePart = formattedTotal.slice(-3);     // Mengambil hanya 3 angka terakhir
+  // 💡 LOGIKA AMAN: Cek apakah ini tamu atau member
+  const hasUniqueCode = (trx.unique_code || 0) > 0;
+
+  // Jika tamu, kita warnai 3 digit terakhir dari TOTAL bayar.
+  // Jika member, kita biarkan utuh tanpa warna biru (uniqueCodePart kosong).
+  const mainNominalPart = hasUniqueCode ? formattedTotal.slice(0, -3) : formattedTotal;
+  const uniqueCodePart = hasUniqueCode ? formattedTotal.slice(-3) : "";
 
   const payDetail = getPaymentDetails(trx.payment_method);
 
@@ -348,7 +352,11 @@ fetchTransaction();
                             <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Total Transfer</p>
                             <div className="flex items-center justify-center gap-2">
                           <h2 className="text-3xl font-bold text-slate-900 tracking-tighter">
-                            Rp {mainNominalPart}<span className="text-blue-600">{uniqueCodePart}</span>
+                            Rp {mainNominalPart}
+                            {/* Hanya beri warna biru jika memang ada kode unik (Tamu) */}
+                            <span className={hasUniqueCode ? "text-blue-600" : ""}>
+                              {uniqueCodePart}
+                            </span>
                           </h2>
                               <button onClick={() => copyToClipboard(nominalString, "nominal")} className="bg-slate-100 p-2 rounded-xl active:scale-95 transition-all">
                                 {copiedId === "nominal" ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}

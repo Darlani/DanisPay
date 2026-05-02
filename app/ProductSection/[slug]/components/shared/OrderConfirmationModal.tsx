@@ -21,6 +21,7 @@ interface ModalProps {
   dynamicLabel: string;
   isMounted: boolean;
   uniqueCode: number;
+  isLoading: boolean;
 }
 
 export default function OrderConfirmationModal(props: ModalProps) {
@@ -28,14 +29,17 @@ export default function OrderConfirmationModal(props: ModalProps) {
     isOpen, onClose, product, selectedItem, accId, selectedPayment,
     totalPrice, nominalHemat, usedCoinsAmount, estimasiCashback,
     memberType, formatRupiah, isProcessing, handleCheckout, dynamicLabel, isMounted,
-    uniqueCode // <--- Tambahkan uniqueCode di sini agar bisa dipakai di bawah
+    uniqueCode, isLoading
   } = props;
 
   if (!isOpen) return null;
 
   const basePrice = totalPrice; 
   // Gunakan ternary agar Total Bayar tidak muncul sebelum kode unik siap
-  const finalTotalAmount = uniqueCode > 0 ? (totalPrice + uniqueCode) : null;
+  // Jika sudah ada kode unik ATAU dia member (tidak loading), tampilkan harga
+const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType)) 
+  ? (totalPrice + uniqueCode) 
+  : null;
 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
@@ -137,10 +141,17 @@ export default function OrderConfirmationModal(props: ModalProps) {
                     +{formatRupiah(uniqueCode)}
                   </span>
                 ) : (
-                  <div className="flex items-center gap-1">
-                    <Loader2 size={10} className="animate-spin text-blue-600" />
-                    <span className="text-blue-400 italic text-[9px] animate-pulse">Menghitung...</span>
-                  </div>
+                // 🚀 KUNCI: Tambahkan && memberType agar Tamu tidak bisa melihat ini
+                !isProcessing && !isLoading && memberType ? (
+                  <span className="text-emerald-600 font-black italic animate-in fade-in">
+                    GRATIS (MEMBER)
+                  </span>
+                ) : (
+                    <div className="flex items-center gap-1">
+                      <Loader2 size={10} className="animate-spin text-blue-600" />
+                      <span className="text-blue-400 italic text-[9px] animate-pulse">Menghitung...</span>
+                    </div>
+                  )
                 )}
               </div>
               </div>
@@ -176,8 +187,9 @@ export default function OrderConfirmationModal(props: ModalProps) {
           <button type="button" onClick={onClose} className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-all active:scale-95 cursor-pointer">Batal</button>
         <button 
           type="button" 
-          // 🚀 KUNCI TOMBOL jika kode unik belum dapet dari backend
-          disabled={isProcessing || uniqueCode === 0} 
+          // 🚀 KUNCI TOMBOL hanya untuk Tamu jika kode unik belum ada. 
+          // Member (uniqueCode 0) tetap bisa klik.
+          disabled={isProcessing || (!memberType && uniqueCode === 0)} 
           onClick={handleCheckout}
             className={`py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${isProcessing ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 active:scale-95 cursor-pointer'}`}
           >

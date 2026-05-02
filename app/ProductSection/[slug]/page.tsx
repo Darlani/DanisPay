@@ -197,11 +197,16 @@ const getBrowserData = async () => {
 const handlePreCheckout = async () => {
     if (!selectedItemId || !selectedPayment) return;
     
-    // 🚀 LANGSUNG BUKA MODAL (Render < 50ms)
     setIsModalOpen(true); 
-    setUniqueCode(0); // Reset kode lama
+    setUniqueCode(0); 
+
+    // 🚀 CEK VIP DI FRONTEND: Jika login, lupakan API, langsung set 0
+    if (currentUser) {
+      setIsLoading(false);
+      return; 
+    }
     
-    setIsLoading(true); // Loading hanya untuk bagian Biaya Layanan
+    setIsLoading(true); 
     try {
       const res = await fetch('/api/orders/generate-uniquecode', {
         method: 'POST',
@@ -209,10 +214,7 @@ const handlePreCheckout = async () => {
         body: JSON.stringify({ basePrice: priceBeforeBalance })
       });
       const data = await res.json();
-      
-      if (data.success) {
-        setUniqueCode(data.uniqueCode);
-      }
+      if (data.success) setUniqueCode(data.uniqueCode);
     } catch (err) {
       console.error("Gagal ambil kode unik");
     } finally {
