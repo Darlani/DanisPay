@@ -5,37 +5,62 @@ export async function POST(req: Request) {
   try {
     const { basePrice } = await req.json();
 
-    // 1. Logika Smart Range
-    const sepuluhMenitLalu = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const { count: trafik } = await supabaseAdmin.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'Pending').gte('created_at', sepuluhMenitLalu);
-    const rangeMax = (trafik || 0) > 15 ? 999 : ((trafik || 0) > 5 ? 500 : 100);
+    // 1. SENSOR TOTAL KEPADATAN (Bukan cuma 5 menit)
+    // Cek semua pesanan yang sedang 'Pending' (kunci 2 jam)
+    const { count: totalPending } = await supabaseAdmin.from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'Pending');
+    
+    // Bersihkan sampah reservasi yang sudah lewat 5 menit
+    await supabaseAdmin.from('code_reservations').delete().lt('expired_at', new Date().toISOString());
+
+    // 2. LOGIKA RANGEMAX DINAMIS (Sesuai tumpukan di gudang angka)
+    let rangeMax = 100;
+    if ((totalPending || 0) > 300) {
+      rangeMax = 999;
+    } else if ((totalPending || 0) > 70) {
+      rangeMax = 500;
+    }
 
     let uniqueCode = 0;
     let isReserved = false;
     let attempts = 0;
 
-    // 2. Loop sampai dapat nominal yang benar-benar kosong di Orders DAN Reservations
-    while (!isReserved && attempts < 15) {
+    // 3. PROSES PENCARIAN & LOCKING
+    while (!isReserved && attempts < 20) {
       uniqueCode = Math.floor(Math.random() * rangeMax) + 1;
       const targetNominal = basePrice + uniqueCode;
 
-      // Cek di tabel Orders (yang sudah jadi pesanan)
-      const { data: orderExists } = await supabaseAdmin.from('orders').select('id').eq('status', 'Pending').eq('total_amount', targetNominal).maybeSingle();
+      // Cek bentrokan di Orders (Permanent Lock 2 Jam)
+      const { data: orderExists } = await supabaseAdmin.from('orders')
+        .select('id')
+        .eq('status', 'Pending')
+        .eq('total_amount', targetNominal)
+        .maybeSingle();
 
       if (!orderExists) {
-        // Jika di orders kosong, coba "Booking" di tabel reservasi
-        const expiry = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // Lock 10 menit
-        const { error: reserveError } = await supabaseAdmin.from('code_reservations').insert([{ total_amount: targetNominal, expired_at: expiry }]);
+        // Cek bentrokan di Reservations (Temporary Lock 5 Menit)
+        const expiry = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+        
+        // INSERT di sini akan gagal otomatis jika total_amount sudah ada (Syarat: UNIQUE aktif)
+        const { error: reserveError } = await supabaseAdmin.from('code_reservations')
+          .insert([{ total_amount: targetNominal, expired_at: expiry }]);
 
         if (!reserveError) {
-          isReserved = true; // Berhasil booking!
+          isReserved = true; 
         }
       }
+
+      // Jika susah dapet angka, perlebar pencarian secara otomatis
+      if (attempts > 10) {
+        rangeMax = (totalPending || 0) > 1000 ? 5000 : 2000;
+      }
+      
       attempts++;
     }
 
     return NextResponse.json({ success: true, uniqueCode });
   } catch (err) {
-    return NextResponse.json({ success: false, uniqueCode: Math.floor(Math.random() * 100) + 1 });
+    return NextResponse.json({ success: false, uniqueCode: Math.floor(Math.random() * 999) + 1 });
   }
 }
