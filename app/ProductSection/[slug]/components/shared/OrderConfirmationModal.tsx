@@ -132,8 +132,18 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
               <div className="space-y-1 px-1 border-b border-dashed border-slate-200 pb-2 mb-2">
                 <div className="flex justify-between items-center text-[11px]">
                   <span className="text-slate-500 font-medium">Harga Produk</span>
-                  <span className="text-slate-700 font-bold">{isMounted ? formatRupiah(basePrice) : "..."}</span>
+                  {/* 🚀 Harga asli sebelum dipotong koin */}
+                  <span className="text-slate-700 font-bold">{isMounted ? formatRupiah(totalPrice + usedCoinsAmount) : "..."}</span>
                 </div>
+
+                {/* 🚀 Baris tambahan khusus jika koin dipakai sebagian */}
+                {usedCoinsAmount > 0 && (
+                  <div className="flex justify-between items-center text-[11px] animate-in slide-in-from-top-1">
+                    <span className="text-slate-500 font-medium">Sisa Tagihan</span>
+                    <span className="text-slate-700 font-bold">{isMounted ? formatRupiah(totalPrice) : "..."}</span>
+                  </div>
+                )}
+
               <div className="flex justify-between items-center text-[11px]">
                 <span className="text-slate-500 font-medium">Biaya Layanan</span>
                 {uniqueCode > 0 ? (
