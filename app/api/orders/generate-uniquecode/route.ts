@@ -3,17 +3,18 @@ import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 export async function POST(req: Request) {
   try {
-    const { basePrice, userId } = await req.json();
+    // Tambahkan paymentMethod di sini
+    const { basePrice, userId, paymentMethod } = await req.json();
 
     // ==========================================
-    // 1. FITUR VIP (Member Tanpa Kode Unik)
+    // 1. CEK METODE PEMBAYARAN
     // ==========================================
-    if (userId) {
+    if (paymentMethod === 'Koin DaPay') {
       return NextResponse.json({ success: true, uniqueCode: 0 });
     }
 
     // ==========================================
-    // 2. LOGIKA UNTUK NON-LOGIN (Tamu)
+    // 2. LOGIKA PENCARIAN KODE UNIK (Bank / QRIS / E-Wallet)
     // ==========================================
 
     // A. SENSOR KEPADATAN & CLEANUP (5 Menit)

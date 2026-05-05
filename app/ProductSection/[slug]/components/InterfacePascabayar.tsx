@@ -397,7 +397,7 @@ const onConfirmCheckout = () => {
         dynamicLabel={getDynamicLabel()}
         isMounted={isMounted}
         uniqueCode={uniqueCode}
-        isLoading={props.isLoading}
+        isLoading={isLoading}
       />
 
     </div>

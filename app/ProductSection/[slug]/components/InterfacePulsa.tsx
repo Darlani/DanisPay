@@ -743,7 +743,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
           dynamicLabel={getDynamicLabel()}
           isMounted={isMounted}
           uniqueCode={uniqueCode}
-          isLoading={props.isLoading}
+          isLoading={isLoading}
         />
 
       </div>

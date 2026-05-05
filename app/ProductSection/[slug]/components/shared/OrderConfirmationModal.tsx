@@ -36,8 +36,8 @@ export default function OrderConfirmationModal(props: ModalProps) {
 
   const basePrice = totalPrice; 
   // Gunakan ternary agar Total Bayar tidak muncul sebelum kode unik siap
-  // Jika sudah ada kode unik ATAU dia member (tidak loading), tampilkan harga
-const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType)) 
+  // Tampilkan jika: ada kode unik ATAU member ATAU bayar lunas pakai koin/voucher
+const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLoading && selectedPayment === 'Koin DaPay')) 
   ? (totalPrice + uniqueCode) 
   : null;
 
@@ -141,10 +141,10 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType))
                     +{formatRupiah(uniqueCode)}
                   </span>
                 ) : (
-                // 🚀 KUNCI: Tambahkan && memberType agar Tamu tidak bisa melihat ini
-                !isProcessing && !isLoading && memberType ? (
+                // 🚀 REVISI: Tampilkan GRATIS hanya jika metode pembayaran adalah Koin DaPay
+                !isProcessing && !isLoading && selectedPayment === 'Koin DaPay' ? (
                   <span className="text-emerald-600 font-black italic animate-in fade-in">
-                    GRATIS (MEMBER)
+                    GRATIS (POTONG SALDO)
                   </span>
                 ) : (
                     <div className="flex items-center gap-1">
@@ -188,8 +188,8 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType))
         <button 
           type="button" 
           // 🚀 KUNCI TOMBOL hanya untuk Tamu jika kode unik belum ada. 
-          // Member (uniqueCode 0) tetap bisa klik.
-          disabled={isProcessing || (!memberType && uniqueCode === 0)} 
+          // Member (uniqueCode 0) ATAU pembayaran lunas (Koin DaPay) tetap bisa klik.
+          disabled={isProcessing || (!memberType && uniqueCode === 0 && selectedPayment !== 'Koin DaPay')} 
           onClick={handleCheckout}
             className={`py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${isProcessing ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 active:scale-95 cursor-pointer'}`}
           >

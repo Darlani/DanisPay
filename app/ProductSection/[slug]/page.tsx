@@ -200,18 +200,23 @@ const handlePreCheckout = async () => {
     setIsModalOpen(true); 
     setUniqueCode(0); 
 
-    // 🚀 CEK VIP DI FRONTEND: Jika login, lupakan API, langsung set 0
-    if (currentUser) {
+    // 🚀 LOGIKA BARU: Kode unik 0 HANYA jika bayar pakai Koin DaPay
+    if (selectedPayment === 'Koin DaPay') {
       setIsLoading(false);
       return; 
     }
     
     setIsLoading(true); 
-    try {
+    
+try {
       const res = await fetch('/api/orders/generate-uniquecode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ basePrice: priceBeforeBalance })
+        body: JSON.stringify({ 
+          basePrice: priceBeforeBalance,
+          userId: currentUser?.id, // Kirim ID user jika ada
+          paymentMethod: selectedPayment // 🚀 WAJIB: Kirim ini agar backend tahu
+        })
       });
       const data = await res.json();
       if (data.success) setUniqueCode(data.uniqueCode);

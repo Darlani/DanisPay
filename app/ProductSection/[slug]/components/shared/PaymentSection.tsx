@@ -2,6 +2,7 @@
 
 import { Zap, ChevronRight } from "lucide-react";
 import { isPaymentAllowed } from '@/utils/LogicPembayaran';
+import { useEffect } from "react";
 
 interface PaymentSectionProps {
   step3Ref: React.RefObject<HTMLDivElement | null>;
@@ -39,6 +40,15 @@ export default function PaymentSection(props: PaymentSectionProps) {
       return (isAAllowed === isBAllowed) ? 0 : (isAAllowed ? -1 : 1);
     });
   };
+
+  // 🚀 LOGIKA PINTAR: Auto-Select metode jika lunas pakai Koin
+  useEffect(() => {
+    if (totalPrice === 0 && selectedPayment !== 'Koin DaPay') {
+      setSelectedPayment('Koin DaPay'); // Otomatis isi data agar lolos validasi page.tsx
+    } else if (totalPrice > 0 && selectedPayment === 'Koin DaPay') {
+      setSelectedPayment(null); // Reset jika koin dimatikan / tidak cukup
+    }
+  }, [totalPrice, selectedPayment, setSelectedPayment]);
 
   return (
     <section ref={step3Ref} className="bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-[#B2DFDB]/40 overflow-hidden relative">
@@ -100,8 +110,11 @@ export default function PaymentSection(props: PaymentSectionProps) {
           </button>
         </div>
 
-        {/* Section QRIS Terpisah (Tepat di bawah Coin) [cite: 2026-03-09] */}
-        {dbPayments?.filter(p => p.name.toUpperCase().includes('QRIS')).map((pay) => {
+        {/* SEMBUNYIKAN METODE LAIN JIKA SALDO CUKUP MEMBAYAR LUNAS */}
+        {totalPrice > 0 && (
+          <>
+            {/* Section QRIS Terpisah (Tepat di bawah Coin) */}
+            {dbPayments?.filter(p => p.name.toUpperCase().includes('QRIS')).map((pay) => {
           const isMaintenance = pay.is_maintenance === true;
           const isAllowed = isPaymentAllowed(pay.name, productName, totalPrice, pay);
           return (
@@ -112,7 +125,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
                 onClick={() => { setSelectedPayment(pay.name); scrollToNext(step4Ref); }}
                 className={`group flex items-center p-3 sm:p-5 rounded-2xl border-2 transition-all min-h-20 sm:min-h-25 animate-in fade-in duration-300 relative overflow-hidden w-full ${(!isAllowed || isMaintenance) ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200 grayscale' : selectedPayment === pay.name ? 'border-[#00796B] bg-[#E0F2F1]/60 shadow-md shadow-teal-900/10' : 'border-[#E0F2F1] bg-white hover:border-[#80CBC4] hover:shadow-teal-100'}`}
               >
-{/* Badge BEST PAYMENT versi mini & slim [cite: 2026-03-09] */}
+            {/* Badge BEST PAYMENT versi mini & slim */}
                 <div className="absolute top-0 right-0 bg-orange-500 text-white text-[7px] font-black px-2 py-0.5 rounded-bl-lg shadow-sm uppercase tracking-tight z-10 pointer-events-none">
                   BEST PAYMENT
                 </div>
@@ -182,8 +195,10 @@ export default function PaymentSection(props: PaymentSectionProps) {
             })}
           </div>
         </div>
+          </>
+        )}
 
-        {!showAllPayment && (
+        {!showAllPayment && totalPrice > 0 && (
           <button onClick={() => setShowAllPayment(true)} className="w-full py-4 bg-[#F5FBFA] hover:bg-[#004D40] border-2 border-dashed border-[#B2DFDB] hover:border-[#004D40] rounded-3xl transition-all duration-300 group shadow-sm">
             <div className="flex items-center justify-center gap-3">
               <span className="font-black text-[11px] capitalize tracking-normal text-[#00796B] group-hover:text-white transition-colors">Lihat semua metode pembayaran</span>
@@ -192,7 +207,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
           </button>
         )}
 
-        {showAllPayment && (
+        {showAllPayment && totalPrice > 0 && (
           <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
             
             <div className="space-y-4">
