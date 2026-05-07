@@ -41,16 +41,16 @@ export default function InterfacePascabayar(props: any) {
 
   const isBlocked = isMaintenanceDigiflazz && !isAdmin;
 
-// --- KALKULASI HARGA & ADMIN ---
-// Gunakan Math.ceil atau pastikan Number benar-benar menangkap digit terakhir
+  // --- KALKULASI HARGA & ADMIN ---
+  // Gunakan Math.ceil atau pastikan Number benar-benar menangkap digit terakhir
   const rawTagihan = Number(inquiryData?.amount || inquiryData?.desc?.detail?.[0]?.nilai_tagihan || 0);
   const adminToko = parseInt(product?.items?.[0]?.price || "0");
-  
-  // 3. Admin Digiflazz (Hanya untuk keperluan record modal di backend nanti)
-  const adminDigiflazz = Number(inquiryData?.admin || inquiryData?.desc?.detail?.[0]?.admin || 0);
+  
+  // 3. Admin Digiflazz (Hanya untuk keperluan record modal di backend nanti)
+  const adminDigiflazz = Number(inquiryData?.admin || inquiryData?.desc?.detail?.[0]?.admin || 0);
 
-  // 4. Harga yang harus dibayar User = Tagihan Murni + Admin Toko (118.976 + 5.100)
-  const dynamicBasePrice = inquiryData ? (rawTagihan + adminToko) : 0;
+  // 4. Harga yang harus dibayar User = Tagihan Murni + Admin Toko (118.976 + 5.100)
+  const dynamicBasePrice = inquiryData ? (rawTagihan + adminToko) : 0;
   
   const totalPrice = Math.max(0, dynamicBasePrice - discount);
   
@@ -66,10 +66,10 @@ export default function InterfacePascabayar(props: any) {
   const mockSelectedItemId = inquiryData ? "pascabayar-item" : null;
   const mockSelectedItem = inquiryData ? { label: `Tagihan ${inquiryData.period || ''} + Admin` } : null;
 
-const isReadyToCheckout = Boolean(
+  const isReadyToCheckout = Boolean(
     inquiryData && 
     (finalTotalPrice === 0 ? true : !!localPayment) // captchaToken saya hapus sementara!
-);
+  );
 
   const scrollToNext = (ref: React.RefObject<HTMLDivElement | null>) => {
     if (ref.current) setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
@@ -117,7 +117,7 @@ const isReadyToCheckout = Boolean(
     }
   };
 
-const onConfirmCheckout = () => {
+  const onConfirmCheckout = () => {
     setIsProcessing(true);
     handleCheckout({
       raw_tagihan: rawTagihan,
@@ -129,7 +129,7 @@ const onConfirmCheckout = () => {
       // 🚀 INI KUNCINYA: Kirim data inquiry ke page.tsx
       inquiry_result: inquiryData 
     });
-};
+  };
 
   return (
     <div className="min-h-screen bg-[#bcefe5] text-slate-900 font-sans tracking-tight relative pb-32">
@@ -238,7 +238,7 @@ const onConfirmCheckout = () => {
               </div>
             </section>
             
-{/* STEP 2: RINCIAN TAGIHAN (RIBBON STYLE) */}
+            {/* STEP 2: RINCIAN TAGIHAN (RIBBON STYLE) */}
             <section className={`bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-all duration-500 border border-[#B2DFDB]/40 overflow-hidden relative ${inquiryData ? "opacity-100" : "hidden pointer-events-none"}`}>
               <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
                 <div className="bg-[#00695C] w-8 sm:w-10 flex items-center justify-center text-white font-black text-base sm:text-lg shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.1)] z-10">
@@ -279,26 +279,41 @@ const onConfirmCheckout = () => {
 
                    <div className="flex items-center gap-3 sm:gap-4 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100">
                        <div className="bg-slate-200 p-2 sm:p-2.5 rounded-xl text-slate-600"><CalendarDays size={18} /></div>
-                       <div>
-                           <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Periode (BL/TH)</p>
-                           <p className="text-xs sm:text-sm font-black text-slate-800">{inquiryData.period || "-"}</p>
-                       </div>
+                     <div>
+                       <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Periode (BL/TH)</p>
+                       <p className="text-xs sm:text-sm font-black text-slate-800">{inquiryData.period || "-"}</p>
+                     </div>
                    </div>
 
-                   {/* TOTAL HARUS DIBAYAR (SUDAH TERMASUK ADMIN) */}
-                   <div className="flex items-center gap-3 sm:gap-4 bg-blue-600 p-4 sm:p-5 rounded-2xl border-2 border-blue-400 shadow-lg shadow-blue-200 animate-in zoom-in duration-300">
-                       <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl text-white">
-                           <CircleDollarSign size={22} className="animate-pulse" />
-                       </div>
-                       <div>
-                           <p className="text-[10px] sm:text-[11px] font-black text-blue-100 uppercase tracking-widest">Total Harus Dibayar</p>
-                           <p className="text-lg sm:text-xl font-black text-white leading-tight">
-                               {formatRupiah(dynamicBasePrice)}
-                           </p>
-                           <p className="text-[9px] font-bold text-blue-200 lowercase first-letter:uppercase italic mt-0.5">
-                               *Sudah termasuk biaya admin
-                           </p>
-                       </div>
+                   {/* TAMBAHAN: NOMINAL TAGIHAN */}
+                   <div className="flex items-center gap-3 sm:gap-4 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100">
+                     <div className="bg-slate-200 p-2 sm:p-2.5 rounded-xl text-slate-600"><ReceiptText size={18} /></div>
+                     <div>
+                       <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Nominal Tagihan</p>
+                       <p className="text-xs sm:text-sm font-black text-slate-800">{formatRupiah(rawTagihan)}</p>
+                     </div>
+                   </div>
+
+                   {/* TAMBAHAN: BIAYA ADMIN */}
+                   <div className="flex items-center gap-3 sm:gap-4 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100">
+                     <div className="bg-slate-200 p-2 sm:p-2.5 rounded-xl text-slate-600"><ShieldCheck size={18} /></div>
+                     <div>
+                       <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Biaya Admin</p>
+                       <p className="text-xs sm:text-sm font-black text-slate-800">{formatRupiah(adminToko)}</p>
+                     </div>
+                   </div>
+
+                   {/* TOTAL HARUS DIBAYAR (UKURAN DISESUAIKAN) */}
+                   <div className="flex items-center gap-3 bg-blue-600 p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 border-blue-400 shadow-md shadow-blue-200 animate-in zoom-in duration-300 mt-2">
+                     <div className="bg-white/20 p-2 rounded-xl text-white">
+                       <CircleDollarSign size={20} className="animate-pulse" />
+                     </div>
+                     <div>
+                       <p className="text-[9px] sm:text-[10px] font-black text-blue-100 uppercase tracking-widest">Total Harus Dibayar</p>
+                       <p className="text-base sm:text-lg font-black text-white leading-tight">
+                         {formatRupiah(dynamicBasePrice)}
+                       </p>
+                     </div>
                    </div>
 
                 </div>
