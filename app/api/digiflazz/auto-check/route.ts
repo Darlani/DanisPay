@@ -67,7 +67,7 @@ export async function GET(req: Request) {
       const payload: any = {
         username,
         buyer_sku_code: targetSku,
-        customer_no: order.game_id,
+        customer_no: order.customer_no,
         ref_id: targetRefId,
         sign: sign
       };
@@ -190,7 +190,7 @@ export async function GET(req: Request) {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
-                        username, buyer_sku_code: nextAlt.sku, customer_no: order.game_id, ref_id: nextRefId, sign: retrySign
+                        username, buyer_sku_code: nextAlt.sku, customer_no: order.customer_no, ref_id: nextRefId, sign: retrySign
                       })
                     });
 

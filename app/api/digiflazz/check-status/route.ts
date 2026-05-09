@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     // TAMBAHAN: Tarik profiles(balance) dan kolom finance untuk hitung cuan
     const { data: order, error: fetchErr }: { data: any, error: any } = await supabaseAdmin
       .from('orders')
-      .select('id, order_id, api_ref_id, sku, game_id, user_id, email, total_amount, status, category, product_name, price, used_balance, buy_price, created_at, profiles(id, balance, email)')
+      .select('id, order_id, api_ref_id, sku, customer_no, user_id, email, total_amount, status, category, product_name, price, used_balance, buy_price, created_at, profiles(id, balance, email)')
       .eq('order_id', order_id)
       .single();
 
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     const payload: any = {
       username,
       buyer_sku_code: targetSku,
-      customer_no: order.game_id,
+      customer_no: order.customer_no,
       ref_id: targetRefId,
       sign: sign
     };
@@ -211,7 +211,7 @@ export async function POST(req: Request) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  username, buyer_sku_code: nextAlt.sku, customer_no: order.game_id, ref_id: nextRefId, sign: retrySign
+                  username, buyer_sku_code: nextAlt.sku, customer_no: order.customer_no, ref_id: nextRefId, sign: retrySign
                 })
               });
 
