@@ -35,7 +35,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
     try {
       const { data, error: fetchError } = await supabase
         .from("orders")
-        .select("order_id, item_label, game_id, total_amount, status, created_at")
+        .select("order_id, item_label, customer_no, total_amount, status, created_at")
         .eq("order_id", invoiceInput.trim())
         .single();
 
@@ -165,7 +165,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
                       <h4 className="text-lg font-bold text-slate-900 leading-tight">{order.item_label}</h4>
                       <div className="flex flex-col gap-1 text-sm mt-2">
                         <p className="font-medium text-slate-600"><span className="text-slate-400">ID Order:</span> {order.order_id}</p>
-                        <p className="font-medium text-slate-600"><span className="text-slate-400">ID Game:</span> {order.game_id}</p>
+                        <p className="font-medium text-slate-600"><span className="text-slate-400">ID Game:</span> {order.customer_no}</p>
                       </div>
                     </div>
 

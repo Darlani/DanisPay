@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     // A. Ambil data spesifik dari Database (Tambahkan : { data: any } agar TypeScript tidak cerewet)
     const { data: order }: { data: any } = await supabaseAdmin
       .from('orders')
-      .select('id, order_id, api_ref_id, sku, game_id, user_id, email, total_amount, status, category, product_name, price, used_balance, buy_price, profiles(id, balance, email)')
+      .select('id, order_id, api_ref_id, sku, customer_no, user_id, email, total_amount, status, category, product_name, price, used_balance, buy_price, profiles(id, balance, email)')
       .eq('order_id', cleanOrderId) 
       .single();
 
@@ -173,7 +173,7 @@ const { data: mainProd } = await supabaseAdmin.from('product_automatic').select(
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  username, buyer_sku_code: nextAlt.sku, customer_no: order.game_id, ref_id: nextRefId, sign
+                  username, buyer_sku_code: nextAlt.sku, customer_no: order.customer_no, ref_id: nextRefId, sign
                 })
               });
 

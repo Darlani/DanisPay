@@ -47,7 +47,7 @@ export default function Home() {
 let ordersQuery = supabase
           .from('orders')
           // Tambahkan category agar kita tahu alamat tujuannya Bos! [cite: 2026-02-11]
-          .select('id, product_name, game_id, status, created_at, payment_method, total_amount, category')
+          .select('id, product_name, customer_no, status, created_at, payment_method, total_amount, category')
           .order('created_at', { ascending: false })
           .limit(20);
 

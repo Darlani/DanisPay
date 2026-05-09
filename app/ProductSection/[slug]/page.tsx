@@ -243,7 +243,7 @@ const handleCheckout = async (customPayload?: any) => {
       const totalAmount = Number(activePrice) + uniqueCode; 
       const isFullCoin = totalAmount === 0;
       const orderIdStr = `DANISH-${Math.floor(Math.random() * 90000) + 10000}`;
-      const combinedGameId = zoneId ? `${accId}(${zoneId})` : accId;
+      const combinedCustomerNo = zoneId ? `${accId}(${zoneId})` : accId;
       const browserData = await getBrowserData();
       
       const paymentMethodName = isFullCoin ? 'Koin DaPay' : (usedCoinsAmount > 0 ? `${activePayment} + Koin DaPay` : activePayment);
@@ -256,7 +256,7 @@ const handleCheckout = async (customPayload?: any) => {
           sku: activeSku, 
           product_name: productData.name, 
           item_label: activeLabel,
-          game_id: combinedGameId, 
+          customer_no: combinedCustomerNo, 
           buy_price: activeCost, 
           price: activePrice, 
           unique_code: uniqueCode,

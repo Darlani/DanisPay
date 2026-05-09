@@ -22,7 +22,7 @@ export async function runCheckoutPascabayar(order_id: string) {
     // 1. Ambil data order lengkap
     const { data: order, error: orderErr } = await supabaseAdmin
       .from('orders')
-      .select('id, order_id, api_ref_id, status, sku, game_id, category')
+      .select('id, order_id, api_ref_id, status, sku, customer_no, category')
       .eq('order_id', order_id)
       .single();
 
@@ -38,7 +38,7 @@ export async function runCheckoutPascabayar(order_id: string) {
       // Gunakan api_ref_id yang kita simpan saat Cek Tagihan agar Digiflazz kenal
       const targetRefId = order.api_ref_id || order.order_id;
       const sign = crypto.createHash('md5').update(username + apiKey + targetRefId).digest('hex');
-      const cleanCustomerNo = order.game_id.split('(')[0].trim();
+      const cleanCustomerNo = order.customer_no.split('(')[0].trim();
       const upperSku = order.sku.toUpperCase();
 
       const res = await axios.post('https://api.digiflazz.com/v1/transaction', {

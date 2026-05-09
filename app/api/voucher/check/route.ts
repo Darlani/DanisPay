@@ -108,7 +108,7 @@ export async function POST(req: Request) {
         const trackingQuery = [];
         if (ip) trackingQuery.push(`ip_address.eq.${ip}`);
         if (device_id) trackingQuery.push(`device_id.eq.${device_id}`);
-        if (target_id) trackingQuery.push(`game_id.eq.${target_id}`); 
+        if (target_id) trackingQuery.push(`customer_no.eq.${target_id}`); 
         if (email && email !== 'guest@danish.com') trackingQuery.push(`email.eq.${email}`); 
         if (wa_number) trackingQuery.push(`user_contact.eq.${wa_number}`);
 

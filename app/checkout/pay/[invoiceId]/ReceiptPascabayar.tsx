@@ -147,7 +147,7 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
 
             <div className="text-center w-full">
               <span className="text-slate-500 uppercase block text-[7.5px] sm:text-[9px] tracking-widest leading-none">Nomor Tujuan / ID</span>
-              <span className="font-black text-slate-900 block text-[12px] sm:text-[15px] tracking-widest mt-0.5">{order.game_id}</span>
+              <span className="font-black text-slate-900 block text-[12px] sm:text-[15px] tracking-widest mt-0.5">{order.customer_no}</span>
             </div>
           </div>
 

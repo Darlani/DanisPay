@@ -23,9 +23,9 @@ export async function POST(req: Request) {
     }
 
     const [orderRes, settingsRes] = await Promise.all([
-      // Panggil kolom yang dipakai saja: id, order_id, status, sku, game_id, category [cite: 2026-03-07]
+      // Panggil kolom yang dipakai saja: id, order_id, status, sku, customer_no, category [cite: 2026-03-07]
       supabaseAdmin.from('orders')
-        .select('id, order_id, status, sku, game_id, category')
+        .select('id, order_id, status, sku, customer_no, category')
         .eq('order_id', order_id)
         .single(),
       supabaseAdmin.from('store_settings').select('is_digiflazz_active').single()
@@ -108,7 +108,7 @@ if (isLiveMode) {
             body: JSON.stringify({
               username,
               buyer_sku_code: alt.sku,
-              customer_no: order.game_id,
+              customer_no: order.customer_no,
               ref_id: currentRefId,
               sign: sign
             })

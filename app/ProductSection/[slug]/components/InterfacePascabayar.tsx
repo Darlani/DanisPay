@@ -43,7 +43,11 @@ export default function InterfacePascabayar(props: any) {
 
   // --- KALKULASI HARGA & ADMIN ---
   // Gunakan Math.ceil atau pastikan Number benar-benar menangkap digit terakhir
-  const rawTagihan = Number(inquiryData?.amount || inquiryData?.desc?.detail?.[0]?.nilai_tagihan || 0);
+  const baseTagihan = Number(inquiryData?.amount || inquiryData?.desc?.detail?.[0]?.nilai_tagihan || 0);
+  const dendaTagihan = Number(inquiryData?.desc?.detail?.[0]?.denda || inquiryData?.desc?.tagihan?.detail?.[0]?.denda || 0);
+  
+  // Total tagihan mentah HARUS ditambah denda agar transaksi tidak gagal karena kurang bayar
+  const rawTagihan = baseTagihan + dendaTagihan; 
   const adminToko = parseInt(product?.items?.[0]?.price || "0");
   
   // 3. Admin Digiflazz (Hanya untuk keperluan record modal di backend nanti)
@@ -290,9 +294,23 @@ export default function InterfacePascabayar(props: any) {
                      <div className="bg-slate-200 p-2 sm:p-2.5 rounded-xl text-slate-600"><ReceiptText size={18} /></div>
                      <div>
                        <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 lowercase first-letter:uppercase tracking-wide">Nominal Tagihan</p>
-                       <p className="text-xs sm:text-sm font-black text-slate-800">{formatRupiah(rawTagihan)}</p>
+                       <p className="text-xs sm:text-sm font-black text-slate-800">{formatRupiah(baseTagihan)}</p>
                      </div>
                    </div>
+
+                   {/* TAMBAHAN: DENDA (MUNCUL OTOMATIS JIKA ADA) */}
+                   {dendaTagihan > 0 && (
+                     <div className="flex items-center gap-3 sm:gap-4 bg-rose-50 p-3 sm:p-4 rounded-2xl border border-rose-100 animate-in zoom-in mt-1">
+                       <div className="bg-rose-200 p-2 sm:p-2.5 rounded-xl text-rose-600"><AlertTriangle size={18} /></div>
+                       <div>
+                         <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 lowercase first-letter:uppercase tracking-wide">Denda Keterlambatan</p>
+                         <p className="text-xs sm:text-sm font-black text-rose-700">{formatRupiah(dendaTagihan)}</p>
+                         <p className="text-[8px] sm:text-[9px] font-bold text-rose-400 mt-0.5 italic">
+                           *Jumlah Bulan Tunggakan: {inquiryData.desc?.lembar_tagihan || "1"}
+                         </p>
+                       </div>
+                     </div>
+                   )}
 
                    {/* TAMBAHAN: BIAYA ADMIN */}
                    <div className="flex items-center gap-3 sm:gap-4 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100">

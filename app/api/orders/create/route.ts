@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     // 1. Ekstrak data dari frontend
     const { 
       sku, payment_method, total_amount, used_balance, user_id, email,
-      product_name, order_id, game_id, item_label, user_contact,
+      product_name, order_id, customer_no, item_label, user_contact,
       ip_address, device_id, referred_by, voucher_amount,
       voucher_code, inquiry_result, unique_code
     } = body;
@@ -137,7 +137,7 @@ if (isPascabayar) {
       sku: dbProduct.sku,
       product_name: safeProductName,
       item_label: isPascabayar ? (inquiry_result?.period ? `Tagihan ${inquiry_result.period}` : "Tagihan Listrik") : item_label,
-      game_id,
+      customer_no,
       buy_price: isPascabayar ? modalPascabayar : (dbProduct.cost || 0), 
       price: isPascabayar ? hargaJualPascabayar : (dbProduct.price || 0),
       discount: isPascabayar ? 0 : (dbProduct.discount || 0),
