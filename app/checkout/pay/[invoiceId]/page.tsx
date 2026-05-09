@@ -44,12 +44,15 @@ function InvoiceContent() {
 
   const fetchTransaction = async () => {
       try {
-        // Hanya ambil kolom yang nampil di UI & Receipt
-      const { data: orderData } = await supabase
-        .from("orders")
-        .select("order_id, status, payment_method, created_at, total_amount, sku, category, user_id, sn, qris_string, customer_no, item_label, user_contact, customer_name, desc, used_balance, stand_meter, segment_power, raw_tagihan, unique_code, product_name, price")
-        .eq("order_id", invoiceId)
-        .maybeSingle();
+        // Panggil API Backend (Tembus RLS)
+        const invoiceRes = await fetch('/api/orders/invoice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: invoiceId })
+        });
+        
+        const invoiceJson = await invoiceRes.json();
+        const orderData = invoiceRes.ok ? invoiceJson.data : null;
 
         // Ambil info akun pembayaran secara spesifik
         const { data: accounts } = await supabase
@@ -108,46 +111,43 @@ function InvoiceContent() {
 
 fetchTransaction();
 
-    // --- SATPAM POLLING (Backup Realtime) [cite: 2026-03-06] ---
-    const polling = setInterval(async () => {
-      if (dbStatus === "Pending" || dbStatus === "Diproses") {
-        const { data } = await supabase
-          .from("orders")
-          .select("status, sn")
-          .eq("order_id", invoiceId)
-          .maybeSingle();
-        
-        if (data && data.status !== dbStatus) {
-          setDbStatus(data.status);
-          setTrx((prev: any) => ({ ...prev, status: data.status, sn: data.sn }));
-        }
-      } else {
-        clearInterval(polling);
-      }
-    }, 5000); // Cek setiap 5 detik [cite: 2026-03-08]
+// --- PENGGANTI SATPAM POLLING (SUPABASE REALTIME) ---
+    // Ini menghemat server dari tembakan API bertubi-tubi
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    const channel = supabase
-      .channel(`status-${invoiceId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "orders",
-          filter: `order_id=eq.${invoiceId}`,
-        },
-        (payload) => {
-          setDbStatus(payload.new.status);
-          setTrx(payload.new);
-        }
-      )
-      .subscribe();
+    if (dbStatus === "Pending" || dbStatus === "Diproses") {
+      channel = supabase
+        .channel(`order-status-${invoiceId}`)
+        .on(
+          'postgres_changes',
+          { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'orders', 
+            filter: `order_id=eq.${invoiceId}` 
+          },
+          (payload) => {
+            const newStatus = payload.new.status;
+            const newSn = payload.new.sn;
+            
+            // Jika statusnya berubah dari yang di state
+            if (newStatus && newStatus !== dbStatus) {
+              setDbStatus(newStatus);
+              setTrx((prev: any) => {
+                if (!prev) return prev;
+                return { ...prev, status: newStatus, sn: newSn };
+              });
+            }
+          }
+        )
+        .subscribe();
+    }
 
-    return () => { 
-      supabase.removeChannel(channel);
-      clearInterval(polling); // Bersihkan satpam [cite: 2026-03-06]
+    // Bersihkan listener saat halaman ditutup atau dependensi berubah
+    return () => {
+      if (channel) supabase.removeChannel(channel);
     };
-  }, [invoiceId]);
+  }, [invoiceId, dbStatus]); // <-- Pastikan dbStatus masuk array agar dia tahu kapan harus berhenti dengar
 
   // --- 2. TIMER LOGIC ---
   useEffect(() => {

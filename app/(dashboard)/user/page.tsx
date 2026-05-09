@@ -63,55 +63,32 @@ export default function UserDashboard() {
       .reduce((sum, wd) => sum + (wd.held_amount || 0), 0);
   }, [withdrawals]);
 
-  // --- FUNGSI AMBIL DATA ---
-  const fetchMyDeposits = async (email: string) => {
-    try {
-      const { data, error } = await supabase.from("deposits").select("*").eq("user_email", email).order("created_at", { ascending: false });
-      if (data) setDeposits(data);
-    } catch (err) { console.error("Gagal ambil deposit:", err); }
-  };
-
-  const fetchMyWithdrawals = async (email: string) => {
-    try {
-      const { data, error } = await supabase.from("withdrawals").select("*").eq("user_email", email).order("created_at", { ascending: false });
-      if (data) setWithdrawals(data);
-    } catch (err) { console.error("Gagal ambil WD:", err); }
-  };
-
-  const fetchMyReferrals = async (refCode: string) => {
-    try {
-      const res = await fetch(`/api/orders/manage/referrals?refCode=${refCode}`);
-      const data = await res.json();
-      setReferrals(Array.isArray(data) ? data : []);
-    } catch (err) { console.error("Gagal ambil referral:", err); }
-  };
-
-  const fetchBalanceLogs = async (email: string) => {
-    try {
-      const { data, error } = await supabase.from("balance_logs").select("*").eq("user_email", email).order("created_at", { ascending: false });
-      if (data) setBalanceLogs(data);
-    } catch (err) { console.error("Gagal ambil log:", err); }
-  };
-
-  const fetchUserProfile = async (email: string) => {
-    try {
-      const { data, error } = await supabase.from("profiles").select("full_name, balance, referral_code, member_type").eq("email", email).single();
-      if (data) {
-        setUserData(prev => ({ ...prev, name: data.full_name, balance: data.balance || 0, refCode: data.referral_code }));
-        setMemberType(data.member_type || "Reguler"); 
-        if (data.referral_code) fetchMyReferrals(data.referral_code);
-      }
-    } catch (err) { console.error("Gagal ambil profil:", err); }
-  };
-
-  const fetchMyOrders = async (email: string) => {
+// --- FUNGSI AMBIL DATA TERPUSAT (SUPER AMAN) ---
+  const fetchDashboardData = async (email: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/orders/manage?email=${email}`);
-      const data = await res.json();
-      setOrders(Array.isArray(data) ? data : []);
-    } catch (err) { console.error("Gagal ambil order:", err); } 
-    finally { setLoading(false); }
+      const res = await fetch('/api/user/dashboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const result = await res.json();
+      
+      if (result.success) {
+        const d = result.data;
+        setUserData(prev => ({ ...prev, name: d.profile.full_name, balance: d.profile.balance || 0, refCode: d.profile.referral_code }));
+        setMemberType(d.profile.member_type || "Reguler");
+        setDeposits(d.deposits);
+        setWithdrawals(d.withdrawals);
+        setBalanceLogs(d.balanceLogs);
+        setOrders(d.orders);
+        setReferrals(d.referrals);
+      }
+    } catch (err) {
+      console.error("Gagal load data dashboard:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // --- ACTION HANDLERS ---
@@ -191,31 +168,28 @@ const handleDepositRequest = async () => {
     };
     checkMaintenance();
 
-    // --- REALTIME LISTENER (TETAP ADA) ---
+    // --- REALTIME LISTENER ---
     const channel = supabase
       .channel('db-updates')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `email=eq.${userEmail}` }, 
         (payload) => { 
           setUserData(prev => ({ ...prev, balance: payload.new.balance })); 
-          fetchBalanceLogs(userEmail); // Refresh log otomatis saat saldo berubah
+          fetchDashboardData(userEmail); 
         }
       )
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'balance_logs', filter: `user_email=eq.${userEmail}` },
-        () => { fetchBalanceLogs(userEmail); fetchUserProfile(userEmail); }
+        () => { fetchDashboardData(userEmail); }
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deposits', filter: `user_email=eq.${userEmail}` },
-        () => { fetchMyDeposits(userEmail); fetchUserProfile(userEmail); }
+        () => { fetchDashboardData(userEmail); }
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawals', filter: `user_email=eq.${userEmail}` },
-        () => { fetchMyWithdrawals(userEmail); fetchUserProfile(userEmail); }
+        () => { fetchDashboardData(userEmail); }
       )
       .subscribe();
 
-    fetchUserProfile(userEmail);
-    fetchMyOrders(userEmail);
-    fetchBalanceLogs(userEmail);
-    fetchMyWithdrawals(userEmail);
-    fetchMyDeposits(userEmail);
+    // Cukup panggil 1 fungsi ini saja saat pertama kali load!
+    fetchDashboardData(userEmail);
 
     return () => { supabase.removeChannel(channel); };
   }, []);
@@ -285,7 +259,7 @@ const handleUpgradeMember = async () => {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => { fetchMyOrders(userData.email); fetchUserProfile(userData.email); }} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm hover:text-blue-600 active:scale-90 transition-all"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
+            <button onClick={() => fetchDashboardData(userData.email)} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm hover:text-blue-600 active:scale-90 transition-all"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
             <button onClick={handleLogout} className="p-3 bg-white border border-slate-200 text-red-500 rounded-2xl shadow-sm hover:bg-red-50 active:scale-90"><LogOut size={20} /></button>
           </div>
         </div>

@@ -36,7 +36,7 @@ function DetailContent({ slug }: { slug: string }) {
   const [accId, setAccId] = useState(""); 
   const [zoneId, setZoneId] = useState(""); 
   const [additionalData, setAdditionalData] = useState<any>({}); 
-  const [waNumber, setWaNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [showAllPayment, setShowAllPayment] = useState(false);
   const [showAllItems, setShowAllItems] = useState(false);
@@ -263,7 +263,7 @@ const handleCheckout = async (customPayload?: any) => {
           total_amount: totalAmount, 
           payment_method: paymentMethodName,
           status: 'Pending', 
-          user_contact: waNumber || `GUEST-${browserData.deviceId.slice(0, 8)}`, 
+          user_contact: email || `GUEST-${browserData.deviceId.slice(0, 8)}`, 
           ip_address: browserData.ip,
           device_id: browserData.deviceId, 
           user_id: currentUser?.id || null, 
@@ -302,7 +302,7 @@ const handleCheckout = async (customPayload?: any) => {
 
   const commonProps = {
     product: productData, selectedItemId, setSelectedItemId, setSelectedPayment, accId, setAccId, zoneId, setZoneId, 
-    waNumber, setWaNumber, promoCode, setPromoCode, showAllPayment, setShowAllPayment, showAllItems, setShowAllItems,
+    email, setEmail, promoCode, setPromoCode, showAllPayment, setShowAllPayment, showAllItems, setShowAllItems, // GANTI waNumber JADI email
     isModalOpen, setIsModalOpen, uniqueCode, totalPrice, formatRupiah, selectedPayment: selectedPayment, 
     handleCheckout, isPromoApplied, setIsPromoApplied, checkPromo, basePrice, estimasiCashback, isMounted, currentUser, memberType,
     additionalData, setAdditionalData, userCoins, useCoins, setUseCoins, usedCoinsAmount, 

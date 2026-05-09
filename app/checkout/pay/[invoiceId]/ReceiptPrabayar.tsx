@@ -58,7 +58,8 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
 
   const hargaProduk = order.price || 0;
   const biayaLayanan = order.unique_code || 0;
-  const totalLunas = order.total_amount || 0;
+  // Tambahkan used_balance supaya angka totalnya sesuai dengan nilai produk yang dibeli
+  const totalLunas = (order.total_amount || 0) + (order.used_balance || 0);
 
   return (
     <div className="flex flex-col items-center gap-2 sm:gap-3 w-full animate-in fade-in zoom-in duration-500">

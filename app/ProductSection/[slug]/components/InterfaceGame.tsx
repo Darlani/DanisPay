@@ -22,8 +22,8 @@ interface InterfaceGameProps {
   setAccId: (val: string) => void;
   zoneId: string;
   setZoneId: (val: string) => void;
-  waNumber: string;
-  setWaNumber: (val: string) => void;
+  email: string;
+  setEmail: (val: string) => void;
   promoCode: string;
   setPromoCode: (val: string) => void;
   showAllPayment: boolean;
@@ -58,7 +58,7 @@ interface InterfaceGameProps {
 export default function InterfaceGame(props: InterfaceGameProps) {
   const {
     product, selectedItemId, setSelectedItemId, selectedPayment, setSelectedPayment,
-    accId, setAccId, zoneId, setZoneId, waNumber, setWaNumber, promoCode, setPromoCode,
+    accId, setAccId, zoneId, setZoneId, email, setEmail, promoCode, setPromoCode,
     showAllPayment, setShowAllPayment, showAllItems, setShowAllItems,
     isModalOpen, setIsModalOpen, totalPrice, formatRupiah, handleCheckout,
     isPromoApplied, setIsPromoApplied, checkPromo, basePrice, currentUser, memberType,
@@ -282,7 +282,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
     { id: 1, label: "Pilih Nominal yang kamu inginkan", completed: !!selectedItemId },
     { id: 2, label: "Masukan Detail Akun yang kamu gunakan", completed: isMLBB ? accId.length >= 3 && zoneId.length >= 3 : accId.length >= 3 },
     { id: 3, label: "Pilih Metode Pembayaran", completed: !!selectedPayment },
-    { id: 4, label: "Masukan no WhatsApp kamu", completed: waNumber.length > 12 },
+    { id: 4, label: "Masukan alamat Email kamu", completed: email.includes('@') && email.length > 5 },
     { id: 5, label: "Masukan Kode Promo yang kamu punya", completed: isPromoApplied },
   ];
 
@@ -709,8 +709,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
             {/* STEP 4 & 5: KONTAK & PROMO */}
             <ContactAndPromoSection
               step4Ref={step4Ref}
-              waNumber={waNumber}
-              setWaNumber={setWaNumber}
+              email={email}
+              setEmail={setEmail}
               promoCode={promoCode}
               setPromoCode={setPromoCode}
               isPromoApplied={isPromoApplied}

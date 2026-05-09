@@ -23,8 +23,8 @@ interface InterfacePulsaProps {
   setSelectedPayment: (method: string | null) => void;
   accId: string;
   setAccId: (val: string) => void;
-  waNumber: string;
-  setWaNumber: (val: string) => void;
+  email: string;
+  setEmail: (val: string) => void;
   promoCode: string;
   setPromoCode: (val: string) => void;
   showAllPayment: boolean;
@@ -59,7 +59,7 @@ interface InterfacePulsaProps {
 export default function InterfacePulsa(props: InterfacePulsaProps) {
   const {
     product, selectedItemId, setSelectedItemId, selectedPayment, setSelectedPayment,
-    accId, setAccId, waNumber, setWaNumber, promoCode, setPromoCode,
+    accId, setAccId, email, setEmail, promoCode, setPromoCode,
     showAllPayment, setShowAllPayment, showAllItems, setShowAllItems,
     isModalOpen, setIsModalOpen, totalPrice, formatRupiah, handleCheckout,
     isPromoApplied, setIsPromoApplied, checkPromo, basePrice, currentUser, memberType,
@@ -231,7 +231,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
     { id: 1, label: "Pilih Nominal Pulsa/Data", completed: !!selectedItemId },
     { id: 2, label: `Masukan ${isPLN ? "ID PLN" : "Nomor Tujuan"}`, completed: isPLN ? accId.length >= 11 : accId.length >= 10 },
     { id: 3, label: "Pilih Metode Pembayaran", completed: !!selectedPayment },
-    { id: 4, label: "Masukan Kontak WA", completed: waNumber.length >= 10 },
+    { id: 4, label: "Masukan alamat Email kamu", completed: email.includes('@') && email.length > 5 },
     { id: 5, label: "Gunakan Kode Promo", completed: isPromoApplied },
   ];
 
@@ -692,11 +692,11 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
               scrollToNext={scrollToNext}
             />
 
-            {/* STEP 4 & 5: WA DAN PROMO (DARI SHARED COMPONENT) */}
+            {/* STEP 4 & 5: KONTAK EMAIL & PROMO (DARI SHARED COMPONENT) */}
             <ContactAndPromoSection
               step4Ref={step4Ref}
-              waNumber={waNumber}
-              setWaNumber={setWaNumber}
+              email={email}
+              setEmail={setEmail}
               promoCode={promoCode}
               setPromoCode={setPromoCode}
               isPromoApplied={isPromoApplied}

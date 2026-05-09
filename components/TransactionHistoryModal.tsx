@@ -33,19 +33,21 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
     setOrder(null);
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from("orders")
-        .select("order_id, item_label, customer_no, total_amount, status, created_at")
-        .eq("order_id", invoiceInput.trim())
-        .single();
+      const res = await fetch('/api/orders/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: invoiceInput.trim() })
+      });
 
-      if (fetchError || !data) {
-        setError("Invoice tidak ditemukan. Cek lagi kodenya, Bos!");
+      const result = await res.json();
+
+      if (res.ok && result.success) {
+        setOrder(result.data);
       } else {
-        setOrder(data);
+        setError(result.error || "Invoice tidak ditemukan. Cek lagi kodenya, Bos!");
       }
     } catch (err) {
-      setError("Gangguan sistem.");
+      setError("Gagal koneksi ke server.");
     } finally {
       setLoading(false);
     }

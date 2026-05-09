@@ -17,7 +17,7 @@ export default function InterfacePascabayar(props: any) {
   const {
     product, accId, setAccId, formatRupiah, 
     isMaintenanceDigiflazz, isAdmin, dbPayments,
-    selectedPayment, setSelectedPayment, waNumber, setWaNumber,
+    selectedPayment, setSelectedPayment, email, setEmail,
     promoCode, setPromoCode, showAllPayment, setShowAllPayment,
     isModalOpen, setIsModalOpen, isPromoApplied, setIsPromoApplied,
     checkPromo, currentUser, memberType, userCoins, useCoins, setUseCoins,
@@ -368,8 +368,8 @@ export default function InterfacePascabayar(props: any) {
                 {/* STEP 4 & 5: KONTAK & PROMO (SHARED) */}
                 <ContactAndPromoSection
                   step4Ref={step4Ref}
-                  waNumber={waNumber}
-                  setWaNumber={setWaNumber}
+                  email={email}
+                  setEmail={setEmail}
                   promoCode={promoCode}
                   setPromoCode={setPromoCode}
                   isPromoApplied={isPromoApplied}
