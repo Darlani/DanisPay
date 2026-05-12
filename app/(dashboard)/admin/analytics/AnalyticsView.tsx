@@ -33,12 +33,12 @@ export default function AnalyticsView() {
     setLoading(true);
     try {
       const [ordersRes, withdrawRes, profilesRes, logsRes, depositsRes, categoriesRes] = await Promise.all([
-        supabase.from('orders').select('*'), 
-        supabase.from('withdrawals').select('*'),
-        supabase.from('profiles').select('*').neq('role', 'admin'),
-        supabase.from('balance_logs').select('*'),
-        supabase.from('deposits').select('*'),
-        supabase.from('categories').select('*')
+        supabase.from('orders').select('created_at, status, price, buy_price, email, voucher_amount, category'), 
+        supabase.from('withdrawals').select('created_at, status, amount, admin_fee'),
+        supabase.from('profiles').select('id').neq('role', 'admin'),
+        supabase.from('balance_logs').select('created_at, type, amount, upgrade_fee'),
+        supabase.from('deposits').select('created_at, status, amount'),
+        supabase.from('categories').select('name')
       ]);
 
       if (ordersRes.data) setOrders(ordersRes.data);
