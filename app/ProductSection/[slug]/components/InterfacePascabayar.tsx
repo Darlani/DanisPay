@@ -374,6 +374,7 @@ export default function InterfacePascabayar(props: any) {
                   setPromoCode={setPromoCode}
                   isPromoApplied={isPromoApplied}
                   setIsPromoApplied={setIsPromoApplied}
+                  checkPromo={checkPromo}
                 />
 
                 {/* STEP 6: CAPTCHA SECURITY */}

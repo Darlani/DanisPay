@@ -41,14 +41,15 @@ export default function PaymentSection(props: PaymentSectionProps) {
     });
   };
 
-  // 🚀 LOGIKA PINTAR: Auto-Select metode jika lunas pakai Koin
+// 🚀 LOGIKA PINTAR: Auto-Select metode HANYA jika lunas karena pakai Koin DaPay
   useEffect(() => {
-    if (totalPrice === 0 && selectedPayment !== 'Koin DaPay') {
-      setSelectedPayment('Koin DaPay'); // Otomatis isi data agar lolos validasi page.tsx
-    } else if (totalPrice > 0 && selectedPayment === 'Koin DaPay') {
-      setSelectedPayment(null); // Reset jika koin dimatikan / tidak cukup
+    // Syarat Jitu: totalPrice = 0 DAN koin yang terpakai > 0 (artinya benar-benar lunas pakai koin)
+    if (totalPrice === 0 && usedCoinsAmount > 0 && selectedPayment !== 'Koin DaPay') {
+      setSelectedPayment('Koin DaPay'); 
+    } else if ((totalPrice > 0 || usedCoinsAmount === 0) && selectedPayment === 'Koin DaPay') {
+      setSelectedPayment(null); 
     }
-  }, [totalPrice, selectedPayment, setSelectedPayment]);
+  }, [totalPrice, usedCoinsAmount, selectedPayment, setSelectedPayment]);
 
   return (
     <section ref={step3Ref} className="bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-[#B2DFDB]/40 overflow-hidden relative">

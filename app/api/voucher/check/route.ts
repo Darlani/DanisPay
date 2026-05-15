@@ -1,14 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 // 1. Config: Matikan caching & set Runtime
 export const dynamic = 'force-dynamic';
-
-// 2. Init Supabase
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export async function POST(req: Request) {
   try {
@@ -32,7 +26,7 @@ export async function POST(req: Request) {
     if (!code) return NextResponse.json({ valid: false, message: "Masukkan kode voucher!" });
 
     // --- B. AMBIL DATA VOUCHER ---
-    const { data: voucher, error } = await supabase
+    const { data: voucher, error } = await supabaseAdmin
       .from('promos')
       .select('*')
       .eq('code', code.toUpperCase()) 
@@ -91,7 +85,7 @@ export async function POST(req: Request) {
 
     // --- F. CEK KUOTA GLOBAL (GLOBAL LIMIT) ---
     if (voucher.global_limit > 0) {
-        const { count: globalUsage } = await supabase
+        const { count: globalUsage } = await supabaseAdmin
             .from('orders')
             .select('*', { count: 'exact', head: true })
             .eq('voucher_code', code.toUpperCase())
@@ -114,7 +108,7 @@ export async function POST(req: Request) {
 
         if (trackingQuery.length > 0) {
             const orCondition = trackingQuery.join(',');
-            const { count: userUsage } = await supabase
+            const { count: userUsage } = await supabaseAdmin
                 .from('orders')
                 .select('*', { count: 'exact', head: true })
                 .eq('voucher_code', code.toUpperCase())

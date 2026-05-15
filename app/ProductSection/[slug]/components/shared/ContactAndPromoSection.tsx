@@ -12,29 +12,29 @@ interface ContactAndPromoProps {
   setPromoCode: (val: string) => void;
   isPromoApplied: boolean;
   setIsPromoApplied: (val: boolean) => void;
+  checkPromo: (code: string) => Promise<{ success: boolean; amount?: number; message?: string }>;
 }
 
 export default function ContactAndPromoSection(props: ContactAndPromoProps) {
+// Ambil checkPromo dari props
   const {
     step4Ref, email, setEmail, promoCode, setPromoCode,
-    isPromoApplied, setIsPromoApplied
+    isPromoApplied, setIsPromoApplied, checkPromo // <-- Panggil di sini
   } = props;
 
   const [isShake, setIsShake] = useState(false);
 
+  // 🚀 GANTI FUNGSI INI TOTAL:
   const handleApplyPromo = async () => {
     if (!promoCode) return alert("Silakan masukkan kode promo.");
     
-    const result = await safeFetch('/api/promo/check', {
-      method: 'POST',
-      body: JSON.stringify({ code: promoCode })
-    });
+    // Langsung tembak ke otak utama di page.tsx, jangan fetch sendiri!
+    const result = await checkPromo(promoCode);
 
     if (result.success) {
-      setIsPromoApplied(true);
       alert(`Selamat! Potongan harga berhasil diterapkan.`);
+      setIsShake(false);
     } else {
-      setIsPromoApplied(false);
       setIsShake(true);
       setTimeout(() => setIsShake(false), 2000);
       alert(result.message || "Maaf, kode promo tidak valid.");

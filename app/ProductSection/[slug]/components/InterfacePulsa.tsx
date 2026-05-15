@@ -701,6 +701,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
               setPromoCode={setPromoCode}
               isPromoApplied={isPromoApplied}
               setIsPromoApplied={setIsPromoApplied}
+              checkPromo={checkPromo}
             />
 
           </div> {/* END KOLOM KANAN */}

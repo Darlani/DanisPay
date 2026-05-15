@@ -715,6 +715,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
               setPromoCode={setPromoCode}
               isPromoApplied={isPromoApplied}
               setIsPromoApplied={setIsPromoApplied}
+              checkPromo={checkPromo}
             />
 
           </div> 
