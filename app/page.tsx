@@ -275,7 +275,7 @@ let ordersQuery = supabase
                 Email
               </button>
               <a 
-                href="https://wa.me/6281234567890" // JANGAN LUPA GANTI NOMOR WA BOS DI SINI!
+                href="https://wa.me/6285545213952" // JANGAN LUPA GANTI NOMOR WA BOS DI SINI!
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3 md:px-4 py-2.5 md:py-3 text-left text-slate-200 hover:bg-slate-700 transition-colors text-[11px] md:text-sm"
