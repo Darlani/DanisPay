@@ -146,6 +146,24 @@ export async function POST(req: Request) {
 
       await supabaseAdmin.from('orders').update(updatePayload).eq('id', order.id);
 
+      // === AUTOMATIC RESEND STRUK (SUCCESS CHECK-STATUS) ===
+      const targetContactSuccess = order.user_contact || order.email;
+      if (targetContactSuccess && targetContactSuccess.includes('@')) {
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://127.0.0.1:3000';
+        fetch(`${siteUrl}/api/transaction/send-receipt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: order_id,
+            productName: order.product_name,
+            status: 'Berhasil',
+            paymentMethod: order.payment_method,
+            totalAmount: order.total_amount,
+            userContact: targetContactSuccess
+          })
+        }).catch(err => console.error("Gagal auto-receipt check-status success:", err));
+      }
+
       // Hitung jumlah retry
       let currentAttempt = 1;
       const matchId = order.api_ref_id?.match(/-R(\d+)$/);
@@ -285,6 +303,26 @@ export async function POST(req: Request) {
         const userStatus = order.user_id ? 'MEMBER (Koin Kembali)' : 'GUEST (Butuh Refund Manual)';
 
         await reportToTelegram(`❌ <b>TRANSAKSI GAGAL (Via Detektif)!</b> 😭${retryText}\n\n📦 Produk: ${order.product_name}\n💰 Nominal: Rp ${nominalTotal.toLocaleString('id-ID')}\n⚠️ Alasan: ${message || 'Stok Kosong / Gangguan'}\n👤 User: ${userStatus}\n🆔 Inv: <code>${order_id}</code>\n🔄 Status: DIPROSES ➡️ GAGAL`);        
+
+        // === AUTOMATIC RESEND STRUK (FAILED CHECK-STATUS) ===
+        const targetContactFail = order.user_contact || order.email;
+        if (targetContactFail && targetContactFail.includes('@')) {
+          const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://127.0.0.1:3000';
+          fetch(`${siteUrl}/api/transaction/send-receipt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId: order_id,
+              productName: order.product_name,
+              status: 'Gagal',
+              paymentMethod: order.payment_method,
+              totalAmount: order.total_amount,
+              userContact: targetContactFail,
+              // Suntikkan alasan gagal dari vendor agar pembeli tidak bingung
+              reason: message || 'Stok produk sedang kosong / Gangguan server vendor.'
+            })
+          }).catch(err => console.error("Gagal auto-receipt check-status fail:", err));
+        }
 
         return NextResponse.json({ success: true, status: 'Gagal', message: message });
       }

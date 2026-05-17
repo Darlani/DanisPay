@@ -20,10 +20,10 @@ export async function GET(req: Request) {
   console.error(`🚨 [DEBUG-CLEANUP] Robot Aktif! Cek data sebelum: ${duaJamLalu}`);
 
   try {
-    // A. TARIK SEMUA PESANAN EXPIRED (Termasuk data profil untuk cek saldo)
+    // A. TARIK SEMUA PESANAN EXPIRED (Ambil kolom spesifik untuk amunisi Resend tanpa SELECT *)
     const { data: expiredOrders, error: fetchErr } = await supabaseAdmin
       .from('orders')
-      .select('id, order_id, user_id, used_balance, profiles(balance, email)')
+      .select('id, order_id, user_id, used_balance, product_name, total_amount, payment_method, user_contact, email, profiles(balance, email)')
       .eq('status', 'Pending')
       .lt('created_at', duaJamLalu);
 
@@ -61,11 +61,31 @@ export async function GET(req: Request) {
         }]);
       }
 
-      // C. UPDATE STATUS JADI GAGAL
+      // C. UPDATE STATUS JADI GAGAL (Penjelasan super jelas agar tidak bisa dimanipulasi user)
       await supabaseAdmin.from('orders').update({ 
         status: 'Gagal',
-        notes: `Otomatis dibatalkan (Expired 2 Jam). ${koinDipakai > 0 ? `Koin Rp ${koinDipakai.toLocaleString('id-ID')} dikembalikan.` : ''}`
+        notes: `Batal Otomatis: Batas waktu pembayaran habis (Tidak ada dana masuk dalam 2 jam). ${koinDipakai > 0 ? `Koin Rp ${koinDipakai.toLocaleString('id-ID')} telah dikembalikan aman ke saldo.` : ''}`
       }).eq('id', order.id);
+
+      // === AUTOMATIC RESEND NOTICE (EXPIRED/CANCELED) ===
+      const targetContactCleanup = order.user_contact || order.email || (order.profiles as any)?.email;
+      if (targetContactCleanup && targetContactCleanup.includes('@')) {
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://127.0.0.1:3000';
+        fetch(`${siteUrl}/api/transaction/send-receipt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: order.order_id,
+            productName: order.product_name || 'Produk Digital',
+            status: 'Gagal',
+            paymentMethod: order.payment_method || 'Sistem Otomatis',
+            totalAmount: order.total_amount || 0,
+            userContact: targetContactCleanup,
+            // Suntik alasan spesifik ke API Resend agar struk email memuat alasan kadaluarsa
+            reason: 'Batas waktu pembayaran habis (Sistem tidak menerima dana dalam 2 jam)' 
+          })
+        }).catch(err => console.error("Gagal auto-receipt cleanup notice:", err));
+      }
 
       cleanedCount++;
     }

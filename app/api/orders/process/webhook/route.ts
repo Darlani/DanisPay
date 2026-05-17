@@ -163,7 +163,8 @@ export async function POST(request: Request) {
 // Tambahkan buy_price dan cashback untuk hitung cuan bersih [cite: 2026-03-09]
     const { data: orders, error: fetchError } = await supabaseAdmin
       .from('orders')
-      .select('id, order_id, status, payment_method, used_balance, user_id, email, total_amount, unique_code, product_name, item_label, category, buy_price, cashback, raw_tagihan, product_type')
+      // 🚀 TAMBAHKAN user_contact DI SINI BIAR TYPESCRIPT NGGAK NGAMUK
+      .select('id, order_id, status, payment_method, used_balance, user_id, email, user_contact, total_amount, unique_code, product_name, item_label, category, buy_price, cashback, raw_tagihan, product_type')
       .eq('total_amount', amount) 
       .ilike('status', 'pending') 
       .order('created_at', { ascending: false });
@@ -233,6 +234,27 @@ if (needsPenalty) {
       .eq('id', currentOrder.id);
 
     if (errUpdatePaid) throw errUpdatePaid;
+
+    // === AUTOMATIC RESEND STRUK (MODE SIMULASI) ===
+    if (updatePayload.status === 'Berhasil') {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://127.0.0.1:3000';
+      const targetContact = currentOrder.user_contact || currentOrder.email;
+      if (targetContact && targetContact.includes('@')) {
+        fetch(`${siteUrl}/api/transaction/send-receipt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: currentOrder.order_id,
+            productName: currentOrder.product_name,
+            status: 'Berhasil (Simulasi)', // Kasih penanda tegas di status
+            paymentMethod: currentOrder.payment_method,
+            totalAmount: currentOrder.total_amount,
+            userContact: targetContact,
+            isSimulation: true // Pelatuk tanda simulasi untuk template email
+          })
+        }).catch(err => console.error("Gagal auto-receipt bank webhook:", err));
+      }
+    }
 
     // ====================================================================
     // --- 5. LOGIKA PENGURANGAN SALDO (KOIN DAPAY) ---

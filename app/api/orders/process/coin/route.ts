@@ -184,17 +184,17 @@ export async function POST(req: Request) {
       }).catch(e => console.error("Gagal lapor telegram di background:", e.message));
     }
 
-    // 6. EKSEKUSI KE DIGIFLAZZ (HANYA JIKA LIVE AKTIF & BUKAN PRODUK MANUAL)
-    if (settings?.is_digiflazz_active && !isManualProduct) {
-       console.log(`🚀 [FULL KOIN] Mode Live Aktif. Meneruskan Order #${order.order_id} ke Digiflazz...`);
-       
-       try {
+// 6. EKSEKUSI KE DIGIFLAZZ (HANYA JIKA LIVE AKTIF & BUKAN PRODUK MANUAL)
+    if (settings?.is_digiflazz_active && !isManualProduct) {
+       console.log(`🚀 [FULL KOIN] Mode Live Aktif. Meneruskan Order #${order.order_id} ke Digiflazz...`);
+       
+       try {
 // Pakai localhost VPS sendiri agar anti-rto dan hemat bandwidth [cite: 2026-03-06]
-        const baseUrl = "http://127.0.0.1:3000";
+        const baseUrl = "http://127.0.0.1:3000";
 
-        const WEBHOOK_SECRET = String(process.env.MACRODROID_SECRET || ''); // Kunci internal
-           const kategoriLengkap = (order.category || "").toLowerCase();
-           
+        const WEBHOOK_SECRET = String(process.env.MACRODROID_SECRET || ''); // Kunci internal
+           const kategoriLengkap = (order.category || "").toLowerCase();
+           
 // Arahkan ke rute baru yang sudah dipindah ke folder digiflazz [cite: 2026-03-06]
            let apiEndpoint = `${baseUrl}/api/digiflazz/prabayar/checkout`; 
            
@@ -202,33 +202,64 @@ export async function POST(req: Request) {
                apiEndpoint = `${baseUrl}/api/digiflazz/pascabayar/checkout`; 
            }
 
-           console.log(`➡️ [ROUTE FULL KOIN] Mengirim ke Endpoint: ${apiEndpoint}`);
+           console.log(`➡️ [ROUTE FULL KOIN] Mengirim ke Endpoint: ${apiEndpoint}`);
 
-           // Eksekusi tembakan ke API tanpa memblokir response ke user (berjalan di background)
-           fetch(apiEndpoint, {
-               method: 'POST',
-               headers: { 
-              'Content-Type': 'application/json',
-              'x-webhook-secret': WEBHOOK_SECRET // Proteksi agar hanya server kita yang bisa nembak
-          },
-               body: JSON.stringify({
-                   order_id: order.order_id,
-                   email: email,
-                   use_koin: true 
-               })
-           }).catch(e => console.error("Gagal trigger API Checkout dari Full Koin:", e));
-           
-       } catch (apiErr) {
-           console.error("Gagal mengeksekusi rute Digiflazz:", apiErr);
+           // Eksekusi tembakan ke API tanpa memblokir response ke user (berjalan di background)
+           fetch(apiEndpoint, {
+               method: 'POST',
+               headers: { 
+              'Content-Type': 'application/json',
+              'x-webhook-secret': WEBHOOK_SECRET // Proteksi agar hanya server kita yang bisa nembak
+          },
+               body: JSON.stringify({
+                   order_id: order.order_id,
+                   email: email,
+                   use_koin: true 
+               })
+           }).catch(e => console.error("Gagal trigger API Checkout dari Full Koin:", e));
+           
+       } catch (apiErr) {
+           console.error("Gagal mengeksekusi rute Digiflazz:", apiErr);
+       }
+    } else {
+       console.log("🛠️ MODE SIMULASI: Pesanan sukses di web saja, saldo Digiflazz aman!");
+
+       // === AUTO-APPROVE & RESEND STRUK UNTUK PROVIDER DI MODE SIMULASI ===
+       if (!isManualProduct) {
+         const simSN = `SIM-KOIN-${Math.floor(Math.random() * 9999)}`;
+         
+         // 1. Paksa status langsung BERHASIL di database karena tidak lewat vendor
+         await supabaseAdmin.from('orders').update({ 
+           status: 'Berhasil', 
+           sn: simSN,
+           updated_at: new Date().toISOString()
+         }).eq('order_id', order_id);
+
+         // 2. Tembak otomatis struk email via Resend (Non-blocking)
+         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://127.0.0.1:3000';
+         const targetContact = profile.email || email;
+         if (targetContact && targetContact.includes('@')) {
+           fetch(`${siteUrl}/api/transaction/send-receipt`, {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+               orderId: order_id,
+               productName: order.product_name,
+               status: 'Berhasil (Simulasi)', // Kasih penanda tegas di status
+               paymentMethod: 'Koin DaPay',
+               totalAmount: order.used_balance,
+               userContact: targetContact,
+               isSimulation: true // Pelatuk tanda simulasi untuk template email
+             })
+           }).catch(err => console.error("Gagal auto-receipt coin simulation:", err));
+         }
        }
-    } else {
-       console.log("🛠️ MODE SIMULASI: Pesanan sukses di web saja, saldo Digiflazz aman!");
-    }
+    }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
 
-  } catch (error: any) {
-    console.error("🔥 FATAL ERROR COIN ROUTE:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  } catch (error: any) {
+    console.error("🔥 FATAL ERROR COIN ROUTE:", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }

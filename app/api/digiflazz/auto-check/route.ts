@@ -137,6 +137,24 @@ export async function GET(req: Request) {
 
             console.log(`✅ [PATROLI] Pesanan ${order.order_id} SUKSES! SN: ${sn}`);
             await reportToTelegram(`✅ <b>TRANSAKSI BERHASIL!</b> 🚀${retryText}\n\n📦 Produk: ${order.product_name}\n💰 Harga Jual: Rp ${hargaJual.toLocaleString('id-ID')}\n💵 Est. Laba: Rp ${labaBersih.toLocaleString('id-ID')}\n👤 User: ${order.user_id ? 'MEMBER' : 'GUEST'}\n🆔 Inv: <code>${order.order_id}</code>\n📦 SN: <code>${sn}</code>\n🔄 Status: DIPROSES ➡️ BERHASIL`);
+
+            // === AUTOMATIC RESEND STRUK (SUCCESS PATROLI) ===
+            const targetContactPatrolSuccess = order.user_contact || order.email;
+            if (targetContactPatrolSuccess && targetContactPatrolSuccess.includes('@')) {
+              const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://127.0.0.1:3000';
+              fetch(`${siteUrl}/api/transaction/send-receipt`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  orderId: order.order_id,
+                  productName: order.product_name,
+                  status: 'Berhasil',
+                  paymentMethod: order.payment_method,
+                  totalAmount: order.total_amount,
+                  userContact: targetContactPatrolSuccess
+                })
+              }).catch(err => console.error("Gagal auto-receipt patroli success:", err));
+            }
           }
 
           // ==========================================
@@ -259,9 +277,29 @@ export async function GET(req: Request) {
               const retryText = currentAttempt > 1 ? `\n🔄 AUTO-RETRY HABIS: ${currentAttempt}x` : "";        
 
               const nominalTransfer = (order.price || 0) + (order.used_balance || 0);
-              const userStatus = order.user_id ? 'MEMBER (Koin Kembali)' : 'GUEST (Butuh Refund Manual)';     
+              const userStatus = order.user_id ? 'MEMBER (Koin Kembali)' : 'GUEST (Butuh Refund Manual)';        
 
               await reportToTelegram(`❌ <b>TRANSAKSI GAGAL!</b> 😭${retryText}\n\n📦 Produk: ${order.product_name}\n💰 Nominal: Rp ${nominalTransfer.toLocaleString('id-ID')}\n⚠️ Alasan: ${digiData.message || 'Stok Kosong / Gangguan'}\n👤 User: ${userStatus}\n🆔 Inv: <code>${order.order_id}</code>\n🔄 Status: DIPROSES ➡️ GAGAL`);
+
+              // === AUTOMATIC RESEND STRUK (FAILED PATROLI) ===
+              const targetContactPatrolFail = order.user_contact || order.email;
+              if (targetContactPatrolFail && targetContactPatrolFail.includes('@')) {
+                const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://127.0.0.1:3000';
+                fetch(`${siteUrl}/api/transaction/send-receipt`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    orderId: order.order_id,
+                    productName: order.product_name,
+                    status: 'Gagal',
+                    paymentMethod: order.payment_method,
+                    totalAmount: order.total_amount,
+                    userContact: targetContactPatrolFail,
+                    // Suntikkan alasan gagal dari vendor agar pembeli mengerti
+                    reason: digiData.message || 'Stok produk sedang kosong / Gangguan server vendor.'
+                  })
+                }).catch(err => console.error("Gagal auto-receipt patroli fail:", err));
+              }
             }
           }
         }
