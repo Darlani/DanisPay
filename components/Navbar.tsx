@@ -161,8 +161,12 @@ const handleLogout = async () => {
     }
   };
 
+  // Deteksi environment agar Turnstile tidak memblokir saat di localhost
+  const isLocal = typeof window !== "undefined" && window.location.hostname === "localhost";
+
   const handleSendSuggestion = async () => {
-    if (!suggestionText.trim() || !captchaToken) return alert("Selesaikan verifikasi keamanan dulu!");
+    // Kalau di lokal, token kosong tidak masalah (dibypass)
+    if (!suggestionText.trim() || (!captchaToken && !isLocal)) return alert("Selesaikan verifikasi keamanan dulu!");
     setIsSending(true);
     try {
       const { error } = await supabase.from('product_suggestions').insert([{ content: suggestionText.trim() }]);
@@ -303,9 +307,9 @@ const handleLogout = async () => {
             </div>
             <div className="p-6">
               <textarea value={suggestionText} onChange={(e) => setSuggestionText(e.target.value)} placeholder="Ketik di sini" className="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all resize-none text-slate-800 placeholder:text-slate-400" />
-              <div className="mt-4 flex justify-center"><Turnstile siteKey="0x4AAAAAACkQAA6L_WPQSSms" onSuccess={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken(null)} options={{ theme: 'light' }} /></div>
-              <button onClick={handleSendSuggestion} disabled={isSending || !suggestionText.trim() || !captchaToken} className="w-full mt-6 bg-blue-700 text-white py-4 rounded-full font-black uppercase italic hover:bg-blue-800 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95">
-                {isSending ? <Loader2 className="animate-spin mx-auto" /> : !captchaToken ? "Verifikasi Dulu Bos" : "Kirim Saran"}
+              <div className="mt-4 flex justify-center"><Turnstile siteKey={isLocal ? "1x00000000000000000000AA" : "0x4AAAAAACkQAA6L_WPQSSms"} onSuccess={(t) => setCaptchaToken(t)} onExpire={() => setCaptchaToken(null)} options={{ theme: 'light' }} /></div>
+              <button onClick={handleSendSuggestion} disabled={isSending || !suggestionText.trim() || (!captchaToken && !isLocal)} className="w-full mt-6 bg-blue-700 text-white py-4 rounded-full font-black uppercase italic hover:bg-blue-800 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95">
+                {isSending ? <Loader2 className="animate-spin mx-auto" /> : (!captchaToken && !isLocal) ? "Verifikasi Dulu Bos" : "Kirim Saran"}
               </button>
             </div>
           </div>

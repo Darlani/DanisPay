@@ -70,9 +70,13 @@ export default function InterfacePascabayar(props: any) {
   const mockSelectedItemId = inquiryData ? "pascabayar-item" : null;
   const mockSelectedItem = inquiryData ? { label: `Tagihan ${inquiryData.period || ''} + Admin` } : null;
 
+  // Deteksi localhost
+  const isLocal = typeof window !== "undefined" && window.location.hostname === "localhost";
+
   const isReadyToCheckout = Boolean(
     inquiryData && 
-    (finalTotalPrice === 0 ? true : !!localPayment) // captchaToken saya hapus sementara!
+    (finalTotalPrice === 0 ? true : !!localPayment) &&
+    (captchaToken || isLocal) // Wajib captcha KECUALI di localhost
   );
 
   const scrollToNext = (ref: React.RefObject<HTMLDivElement | null>) => {
@@ -122,6 +126,12 @@ export default function InterfacePascabayar(props: any) {
   };
 
   const onConfirmCheckout = () => {
+    const isLocal = typeof window !== "undefined" && window.location.hostname === "localhost";
+    if (!captchaToken && !isLocal) {
+        alert("Selesaikan keamanan captcha dulu bos!");
+        return;
+    }
+    
     setIsProcessing(true);
     handleCheckout({
       raw_tagihan: rawTagihan,
@@ -381,7 +391,7 @@ export default function InterfacePascabayar(props: any) {
                 <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[2.5rem] border border-[#B2DFDB]/40 shadow-sm flex flex-col items-center justify-center animate-in slide-in-from-bottom-4">
                    <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 sm:mb-4">Verifikasi Keamanan</p>
                    <Turnstile 
-                     siteKey="0x4AAAAAACkQAA6L_WPQSSms" 
+                     siteKey={typeof window !== "undefined" && window.location.hostname === "localhost" ? "1x00000000000000000000AA" : "0x4AAAAAACkQAA6L_WPQSSms"} 
                      onSuccess={(token) => setCaptchaToken(token)}
                      onExpire={() => setCaptchaToken(null)}
                      options={{ theme: 'light', size: 'normal' }}

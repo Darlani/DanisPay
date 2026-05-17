@@ -101,7 +101,9 @@ function RegisterForm() {
     setLoading(true);
     setErrorMsg("");
 
-    if (!captchaToken) {
+    const isLocal = typeof window !== "undefined" && window.location.hostname === "localhost";
+
+    if (!captchaToken && !isLocal) {
       setLoading(false);
       return setErrorMsg("Tolong selesaikan verifikasi keamanan (Captcha)!");
     }
@@ -339,7 +341,7 @@ function RegisterForm() {
 
           <div className="flex justify-center pt-2">
             <Turnstile 
-              siteKey="0x4AAAAAACkQAA6L_WPQSSms"
+              siteKey={typeof window !== "undefined" && window.location.hostname === "localhost" ? "1x00000000000000000000AA" : "0x4AAAAAACkQAA6L_WPQSSms"}
               onSuccess={(token) => setCaptchaToken(token)}
               onExpire={() => setCaptchaToken(null)}
               options={{ theme: 'dark' }} 
@@ -348,7 +350,7 @@ function RegisterForm() {
 
           <button
             type="submit"
-            disabled={loading || !formData.email.includes("@") || !isPasswordValid || !isPasswordMatch || !captchaToken}
+            disabled={loading || !formData.email.includes("@") || !isPasswordValid || !isPasswordMatch || (!captchaToken && !(typeof window !== "undefined" && window.location.hostname === "localhost"))}
             className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black italic uppercase py-4 rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
           >
             {loading ? <Loader2 className="animate-spin" size={18} /> : "DAFTAR SEKARANG"}

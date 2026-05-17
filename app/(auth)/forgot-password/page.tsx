@@ -16,7 +16,11 @@ export default function ForgotPasswordPage() {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!captchaToken) {
+    // Deteksi Localhost
+    const isLocal = typeof window !== "undefined" && window.location.hostname === "localhost";
+
+    // Bypass jika jalan di lokal
+    if (!captchaToken && !isLocal) {
       setErrorMsg("Tolong selesaikan verifikasi keamanan dulu, Bos!");
       return;
     }
@@ -112,7 +116,8 @@ export default function ForgotPasswordPage() {
               {/* POSISI WIDGET CAPTCHA */}
               <div className="flex justify-center pt-2">
                 <Turnstile 
-                  siteKey="0x4AAAAAACkQAA6L_WPQSSms" // Gunakan Site Key Bos
+                  // Gunakan Dummy Key untuk localhost
+                  siteKey={typeof window !== "undefined" && window.location.hostname === "localhost" ? "1x00000000000000000000AA" : "0x4AAAAAACkQAA6L_WPQSSms"}
                   onSuccess={(token) => setCaptchaToken(token)}
                   onExpire={() => setCaptchaToken(null)}
                   options={{ theme: 'dark' }}
@@ -121,12 +126,13 @@ export default function ForgotPasswordPage() {
 
               <button
                 type="submit"
-                disabled={loading || !captchaToken} 
+                // Jangan disable tombol jika di localhost
+                disabled={loading || (!captchaToken && !(typeof window !== "undefined" && window.location.hostname === "localhost"))} 
                 className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-black italic uppercase py-4 rounded-2xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transition-all transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <Loader2 className="animate-spin" size={20} />
-                ) : !captchaToken ? (
+                ) : (!captchaToken && !(typeof window !== "undefined" && window.location.hostname === "localhost")) ? (
                   "Verifikasi Keamanan..."
                 ) : (
                   <>KIRIM LINK RESET <ArrowRight size={20} /></>

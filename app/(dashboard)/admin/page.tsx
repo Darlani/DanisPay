@@ -180,13 +180,16 @@ export default function AdminDashboard() {
     });
   }, [filteredData, searchTermOrders, activeCategory]);
 
-  // --- LOGIKA UPDATE STATUS RESPONSIF (OPTIMISTIC UI) ---
+// --- LOGIKA UPDATE STATUS RESPONSIF (OPTIMISTIC UI) ---
   const handleUpdateStatus = async (id: string, newStatus: string, userEmail: string) => {
+    // === 0. AMBIL DATA ORDER UNTUK STRUK (Penting: Lakukan sebelum state orders berubah) ===
+    const currentOrder = orders.find(o => o.id === id);
+
     // 1. Ubah UI secara instan (0 detik delay)
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
     setSelectedOrder(null); // Modal langsung ditutup
 
-    // 2. Kirim data ke server secara background
+    // 2. Kirim data ke server secara background (Supabase)
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
 
@@ -199,12 +202,35 @@ export default function AdminDashboard() {
       body: JSON.stringify({ id, status: newStatus, email: userEmail }),
     });
 
-if (!res.ok) {
-      const errorData = await res.json();
-      alert(errorData.error || "Gagal update status!");
-      fetchData(); 
-    }
-  };
+    if (!res.ok) {
+      const errorData = await res.json();
+      alert(errorData.error || "Gagal update status!");
+      fetchData(); 
+      return; // Stop di sini kalau gagal update DB
+    }
+
+    // === 3. PELATUK RESEND STRUK (Dikirim di background, tanpa bikin admin nunggu lama) ===
+    // Kita hanya kirim email kalau statusnya "Berhasil" atau "Gagal"
+    if (currentOrder && (newStatus === 'Berhasil' || newStatus === 'Gagal')) {
+      const contactTarget = currentOrder.user_contact || userEmail;
+      
+      // Pastikan tujuannya adalah format email (ada '@')
+      if (contactTarget && contactTarget.includes('@')) {
+         fetch('/api/transaction/send-receipt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               orderId: currentOrder.order_id, // Kita pakai order_id yang pendek (bukan ID uuid)
+               productName: currentOrder.product_name,
+               status: newStatus,
+               paymentMethod: currentOrder.payment_method,
+               totalAmount: (currentOrder.price || 0) + (currentOrder.used_balance || 0),
+               userContact: contactTarget
+            })
+         }).catch(err => console.error("Gagal trigger struk:", err));
+      }
+    }
+  };
 
   // --- LOGIKA JEMPUT BOLA (CEK STATUS DIGIFLAZZ) --- [cite: 2026-03-06]
 const handleCheckStatus = async (orderId: string) => {

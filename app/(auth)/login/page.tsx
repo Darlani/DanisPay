@@ -43,7 +43,11 @@ const [errorMsg, setErrorMsg] = useState("");
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!captchaToken) {
+    // Deteksi jika kita sedang di localhost (development)
+    const isLocal = typeof window !== "undefined" && window.location.hostname === "localhost";
+
+    // Bypass blokir kalau lagi ngoding di lokal, tapi tetap ketat di server sungguhan
+    if (!captchaToken && !isLocal) {
       setErrorMsg("Tolong selesaikan verifikasi keamanan, Bos!");
       return;
     }
@@ -259,7 +263,8 @@ const [errorMsg, setErrorMsg] = useState("");
               {/* POSISI WIDGET CAPTCHA DI SINI */}
               <div className="flex justify-center pt-2">
                 <Turnstile 
-                  siteKey="0x4AAAAAACkQAA6L_WPQSSms" // Gunakan Site Key Bos
+                  // Pakai Dummy Key kalau di lokal, pakai Real Key kalau di production
+                  siteKey={typeof window !== "undefined" && window.location.hostname === "localhost" ? "1x00000000000000000000AA" : "0x4AAAAAACkQAA6L_WPQSSms"}
                   onSuccess={(token) => setCaptchaToken(token)}
                   onExpire={() => setCaptchaToken(null)}
                   options={{

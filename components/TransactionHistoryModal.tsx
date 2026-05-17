@@ -23,7 +23,10 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
     e.preventDefault();
     if (!invoiceInput.trim()) return;
 
-    if (!captchaToken) {
+    // Deteksi localhost
+    const isLocal = typeof window !== "undefined" && window.location.hostname === "localhost";
+
+    if (!captchaToken && !isLocal) {
       alert("Tolong selesaikan verifikasi keamanan dulu, Bos!");
       return;
     }
@@ -116,7 +119,8 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
               />
               <button 
                 type="submit" 
-                disabled={loading || !invoiceInput.trim() || !captchaToken}
+                // Bebaskan tombol di localhost
+                disabled={loading || !invoiceInput.trim() || (!captchaToken && !(typeof window !== "undefined" && window.location.hostname === "localhost"))}
                 className="absolute right-2 top-2 bottom-2 bg-blue-600 text-white px-5 rounded-xl font-bold text-sm hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:bg-blue-600"
               >
                 {loading ? <Loader2 className="animate-spin mx-auto" size={18} /> : "Cari"}
@@ -126,7 +130,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
             {/* WIDGET ANTI-BOT */}
             <div className="flex justify-center pt-1">
               <Turnstile 
-                siteKey="0x4AAAAAACkQAA6L_WPQSSms" 
+                siteKey={typeof window !== "undefined" && window.location.hostname === "localhost" ? "1x00000000000000000000AA" : "0x4AAAAAACkQAA6L_WPQSSms"} 
                 onSuccess={(token) => setCaptchaToken(token)}
                 onExpire={() => setCaptchaToken(null)}
                 options={{ theme: 'light' }}
