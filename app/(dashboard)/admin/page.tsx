@@ -137,7 +137,8 @@ export default function AdminDashboard() {
     const isSuccess = (status: string) => ['Berhasil', 'Selesai', 'Success', 'Paid', 'settlement'].includes(status);
     const success = filteredData.filter(o => isSuccess(o.status));
     
-    const income = success.reduce((sum, o) => sum + (Number(o.price) || 0) + (Number(o.used_balance) || 0), 0);
+    // PERBAIKAN: Income adalah harga jual asli, koin TIDAK PERLU ditambah karena sudah bagian dari harga.
+    const income = success.reduce((sum, o) => sum + (Number(o.price) || 0), 0);
     const totalModal = success.reduce((sum, o) => sum + (Number(o.buy_price) || 0), 0);
     const totalMarginGross = income - totalModal;
 
@@ -224,7 +225,7 @@ export default function AdminDashboard() {
                productName: currentOrder.product_name,
                status: newStatus,
                paymentMethod: currentOrder.payment_method,
-               totalAmount: (currentOrder.price || 0) + (currentOrder.used_balance || 0),
+               totalAmount: currentOrder.price || 0, // PERBAIKAN: Kirim harga aslinya ke email
                userContact: contactTarget
             })
          }).catch(err => console.error("Gagal trigger struk:", err));
@@ -312,21 +313,24 @@ const handleCheckStatus = async (orderId: string) => {
                       </div>
                     </div>
                     
-                    {/* INI KOTAK HITAM (FINANCE) */}
+{/* INI KOTAK HITAM (FINANCE) - KODE UTUH KEMBALI */}
                     {(() => {
-                      const hargaJual = (selectedOrder.price || 0) + (selectedOrder.used_balance || 0);
+                      const kategori = (selectedOrder.category || "").toLowerCase();
+                      const isPascabayar = kategori.includes("pascabayar") || selectedOrder.sku?.toLowerCase() === "pln";
+
+                      const hargaJual = Number(selectedOrder.price || 0); 
+                      const cashback = Number(selectedOrder.cashback || 0); 
+                      const referral = Number(selectedOrder.referral_commission || 0);
+                      const discount = Number(selectedOrder.discount || 0);
+                      const voucher = Number(selectedOrder.voucher_amount || selectedOrder.voucher || 0);
+                      const kodeUnik = Number(selectedOrder.unique_code || 0);
                       
-                      const cashback = selectedOrder.cashback || 0; 
-                      const referral = selectedOrder.referral_commission || 0;
-                      const discount = selectedOrder.discount || 0;
-                      const voucher = selectedOrder.voucher || 0;
+                      const koinPaid = Number(selectedOrder.used_balance || 0);
+                      const transferPaid = Number(selectedOrder.total_amount || 0); 
+                      const modalVendor = Number(selectedOrder.buy_price || 0);
                       
-                      const koinPaid = selectedOrder.used_balance || 0;
-                      const transferPaid = selectedOrder.price || 0;
-                      
-                      const modalVendor = selectedOrder.buy_price || (hargaJual - 1500);
-                      
-                      const profitBersih = hargaJual - modalVendor - cashback - referral - discount - voucher;
+                      // Perhitungan profit murni: Uang riil yang masuk (Transfer + Koin) dikurangi modal asli & pengeluaran komisi/cashback
+                      const profitBersih = (transferPaid + koinPaid) - modalVendor - cashback - referral;
 
                       return (
                         <div className="bg-slate-900 p-6 rounded-[35px] text-white space-y-4">
@@ -356,6 +360,13 @@ const handleCheckStatus = async (orderId: string) => {
                               <span className="text-slate-500 uppercase tracking-widest pl-2 border-l-2 border-slate-700">DISCOUNT VOUCHER</span>
                               <span className="text-rose-400">- Rp {voucher.toLocaleString('id-ID')}</span>
                             </div>
+                            {/* 🚀 BERDIRI SENDIRI SEBAGAI TAMBAHAN BARU SESUAI INSTRUKSI BOS */}
+                            {kodeUnik > 0 && (
+                              <div className="flex justify-between items-center text-[9px] not-italic animate-in fade-in">
+                                <span className="text-emerald-400 uppercase tracking-widest pl-2 border-l-2 border-emerald-500">BIAYA LAYANAN</span>
+                                <span className="text-emerald-400">+ Rp {kodeUnik.toLocaleString('id-ID')}</span>
+                              </div>
+                            )}
                           </div>
 
                           <div className="pt-2 border-t border-slate-800 space-y-2">
@@ -521,7 +532,7 @@ const handleCheckStatus = async (orderId: string) => {
                             <td className="px-6 py-4 font-black text-blue-600 text-xs">#{order.order_id?.slice(-8)}</td>
                             <td className="px-6 py-4"><div className="flex flex-col"><span className="font-black text-slate-900 text-sm">{order.product_name}</span><span className="text-[10px] text-slate-400">{order.item_label || '-'}</span></div></td>
                             <td className="p-6"><div className="flex flex-col gap-1 tracking-normal"><span className="flex items-center gap-1.5 font-black text-slate-900 lowercase not-italic">{order.email}</span><span className="text-slate-400 text-[11px] not-italic">{order.user_contact || '-'}</span></div></td>
-                            <td className="px-6 py-4"><div className="flex flex-col"><span className="font-black text-slate-900 text-sm">Rp {((order.price || 0) + (order.used_balance || 0)).toLocaleString()}</span><span className="text-[10px] text-blue-500 font-black uppercase tracking-tighter">{order.payment_method || 'SALDO'}</span></div></td>
+                            <td className="px-6 py-4"><div className="flex flex-col"><span className="font-black text-slate-900 text-sm">Rp {(order.price || 0).toLocaleString()}</span><span className="text-[10px] text-blue-500 font-black uppercase tracking-tighter">{order.payment_method || 'SALDO'}</span></div></td>
                             <td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-[10px] font-black inline-block ${order.status === 'Berhasil' ? 'bg-emerald-100 text-emerald-600' : order.status === 'Diproses' ? 'bg-blue-100 text-blue-600' : order.status === 'Gagal' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>{order.status || 'PENDING'}</span></td>
                             <td className="px-6 py-4 text-right text-slate-500 text-[10px] font-black">{new Date(order.created_at).toLocaleString('id-ID')}</td>
                           </tr>

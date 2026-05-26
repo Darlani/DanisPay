@@ -88,20 +88,25 @@ if (isPascabayar) {
             console.error("Gagal ekstrak denda:", e);
         }
 
-        // 2. Hitung harga yang seharusnya dibayar user (WAJIB TAMBAH DENDA)
-        hargaJualPascabayar = tagihanMurni + adminToko + dendaTagihan;
-        modalPascabayar = tagihanMurni + adminSupplier + dendaTagihan; // Modal asli Bos ke Digiflazz (tambah denda)
+        // 2. Hitung harga yang seharusnya dibayar user (WAJIB TAMBAH DENDA)
+        hargaJualPascabayar = tagihanMurni + adminToko + dendaTagihan;
+        modalPascabayar = tagihanMurni + adminSupplier + dendaTagihan; 
         
         hargaSeharusnya = hargaJualPascabayar;
         
-        // 3. Validasi angka yang dikirim Frontend vs Perhitungan Backend
+        // 3. Validasi angka dengan menghitung unique_code murni dari sisa transfer bank
+        // totalInputUser = total_amount (sisa transfer) + used_balance (koin riil) + voucher
+        // Contoh: 44.561 + 4.521 + 0 = 49.082
         const selisihMurni = Math.floor(totalInputUser - hargaSeharusnya);
+        
+        // Jika ada kode unik dari payment gateway, ambil selisihnya
         kodeUnikUser = (selisihMurni > 0 && selisihMurni < 1000) ? selisihMurni : 0;
+        
+        // Cek manipulasi: Total gabungan setelah dibersihkan dari kode unik WAJIB presisi dengan harga server
         const totalUserTanpaKodeUnik = Math.floor(totalInputUser - kodeUnikUser);
 
-        // Toleransi dinaikkan sedikit ke 2000 untuk menghindari pembulatan sistem
-        if (Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya) > 2000) {
-           console.error(`⚠️ Price Mismatch! DB: ${hargaSeharusnya}, User: ${totalUserTanpaKodeUnik}`);
+        if (Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya) > 100) { 
+           console.error(`⚠️ Price Mismatch Pascabayar! Server: ${hargaSeharusnya}, Hitungan User: ${totalUserTanpaKodeUnik} (TotalInput: ${totalInputUser}, KodeUnik: ${kodeUnikUser})`);
            return NextResponse.json({ error: `Harga tagihan tidak sinkron, silakan ulangi cek tagihan.` }, { status: 400 });
         }
       } catch (error: any) {
@@ -118,8 +123,16 @@ if (isPascabayar) {
     }
 
     // --- 5. VALIDASI PEMBAYARAN ---
-    const { data: payData } = await supabaseAdmin.from('payment_accounts').select('is_maintenance, start_hour, end_hour, min_price').eq('name', payment_method).maybeSingle();
-    const allowed = isPaymentAllowed(payment_method, product_name || "General", total_amount, payData);
+    // 🚀 Bersihkan nama pembayaran jika ada gabungan koin parsial (Contoh: "QRIS + Koin DaPay" -> diambil "QRIS" saja)
+    const cleanPaymentMethod = payment_method.split(' + ')[0];
+
+    let payData: any = null;
+    if (cleanPaymentMethod !== 'Koin DaPay') {
+      const { data } = await supabaseAdmin.from('payment_accounts').select('is_maintenance, start_hour, end_hour, min_price').eq('name', cleanPaymentMethod).maybeSingle();
+      payData = data;
+    }
+
+    const allowed = cleanPaymentMethod === 'Koin DaPay' ? true : isPaymentAllowed(cleanPaymentMethod, product_name || "General", total_amount, payData);
     if (!allowed) return NextResponse.json({ error: "Metode pembayaran tidak tersedia." }, { status: 403 });
 
     // --- 6. PEMETAAN DATA KE TABEL ORDERS ---

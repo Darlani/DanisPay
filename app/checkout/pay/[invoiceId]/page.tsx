@@ -26,8 +26,11 @@ const DaPayText = () => (
   </span>
 );
 
+import { useRouter } from "next/navigation"; // 🚀 Pastikan router terimport di atas
+
 function InvoiceContent() {
   const params = useParams();
+  const router = useRouter(); // 🚀 Inisialisasi router untuk mengusir user saat lunas
   const invoiceId = params.invoiceId as string;
 
   const [trx, setTrx] = useState<any>(null);
@@ -68,11 +71,24 @@ function InvoiceContent() {
         const nowTs = new Date(serverNow).getTime();
 
         if (orderData) {
+          const totalAmount = Number(orderData.total_amount || 0);
+          const currentStatus = orderData.status?.toLowerCase();
+
+          // 🚀 GERBANG SENSOR: Jika tagihan bank 0 ATAU statusnya sudah sukses/diproses akibat lunas koin,
+          // langsung selamatkan user, jangan panggil API QRIS, usir ke struk sukses!
+          if (totalAmount === 0 || currentStatus === 'berhasil' || currentStatus === 'diproses' || currentStatus === 'selesai') {
+            console.log("🪙 Transaksi lunas koin / sudah diproses. Auto-bypass halaman payment gateway...");
+            setTrx(orderData);
+            setDbStatus(orderData.status || "Berhasil");
+            setIsTimeCalculated(true);
+            return; // ✋ STOP! Jangan biarkan kode di bawahnya mengeksekusi request QRIS vendor
+          }
+
           setTrx(orderData);
           setDbStatus(orderData.status);
 
-          // PANGGIL API QRIS JIKA METODE PEMBAYARAN ADALAH QRIS
-          if (orderData.payment_method?.toLowerCase().includes('qris')) {
+          // PANGGIL API QRIS JIKA METODE PEMBAYARAN ADALAH QRIS DAN STATUS BENAR-BENAR PENDING
+          if (orderData.payment_method?.toLowerCase().includes('qris') && orderData.status === 'Pending') {
              try {
                  const qrisRes = await fetch('/api/orders/qris', {
                      method: 'POST',

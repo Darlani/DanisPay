@@ -44,11 +44,12 @@ export async function POST(req: Request) {
       throw new Error('Saldo Koin DaPay tidak mencukupi!');
     }
 
-// 2. Hitung Saldo & Cashback Buyer
+// 2. Hitung Hanya Cashback Buyer (Karena saldo pokok sudah dipotong di orders/create!)
     const isSpecial = profile.member_type?.toLowerCase() === 'special';
     const cbNominal = isSpecial ? (order.cashback || 0) : 0;
-    // Ubah jadi 'let' agar nanti bisa kita tambahkan bonus kalau syaratnya terpenuhi
-    let finalBalance = profile.balance - order.used_balance + cbNominal;
+    
+    // finalBalance sekarang hanya menampung saldo saat ini ditambah cashback & bonus jika ada
+    let finalBalance = profile.balance + cbNominal;
 
     // 3. PROSES KOMISI REFERRAL
     if (order.referred_by) {
@@ -141,22 +142,26 @@ export async function POST(req: Request) {
       }
     }
 
-// 4. EKSEKUSI FINAL (DENGAN TANDA WAKTU BARU)
+// 4. EKSEKUSI FINAL (HANYA UPDATE TENTANG CASHBACK / BONUS SAJA)
     await Promise.all([
+      // Update balance di profiles hanya untuk memasukkan cashback / bonus welcome (jika ada)
       supabaseAdmin.from('profiles').update({ balance: finalBalance }).eq('id', profile.id),
       supabaseAdmin.from('orders').update({ 
         status: 'Diproses',
         updated_at: new Date().toISOString() 
       }).eq('order_id', order_id),
-      supabaseAdmin.from('balance_logs').insert([{ 
-        user_id: profile.id, 
-        user_email: email, 
-        amount: -order.used_balance + cbNominal, 
-        type: 'Payment', 
-        description: `Full Koin Order #${order_id}`,
-        initial_balance: profile.balance,
-        final_balance: finalBalance
-      }])
+      // Hanya masukkan log jika ada cashback yang diterima agar tidak duplikat dengan log payment orders/create
+      ...(cbNominal > 0 ? [
+        supabaseAdmin.from('balance_logs').insert([{ 
+          user_id: profile.id, 
+          user_email: email, 
+          amount: cbNominal, 
+          type: 'Cashback', 
+          description: `Cashback Special (Order #${order_id})`,
+          initial_balance: profile.balance,
+          final_balance: profile.balance + cbNominal
+        }])
+      ] : [])
     ]);
 
     // 5. 🕵️ LOGIKA DETEKSI JALUR (HYBRID: KTP + KEYWORDS)

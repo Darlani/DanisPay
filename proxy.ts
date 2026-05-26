@@ -70,14 +70,18 @@ export default async function proxy(request: NextRequest) {
         }
       });
 
-      // Jika response tidak ok (token hangus, palsu, atau kedaluwarsa)
-      if (!res.ok) {
-        // Hapus paksa cookie dan lempar ke halaman login dengan sinyal 'expired'
-        const response = NextResponse.redirect(new URL('/login?session=expired', request.url));
-        response.cookies.delete('sb-access-token');
-        response.cookies.delete('userRole');
-        return response;
-      }
+// Jika response tidak ok (token hangus, palsu, atau kedaluwarsa)
+      if (!res.ok) {
+        // Hapus paksa cookie dan lempar ke halaman login dengan sinyal 'expired'
+        const response = NextResponse.redirect(new URL('/login?session=expired', request.url));
+        
+        // Bersihkan cookie kustom dan seluruh cookie auth bawaan Supabase agar browser bersih total
+        response.cookies.delete('sb-access-token');
+        response.cookies.delete('sb-refresh-token'); // Tambahkan ini untuk mencegah error "Refresh Token Not Found"
+        response.cookies.delete('userRole');
+        
+        return response;
+      }
 
       // --- Otorisasi Berdasarkan Role ---
       // Jika mengakses /admin, pastikan rolenya memiliki hak akses

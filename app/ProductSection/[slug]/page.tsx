@@ -238,6 +238,9 @@ const handleCheckout = async (customPayload?: any) => {
       const activeCost = customPayload?.override_cost !== undefined ? customPayload.override_cost : (selectedItem?.cost || 0);
       const activeLabel = customPayload?.override_label || selectedItem?.label || "Tagihan Pascabayar";
       const activeSku = selectedItem?.sku || productData?.items?.[0]?.sku || "PASCABAYAR";
+      
+      // 🚀 FIX: Tangkap used_balance lokal dari pascabayar jika ada titipan payload
+      const activeUsedBalance = customPayload?.override_used_balance !== undefined ? customPayload.override_used_balance : usedCoinsAmount;
 
       // Gunakan uniqueCode dari state, bukan diacak lagi di sini
       const totalAmount = Number(activePrice) + uniqueCode; 
@@ -271,7 +274,8 @@ const handleCheckout = async (customPayload?: any) => {
           referred_by: referrer || null,
           category: productData.category || "game", 
           created_at: new Date().toISOString(), 
-          used_balance: usedCoinsAmount,
+          // 🚀 FIX: Gunakan variabel penangkap pintar agar koin pascabayar tidak hangus/0
+          used_balance: activeUsedBalance, 
           cashback: (memberType?.toLowerCase() === 'special') ? estimasiCashback : 0, 
           voucher_amount: isPromoApplied ? discount : 0,
           raw_tagihan: customPayload?.raw_tagihan || 0,

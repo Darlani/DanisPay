@@ -257,35 +257,11 @@ if (needsPenalty) {
     }
 
     // ====================================================================
-    // --- 5. LOGIKA PENGURANGAN SALDO (KOIN DAPAY) ---
+    // --- 5. LOGIKA PENGURANGAN SALDO (DI-BYPASS - SUDAH DI-HANDLE ORDERS/CREATE) ---
     // ====================================================================
     const userId = currentOrder.user_id;
     const userEmail = currentOrder.email;
-
-    try {
-      const usedBalance = currentOrder.used_balance || 0;
-      
-      if (usedBalance > 0 && userId && userEmail && userEmail !== 'null') {
-        console.log(`🪙 Memotong saldo user ID: ${userId}`);
-        const { data: currentProf } = await supabaseAdmin.from('profiles').select('balance').eq('id', userId).maybeSingle();
-        
-        if (currentProf) {
-          const finalBalance = Math.max(0, (currentProf.balance || 0) - usedBalance);
-          await supabaseAdmin.from('profiles').update({ balance: finalBalance }).eq('id', userId);
-          await supabaseAdmin.from('balance_logs').insert([{ 
-            user_id: userId, 
-            user_email: userEmail, 
-            amount: -usedBalance, 
-            type: 'Payment', 
-            description: `Potongan Order #${currentOrder.order_id}`,
-            initial_balance: currentProf.balance || 0,
-            final_balance: finalBalance
-          }]);
-        }
-      }
-    } catch (balanceErr: any) {
-      console.error("⚠️ Error Potong Saldo (Non-Fatal):", balanceErr.message);
-    }
+    console.log("🪙 Koin DaPay sudah aman dipotong di awal transaksi oleh orders/create.");
 
     // ====================================================================
     // --- 6. LOGIKA KOMISI, WELCOME BONUS & CASHBACK ---

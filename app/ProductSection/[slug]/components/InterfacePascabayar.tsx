@@ -136,12 +136,12 @@ export default function InterfacePascabayar(props: any) {
     handleCheckout({
       raw_tagihan: rawTagihan,
       admin_digiflazz: adminDigiflazz,
-      override_price: totalPrice, 
+      override_price: finalTotalPrice, // 🚀 FIX: Kirim sisa tagihan asli yang harus dibayar ke Bank/QRIS
       override_payment: localPayment,
       override_cost: rawTagihan + adminDigiflazz,
       override_label: `Tagihan ${inquiryData?.period || 'Pascabayar'}`,
-      // 🚀 INI KUNCINYA: Kirim data inquiry ke page.tsx
-      inquiry_result: inquiryData 
+      inquiry_result: inquiryData,
+      override_used_balance: usedCoinsAmount // 🚀 FIX: Laporkan jumlah koin yang dipakai ke page.tsx
     });
   };
 
