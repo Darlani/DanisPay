@@ -204,6 +204,42 @@ if (isPascabayar) {
     const { error: insertError } = await supabaseAdmin.from('orders').insert([orderData]); 
     if (insertError) throw insertError;
 
+    // 🚀 AMANKAN KOIN: Potong langsung saldo koin jika user_id valid dan used_balance > 0
+    if (user_id && used_balance > 0) {
+      try {
+        // A. Ambil saldo terakhir user dari profiles
+        const { data: profile, error: profileErr } = await supabaseAdmin
+          .from('profiles')
+          .select('balance')
+          .eq('id', user_id)
+          .single();
+
+        if (!profileErr && profile) {
+          const currentBalance = Number(profile.balance || 0);
+          const newBalance = currentBalance - used_balance;
+
+          // B. Potong langsung di tabel profiles (kolom saldo = 'balance')
+          await supabaseAdmin
+            .from('profiles')
+            .update({ balance: newBalance })
+            .eq('id', user_id);
+
+          // C. Catat riwayat pengurangan koin ke balance_logs
+          await supabaseAdmin
+            .from('balance_logs')
+            .insert([{
+              user_id: user_id,
+              amount: -used_balance, // Gunakan minus jika log Bos mencatat pengurangan dengan angka negatif
+              type: 'Payment',
+              description: `Potongan Koin Pembelian ${isPascabayar ? 'Pascabayar' : 'Prabayar'} - No.Pel: ${customer_no} (Order ID: ${order_id})`,
+              created_at: new Date().toISOString()
+            }]);
+        }
+      } catch (coinErr: any) {
+        console.error("🔥 Gagal auto-potong koin di create order:", coinErr.message);
+      }
+    }
+
     return NextResponse.json({ success: true, order_id: order_id });
 
   } catch (err: any) {

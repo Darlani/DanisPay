@@ -74,13 +74,59 @@ export default function InterfaceGame(props: InterfaceGameProps) {
   const [advCategory, setAdvCategory] = useState("Diamond");
   const [advSubCategory, setAdvSubCategory] = useState("Semua");
 
-  // Tambahkan state untuk Cek ID Game [cite: 2026-03-06]
+  // State untuk Cek ID Game
   const [isChecking, setIsChecking] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
+  // 💡 STATE RIWAYAT NOMOR (LOCAL STORAGE)
+  const [historyList, setHistoryList] = useState<string[]>([]);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`dapay_history_game_${product?.name}`);
+      if (saved) setHistoryList(JSON.parse(saved));
+    }
+  }, [product?.name]);
+
+  const saveToHistory = (acc: string, zone: string) => {
+    if (!acc) return;
+    const val = zone ? `${acc}|${zone}` : acc;
+    const saved = JSON.parse(localStorage.getItem(`dapay_history_game_${product?.name}`) || "[]");
+    const updated = [val, ...saved.filter((x: string) => x !== val)].slice(0, 3); // Maksimal 3
+    localStorage.setItem(`dapay_history_game_${product?.name}`, JSON.stringify(updated));
+    setHistoryList(updated);
+  };
+
+  // Deteksi Dinamis SKU "Cek Username" untuk produk game, agar lebih fleksibel jika SKU berubah atau berbeda antar produk
+  const inquiryItem = useMemo(() => {
+    if (!product?.items) return null;
+    return product.items.find((item: any) => 
+      String(item.label || item.name || "").toLowerCase().includes("cek username")
+    );
+  }, [product?.items]);
+
+  const inquirySku = inquiryItem?.sku || null;
+
   const handleInquiryGame = async () => {
+    if (!inquirySku) return true; 
     if (!accId || accId.length < 3) { setErrorMsg("ID terlalu pendek!"); return false; }
+
+    // 💡 SMART CACHE CERDAS (Ada Expired 24 Jam)
+    const cacheKey = `dapay_inquiry_${product?.name}_${accId}_${zoneId}`;
+    const cachedData = localStorage.getItem(cacheKey);
+    
+    if (cachedData) {
+      const { name, timestamp } = JSON.parse(cachedData);
+      const isExpired = Date.now() - timestamp > 24 * 60 * 60 * 1000; // 24 Jam
+      
+      if (!isExpired) {
+        setCustomerName(name);
+        return true; // Lolos jika belum expired
+      } else {
+        localStorage.removeItem(cacheKey); // Hapus jika sudah expired, lanjut ke API
+      }
+    }
+
     setIsChecking(true);
     setErrorMsg("");
     setCustomerName("");
@@ -91,24 +137,41 @@ export default function InterfaceGame(props: InterfaceGameProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           customer_id: zoneId ? `${accId}${zoneId}` : accId, 
-          sku: product.items?.[0]?.sku || 'game' 
+          sku: inquirySku, 
+          category: product.category || 'game'
         })
       });
       const result = await res.json();
-      if (res.ok && result.data?.customer_name) {
-        setCustomerName(result.data.customer_name);
-        return true; // Beri sinyal sukses
+      
+      if (res.ok && (result.data?.customerName || result.data?.customer_name)) {
+        const validName = result.data.customerName || result.data.customer_name;
+        setCustomerName(validName);
+        
+        // 1. Simpan nama dan waktu ke Cache agar API tidak dipanggil ulang selama 24 jam
+        localStorage.setItem(cacheKey, JSON.stringify({ name: validName, timestamp: Date.now() }));
+        
+        // 2. Simpan nomor ke History agar muncul sebagai Tombol Chip
+        saveToHistory(accId, zoneId);
+        
+        return true; 
       } else {
-        setErrorMsg("ID tidak ditemukan atau sedang gangguan.");
-        return false; // Beri sinyal gagal
+        setErrorMsg(result.message || "ID tidak ditemukan / gangguan.");
+        return false; 
       }
     } catch (err) {
-      setErrorMsg("Gagal verifikasi ID.");
-      return false; // Beri sinyal gagal
+      setErrorMsg("Gagal verifikasi ID. Coba lagi.");
+      return false; 
     } finally {
       setIsChecking(false);
     }
   };
+
+  // Jalankan cek otomatis di latar belakang saat Modal Terbuka
+  useEffect(() => {
+    if (isModalOpen && inquirySku && !customerName && !errorMsg && !isChecking) {
+      handleInquiryGame();
+    }
+  }, [isModalOpen]);
 
   const step2Ref = useRef<HTMLDivElement>(null);
   const step3Ref = useRef<HTMLDivElement>(null);
@@ -136,10 +199,16 @@ export default function InterfaceGame(props: InterfaceGameProps) {
   // --- MESIN LOGIKA AUTO-HIDE TABS MULTI-TIER (FF & MLBB) ---
   const processedItems = useMemo(() => {
     if (!product?.items) return [];
+    
+    // Hilangkan item Cek Username dari UI
+    const visibleItems = product.items.filter((item: any) => 
+      !String(item.label || item.name || "").toLowerCase().includes("cek username")
+    );
+
     const isFreeFire = product?.name?.toLowerCase().includes('free fire');
     const isMLBB = product?.name?.toLowerCase().includes('mobile legends') || product?.name?.toLowerCase().includes('mlbb');
     
-    return product.items.map((item: any) => {
+    return visibleItems.map((item: any) => {
       const name = String(item.label || item.name || "").toLowerCase();
       let region = "Indonesia";
       let category = "Diamond"; // Default
@@ -274,6 +343,12 @@ export default function InterfaceGame(props: InterfaceGameProps) {
   };
 
   const onConfirmCheckout = () => {
+    if (inquirySku && errorMsg) {
+      alert(`Gagal: ${errorMsg}\nSilakan perbaiki ID Akun Anda terlebih dahulu.`);
+      setIsModalOpen(false); 
+      return;
+    }
+    saveToHistory(accId, zoneId); // Simpan riwayat jika game tanpa fitur inquiry
     setIsProcessing(true);
     handleCheckout();
   };
@@ -648,7 +723,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                       <input 
                         type="text" 
                         value={accId} 
-                        onChange={(e) => { setAccId(e.target.value); setCustomerName(""); }} 
+                        onChange={(e) => { setAccId(e.target.value); setCustomerName(""); setErrorMsg(""); }} 
                         placeholder={`Masukkan ${getDynamicLabel()}`} 
                         className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white py-2.5 px-4 sm:py-3 sm:px-5 rounded-xl outline-none text-sm sm:text-base font-bold text-slate-700 transition-all placeholder:text-slate-400" 
                       />
@@ -673,6 +748,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                             value={zoneId}
                             onChange={(e) => {
                               setZoneId(e.target.value);
+                              setCustomerName("");
+                              setErrorMsg("");
                               if(e.target.value.length >= 4) scrollToNext(step3Ref);
                             }}
                             placeholder="1234" 
@@ -682,6 +759,29 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                     </div>
                   )}
                 </div>
+                {/* 💡 CHIP RIWAYAT UI */}
+                {historyList.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2 sm:mt-4 pt-2 border-t border-slate-100 animate-in fade-in">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mr-1">Terakhir:</span>
+                    {historyList.map(h => {
+                      const [hAcc, hZone] = h.split('|');
+                      return (
+                        <button
+                          key={h}
+                          onClick={() => {
+                            setAccId(hAcc);
+                            if (hZone) setZoneId(hZone);
+                            setCustomerName("");
+                            setErrorMsg("");
+                          }}
+                          className="bg-slate-50 hover:bg-teal-50 text-slate-500 hover:text-teal-700 px-2.5 py-1 rounded-md text-[10px] font-bold transition-colors border border-slate-200 hover:border-teal-200 shadow-sm"
+                        >
+                          {hZone ? `${hAcc} (${hZone})` : hAcc}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </section>
 
@@ -735,8 +835,9 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           currentUser={currentUser}
           memberType={memberType}
           isMounted={isMounted}
-          onCheckInquiry={handleInquiryGame}
-          isChecking={isChecking}
+          // Copot fungsi penahan agar modal instan terbuka
+          onCheckInquiry={undefined} 
+          isChecking={false} 
           isLoading={isLoading}
           onPreCheckout={onPreCheckout}
         />
@@ -747,7 +848,13 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           onClose={() => setIsModalOpen(false)}
           product={product}
           selectedItem={selectedItem}
-          accId={zoneId ? `${accId} (${zoneId})` : accId}
+          // Tampilkan status loading, error, atau sukses real-time
+          accId={
+            isChecking ? `${zoneId ? `${accId} (${zoneId})` : accId} - [🔍 Mengecek Nama...]` :
+            errorMsg ? `${zoneId ? `${accId} (${zoneId})` : accId} - [❌ ${errorMsg}]` :
+            customerName ? `${zoneId ? `${accId} (${zoneId})` : accId} - [✅ ${customerName}]` : 
+            (zoneId ? `${accId} (${zoneId})` : accId)
+          }
           selectedPayment={selectedPayment}
           totalPrice={totalPrice}
           nominalHemat={nominalHemat}
@@ -755,7 +862,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           estimasiCashback={estimasiCashback}
           memberType={memberType}
           formatRupiah={formatRupiah}
-          isProcessing={isProcessing}
+          isProcessing={isProcessing || isChecking}
+          hasError={!!errorMsg} // <--- TAMBAHKAN BARIS INI
           handleCheckout={onConfirmCheckout}
           dynamicLabel={getDynamicLabel()}
           isMounted={isMounted}

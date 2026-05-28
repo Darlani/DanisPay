@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Turnstile } from '@marsidev/react-turnstile';
 import { 
   User, Search, Loader2, ReceiptText, CalendarDays, 
@@ -28,6 +28,23 @@ export default function InterfacePascabayar(props: any) {
   const [isChecking, setIsChecking] = useState(false);
   const [inquiryData, setInquiryData] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState("");
+
+  // 💡 STATE RIWAYAT NOMOR (LOCAL STORAGE)
+  const [historyList, setHistoryList] = useState<string[]>([]);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`dapay_history_pasca_${product?.name}`);
+      if (saved) setHistoryList(JSON.parse(saved));
+    }
+  }, [product?.name]);
+
+  const saveToHistory = (num: string) => {
+    if (!num) return;
+    const saved = JSON.parse(localStorage.getItem(`dapay_history_pasca_${product?.name}`) || "[]");
+    const updated = [num, ...saved.filter((x: string) => x !== num)].slice(0, 3); // Maks 3 nomor
+    localStorage.setItem(`dapay_history_pasca_${product?.name}`, JSON.stringify(updated));
+    setHistoryList(updated);
+  };
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [discount, setDiscount] = useState(0);
@@ -113,6 +130,7 @@ export default function InterfacePascabayar(props: any) {
       const result = await res.json();
       if (res.ok) {
         setInquiryData(result.data);
+        saveToHistory(accId); // Simpan ID ke riwayat chip
         setSelectedItemId("pascabayar-item"); // <--- MOCK ID ini dikirim ke page.tsx agar lolos validasi handlePreCheckout
         scrollToNext(step3Ref);
       } else {
@@ -239,18 +257,37 @@ export default function InterfacePascabayar(props: any) {
                         </button>
                       ) : (
                         <button 
-                          onClick={() => setInquiryData(null)} 
-                          className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 bg-rose-100 text-rose-600 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase hover:bg-rose-200 transition-all shadow-sm"
-                        >
-                          GANTI ID
-                        </button>
-                      )}
+                              onClick={() => setInquiryData(null)} 
+                              className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 bg-rose-100 text-rose-600 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase hover:bg-rose-200 transition-all shadow-sm"
+                            >
+                              GANTI ID
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
+                    {errorMsg && <p className="mt-3 text-rose-500 text-[10px] font-black uppercase flex items-center gap-1.5"><AlertTriangle size={14} /> {errorMsg}</p>}
+                    
+                    {/* 💡 CHIP RIWAYAT UI */}
+                    {historyList.length > 0 && !inquiryData && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-4 pt-4 border-t border-slate-100 animate-in fade-in">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mr-1">Terakhir:</span>
+                        {historyList.map(h => (
+                          <button
+                            key={h}
+                            onClick={() => {
+                              setAccId(h);
+                              setErrorMsg("");
+                            }}
+                            className="bg-slate-50 hover:bg-teal-50 text-slate-500 hover:text-teal-700 px-2.5 py-1 rounded-md text-[10px] font-bold transition-colors border border-slate-200 hover:border-teal-200 shadow-sm"
+                          >
+                            {h}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-                {errorMsg && <p className="mt-3 text-rose-500 text-[10px] font-black uppercase flex items-center gap-1.5"><AlertTriangle size={14} /> {errorMsg}</p>}
-              </div>
-            </section>
+                </section>
             
             {/* STEP 2: RINCIAN TAGIHAN (RIBBON STYLE) */}
             <section className={`bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-all duration-500 border border-[#B2DFDB]/40 overflow-hidden relative ${inquiryData ? "opacity-100" : "hidden pointer-events-none"}`}>

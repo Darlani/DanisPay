@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import crypto from 'crypto';
 import axios from 'axios';
 
+// --- SISTEM ANTI-SPAM (KHUSUS GAME/E-WALLET) ---
+const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
+const LIMIT = 3; 
+const WINDOW_MS = 60 * 1000; 
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -42,20 +47,44 @@ export async function POST(req: Request) {
       });
     }
 
-    // 3. EKSEKUSI KE DIGIFLAZZ
+    // ==========================================
+    // 3. RATE LIMITER (HANYA MENCEGAT JIKA BUKAN PLN)
+    // ==========================================
+    if (inquirySku !== "PLN") {
+      const forwardedFor = req.headers.get('x-forwarded-for');
+      const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : (req.headers.get('x-real-ip') || req.headers.get('cf-connecting-ip') || 'IP_Lokal');
+      
+      const now = Date.now();
+      const clientData = rateLimitMap.get(ip);
+
+      if (clientData) {
+        if (now - clientData.lastReset < WINDOW_MS) {
+          if (clientData.count >= LIMIT) {
+            console.warn(`🚨 SPAM BLOCKED: IP ${ip} mencoba inquiry Game terlalu banyak.`);
+            return NextResponse.json({ message: "Terlalu banyak permintaan! Tunggu 1 menit ya Bos." }, { status: 429 });
+          }
+          clientData.count += 1;
+        } else {
+          rateLimitMap.set(ip, { count: 1, lastReset: now });
+        }
+      } else {
+        rateLimitMap.set(ip, { count: 1, lastReset: now });
+      }
+    }
+
+    // 4. EKSEKUSI KE DIGIFLAZZ
     let result: any;
     // Bersihkan ID dari spasi agar Sign MD5 tidak meleset
     const cleanCustomerId = String(customer_id).replace(/[^0-9a-zA-Z]/g, '');
 
     if (inquirySku === "PLN") {
-      // JALUR PLN PRABAYAR (TOKEN)
+      // JALUR PLN PRABAYAR (TOKEN) -> Bebas Limit
       const signPln = crypto.createHash('md5').update(username + apiKey + cleanCustomerId).digest('hex');
       
       const resPln = await axios.post("https://api.digiflazz.com/v1/inquiry-pln", {
         username,
         customer_no: cleanCustomerId,
         sign: signPln
-        // Jika masih RC 02 saat ngetes nomor fiktif, Bos bisa tambahkan "testing": true di sini
       }, { 
         validateStatus: (s) => s < 500 
       });
@@ -64,7 +93,7 @@ export async function POST(req: Request) {
       console.log("🔍 RESPONS INQUIRY PLN:", JSON.stringify(result, null, 2));
 
     } else {
-      // JALUR GAME / E-WALLET
+      // JALUR GAME / E-WALLET -> Terkena Limit 3x
       const ref_id = `CEKID-${Date.now()}`;
       const signGame = crypto.createHash('md5').update(username + apiKey + ref_id).digest('hex');
 
@@ -88,7 +117,9 @@ export async function POST(req: Request) {
       
       // Jika RC 02, berikan pesan yang lebih edukatif
       if (result?.data?.rc === '02') {
-        pesanUser = "ID Pelanggan tidak ditemukan. Pastikan nomor sudah benar dan sesuai dengan jenis PLN (Token).";
+        pesanUser = inquirySku === "PLN" 
+          ? "ID Pelanggan tidak ditemukan. Pastikan nomor sudah benar dan sesuai dengan jenis PLN (Token)." 
+          : "ID Pelanggan tidak ditemukan.";
       }
 
       return NextResponse.json({
@@ -98,7 +129,7 @@ export async function POST(req: Request) {
       }, { status: 400 }); 
     }
 
-    // 4. PARSING SUKSES
+    // 5. PARSING SUKSES
     const digiData = result.data;
     return NextResponse.json({
       success: true,

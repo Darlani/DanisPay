@@ -78,6 +78,25 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
 
   const isPLN = product?.name?.toLowerCase().includes('pln') || product?.category?.toLowerCase().includes('pln');
 
+  // 💡 STATE RIWAYAT NOMOR (LOCAL STORAGE)
+  const [historyList, setHistoryList] = useState<string[]>([]);
+  const historyKey = isPLN ? 'dapay_history_pln' : 'dapay_history_pulsadata';
+  
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(historyKey);
+      if (saved) setHistoryList(JSON.parse(saved));
+    }
+  }, [historyKey]);
+
+  const saveToHistory = (num: string) => {
+    if (!num || num.length < 10) return;
+    const saved = JSON.parse(localStorage.getItem(historyKey) || "[]");
+    const updated = [num, ...saved.filter((x: string) => x !== num)].slice(0, 3); // Maks 3 nomor
+    localStorage.setItem(historyKey, JSON.stringify(updated));
+    setHistoryList(updated);
+  };
+
   const checkPlnInquiry = async (plnId: string) => {
     setIsInquiring(true);
     setErrorOp("");
@@ -90,6 +109,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
 
     if (result.success) {
       setCustomerName(result.data.data?.customerName || result.data.customerName);
+      saveToHistory(plnId); // Simpan nomor PLN ke chip history
       scrollToNext(step3Ref);
     } else {
       setErrorOp(result.message || "ID PLN tidak ditemukan");
@@ -223,6 +243,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
   };
 
   const onConfirmCheckout = () => {
+    saveToHistory(accId); // Simpan nomor Pulsa/Data ke chip history saat checkout
     setIsProcessing(true);
     handleCheckout();
   };
@@ -668,6 +689,31 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                     )}
                   </div>
                 </div>
+                
+                {/* 💡 CHIP RIWAYAT UI */}
+                {historyList.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2 sm:mt-4 pt-2 border-t border-slate-100 animate-in fade-in">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mr-1">Terakhir:</span>
+                    {historyList.map(h => (
+                      <button
+                        key={h}
+                        onClick={() => {
+                          setAccId(h);
+                          const operatorMatch = getOperatorLogo(h);
+                          setDetectedLogo(operatorMatch ? operatorMatch.logoUrl : null);
+                          setCustomerName("");
+                          setErrorOp("");
+                          if (isPLN && h.length >= 11) checkPlnInquiry(h);
+                          else if (!isPLN && h.length >= 10) scrollToNext(step3Ref);
+                        }}
+                        className="bg-slate-50 hover:bg-teal-50 text-slate-500 hover:text-teal-700 px-2.5 py-1 rounded-md text-[10px] font-bold transition-colors border border-slate-200 hover:border-teal-200 shadow-sm"
+                      >
+                        {h}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
               </div>
             </section>
 

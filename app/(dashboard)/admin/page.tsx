@@ -137,8 +137,15 @@ export default function AdminDashboard() {
     const isSuccess = (status: string) => ['Berhasil', 'Selesai', 'Success', 'Paid', 'settlement'].includes(status);
     const success = filteredData.filter(o => isSuccess(o.status));
     
-    // PERBAIKAN: Income adalah harga jual asli, koin TIDAK PERLU ditambah karena sudah bagian dari harga.
-    const income = success.reduce((sum, o) => sum + (Number(o.price) || 0), 0);
+    // OMSET RIIL: Harga Jual (Price) dikurangi Potongan Diskon (%)
+    const income = success.reduce((sum, o) => {
+      const rawPrice = Number(o.price) || 0;
+      const discountPct = Number(o.discount) || 0;
+      const nominalDiskon = Math.floor(rawPrice * (discountPct / 100));
+      const netPrice = rawPrice - nominalDiskon;
+      return sum + netPrice;
+    }, 0);
+    
     const totalModal = success.reduce((sum, o) => sum + (Number(o.buy_price) || 0), 0);
     const totalMarginGross = income - totalModal;
 
@@ -313,7 +320,7 @@ const handleCheckStatus = async (orderId: string) => {
                       </div>
                     </div>
                     
-{/* INI KOTAK HITAM (FINANCE) - KODE UTUH KEMBALI */}
+                    {/* INI KOTAK HITAM (FINANCE) - KODE UTUH KEMBALI */}
                     {(() => {
                       const kategori = (selectedOrder.category || "").toLowerCase();
                       const isPascabayar = kategori.includes("pascabayar") || selectedOrder.sku?.toLowerCase() === "pln";
@@ -321,7 +328,11 @@ const handleCheckStatus = async (orderId: string) => {
                       const hargaJual = Number(selectedOrder.price || 0); 
                       const cashback = Number(selectedOrder.cashback || 0); 
                       const referral = Number(selectedOrder.referral_commission || 0);
-                      const discount = Number(selectedOrder.discount || 0);
+                      
+                      // PERBAIKAN DISKON: Baca sebagai persen (%), lalu hitung nominal Rupiah-nya
+                      const discountPct = Number(selectedOrder.discount || 0);
+                      const discountNominal = Math.floor(hargaJual * (discountPct / 100));
+                      
                       const voucher = Number(selectedOrder.voucher_amount || selectedOrder.voucher || 0);
                       const kodeUnik = Number(selectedOrder.unique_code || 0);
                       
@@ -352,10 +363,12 @@ const handleCheckStatus = async (orderId: string) => {
                               <span className="text-slate-500 uppercase tracking-widest pl-2 border-l-2 border-slate-700">KOMISI REFERRAL</span>
                               <span className="text-rose-400">- Rp {referral.toLocaleString('id-ID')}</span>
                             </div>
-                            <div className="flex justify-between items-center text-[9px] not-italic">
-                              <span className="text-slate-500 uppercase tracking-widest pl-2 border-l-2 border-slate-700">DISCOUNT PROMO</span>
-                              <span className="text-rose-400">- Rp {discount.toLocaleString('id-ID')}</span>
-                            </div>
+                            {discountPct > 0 && (
+                              <div className="flex justify-between items-center text-[9px] not-italic">
+                                <span className="text-slate-500 uppercase tracking-widest pl-2 border-l-2 border-slate-700">DISCOUNT PROMO ({discountPct}%)</span>
+                                <span className="text-rose-400">- Rp {discountNominal.toLocaleString('id-ID')}</span>
+                              </div>
+                            )}
                             <div className="flex justify-between items-center text-[9px] not-italic">
                               <span className="text-slate-500 uppercase tracking-widest pl-2 border-l-2 border-slate-700">DISCOUNT VOUCHER</span>
                               <span className="text-rose-400">- Rp {voucher.toLocaleString('id-ID')}</span>
