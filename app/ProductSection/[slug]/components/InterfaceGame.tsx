@@ -105,12 +105,13 @@ export default function InterfaceGame(props: InterfaceGameProps) {
       .map((item: any) => item.sku); // Ambil array SKU-nya saja
   }, [product?.items]);
 
-  const handleInquiryGame = async (forceRefresh = false) => {
-    if (inquirySkus.length === 0) return true; // Lolos jika game tidak punya fitur cek username
+  // 💡 Tambahkan isPolling agar sistem tahu ini jemput bola antrean atau refresh manual biasa
+  const handleInquiryGame = async (forceRefresh = false, isPolling = false) => {
+    if (inquirySkus.length === 0) return true; 
     if (!accId || accId.length < 3) { setErrorMsg("ID terlalu pendek!"); return false; }
 
-    // 💡 CEK LIMIT REFRESH MANUAL (Maks 3x Sehari)
-    if (forceRefresh) {
+    // 💡 CEK LIMIT REFRESH MANUAL (Bypass/Abaikan limit jika ini adalah aksi Jemput Bola)
+    if (forceRefresh && !isPolling) {
       const today = new Date().toDateString();
       const limitData = JSON.parse(localStorage.getItem('dapay_refresh_limit') || "{}");
       if (limitData.date === today && limitData.count >= 3) {
@@ -170,8 +171,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
         // 2. Simpan nomor ke History
         saveToHistory(accId, zoneId);
 
-        // 3. Tambah hitungan spam refresh harian
-        if (forceRefresh) {
+        // 3. Tambah hitungan spam refresh harian (Hanya tambah jika BUKAN jemput bola)
+        if (forceRefresh && !isPolling) {
           const today = new Date().toDateString();
           const limitData = JSON.parse(localStorage.getItem('dapay_refresh_limit') || "{}");
           const currentCount = limitData.date === today ? limitData.count : 0;
@@ -197,6 +198,18 @@ export default function InterfaceGame(props: InterfaceGameProps) {
       handleInquiryGame();
     }
   }, [isModalOpen]);
+
+  // 💡 JEMPUT BOLA OTOMATIS: Lakukan Polling setiap 5 detik jika status sedang Antrean (⏳)
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isModalOpen && errorMsg.includes('antrean') && !isChecking) {
+      interval = setInterval(() => {
+        // forceRefresh = true, isPolling = true (Maka limit 3x sehari akan di-bypass!)
+        handleInquiryGame(true, true); 
+      }, 5000); // 5000 ms = 5 detik
+    }
+    return () => clearInterval(interval);
+  }, [isModalOpen, errorMsg, isChecking]);
 
   const step2Ref = useRef<HTMLDivElement>(null);
   const step3Ref = useRef<HTMLDivElement>(null);
@@ -873,8 +886,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           onClose={() => setIsModalOpen(false)}
           product={product}
           selectedItem={selectedItem}
-          // 💡 DINAMIS: Tombol Refresh HANYA dikirim jika di Supabase ada produk "Cek Username"
-          onRefresh={inquirySkus.length > 0 ? () => handleInquiryGame(true) : undefined} 
+          // 💡 Jika ditekan manual saat antrean (⏳), jadikan isPolling=true agar bebas limit!
+          onRefresh={inquirySkus.length > 0 ? () => handleInquiryGame(true, errorMsg.includes('antrean')) : undefined} 
           // Tampilkan status loading, error, atau sukses real-time
           accId={
             isChecking ? `${zoneId ? `${accId} (${zoneId})` : accId} - [🔍 Mengecek Nama...]` :
