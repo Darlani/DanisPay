@@ -97,33 +97,49 @@ export default function InterfaceGame(props: InterfaceGameProps) {
     setHistoryList(updated);
   };
 
-  // Deteksi Dinamis SKU "Cek Username" untuk produk game, agar lebih fleksibel jika SKU berubah atau berbeda antar produk
-  const inquiryItem = useMemo(() => {
-    if (!product?.items) return null;
-    return product.items.find((item: any) => 
-      String(item.label || item.name || "").toLowerCase().includes("cek username")
-    );
+  // 💡 AMBIL SEMUA SKU "CEK USERNAME" SEBAGAI AMUNISI AUTO-RETRY
+  const inquirySkus = useMemo(() => {
+    if (!product?.items) return [];
+    return product.items
+      .filter((item: any) => String(item.label || item.name || "").toLowerCase().includes("cek username"))
+      .map((item: any) => item.sku); // Ambil array SKU-nya saja
   }, [product?.items]);
 
-  const inquirySku = inquiryItem?.sku || null;
-
-  const handleInquiryGame = async () => {
-    if (!inquirySku) return true; 
+  const handleInquiryGame = async (forceRefresh = false) => {
+    if (inquirySkus.length === 0) return true; // Lolos jika game tidak punya fitur cek username
     if (!accId || accId.length < 3) { setErrorMsg("ID terlalu pendek!"); return false; }
 
-    // 💡 SMART CACHE CERDAS (Ada Expired 24 Jam)
+    // 💡 CEK LIMIT REFRESH MANUAL (Maks 3x Sehari)
+    if (forceRefresh) {
+      const today = new Date().toDateString();
+      const limitData = JSON.parse(localStorage.getItem('dapay_refresh_limit') || "{}");
+      if (limitData.date === today && limitData.count >= 3) {
+        alert("Batas refresh nama manual sudah habis (maksimal 3x sehari). Coba lagi besok Bos!");
+        return false;
+      }
+    }
+
     const cacheKey = `dapay_inquiry_${product?.name}_${accId}_${zoneId}`;
-    const cachedData = localStorage.getItem(cacheKey);
     
-    if (cachedData) {
-      const { name, timestamp } = JSON.parse(cachedData);
-      const isExpired = Date.now() - timestamp > 24 * 60 * 60 * 1000; // 24 Jam
-      
-      if (!isExpired) {
-        setCustomerName(name);
-        return true; // Lolos jika belum expired
-      } else {
-        localStorage.removeItem(cacheKey); // Hapus jika sudah expired, lanjut ke API
+    // 💡 SMART CACHE (Expired 7 Hari) - Hanya jalan jika tidak di-refresh manual
+    if (!forceRefresh) {
+      const cachedData = localStorage.getItem(cacheKey);
+      if (cachedData) {
+        try {
+          const { name, timestamp } = JSON.parse(cachedData);
+          const isExpired = Date.now() - timestamp > 7 * 24 * 60 * 60 * 1000; // 7 Hari
+          
+          if (!isExpired) {
+            setCustomerName(name);
+            return true; // Lolos jika belum 7 hari
+          } else {
+            localStorage.removeItem(cacheKey); // Hapus jika basi
+          }
+        } catch (e) {
+          // Kompatibilitas jika cache lama masih format teks biasa
+          setCustomerName(cachedData);
+          return true;
+        }
       }
     }
 
@@ -137,8 +153,9 @@ export default function InterfaceGame(props: InterfaceGameProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           customer_id: zoneId ? `${accId}${zoneId}` : accId, 
-          sku: inquirySku, 
-          category: product.category || 'game'
+          skus: inquirySkus, 
+          category: product.category || 'game',
+          game_name: product.name // 💡 Kirim nama game untuk server-side lock
         })
       });
       const result = await res.json();
@@ -147,11 +164,19 @@ export default function InterfaceGame(props: InterfaceGameProps) {
         const validName = result.data.customerName || result.data.customer_name;
         setCustomerName(validName);
         
-        // 1. Simpan nama dan waktu ke Cache agar API tidak dipanggil ulang selama 24 jam
+        // 1. Simpan nama dan timestamp untuk umur 7 hari
         localStorage.setItem(cacheKey, JSON.stringify({ name: validName, timestamp: Date.now() }));
         
-        // 2. Simpan nomor ke History agar muncul sebagai Tombol Chip
+        // 2. Simpan nomor ke History
         saveToHistory(accId, zoneId);
+
+        // 3. Tambah hitungan spam refresh harian
+        if (forceRefresh) {
+          const today = new Date().toDateString();
+          const limitData = JSON.parse(localStorage.getItem('dapay_refresh_limit') || "{}");
+          const currentCount = limitData.date === today ? limitData.count : 0;
+          localStorage.setItem('dapay_refresh_limit', JSON.stringify({ date: today, count: currentCount + 1 }));
+        }
         
         return true; 
       } else {
@@ -168,7 +193,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
 
   // Jalankan cek otomatis di latar belakang saat Modal Terbuka
   useEffect(() => {
-    if (isModalOpen && inquirySku && !customerName && !errorMsg && !isChecking) {
+    if (isModalOpen && inquirySkus.length > 0 && !customerName && !errorMsg && !isChecking) {
       handleInquiryGame();
     }
   }, [isModalOpen]);
@@ -343,7 +368,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
   };
 
   const onConfirmCheckout = () => {
-    if (inquirySku && errorMsg) {
+    if (inquirySkus.length > 0 && errorMsg) {
       alert(`Gagal: ${errorMsg}\nSilakan perbaiki ID Akun Anda terlebih dahulu.`);
       setIsModalOpen(false); 
       return;
@@ -848,10 +873,12 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           onClose={() => setIsModalOpen(false)}
           product={product}
           selectedItem={selectedItem}
+          // 💡 DINAMIS: Tombol Refresh HANYA dikirim jika di Supabase ada produk "Cek Username"
+          onRefresh={inquirySkus.length > 0 ? () => handleInquiryGame(true) : undefined} 
           // Tampilkan status loading, error, atau sukses real-time
           accId={
             isChecking ? `${zoneId ? `${accId} (${zoneId})` : accId} - [🔍 Mengecek Nama...]` :
-            errorMsg ? `${zoneId ? `${accId} (${zoneId})` : accId} - [❌ ${errorMsg}]` :
+            errorMsg ? `${zoneId ? `${accId} (${zoneId})` : accId} - [${errorMsg.includes('antrean') ? '⏳' : '❌'} ${errorMsg}]` :
             customerName ? `${zoneId ? `${accId} (${zoneId})` : accId} - [✅ ${customerName}]` : 
             (zoneId ? `${accId} (${zoneId})` : accId)
           }

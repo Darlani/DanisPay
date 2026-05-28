@@ -1,7 +1,7 @@
 // @/app/ProductSection/[slug]/components/shared/OrderConfirmationModal.tsx
 "use client";
 
-import { Loader2, CheckCircle2, CircleDollarSign, Zap, ShieldCheck } from "lucide-react";
+import { Loader2, CheckCircle2, CircleDollarSign, Zap, ShieldCheck, RefreshCw } from "lucide-react";
 
 interface ModalProps {
   isOpen: boolean;
@@ -23,6 +23,7 @@ interface ModalProps {
   uniqueCode: number;
   isLoading: boolean;
   hasError?: boolean;
+  onRefresh?: () => void;
 }
 
 export default function OrderConfirmationModal(props: ModalProps) {
@@ -30,7 +31,7 @@ export default function OrderConfirmationModal(props: ModalProps) {
     isOpen, onClose, product, selectedItem, accId, selectedPayment,
     totalPrice, nominalHemat, usedCoinsAmount, estimasiCashback,
     memberType, formatRupiah, isProcessing, handleCheckout, dynamicLabel, isMounted,
-    uniqueCode, isLoading, hasError
+    uniqueCode, isLoading, hasError, onRefresh
   } = props;
 
   if (!isOpen) return null;
@@ -62,9 +63,22 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
             ].map((row, idx) => (
               <div key={idx} className={`flex justify-between items-center py-3 px-4 rounded-xl border ${row.blue ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-slate-100'}`}>
                 <span className="text-xs font-semibold text-slate-500">{row.label}</span>
-                <span className={`text-sm font-bold text-right ml-4 truncate ${row.blue ? 'text-blue-600' : 'text-slate-800'}`}>
-                  {row.val}
-                </span>
+                <div className="flex items-center gap-2 justify-end ml-4 overflow-hidden">
+                  <span className={`text-sm font-bold truncate ${row.blue ? 'text-blue-600' : 'text-slate-800'}`}>
+                    {row.val}
+                  </span>
+                  {/* Munculkan Tombol Refresh di baris ID Pelanggan jika status Sukses (✅) atau Antrean (⏳) */}
+                  {row.label === dynamicLabel && onRefresh && (String(row.val).includes('✅') || String(row.val).includes('⏳')) && (
+                    <button 
+                      onClick={onRefresh} 
+                      disabled={isProcessing}
+                      className="p-1.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-600 transition-all shrink-0 active:scale-95 disabled:opacity-50"
+                      title="Refresh Nama (Maks 3x Sehari)"
+                    >
+                      <RefreshCw size={14} className={isProcessing ? "animate-spin" : ""} />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
 
