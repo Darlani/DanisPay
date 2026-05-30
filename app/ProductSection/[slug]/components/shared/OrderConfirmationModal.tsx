@@ -67,13 +67,13 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
                   <span className={`text-sm font-bold truncate ${row.blue ? 'text-blue-600' : 'text-slate-800'}`}>
                     {row.val}
                   </span>
-                  {/* Munculkan Tombol Refresh di baris ID Pelanggan jika status Sukses (✅) atau Antrean (⏳) */}
-                  {row.label === dynamicLabel && onRefresh && (String(row.val).includes('✅') || String(row.val).includes('⏳')) && (
+                  {/* 💡 Tombol Refresh elegan muncul saat data sukses (👤), proses (⏳), atau gagal (❌) */}
+                  {row.label === dynamicLabel && onRefresh && (String(row.val).includes('👤') || String(row.val).includes('⏳') || String(row.val).includes('❌')) && (
                     <button 
                       onClick={onRefresh} 
                       disabled={isProcessing}
                       className="p-1.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-600 transition-all shrink-0 active:scale-95 disabled:opacity-50"
-                      title="Refresh Nama (Maks 3x Sehari)"
+                      title="Sinkronisasi Ulang Data"
                     >
                       <RefreshCw size={14} className={isProcessing ? "animate-spin" : ""} />
                     </button>
@@ -220,7 +220,7 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
             {isProcessing ? (
               <>
                 <Loader2 className="animate-spin" size={16} /> 
-                Memproses...
+                Menghubungkan Server...
               </>
             ) : isLoading ? (
               <>
@@ -228,7 +228,7 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
                 Menyiapkan Tagihan...
               </>
             ) : hasError ? (
-              "ID Tidak Valid" 
+              "Periksa ID Anda" 
             ) : "Konfirmasi Pesanan"}
           </button>
         </div>

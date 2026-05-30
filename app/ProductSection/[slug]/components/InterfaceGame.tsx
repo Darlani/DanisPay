@@ -202,7 +202,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
   // 💡 JEMPUT BOLA OTOMATIS: Lakukan Polling setiap 5 detik jika status sedang Antrean (⏳)
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isModalOpen && errorMsg.includes('antrean') && !isChecking) {
+    // 🚀 Tambahkan deteksi 'Pending' agar setara dengan logika UI di bawah
+    if (isModalOpen && (errorMsg.includes('antrean') || errorMsg.includes('Pending')) && !isChecking) {
       interval = setInterval(() => {
         // forceRefresh = true, isPolling = true (Maka limit 3x sehari akan di-bypass!)
         handleInquiryGame(true, true); 
@@ -768,10 +769,14 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                     </div>
                     {customerName && (
                       <p className="text-[10px] font-black text-emerald-600 bg-emerald-50 p-2 rounded-lg animate-in zoom-in uppercase">
-                        ✅ Nama: {customerName}
+                        👤 Nama: {customerName}
                       </p>
                     )}
-                    {errorMsg && <p className="text-[10px] font-black text-rose-500 italic">{errorMsg}</p>}
+                    {errorMsg && (
+                      <p className={`text-[10px] font-black italic ${errorMsg.includes('antrean') || errorMsg.includes('Pending') ? 'text-blue-500' : 'text-rose-500'}`}>
+                        {errorMsg.includes('antrean') || errorMsg.includes('Pending') ? '⏳ Mengamankan jalur ke server...' : '❌ ID tidak ditemukan / Server sibuk'}
+                      </p>
+                    )}
                   </div>
 
                   {isMLBB && (
@@ -886,14 +891,19 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           onClose={() => setIsModalOpen(false)}
           product={product}
           selectedItem={selectedItem}
-          // 💡 Jika ditekan manual saat antrean (⏳), jadikan isPolling=true agar bebas limit!
-          onRefresh={inquirySkus.length > 0 ? () => handleInquiryGame(true, errorMsg.includes('antrean')) : undefined} 
-          // Tampilkan status loading, error, atau sukses real-time
+          // 💡 Jika ditekan manual saat antrean, jadikan isPolling=true agar bebas limit!
+          onRefresh={inquirySkus.length > 0 ? () => handleInquiryGame(true, errorMsg.includes('antrean') || errorMsg.includes('Pending')) : undefined} 
+          // 💡 UI Canggih: Sembunyikan pesan backend dari pelanggan!
           accId={
-            isChecking ? `${zoneId ? `${accId} (${zoneId})` : accId} - [🔍 Mengecek Nama...]` :
-            errorMsg ? `${zoneId ? `${accId} (${zoneId})` : accId} - [${errorMsg.includes('antrean') ? '⏳' : '❌'} ${errorMsg}]` :
-            customerName ? `${zoneId ? `${accId} (${zoneId})` : accId} - [✅ ${customerName}]` : 
-            (zoneId ? `${accId} (${zoneId})` : accId)
+            isChecking 
+              ? `${zoneId ? `${accId} (${zoneId})` : accId}  ➔  🔍 Mencari Data...` 
+              : errorMsg.includes('antrean') || errorMsg.includes('Pending')
+                ? `${zoneId ? `${accId} (${zoneId})` : accId}  ➔  ⏳ Menghubungkan Server...`
+                : errorMsg 
+                  ? `${zoneId ? `${accId} (${zoneId})` : accId}  ➔  ❌ ID Tidak Ditemukan`
+                  : customerName 
+                    ? `${zoneId ? `${accId} (${zoneId})` : accId}  ➔  👤 ${customerName}` 
+                    : (zoneId ? `${accId} (${zoneId})` : accId)
           }
           selectedPayment={selectedPayment}
           totalPrice={totalPrice}
@@ -902,8 +912,9 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           estimasiCashback={estimasiCashback}
           memberType={memberType}
           formatRupiah={formatRupiah}
-          isProcessing={isProcessing || isChecking}
-          hasError={!!errorMsg} // <--- TAMBAHKAN BARIS INI
+          // 💡 Kunci tombol selama proses berjalan di background
+          isProcessing={isProcessing || isChecking || errorMsg.includes('antrean') || errorMsg.includes('Pending')}
+          hasError={!!errorMsg && !errorMsg.includes('antrean') && !errorMsg.includes('Pending')}
           handleCheckout={onConfirmCheckout}
           dynamicLabel={getDynamicLabel()}
           isMounted={isMounted}
