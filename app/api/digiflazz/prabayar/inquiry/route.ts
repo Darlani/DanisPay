@@ -77,9 +77,13 @@ export async function POST(req: Request) {
             .eq('is_active', true).order('modal', { ascending: true });
           
           const validAlts = (candidates || []).filter(i => i.name.toLowerCase().trim() === exactName);
+          
+          // 💡 FIX URUTAN HARGA: Paksa urutkan sebagai Angka (Number) agar "6" lebih kecil dari "10"
+          validAlts.sort((a, b) => Number(a.modal || 0) - Number(b.modal || 0));
+
           if (validAlts.length > 0) {
              finalSkus = validAlts.map(a => a.sku);
-             console.log(`🕵️ [INQUIRY] Menemukan ${finalSkus.length} amunisi supplier Cek Username untuk: ${mainItem.name}`);
+             console.log(`🕵️ [INQUIRY] Menemukan ${finalSkus.length} amunisi (Termurah: Rp ${validAlts[0].modal}) untuk: ${mainItem.name}`);
           }
         }
       }
@@ -114,10 +118,16 @@ export async function POST(req: Request) {
             const checkData = resCheck.data;
 
             if (checkData?.data?.status === "Sukses" && checkData?.data?.rc === "00") {
-              const finalName = checkData.data.customer_name || checkData.data.customerName || "Pelanggan Valid";
-              await supabaseAdmin.from('cek_username_game').update({ status: 'Sukses', customer_name: finalName } as any).eq('id', existingId);
-              return NextResponse.json({ success: true, data: { customerName: finalName, period: "Pengecekan Berhasil" } });
-            } 
+                  // 💡 SEDOT NAMA DARI SN JIKA KOLOM CUSTOMER_NAME KOSONG
+                  let finalName = checkData.data.customer_name || checkData.data.customerName;
+                  if (!finalName && checkData.data.sn) {
+                     finalName = String(checkData.data.sn).replace(/Sukses Cek ID\.|Nickname:|Nama:|Tujuan:.*,/gi, '').trim();
+                  }
+                  finalName = finalName || "Pelanggan Valid";
+
+                  await supabaseAdmin.from('cek_username_game').update({ status: 'Sukses', customer_name: finalName } as any).eq('id', existingId);
+                  return NextResponse.json({ success: true, data: { customerName: finalName, period: "Pengecekan Berhasil" } });
+                } 
             else if (checkData?.data?.status === "Pending") {
               return NextResponse.json({ success: false, message: "Server pusat masih memproses antrean (Pending). Mohon tunggu.", rc: "Pending" }, { status: 400 });
             } 
@@ -206,7 +216,14 @@ export async function POST(req: Request) {
 
         if (result?.data?.status === "Sukses" && result?.data?.rc === "00") {
           console.log(`✅ [INQUIRY] Sukses dapat nama menggunakan SKU: ${currentSku}`);
-          const finalName = result.data.customer_name || result.data.customerName || "Pelanggan Valid";
+          
+          // 💡 SEDOT NAMA DARI SN JIKA KOLOM CUSTOMER_NAME KOSONG
+          let finalName = result.data.customer_name || result.data.customerName;
+          if (!finalName && result.data.sn) {
+             finalName = String(result.data.sn).replace(/Sukses Cek ID\.|Nickname:|Nama:|Tujuan:.*,/gi, '').trim();
+          }
+          finalName = finalName || "Pelanggan Valid";
+
           const payload = { customer_id, game_name: targetGameName, ref_id, status: 'Sukses', customer_name: finalName, failed_skus: localFailedSkus };
           
           if (existingId) await supabaseAdmin.from('cek_username_game').update(payload as any).eq('id', existingId);
@@ -263,10 +280,17 @@ export async function POST(req: Request) {
 
     // 5. PARSING SUKSES
     const digiData = result.data;
+    
+    // 💡 PENYEDOT NAMA FINAL UNTUK DIKIRIM KE UI PELANGGAN
+    let finalExtractedName = digiData?.customer_name || digiData?.customerName || digiData?.name;
+    if (!finalExtractedName && digiData?.sn) {
+        finalExtractedName = String(digiData.sn).replace(/Sukses Cek ID\.|Nickname:|Nama:|Tujuan:.*,/gi, '').trim();
+    }
+    
     return NextResponse.json({
       success: true,
       data: {
-        customerName: digiData?.customer_name || digiData?.name || "Pelanggan Valid",
+        customerName: finalExtractedName || "Pelanggan Valid",
         segmentPower: digiData?.segment_power || "", 
         amount: 0, 
         period: "Pengecekan Berhasil"
