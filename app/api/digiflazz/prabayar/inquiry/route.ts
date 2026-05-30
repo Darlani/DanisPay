@@ -55,41 +55,89 @@ export async function POST(req: Request) {
     }
 
     // ==========================================
-    // 💡 SERVER-SIDE SUPABASE LOCK (ANTI DOUBLE POTONG SALDO)
+    // 💡 MESIN JEMPUT BOLA & AUTO-RETRY BERDASARKAN HARGA TERMURAH
     // ==========================================
+    let finalSkus = targetSkus;
+    let startIndex = 0;
+
     if (isGame) {
       const targetGameName = body.game_name || category;
-      
-      // 🕵️ Ambil status cek terakhir dengan kolom spesifik (Aturan Baku: No SELECT *)
-      const { data: existingInquiry } = await supabaseAdmin
-        .from('cek_username_game')
-        .select('status, customer_name, created_at')
+
+      // 1. CARI SEMUA KANDIDAT SKU "CEK USERNAME" DARI DATABASE (TERMURAH DULUAN)
+      if (targetSkus.length > 0) {
+        const { data: mainItem } = await supabaseAdmin.from('items')
+          .select('name, brand_slug')
+          .eq('sku', targetSkus[0])
+          .maybeSingle();
+          
+        if (mainItem) {
+          const exactName = mainItem.name.toLowerCase().trim();
+          const { data: candidates } = await supabaseAdmin.from('items')
+            .select('sku, modal, name')
+            .eq('brand_slug', mainItem.brand_slug)
+            .eq('is_active', true)
+            .order('modal', { ascending: true });
+          
+          const validAlts = (candidates || []).filter(i => i.name.toLowerCase().trim() === exactName);
+          if (validAlts.length > 0) {
+             finalSkus = validAlts.map(a => a.sku);
+             console.log(`🕵️ [INQUIRY] Menemukan ${finalSkus.length} amunisi supplier Cek Username untuk: ${mainItem.name}`);
+          }
+        }
+      }
+
+      // 2. CEK STATUS TERAKHIR DI SUPABASE (LOCK & JEMPUT BOLA)
+      const { data: existingInquiry } = await supabaseAdmin.from('cek_username_game')
+        .select('id, status, customer_name, created_at, ref_id')
         .eq('customer_id', customer_id)
         .eq('game_name', targetGameName)
-        .in('status', ['Pending', 'Sukses'])
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1).maybeSingle();
 
       if (existingInquiry) {
-        // Skenario A: Sudah Sukses -> Tarik dari database Bos (0ms & Rp 0 Hemat Saldo!)
+        // Skenario A: Sudah Sukses (0ms, 0 Rupiah)
         if (existingInquiry.status === 'Sukses') {
-          return NextResponse.json({
-            success: true,
-            data: { customerName: existingInquiry.customer_name, period: "Pengecekan Berhasil" }
-          });
+          return NextResponse.json({ success: true, data: { customerName: existingInquiry.customer_name, period: "Pengecekan Berhasil" } });
         }
-
-        // Skenario B: Masih Pending -> Gembok request baru agar tidak menembak Digiflazz lagi
+        
+        // Skenario B: Masih Pending -> JEMPUT BOLA KE DIGIFLAZZ
         if (existingInquiry.status === 'Pending') {
-          const timePassed = Date.now() - new Date(existingInquiry.created_at).getTime();
-          // Kunci selama 5 menit, jika masih dalam rentang waktu wajib tunggu antrean
-          if (timePassed < 5 * 60 * 1000) {
-            return NextResponse.json({ 
-              success: false, 
-              message: "Server pusat sedang antrean padat, mohon tunggu beberapa saat." 
-            }, { status: 400 });
+          console.log(`🔄 [JEMPUT BOLA] Mengecek nasib ref_id: ${existingInquiry.ref_id}`);
+          const signCheck = crypto.createHash('md5').update(username + apiKey + existingInquiry.ref_id).digest('hex');
+          
+          try {
+            const resCheck = await axios.post("https://api.digiflazz.com/v1/transaction", {
+              commands: "plg-id", username, buyer_sku_code: finalSkus[0], customer_no: customer_id, ref_id: existingInquiry.ref_id, sign: signCheck
+            }, { validateStatus: (s) => s < 500 });
+
+            const checkData = resCheck.data;
+
+            // Hasil 1: Ternyata Sukses!
+            if (checkData?.data?.status === "Sukses" && checkData?.data?.rc === "00") {
+              const finalName = checkData.data.customer_name || checkData.data.customerName || "Pelanggan Valid";
+              await supabaseAdmin.from('cek_username_game').update({ status: 'Sukses', customer_name: finalName }).eq('id', existingInquiry.id);
+              return NextResponse.json({ success: true, data: { customerName: finalName, period: "Pengecekan Berhasil" } });
+            } 
+            // Hasil 2: Ternyata Masih Antre
+            else if (checkData?.data?.status === "Pending") {
+              return NextResponse.json({ success: false, message: "Server pusat masih memproses antrean (Pending). Mohon tunggu.", rc: "Pending" }, { status: 400 });
+            } 
+            // Hasil 3: Ternyata Gagal -> Buka gembok & lanjut loop
+            else {
+              console.log(`⚠️ [JEMPUT BOLA] ref_id ${existingInquiry.ref_id} GAGAL! Lanjut ke SKU berikutnya.`);
+              await supabaseAdmin.from('cek_username_game').update({ status: 'Gagal' }).eq('id', existingInquiry.id);
+              const match = existingInquiry.ref_id.match(/-R(\d+)$/);
+              if (match) startIndex = parseInt(match[1], 10); // Lanjut dari indeks berikutnya
+            }
+          } catch (e) {
+             console.error("Gagal Jemput Bola:", e);
+             return NextResponse.json({ success: false, message: "Gangguan koneksi saat mengecek antrean." }, { status: 500 });
           }
+        }
+        // Skenario C: Terakhir Gagal -> Lanjut loop dari titik terakhir
+        else if (existingInquiry.status === 'Gagal') {
+          const match = existingInquiry.ref_id.match(/-R(\d+)$/);
+          if (match) startIndex = parseInt(match[1], 10);
         }
       }
     }
@@ -141,12 +189,13 @@ export async function POST(req: Request) {
 
     } else {
       // 🚀 JALUR GAME DENGAN PATROLI AUTO-RETRY INSTAN
-      for (let i = 0; i < targetSkus.length; i++) {
-        const currentSku = targetSkus[i];
+      console.log(`🎯 Memulai Loop Auto-Retry dari Index ke-${startIndex} dari total ${finalSkus.length} SKU.`);
+      for (let i = startIndex; i < finalSkus.length; i++) {
+        const currentSku = finalSkus[i];
         const ref_id = `CEKID-${Date.now()}-R${i+1}`;
         const signGame = crypto.createHash('md5').update(username + apiKey + ref_id).digest('hex');
 
-        console.log(`🔍 [INQUIRY] Mencoba Cek Nama dengan SKU: ${currentSku}...`);
+        console.log(`🔍 [INQUIRY] Mencoba ${i+1}/${finalSkus.length} dengan SKU: ${currentSku}...`);
 
         const resGame = await axios.post("https://api.digiflazz.com/v1/transaction", {
           commands: "plg-id",
@@ -179,7 +228,7 @@ export async function POST(req: Request) {
         } 
         // 🚨 JIKA PENDING (KUNCI DI SUPABASE AGAR TIDAK DOUBLE SALDO!)
         else if (result?.data?.status === "Pending") {
-          console.warn(`⏳ [INQUIRY] SKU ${currentSku} PENDING. Hentikan loop agar tidak double potong saldo!`);
+          console.warn(`⏳ [INQUIRY] SKU ${currentSku} PENDING. Hentikan loop & Kunci Polling!`);
           
           // 📝 Kunci status Pending di database Bos
           const targetGameName = body.game_name || category;
@@ -196,6 +245,11 @@ export async function POST(req: Request) {
         // JIKA GAGAL (LANJUT CARI SELLER LAIN)
         else {
           console.warn(`⚠️ [INQUIRY] SKU ${currentSku} Gagal (${result?.data?.message}). Lanjut cari seller lain...`);
+          const targetGameName = body.game_name || category;
+          // Simpan log gagal agar jika terputus, Jemput Bola tahu harus mulai dari mana
+          await supabaseAdmin.from('cek_username_game').insert([{
+            customer_id: customer_id, game_name: targetGameName, ref_id: ref_id, status: 'Gagal', customer_name: null
+          }]);
         }
       }
     }
@@ -211,6 +265,8 @@ export async function POST(req: Request) {
         pesanUser = targetSkus[0] === "PLN" 
           ? "ID Pelanggan tidak ditemukan. Pastikan nomor sudah benar dan sesuai dengan jenis PLN (Token)." 
           : "ID Player salah / tidak ditemukan.";
+      } else if (startIndex >= finalSkus.length && finalSkus.length > 0) {
+        pesanUser = "Semua server supplier sedang gangguan / ID tidak valid.";
       }
 
       return NextResponse.json({
