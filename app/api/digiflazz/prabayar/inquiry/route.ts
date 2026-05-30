@@ -8,51 +8,62 @@ const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
 const LIMIT = 3; 
 const WINDOW_MS = 60 * 1000; 
 
-// 💡 MESIN PENYARING NAMA (Tahan banting berbagai format aneh Digiflazz)
+// 💡 MESIN PENYARING NAMA (Decoupled System - Paling Tahan Banting)
 function extractCleanName(raw: any): string {
   if (!raw) return "Pelanggan Valid";
-  
   const safeRaw = String(raw);
+
   let nick = "";
   let reg = "";
-  let labelTipe = "Region"; // Default label
+  let labelTipe = "Region";
 
-  // Pola 1: Tangkap format dengan Region, Server, atau Zone
-  // Support: "Nickname Budi / Region = ID", "Nama: Budi | Server: Asia", "User: Budi - Zone: 1234"
-  const matchSlash = safeRaw.match(/(?:Username|Nickname|Nama|User)\s*[:\-]?\s*(.*?)\s*(?:\/|\||-)\s*(?:Region|Reg|Server|Zone)\s*[:\-=]?\s*([a-zA-Z0-9\s]+)/i);
-  
-  // Pola 2: Tangkap format strip beruntun (ID 1234-Gustalagusta-ID)
-  const matchDash = safeRaw.match(/(?:ID\s*)?\d+\s*-\s*(.*?)\s*-\s*([a-zA-Z]{2,5})$/i);
-
-  if (matchSlash) {
-    nick = matchSlash[1].trim();
-    reg = matchSlash[2].trim().toUpperCase();
-    // Cek apakah supplier menggunakan kata Server/Zone
-    if (safeRaw.match(/Server/i)) labelTipe = "Server";
-    if (safeRaw.match(/Zone/i)) labelTipe = "Zone";
-  } else if (matchDash) {
-    nick = matchDash[1].trim();
-    reg = matchDash[2].trim().toUpperCase();
+  // 1. Ekstrak Khusus Nickname (Hanya membaca setelah kata Username/Nickname/Nama)
+  const nickMatch = safeRaw.match(/(?:Username|Nickname|Nama)\s*[:=]?\s*([^/\|,-]+)/i);
+  if (nickMatch) {
+    nick = nickMatch[1].trim();
   }
 
-  // Jika berhasil diekstrak
-  if (nick && reg) {
+  // 2. Ekstrak Khusus Region atau Server (Abaikan Zone ID angka milik MLBB)
+  const regionMatch = safeRaw.match(/(?:Region|Reg)\s*[:=]?\s*([a-zA-Z]+)/i);
+  const serverMatch = safeRaw.match(/(?:Server)\s*[:=]?\s*([a-zA-Z0-9]+)/i);
+
+  if (regionMatch) {
+    reg = regionMatch[1].trim().toUpperCase();
+    labelTipe = "Region";
+  } else if (serverMatch) {
+    reg = serverMatch[1].trim().toUpperCase();
+    labelTipe = "Server";
+  }
+
+  // 3. Pola Alternatif (Bila formatnya gabungan strip: ID-Nama-Region)
+  if (!nick) {
+    const matchDash = safeRaw.match(/(?:ID\s*)?\d+\s*-\s*(.*?)\s*-\s*([a-zA-Z]{2,5})$/i);
+    if (matchDash) {
+      nick = matchDash[1].trim();
+      reg = matchDash[2].trim().toUpperCase();
+      labelTipe = "Region";
+    }
+  }
+
+  // 4. Jika Sukses Ekstrak Nickname, Gabungkan!
+  if (nick) {
     let regionName = reg;
     if (reg === 'ID') regionName = 'Indonesia';
     else if (reg === 'SG') regionName = 'Singapura';
     else if (reg === 'MY') regionName = 'Malaysia';
     else if (reg === 'PH') regionName = 'Filipina';
     else if (reg === 'BR') regionName = 'Brazil';
-    
-    return `${nick} - ${labelTipe}: ${regionName}`;
+
+    // Jika region ada tampilkan, jika tidak, tampilkan nickname saja
+    return reg ? `${nick} - ${labelTipe}: ${regionName}` : nick;
   }
 
-  // Pola 3: Fallback Sapu Jagat (Hapus info sampah apapun di belakang koma, slash, atau pipa)
+  // 5. Fallback Sapu Jagat
   let clean = safeRaw
-    .replace(/(?:Tgl|Tanggal|SN|Waktu|Server|Zone|Region|Reg)[\s:=].*$/gi, '') // Potong buntut berlabel
-    .replace(/(?:,|\/|\|).*$/g, '') // Potong buntut bersimbol
-    .replace(/Sukses Cek ID\.|Nickname:|Nama:|Username:|Tujuan:|ID:|User:/gi, '') // Potong kata sambutan
-    .replace(/^[-\s]+|[-\s]+$/g, ''); // Bersihkan spasi sisa
+    .replace(/(?:Tgl|Tanggal|SN|Waktu|Server|Zone|Region|Reg)[\s:=].*$/gi, '') 
+    .replace(/(?:,|\/|\|).*$/g, '') 
+    .replace(/Sukses Cek ID\.|Nickname:|Nama:|Username:|Tujuan:|ID:|User:/gi, '') 
+    .replace(/^[-\s]+|[-\s]+$/g, ''); 
     
   return clean || "Pelanggan Valid";
 }
