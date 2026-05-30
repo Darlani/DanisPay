@@ -8,66 +8,6 @@ const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
 const LIMIT = 3; 
 const WINDOW_MS = 60 * 1000; 
 
-// 💡 MESIN PENYARING NAMA (Decoupled System - Paling Tahan Banting)
-function extractCleanName(raw: any): string {
-  if (!raw) return "Pelanggan Valid";
-  const safeRaw = String(raw);
-
-  let nick = "";
-  let reg = "";
-  let labelTipe = "Region";
-
-  // 1. Ekstrak Khusus Nickname (Hanya membaca setelah kata Username/Nickname/Nama)
-  const nickMatch = safeRaw.match(/(?:Username|Nickname|Nama)\s*[:=]?\s*([^/\|,-]+)/i);
-  if (nickMatch) {
-    nick = nickMatch[1].trim();
-  }
-
-  // 2. Ekstrak Khusus Region atau Server (Abaikan Zone ID angka milik MLBB)
-  const regionMatch = safeRaw.match(/(?:Region|Reg)\s*[:=]?\s*([a-zA-Z]+)/i);
-  const serverMatch = safeRaw.match(/(?:Server)\s*[:=]?\s*([a-zA-Z0-9]+)/i);
-
-  if (regionMatch) {
-    reg = regionMatch[1].trim().toUpperCase();
-    labelTipe = "Region";
-  } else if (serverMatch) {
-    reg = serverMatch[1].trim().toUpperCase();
-    labelTipe = "Server";
-  }
-
-  // 3. Pola Alternatif (Bila formatnya gabungan strip: ID-Nama-Region)
-  if (!nick) {
-    const matchDash = safeRaw.match(/(?:ID\s*)?\d+\s*-\s*(.*?)\s*-\s*([a-zA-Z]{2,5})$/i);
-    if (matchDash) {
-      nick = matchDash[1].trim();
-      reg = matchDash[2].trim().toUpperCase();
-      labelTipe = "Region";
-    }
-  }
-
-  // 4. Jika Sukses Ekstrak Nickname, Gabungkan!
-  if (nick) {
-    let regionName = reg;
-    if (reg === 'ID') regionName = 'Indonesia';
-    else if (reg === 'SG') regionName = 'Singapura';
-    else if (reg === 'MY') regionName = 'Malaysia';
-    else if (reg === 'PH') regionName = 'Filipina';
-    else if (reg === 'BR') regionName = 'Brazil';
-
-    // Jika region ada tampilkan, jika tidak, tampilkan nickname saja
-    return reg ? `${nick} - ${labelTipe}: ${regionName}` : nick;
-  }
-
-  // 5. Fallback Sapu Jagat
-  let clean = safeRaw
-    .replace(/(?:Tgl|Tanggal|SN|Waktu|Server|Zone|Region|Reg)[\s:=].*$/gi, '') 
-    .replace(/(?:,|\/|\|).*$/g, '') 
-    .replace(/Sukses Cek ID\.|Nickname:|Nama:|Username:|Tujuan:|ID:|User:/gi, '') 
-    .replace(/^[-\s]+|[-\s]+$/g, ''); 
-    
-  return clean || "Pelanggan Valid";
-}
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -178,9 +118,8 @@ export async function POST(req: Request) {
             const checkData = resCheck.data;
 
             if (checkData?.data?.status === "Sukses" && checkData?.data?.rc === "00") {
-                  // 💡 GUNAKAN MESIN PENYARING
-                  const rawName = checkData.data.customer_name || checkData.data.customerName || checkData.data.sn || "";
-                  const finalName = extractCleanName(rawName);
+                  // 💡 SIMPAN DATA MENTAH (RAW) APA ADANYA
+                  const finalName = checkData.data.customer_name || checkData.data.customerName || checkData.data.sn || "Pelanggan Valid";
 
                   await supabaseAdmin.from('cek_username_game').update({ status: 'Sukses', customer_name: finalName } as any).eq('id', existingId);
                   return NextResponse.json({ success: true, data: { customerName: finalName, period: "Pengecekan Berhasil" } });
@@ -274,9 +213,8 @@ export async function POST(req: Request) {
         if (result?.data?.status === "Sukses" && result?.data?.rc === "00") {
           console.log(`✅ [INQUIRY] Sukses dapat nama menggunakan SKU: ${currentSku}`);
           
-          // 💡 GUNAKAN MESIN PENYARING
-          const rawName = result.data.customer_name || result.data.customerName || result.data.sn || "";
-          const finalName = extractCleanName(rawName);
+          // 💡 SIMPAN DATA MENTAH (RAW) APA ADANYA
+          const finalName = result.data.customer_name || result.data.customerName || result.data.sn || "Pelanggan Valid";
 
           const payload = { customer_id, game_name: targetGameName, ref_id, status: 'Sukses', customer_name: finalName, failed_skus: localFailedSkus };
           
@@ -335,9 +273,8 @@ export async function POST(req: Request) {
     // 5. PARSING SUKSES
     const digiData = result.data;
     
-    // 💡 GUNAKAN MESIN PENYARING UNTUK DIKIRIM KE UI PELANGGAN
-    const rawName = digiData?.customer_name || digiData?.customerName || digiData?.name || digiData?.sn || "";
-    const finalExtractedName = extractCleanName(rawName);
+    // 💡 KIRIM DATA MENTAH KE FRONTEND UNTUK DIPROSES GRATIS DI SANA
+    const finalExtractedName = digiData?.customer_name || digiData?.customerName || digiData?.name || digiData?.sn || "Pelanggan Valid";
     
     return NextResponse.json({
       success: true,

@@ -51,8 +51,46 @@ interface InterfaceGameProps {
   isAdmin: boolean;
   dbPayments: any[];
   uniqueCode: number;
-  isLoading: boolean;              // <--- Tambahkan ini
-  onPreCheckout: () => Promise<void>; // <--- Tambahkan ini
+  isLoading: boolean;              
+  onPreCheckout: () => Promise<void>; 
+}
+
+// 💡 MESIN PENYARING NAMA DI FRONTEND (Testing Gratis Tanpa Potong Saldo!)
+function formatGameName(rawName: string): string {
+  if (!rawName) return "Pelanggan Valid";
+  const safeRaw = String(rawName);
+
+  // 1. Tangkap Format MLBB (Username ... / Region ...)
+  const mlMatch = safeRaw.match(/(?:Username|Nickname|Nama)\s*[:=]?\s*(.*?)\s*(?:\/|\||-)\s*(?:Region|Reg|Server|Zone)\s*[:\-=]?\s*([a-zA-Z0-9]+)/i);
+  if (mlMatch) {
+    const nick = mlMatch[1].trim();
+    const reg = mlMatch[2].trim().toUpperCase();
+    let regionName = reg === 'ID' ? 'Indonesia' : reg === 'SG' ? 'Singapura' : reg === 'MY' ? 'Malaysia' : reg;
+    return `${nick} - Region: ${regionName}`;
+  }
+
+  // 2. Tangkap Format Free Fire dari SN (ID 12345 / Nickname) -> Mencegah tabrakan
+  const ffMatch = safeRaw.match(/(?:ID|User ID)\s*\d+\s*(?:\/|\||-)\s*(.*)/i);
+  if (ffMatch && !safeRaw.toLowerCase().includes('username')) {
+    let nick = ffMatch[1].trim();
+    nick = nick.replace(/(?:Tgl|Tanggal|SN|Waktu|Server|Zone|Region|Reg)[\s:=].*$/gi, '').trim();
+    return nick || "Pelanggan Valid";
+  }
+
+  // 3. Tangkap format "ID-Nickname-Region"
+  const dashMatch = safeRaw.match(/(?:ID\s*)?\d+\s*-\s*(.*?)\s*-\s*([a-zA-Z]{2,5})$/i);
+  if (dashMatch) {
+    return dashMatch[1].trim() + " - Region: " + dashMatch[2].trim().toUpperCase();
+  }
+
+  // 4. Fallback bersih-bersih standar
+  let clean = safeRaw
+    .replace(/(?:Tgl|Tanggal|SN|Waktu|Server|Zone|Region|Reg)[\s:=].*$/gi, '')
+    .replace(/(?:,|\/|\|).*$/g, '')
+    .replace(/Sukses Cek ID\.|Nickname:|Nama:|Username:|Tujuan:|ID:|User:/gi, '')
+    .replace(/^[-\s]+|[-\s]+$/g, '');
+
+  return clean || safeRaw; 
 }
 
 export default function InterfaceGame(props: InterfaceGameProps) {
@@ -162,11 +200,15 @@ export default function InterfaceGame(props: InterfaceGameProps) {
       const result = await res.json();
       
       if (res.ok && (result.data?.customerName || result.data?.customer_name)) {
-        const validName = result.data.customerName || result.data.customer_name;
-        setCustomerName(validName);
+        const rawName = result.data.customerName || result.data.customer_name;
+        
+        // 💡 PERCANTIK FORMAT TEKS TEPAT SEBELUM DITAMPILKAN KE LAYAR
+        const cleanName = formatGameName(rawName);
+        
+        setCustomerName(cleanName);
         
         // 1. Simpan nama dan timestamp untuk umur 7 hari
-        localStorage.setItem(cacheKey, JSON.stringify({ name: validName, timestamp: Date.now() }));
+        localStorage.setItem(cacheKey, JSON.stringify({ name: cleanName, timestamp: Date.now() }));
         
         // 2. Simpan nomor ke History
         saveToHistory(accId, zoneId);
