@@ -8,6 +8,55 @@ const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
 const LIMIT = 3; 
 const WINDOW_MS = 60 * 1000; 
 
+// 💡 MESIN PENYARING NAMA (Tahan banting berbagai format aneh Digiflazz)
+function extractCleanName(raw: any): string {
+  if (!raw) return "Pelanggan Valid";
+  
+  const safeRaw = String(raw);
+  let nick = "";
+  let reg = "";
+  let labelTipe = "Region"; // Default label
+
+  // Pola 1: Tangkap format dengan Region, Server, atau Zone
+  // Support: "Nickname Budi / Region = ID", "Nama: Budi | Server: Asia", "User: Budi - Zone: 1234"
+  const matchSlash = safeRaw.match(/(?:Username|Nickname|Nama|User)\s*[:\-]?\s*(.*?)\s*(?:\/|\||-)\s*(?:Region|Reg|Server|Zone)\s*[:\-=]?\s*([a-zA-Z0-9\s]+)/i);
+  
+  // Pola 2: Tangkap format strip beruntun (ID 1234-Gustalagusta-ID)
+  const matchDash = safeRaw.match(/(?:ID\s*)?\d+\s*-\s*(.*?)\s*-\s*([a-zA-Z]{2,5})$/i);
+
+  if (matchSlash) {
+    nick = matchSlash[1].trim();
+    reg = matchSlash[2].trim().toUpperCase();
+    // Cek apakah supplier menggunakan kata Server/Zone
+    if (safeRaw.match(/Server/i)) labelTipe = "Server";
+    if (safeRaw.match(/Zone/i)) labelTipe = "Zone";
+  } else if (matchDash) {
+    nick = matchDash[1].trim();
+    reg = matchDash[2].trim().toUpperCase();
+  }
+
+  // Jika berhasil diekstrak
+  if (nick && reg) {
+    let regionName = reg;
+    if (reg === 'ID') regionName = 'Indonesia';
+    else if (reg === 'SG') regionName = 'Singapura';
+    else if (reg === 'MY') regionName = 'Malaysia';
+    else if (reg === 'PH') regionName = 'Filipina';
+    else if (reg === 'BR') regionName = 'Brazil';
+    
+    return `${nick} - ${labelTipe}: ${regionName}`;
+  }
+
+  // Pola 3: Fallback Sapu Jagat (Hapus info sampah apapun di belakang koma, slash, atau pipa)
+  let clean = safeRaw
+    .replace(/(?:Tgl|Tanggal|SN|Waktu|Server|Zone|Region|Reg)[\s:=].*$/gi, '') // Potong buntut berlabel
+    .replace(/(?:,|\/|\|).*$/g, '') // Potong buntut bersimbol
+    .replace(/Sukses Cek ID\.|Nickname:|Nama:|Username:|Tujuan:|ID:|User:/gi, '') // Potong kata sambutan
+    .replace(/^[-\s]+|[-\s]+$/g, ''); // Bersihkan spasi sisa
+    
+  return clean || "Pelanggan Valid";
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -118,16 +167,13 @@ export async function POST(req: Request) {
             const checkData = resCheck.data;
 
             if (checkData?.data?.status === "Sukses" && checkData?.data?.rc === "00") {
-                  // 💡 SEDOT NAMA DARI SN JIKA KOLOM CUSTOMER_NAME KOSONG
-                  let finalName = checkData.data.customer_name || checkData.data.customerName;
-                  if (!finalName && checkData.data.sn) {
-                     finalName = String(checkData.data.sn).replace(/Sukses Cek ID\.|Nickname:|Nama:|Tujuan:.*,/gi, '').trim();
-                  }
-                  finalName = finalName || "Pelanggan Valid";
+                  // 💡 GUNAKAN MESIN PENYARING
+                  const rawName = checkData.data.customer_name || checkData.data.customerName || checkData.data.sn || "";
+                  const finalName = extractCleanName(rawName);
 
                   await supabaseAdmin.from('cek_username_game').update({ status: 'Sukses', customer_name: finalName } as any).eq('id', existingId);
                   return NextResponse.json({ success: true, data: { customerName: finalName, period: "Pengecekan Berhasil" } });
-                } 
+            } 
             else if (checkData?.data?.status === "Pending") {
               return NextResponse.json({ success: false, message: "Server pusat masih memproses antrean (Pending). Mohon tunggu.", rc: "Pending" }, { status: 400 });
             } 
@@ -217,12 +263,9 @@ export async function POST(req: Request) {
         if (result?.data?.status === "Sukses" && result?.data?.rc === "00") {
           console.log(`✅ [INQUIRY] Sukses dapat nama menggunakan SKU: ${currentSku}`);
           
-          // 💡 SEDOT NAMA DARI SN JIKA KOLOM CUSTOMER_NAME KOSONG
-          let finalName = result.data.customer_name || result.data.customerName;
-          if (!finalName && result.data.sn) {
-             finalName = String(result.data.sn).replace(/Sukses Cek ID\.|Nickname:|Nama:|Tujuan:.*,/gi, '').trim();
-          }
-          finalName = finalName || "Pelanggan Valid";
+          // 💡 GUNAKAN MESIN PENYARING
+          const rawName = result.data.customer_name || result.data.customerName || result.data.sn || "";
+          const finalName = extractCleanName(rawName);
 
           const payload = { customer_id, game_name: targetGameName, ref_id, status: 'Sukses', customer_name: finalName, failed_skus: localFailedSkus };
           
@@ -281,16 +324,14 @@ export async function POST(req: Request) {
     // 5. PARSING SUKSES
     const digiData = result.data;
     
-    // 💡 PENYEDOT NAMA FINAL UNTUK DIKIRIM KE UI PELANGGAN
-    let finalExtractedName = digiData?.customer_name || digiData?.customerName || digiData?.name;
-    if (!finalExtractedName && digiData?.sn) {
-        finalExtractedName = String(digiData.sn).replace(/Sukses Cek ID\.|Nickname:|Nama:|Tujuan:.*,/gi, '').trim();
-    }
+    // 💡 GUNAKAN MESIN PENYARING UNTUK DIKIRIM KE UI PELANGGAN
+    const rawName = digiData?.customer_name || digiData?.customerName || digiData?.name || digiData?.sn || "";
+    const finalExtractedName = extractCleanName(rawName);
     
     return NextResponse.json({
       success: true,
       data: {
-        customerName: finalExtractedName || "Pelanggan Valid",
+        customerName: finalExtractedName,
         segmentPower: digiData?.segment_power || "", 
         amount: 0, 
         period: "Pengecekan Berhasil"
