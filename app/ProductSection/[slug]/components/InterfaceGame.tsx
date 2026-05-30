@@ -769,7 +769,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                     </div>
                     {customerName && (
                       <p className="text-[10px] font-black text-emerald-600 bg-emerald-50 p-2 rounded-lg animate-in zoom-in uppercase">
-                        👤 Nama: {customerName}
+                        👤 Nickname: {customerName}
                       </p>
                     )}
                     {errorMsg && (
@@ -893,17 +893,17 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           selectedItem={selectedItem}
           // 💡 Jika ditekan manual saat antrean, jadikan isPolling=true agar bebas limit!
           onRefresh={inquirySkus.length > 0 ? () => handleInquiryGame(true, errorMsg.includes('antrean') || errorMsg.includes('Pending')) : undefined} 
-          // 💡 UI Canggih: Sembunyikan pesan backend dari pelanggan!
+          // 💡 UI Canggih: Sembunyikan pesan backend & hapus ID redundan jika fitur Cek Username aktif
           accId={
             isChecking 
-              ? `${zoneId ? `${accId} (${zoneId})` : accId}  ➔  🔍 Mencari Data...` 
+              ? `🔍 Mencari Data...` 
               : errorMsg.includes('antrean') || errorMsg.includes('Pending')
-                ? `${zoneId ? `${accId} (${zoneId})` : accId}  ➔  ⏳ Menghubungkan Server...`
+                ? `⏳ Menghubungkan Server...`
                 : errorMsg 
-                  ? `${zoneId ? `${accId} (${zoneId})` : accId}  ➔  ❌ ID Tidak Ditemukan`
+                  ? `❌ ID Tidak Ditemukan`
                   : customerName 
-                    ? `${zoneId ? `${accId} (${zoneId})` : accId}  ➔  👤 ${customerName}` 
-                    : (zoneId ? `${accId} (${zoneId})` : accId)
+                    ? `👤 ${customerName}` 
+                    : (zoneId ? `${accId} (${zoneId})` : accId) // Fallback untuk game tanpa Cek Username
           }
           selectedPayment={selectedPayment}
           totalPrice={totalPrice}
@@ -916,7 +916,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           isProcessing={isProcessing || isChecking || errorMsg.includes('antrean') || errorMsg.includes('Pending')}
           hasError={!!errorMsg && !errorMsg.includes('antrean') && !errorMsg.includes('Pending')}
           handleCheckout={onConfirmCheckout}
-          dynamicLabel={getDynamicLabel()}
+          // 💡 UI Cerdas: Jika punya SKU "Cek Username", ubah label jadi "Nickname". Jika tidak, gunakan label bawaan.
+          dynamicLabel={inquirySkus.length > 0 ? "Nickname" : getDynamicLabel()}
           isMounted={isMounted}
           uniqueCode={uniqueCode}
           isLoading={isLoading}
