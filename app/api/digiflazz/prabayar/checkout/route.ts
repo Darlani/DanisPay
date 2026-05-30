@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
@@ -41,7 +43,7 @@ export async function POST(req: Request) {
     }
 
 if (isLiveMode) {
-      console.log(`🚀 [AUTO-FALLBACK] Mencari harga TERMURAH untuk Order #${order_id}...`);
+      console.error(`🚀 [AUTO-FALLBACK] Mencari harga TERMURAH untuk Order #${order_id}...`);
       
       // 1. Ambil data dari gudang baru: product_automatic [cite: 2026-03-13]
       const { data: mainProd } = await supabaseAdmin
@@ -74,11 +76,11 @@ if (isLiveMode) {
         return itemName === exactTargetName && itemZona === isZonasi;
       });
 
-      console.log(`🎯 Ditemukan ${validAlternatives.length} supplier untuk produk ${exactTargetName}`);
+      console.error(`🎯 Ditemukan ${validAlternatives.length} supplier untuk produk ${exactTargetName}`);
 
       // 3. JIKA TIDAK ADA DI ITEMS, PAKAI SKU ASLI
       if (validAlternatives.length === 0) {
-        console.log("⚠️ Tidak ada alternatif di tabel Items, menggunakan SKU asli.");
+        console.error("⚠️ Tidak ada alternatif di tabel Items, menggunakan SKU asli.");
         validAlternatives.push({ 
           sku: order.sku, 
           modal: 0, 
@@ -99,7 +101,7 @@ if (isLiveMode) {
         const currentRefId = attempt === 1 ? order_id : `${order_id}-R${attempt}`;
         const sign = crypto.createHash('md5').update(username + apiKey + currentRefId).digest('hex');
 
-        console.log(`🔄 Percobaan ${attempt}: Menggunakan SKU ${alt.sku} (Modal: ${alt.modal})`);
+        console.error(`🔄 Percobaan ${attempt}: Menggunakan SKU ${alt.sku} (Modal: ${alt.modal})`);
 
         try {
           const digiRes = await fetch('https://api.digiflazz.com/v1/transaction', {
@@ -122,10 +124,10 @@ if (isLiveMode) {
             finalResponse = d;
             finalSkuUsed = alt.sku;
             finalRefIdUsed = currentRefId;
-            console.log(`✅ BERHASIL/PENDING dengan SKU: ${alt.sku}`);
+            console.error(`✅ BERHASIL/PENDING dengan SKU: ${alt.sku}`);
             break; 
           } else {
-            console.log(`❌ GAGAL dengan SKU ${alt.sku}: ${d?.message || 'Vendor Error'}`);
+            console.error(`❌ GAGAL dengan SKU ${alt.sku}: ${d?.message || 'Vendor Error'}`);
             finalResponse = d; 
           }
         } catch (e) {
