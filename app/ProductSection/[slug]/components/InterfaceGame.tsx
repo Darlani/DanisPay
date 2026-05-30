@@ -153,7 +153,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
       const today = new Date().toDateString();
       const limitData = JSON.parse(localStorage.getItem('dapay_refresh_limit') || "{}");
       if (limitData.date === today && limitData.count >= 3) {
-        alert("Batas refresh nama manual sudah habis (maksimal 3x sehari). Coba lagi besok Bos!");
+        alert("Mohon maaf, Kakak terlalu sering memuat ulang (Refresh) ID. Silakan coba kembali besok ya Kak untuk refresh ID-nya. Jika Kakak baru saja mengubah Nickname namun yang muncul masih Nickname lama, transaksi tetap aman dilanjutkan kok! Yang terpenting, pastikan Nomor ID yang dimasukkan sudah benar ya, Kak. Terima kasih telah menggunakan layanan DaPay.");
         return false;
       }
     }
@@ -954,15 +954,15 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           estimasiCashback={estimasiCashback}
           memberType={memberType}
           formatRupiah={formatRupiah}
-          // 💡 Kunci tombol selama proses berjalan di background
-          isProcessing={isProcessing || isChecking || errorMsg.includes('antrean') || errorMsg.includes('Pending')}
+          // 💡 Kunci tombol secara "Friendly" (Diam/Abu-abu jika belum siap)
+          isProcessing={isProcessing} // Tombol HANYA muter saat beneran diklik "Konfirmasi Pesanan"
           hasError={!!errorMsg && !errorMsg.includes('antrean') && !errorMsg.includes('Pending')}
           handleCheckout={onConfirmCheckout}
-          // 💡 UI Cerdas: Jika punya SKU "Cek Username", ubah label jadi "Nickname". Jika tidak, gunakan label bawaan.
           dynamicLabel={inquirySkus.length > 0 ? "Nickname" : getDynamicLabel()}
           isMounted={isMounted}
           uniqueCode={uniqueCode}
-          isLoading={isLoading}
+          // Gabungkan semua state antrean/pencarian ke isLoading agar tombol cukup mati (disable) tanpa muter-muter
+          isLoading={isLoading || isChecking || errorMsg.includes('antrean') || errorMsg.includes('Pending')}
         />
 
       </div>

@@ -212,20 +212,20 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
           <button type="button" onClick={onClose} className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-all active:scale-95 cursor-pointer">Batal</button>
           <button 
             type="button" 
-            // 🚀 KUNCI TOMBOL SAAT LOADING KODE UNIK (isLoading), ADA ERROR, ATAU PROSES CHECKOUT
             disabled={isProcessing || isLoading || hasError || (!memberType && uniqueCode === 0 && selectedPayment !== 'Koin DaPay')} 
             onClick={handleCheckout}
-            className={`py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${(isProcessing || isLoading || hasError) ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 active:scale-95 cursor-pointer'}`}
+            className={`py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${(isProcessing || isLoading || hasError || (!memberType && uniqueCode === 0 && selectedPayment !== 'Koin DaPay')) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 active:scale-95 cursor-pointer'}`}
           >
             {isProcessing ? (
               <>
                 <Loader2 className="animate-spin" size={16} /> 
-                Menghubungkan Server...
+                Memproses Pesanan...
               </>
-            ) : isLoading ? (
+            ) : isLoading || (!memberType && uniqueCode === 0 && selectedPayment !== 'Koin DaPay') ? (
+              // 💡 UI Cerdas: Jika sedang menunggu kode unik atau cek nama, berikan info tunggu yang ramah
               <>
                 <Loader2 className="animate-spin" size={16} /> 
-                Menyiapkan Tagihan...
+                Mohon tunggu sebentar...
               </>
             ) : hasError ? (
               "Periksa ID Anda" 
