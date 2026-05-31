@@ -286,17 +286,45 @@ const handleCheckout = async (customPayload?: any) => {
       });
 
       const resData = await response.json();
-      if (!response.ok) throw new Error(resData.error || "Gagal membuat pesanan.");
+      if (!response.ok) throw new Error(resData.error || "Gagal membuat pesanan.");
 
-      if (isFullCoin && currentUser?.email) {
-        await fetch('/api/orders/process/coin', {
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order_id: orderIdStr, email: currentUser.email })
-        });
-      }
+      // --- MULAI: UPDATE CACHE GUEST ---
+      // Simpan history ke LocalStorage HANYA JIKA user belum login (Guest)
+      if (!currentUser) {
+        try {
+          const guestCache = localStorage.getItem('dapay_guest_history');
+          let history = guestCache ? JSON.parse(guestCache) : [];
+          
+          const newOrderToCache = {
+            id: resData.id || orderIdStr, 
+            order_id: orderIdStr, 
+            product_name: productData.name, 
+            customer_no: combinedCustomerNo, 
+            status: 'Pending', 
+            created_at: new Date().toISOString(),
+            payment_method: paymentMethodName,
+            total_amount: totalAmount,
+            category: productData.category || "game"
+          };
 
-      router.push(`/checkout/pay/${orderIdStr}`);
+          history.unshift(newOrderToCache);
+          // Batasi simpan 10 data biar memori browser tetap enteng
+          localStorage.setItem('dapay_guest_history', JSON.stringify(history.slice(0, 10)));
+        } catch (cacheError) {
+          console.error("Gagal simpan ke cache", cacheError);
+        }
+      }
+      // --- SELESAI: UPDATE CACHE GUEST ---
+
+      if (isFullCoin && currentUser?.email) {
+        await fetch('/api/orders/process/coin', {
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: orderIdStr, email: currentUser.email })
+        });
+      }
+
+      router.push(`/checkout/pay/${orderIdStr}`);
     } catch (err: any) { 
       alert("Gagal: " + err.message); 
     } finally { 

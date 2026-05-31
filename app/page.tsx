@@ -7,20 +7,149 @@ import BannerCarousel from '@/components/BannerCarousel';
 import ProductSection from '@/components/ProductSection';
 import CategoryShortcut from '../components/CategoryShortcut';
 import MaintenancePage from "@/utils/MaintenancePage"; 
-import { Loader2, Settings, Clock, ChevronRight, Zap, Smartphone, Gamepad2, Wifi, MonitorPlay, Headset } from "lucide-react";
+import { Loader2, Settings, Clock, ChevronRight, Zap, Smartphone, Gamepad2, Wifi, MonitorPlay, Headset, CheckCircle2, XCircle } from "lucide-react";
 import FingerprintJS from '@fingerprintjs/fingerprintjs'; 
 import ContactModal from "@/components/ContactModal";
 
-export default function Home() {
-  const router = useRouter();
-  const [isMaintenance, setIsMaintenance] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [shortcutCategories, setShortcutCategories] = useState<any[]>([]);
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSupportMenuOpen, setIsSupportMenuOpen] = useState(false); // State baru untuk menu melayang
+// --- KOMPONEN BARU: BANNER PENDING DENGAN TIMER REALTIME & AUTO-SYNC ---
+function PendingPaymentBanner({ order, router, onResolved }: { order: any, router: any, onResolved: (status: string) => void }) {
+  const [timeLeft, setTimeLeft] = useState("");
+  const [isExpired, setIsExpired] = useState(false);
+  const [isResolved, setIsResolved] = useState(false);
 
+  // 1. Logika Timer 2 Jam Mutlak
   useEffect(() => {
+    if (!order?.created_at) return;
+    const safeDateString = order.created_at.endsWith('Z') ? order.created_at : `${order.created_at}Z`;
+    const expiryTime = new Date(safeDateString).getTime() + 7200000;
+
+    const updateTimer = () => {
+      const now = new Date().getTime();
+      const distance = expiryTime - now;
+
+      if (distance <= 0) {
+        setIsExpired(true);
+        setTimeLeft("00:00:00");
+        return;
+      }
+
+      const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((distance % (1000 * 60)) / 1000);
+
+      setTimeLeft(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+    };
+
+    updateTimer(); 
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [order]);
+
+  // 2. Auto-Sync Ringan Tiap 10 Detik via API Backend (Tembus RLS)
+  useEffect(() => {
+    if (!order?.order_id || isExpired || isResolved) return;
+
+    const checkPaymentStatus = async () => {
+      try {
+        // Minta bantuan API Invoice agar aman dari blokir keamanan Supabase
+        const res = await fetch('/api/orders/invoice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: order.order_id })
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          const data = json.data;
+
+          if (data && data.status) {
+            const currentStatus = data.status.toLowerCase();
+            
+            if (currentStatus !== 'pending') {
+              setIsResolved(true); // Sembunyikan banner instan
+              onResolved(data.status); // Luncurkan pop-up Toast!
+
+              // Update cache browser lokal
+              const guestCache = localStorage.getItem('dapay_guest_history');
+              if (guestCache) {
+                let history = JSON.parse(guestCache);
+                const orderIndex = history.findIndex((o: any) => o.order_id === order.order_id);
+                if (orderIndex !== -1) {
+                  history[orderIndex].status = data.status;
+                  localStorage.setItem('dapay_guest_history', JSON.stringify(history));
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        // Silently fail
+      }
+    };
+
+    checkPaymentStatus(); // 🚀 JALANKAN SEKETIKA SAAT RELOAD! (Tanpa nunggu 10 detik)
+    const syncInterval = setInterval(checkPaymentStatus, 10000);
+    return () => clearInterval(syncInterval);
+  }, [order, isExpired, isResolved, onResolved]);
+
+  // Hilangkan dari UI jika expired atau sudah sukses/gagal
+  if (isExpired || isResolved) return null;
+
+  return (
+    <section className="max-w-7xl mx-auto px-4 md:px-12 mt-6 relative z-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-linear-to-r from-amber-500/10 to-orange-500/5 border border-amber-500/30 rounded-2xl p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-5 shadow-lg shadow-amber-500/5 backdrop-blur-md">
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="bg-amber-500/20 p-3 rounded-full shrink-0 relative">
+            <div className="absolute inset-0 bg-amber-500/40 rounded-full animate-ping"></div>
+            <Clock className="w-6 h-6 text-amber-400 relative z-10" />
+          </div>
+          <div>
+            <h3 className="text-amber-400 font-black text-sm md:text-lg uppercase tracking-wide">Menunggu Pembayaran</h3>
+            <p className="text-slate-300 text-[11px] md:text-sm mt-0.5">
+              Selesaikan transaksi <span className="font-bold text-white uppercase">{order.product_name}</span> Anda.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-6 bg-slate-900/60 p-3 rounded-xl border border-white/5 shadow-inner">
+          <div className="flex flex-col items-center min-w-17.5">
+            <span className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Sisa Waktu</span>
+            <span className="text-amber-400 font-black text-lg md:text-xl tracking-wider font-mono">
+              {timeLeft || "00:00:00"}
+            </span>
+          </div>
+          <button 
+            onClick={() => router.push(`/checkout/pay/${order.order_id}`)}
+            className="bg-amber-500 hover:bg-amber-400 text-slate-900 font-black py-2.5 px-5 md:px-6 rounded-lg text-xs md:text-sm transition-all active:scale-95 whitespace-nowrap shadow-md shadow-amber-500/20"
+          >
+            Bayar Sekarang
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function Home() {
+  const router = useRouter();
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [shortcutCategories, setShortcutCategories] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [pendingOrder, setPendingOrder] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSupportMenuOpen, setIsSupportMenuOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState<{title: string, desc: string, type: 'success' | 'error'} | null>(null);
+
+  // Helper untuk Auto-hide Toast (Diperlama jadi 12 detik agar sempat dibaca)
+  useEffect(() => {
+    if (toastMsg) {
+      const timer = setTimeout(() => setToastMsg(null), 12000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMsg]);
+
+  useEffect(() => {
     const checkMaintenanceAndData = async () => {
       try {
         // 1. Cek Maintenance (Ringan: Hanya ambil 1 kolom)
@@ -45,34 +174,68 @@ export default function Home() {
         
         // Kita ambil 20 data terakhir buat bahan filter unik
 let ordersQuery = supabase
-          .from('orders')
-          // Tambahkan category agar kita tahu alamat tujuannya Bos! [cite: 2026-02-11]
-          .select('id, product_name, customer_no, status, created_at, payment_method, total_amount, category')
-          .order('created_at', { ascending: false })
-          .limit(20);
+          .from('orders')
+          // WAJIB ada order_id untuk routing ke halaman checkout!
+          .select('id, order_id, product_name, customer_no, status, created_at, payment_method, total_amount, category')
+          .order('created_at', { ascending: false })
+          .limit(20);
 
-        // Fungsi pembantu buat filter unik berdasarkan Nama Produk [cite: 2026-02-11]
-        const filterUniqueOrders = (rawOrders: any[]) => {
-          const unique = rawOrders.reduce((acc: any[], current) => {
-            const isExist = acc.find(item => item.product_name === current.product_name);
-            // Hanya masukkan jika belum ada di list DAN jumlahnya masih di bawah 4
-            if (!isExist && acc.length < 4) acc.push(current);
-            return acc;
-          }, []);
-          setRecentOrders(unique);
-        };
+        // FUNGSI BARU: Pisahkan pengecekan transaksi Pending dan Filter Unik
+        const processOrdersData = (ordersToProcess: any[]) => {
+          // 1. Cari transaksi yang masih pending
+          const pending = ordersToProcess.find((o: any) => o.status?.toLowerCase() === 'pending');
+          
+          // SINKRONISASI: Jika tidak ada transaksi pending, bersihkan state banner
+          if (pending) {
+            setPendingOrder(pending);
+          } else {
+            setPendingOrder(null);
+          }
+          
+          // 2. Jalankan filter unik untuk slider "Beli ini lagi"
+          const unique = ordersToProcess.reduce((acc: any[], current: any) => {
+            const isExist = acc.find((item: any) => item.product_name === current.product_name);
+            if (!isExist && acc.length < 4) acc.push(current);
+            return acc;
+          }, []);
+          setRecentOrders(unique);
+        };
 
         if (session?.user?.email) {
           const { data: orders } = await ordersQuery.eq('email', session.user.email);
-          if (orders) filterUniqueOrders(orders);
+          if (orders) processOrdersData(orders);
         } else {
-          try {
-            const fpPromise = await FingerprintJS.load();
-            const fpResult = await fpPromise.get();
-            const { data: orders } = await ordersQuery.eq('device_id', fpResult.visitorId);
-            if (orders) filterUniqueOrders(orders);
-          } catch (fpError) {
-            console.error("Device ID Error", fpError);
+          // GUEST LOGIC: Prioritas baca LocalStorage dulu biar ngebut <50ms!
+          const guestCache = localStorage.getItem('dapay_guest_history');
+          let hasLocalData = false;
+
+          if (guestCache) {
+            try {
+              const parsedCache = JSON.parse(guestCache);
+              if (parsedCache && parsedCache.length > 0) {
+                processOrdersData(parsedCache);
+                hasLocalData = true;
+              }
+            } catch (e) {
+              console.error("Gagal baca cache lokal Guest", e);
+            }
+          }
+
+          // FALLBACK: Kalau cache kosong, tembak Supabase pakai Fingerprint ID
+          if (!hasLocalData) {
+            try {
+              const fpPromise = await FingerprintJS.load();
+              const fpResult = await fpPromise.get();
+              
+              const { data: orders } = await ordersQuery.eq('device_id', fpResult.visitorId);
+              
+              if (orders && orders.length > 0) {
+                processOrdersData(orders);
+                localStorage.setItem('dapay_guest_history', JSON.stringify(orders));
+              }
+            } catch (fpError) {
+              console.error("Device ID Error", fpError);
+            }
           }
         }
       } catch (err) {
@@ -107,6 +270,25 @@ let ordersQuery = supabase
     <main className="min-h-screen bg-[#0f172a]">
       <BannerCarousel />
       <CategoryShortcut categories={shortcutCategories} />
+
+      {/* --- BANNER PENGINGAT PEMBAYARAN PENDING --- */}
+      {pendingOrder && (
+        <PendingPaymentBanner 
+          order={pendingOrder} 
+          router={router} 
+          onResolved={(status) => {
+            const isSuccess = status.toLowerCase() === 'berhasil' || status.toLowerCase() === 'success' || status.toLowerCase() === 'diproses';
+            // Munculkan Pop-up Toast dengan bahasa yang lebih hangat
+            setToastMsg({
+              title: isSuccess ? "Terima Kasih, Kak! ✨" : "Waduh, Transaksi Batal 🥺",
+              desc: isSuccess ? "Pembayaran sukses diterima. Pesanannya sedang kami siapkan ya." : "Waktu bayarnya kedaluwarsa atau dibatalkan ya Kak.",
+              type: isSuccess ? 'success' : 'error'
+            });
+            // Bersihkan banner kuning dari layar
+            setPendingOrder(null); 
+          }}
+        />
+      )}
 
 {/* --- FITUR QUICK RE-ORDER (COMPACT & PROPORTIONAL) --- */}
       {recentOrders.length > 0 && (
@@ -297,7 +479,55 @@ let ordersQuery = supabase
       </div>
 
       {/* Panggil Modalnya di sini */}
-      <ContactModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
-    </main>
+      <ContactModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+      {/* --- TOAST NOTIFICATION REALTIME --- */}
+      {toastMsg && (
+        <div 
+          onClick={() => setToastMsg(null)}
+          className="fixed top-20 right-4 md:right-8 z-9999 animate-in slide-in-from-top-5 fade-in duration-500 cursor-pointer"
+        >
+          {/* Animasi CSS Ringan Khusus Progress Bar */}
+          <style>{`
+            @keyframes shrink-bar {
+              0% { width: 100%; }
+              100% { width: 0%; }
+            }
+            .animate-shrink-bar {
+              animation: shrink-bar 12s linear forwards;
+            }
+          `}</style>
+
+          {/* Container Toast Dibikin Lebih Kecil (Kompak) dan overflow-hidden agar bar rapi di bawah */}
+          <div className={`relative flex items-center gap-2.5 px-3.5 py-3 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] border transition-transform active:scale-95 overflow-hidden ${
+            toastMsg.type === 'success' ? 'bg-[#F0FDF4] border-[#A7F3D0]' : 'bg-[#FEF2F2] border-[#FECACA]'
+          }`}>
+            
+            {/* Icon Diperkecil Sedikit */}
+            {toastMsg.type === 'success' ? (
+              <div className="bg-[#10B981] text-white rounded-full p-0.5 shrink-0"><CheckCircle2 size={14} /></div>
+            ) : (
+              <div className="bg-[#EF4444] text-white rounded-full p-0.5 shrink-0"><XCircle size={14} /></div>
+            )}
+            
+            {/* Teks Lebih Padat */}
+            <div className="flex flex-col min-w-0 pr-2">
+              <span className={`text-[11px] font-black italic uppercase tracking-tight leading-none mb-0.5 ${toastMsg.type === 'success' ? 'text-[#047857]' : 'text-[#B91C1C]'}`}>
+                {toastMsg.title}
+              </span>
+              <span className="text-[9px] font-bold text-slate-500 leading-tight">
+                {toastMsg.desc}
+              </span>
+            </div>
+
+            {/* --- Progress Bar Horizontal 12 Detik --- */}
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-black/5">
+              <div className={`h-full animate-shrink-bar ${toastMsg.type === 'success' ? 'bg-[#10B981]' : 'bg-[#EF4444]'}`}></div>
+            </div>
+
+          </div>
+        </div>
+      )}
+    </main>
   );
 }

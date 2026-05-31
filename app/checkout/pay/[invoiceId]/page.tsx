@@ -39,9 +39,35 @@ function InvoiceContent() {
   const [timeLeft, setTimeLeft] = useState(0); 
   const [paymentAccounts, setPaymentAccounts] = useState<any[]>([]);
   const [qrisString, setQrisString] = useState<string>("");
-  const [isTimeCalculated, setIsTimeCalculated] = useState(false);
+  const [isTimeCalculated, setIsTimeCalculated] = useState(false);
 
-  // --- 1. DATA FETCHING & REALTIME ---
+  // --- FUNGSI SINKRONISASI CACHE GUEST LOKAL ---
+  const updateGuestCacheStatus = (orderId: string, newStatus: string) => {
+    const guestCache = localStorage.getItem('dapay_guest_history');
+    if (guestCache) {
+      try {
+        let history = JSON.parse(guestCache);
+        const orderIndex = history.findIndex((o: any) => o.order_id === orderId);
+        
+        // Jika pesanan ketemu dan statusnya beda, timpa dengan status baru
+        if (orderIndex !== -1 && history[orderIndex].status !== newStatus) {
+          history[orderIndex].status = newStatus;
+          localStorage.setItem('dapay_guest_history', JSON.stringify(history));
+        }
+      } catch (e) {
+        console.error("Gagal update status cache lokal", e);
+      }
+    }
+  };
+
+  // Pantau terus perubahan dbStatus. Kalau berubah (misal lunas/gagal), update cache!
+  useEffect(() => {
+    if (invoiceId && dbStatus) {
+      updateGuestCacheStatus(invoiceId, dbStatus);
+    }
+  }, [dbStatus, invoiceId]);
+
+  // --- 1. DATA FETCHING & REALTIME ---
   useEffect(() => {
     if (!invoiceId) return;
 
