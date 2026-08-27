@@ -6,6 +6,28 @@ import { runCheckoutPascabayar } from '@/app/api/digiflazz/pascabayar/checkout/r
 // Note: Untuk Prabayar sementara tetap pakai cara lama dulu sampai file prabayar di-refactor juga
 import { POST as processPrabayar } from '@/app/api/digiflazz/prabayar/checkout/route';
 
+type OrderStatus = 'Pending' | 'Diproses' | 'Berhasil' | 'Gagal';
+
+const ORDER_STATUS_VALUES = new Set<OrderStatus>([
+  'Pending',
+  'Diproses',
+  'Berhasil',
+  'Gagal',
+]);
+
+function isOrderStatus(status: unknown): status is OrderStatus {
+  return typeof status === 'string' && ORDER_STATUS_VALUES.has(status as OrderStatus);
+}
+
+function canTransitionOrderStatus(currentStatus: OrderStatus, nextStatus: OrderStatus) {
+  return (
+    (currentStatus === 'Pending' &&
+      (nextStatus === 'Diproses' || nextStatus === 'Gagal')) ||
+    (currentStatus === 'Diproses' &&
+      (nextStatus === 'Berhasil' || nextStatus === 'Gagal'))
+  );
+}
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY! 
@@ -67,10 +89,21 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Akses Ditolak! Sesi Expired atau bukan Admin." }, { status: 403 });
     }
 
-    const adminColumns = 'id, order_id, created_at, status, email, product_name, item_label, total_amount, payment_method, sn, notes';
-    const { data, error } = await supabaseAdmin.from('orders').select(adminColumns).order('created_at', { ascending: false });
-    if (error) throw error;
-    return NextResponse.json(data || []);
+    const adminColumns =
+  'id, order_id, created_at, updated_at, status, email, ' +
+  'product_name, item_label, total_amount, price, buy_price, ' +
+  'payment_method, user_contact, customer_name, customer_no, category, ' +
+  'cashback, referral_commission, voucher_amount, discount, ' +
+  'unique_code, used_balance, product_type, notes';
+
+const { data, error } = await supabaseAdmin
+  .from('orders')
+  .select(adminColumns)
+  .order('created_at', { ascending: false });
+
+if (error) throw error;
+
+return NextResponse.json(data || []);
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -109,7 +142,16 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const { id, status: currentStatus, email: user_email } = body;
+    const { id, status: requestedStatus, email: user_email } = body;
+
+    if (!isOrderStatus(requestedStatus)) {
+      return NextResponse.json(
+        { error: 'INVALID_ORDER_STATUS' },
+        { status: 400 },
+      );
+    }
+
+    const currentStatus = requestedStatus;
 
     const { data: oldOrder } = await supabaseAdmin
       .from('orders')
@@ -119,18 +161,69 @@ export async function PATCH(req: Request) {
 
     if (!oldOrder) throw new Error("Order tidak ditemukan di Database.");
 
-    const oldStatusRaw = oldOrder.status || 'Pending';
+    const oldStatusRaw = oldOrder.status;
+
+    if (!isOrderStatus(oldStatusRaw)) {
+      return NextResponse.json(
+        { error: 'INVALID_CURRENT_ORDER_STATUS' },
+        { status: 409 },
+      );
+    }
+
+    const isMixedPending =
+      oldStatusRaw === 'Pending' &&
+      Number(oldOrder.used_balance || 0) > 0 &&
+      Number(oldOrder.total_amount || 0) > 0;
+
+    if (isMixedPending) {
+      return NextResponse.json(
+        { error: 'ORDER_MIXED_PENDING_TRANSITION_REQUIRES_ATOMIC_FLOW' },
+        { status: 409 },
+      );
+    }
+
+    const isHardenedFullCoin =
+      oldStatusRaw === 'Diproses' &&
+      Number(oldOrder.used_balance || 0) > 0 &&
+      Number(oldOrder.total_amount || 0) === 0;
+
+    if (isHardenedFullCoin) {
+      return NextResponse.json(
+        { error: 'ORDER_FULL_COIN_TRANSITION_REQUIRES_FULFILLMENT_FLOW' },
+        { status: 409 },
+      );
+    }
 
     if (oldStatusRaw === currentStatus) {
       return NextResponse.json({ message: "Status sudah sama." });
     }
 
-    const { error: updateError } = await supabaseAdmin.from('orders').update({ 
-      status: currentStatus,
-      updated_at: new Date().toISOString() 
-    }).eq('id', id);
-    
+    if (!canTransitionOrderStatus(oldStatusRaw, currentStatus)) {
+      return NextResponse.json(
+        { error: 'INVALID_ORDER_STATUS_TRANSITION' },
+        { status: 409 },
+      );
+    }
+
+    const { data: updatedOrder, error: updateError } = await supabaseAdmin
+      .from('orders')
+      .update({
+        status: currentStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('status', oldStatusRaw)
+      .select('id')
+      .maybeSingle();
+
     if (updateError) throw updateError;
+
+    if (!updatedOrder) {
+      return NextResponse.json(
+        { error: 'ORDER_STATUS_CHANGED_CONCURRENTLY' },
+        { status: 409 },
+      );
+    }
 
     await supabaseAdmin.from('admin_logs').insert([{
       admin_email: adminEmail,

@@ -1,36 +1,69 @@
 "use client";
-import { useState, useEffect } from "react";
+
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
-import { 
-  LayoutDashboard, TrendingUp, Grid, Package, 
-  Users, Calendar, Globe, History as HistoryIcon, 
-  Settings, ChevronLeft, Menu, LogOut, FileText, Wallet, CreditCard, Landmark
+import {
+  LayoutDashboard,
+  TrendingUp,
+  Grid,
+  Package,
+  Users,
+  Calendar,
+  Globe,
+  History as HistoryIcon,
+  Settings,
+  ChevronLeft,
+  Menu,
+  LogOut,
+  FileText,
+  Landmark,
+  ShoppingBag,
+  Wallet,
 } from "lucide-react";
 
 interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (val: boolean) => void;
   activeMenu: string;
-  setActiveMenu: (val: string) => void; 
+  setActiveMenu: (val: string) => void;
 }
 
-export default function SidebarAdmin({ isOpen, setIsOpen, activeMenu, setActiveMenu }: SidebarProps) {
-  const [todayMemo, setTodayMemo] = useState("Tidak ada event khusus hari ini.");
+type MenuItem = {
+  id: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+};
+
+type MenuGroup = {
+  label: string;
+  items: MenuItem[];
+};
+
+export default function SidebarAdmin({
+  isOpen,
+  setIsOpen,
+  activeMenu,
+  setActiveMenu,
+}: SidebarProps) {
+  const [todayMemo, setTodayMemo] = useState(
+    "Tidak ada event khusus hari ini.",
+  );
   const [hasUrgentEvent, setHasUrgentEvent] = useState(false);
   const pathname = usePathname();
 
   const fetchTodayEvent = async () => {
-    const today = new Date().toLocaleDateString('en-CA'); 
+    const today = new Date().toLocaleDateString("en-CA");
+
     const { data } = await supabase
-      .from('admin_events')
-      .select('title, impact_level')
-      .eq('event_date', today)
+      .from("admin_events")
+      .select("title, impact_level")
+      .eq("event_date", today)
       .maybeSingle();
 
     if (data) {
       setTodayMemo(data.title);
-      setHasUrgentEvent(data.impact_level === 'High');
+      setHasUrgentEvent(data.impact_level === "High");
     } else {
       setTodayMemo("Tidak ada event khusus hari ini!");
       setHasUrgentEvent(false);
@@ -38,36 +71,138 @@ export default function SidebarAdmin({ isOpen, setIsOpen, activeMenu, setActiveM
   };
 
   useEffect(() => {
-    fetchTodayEvent();
+    void fetchTodayEvent();
+
     const channel = supabase
-      .channel('realtime-sidebar')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'admin_events' 
-      }, () => {
-        fetchTodayEvent();
-      })
+      .channel("realtime-sidebar")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "admin_events",
+        },
+        () => {
+          void fetchTodayEvent();
+        },
+      )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [pathname]);
 
-// Pengelompokan Menu Sidebar
-  const menuGroups = [
-    { label: "Main", items: [{ id: 'Dashboard', icon: LayoutDashboard }, { id: 'Analytics', icon: TrendingUp }] },
-    { label: "Inventory", items: [{ id: 'Category', icon: Grid }, { id: 'Products', icon: Package }] },
-    { label: "Management", items: [
-        { id: 'Team', icon: Users }, 
-        { id: 'Event', icon: Calendar }, 
-        { id: 'Withdraw', icon: Wallet },
-        { id: 'Deposit', icon: CreditCard },
-        { id: 'Payment', icon: Landmark } // <--- MENU BARU DITAMBAHKAN DI SINI
-      ] 
+  // ---------------------------------------------------------------------------
+  // SIDEBAR INFORMATION ARCHITECTURE
+  // ---------------------------------------------------------------------------
+
+  const menuGroups: MenuGroup[] = [
+    {
+      label: "Overview",
+      items: [
+        {
+          id: "Dashboard",
+          label: "Dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          id: "Analytics",
+          label: "Analytics",
+          icon: TrendingUp,
+        },
+      ],
     },
-    { label: "Operational", items: [{ id: 'Explore', icon: Globe }, { id: 'History', icon: HistoryIcon }] },
-    { label: "Others", items: [{ id: 'Settings', icon: Settings }] }
+    {
+      label: "Inventory",
+      items: [
+        {
+          id: "Category",
+          label: "Category",
+          icon: Grid,
+        },
+        {
+          id: "Products",
+          label: "Products",
+          icon: Package,
+        },
+      ],
+    },
+    {
+      label: "Management",
+      items: [
+        {
+          id: "AccountDatabase",
+          label: "Account Database",
+          icon: Users,
+        },
+        {
+          id: "Event",
+          label: "Event",
+          icon: Calendar,
+        },
+        {
+          id: "Payment",
+          label: "Payment",
+          icon: Landmark,
+        },
+      ],
+    },
+    {
+      label: "Operations",
+      items: [
+        {
+          id: "Orders",
+          label: "Orders",
+          icon: ShoppingBag,
+        },
+        {
+          id: "Deposit",
+          label: "Deposit",
+          icon: Wallet,
+        },
+        {
+          id: "Withdrawal",
+          label: "Withdrawal",
+          icon: Landmark,
+        },
+      ],
+    },
+    {
+      label: "Data & Audit",
+      items: [
+        {
+          id: "Explore",
+          label: "Explore",
+          icon: Globe,
+        },
+        {
+          id: "History",
+          label: "History",
+          icon: HistoryIcon,
+        },
+      ],
+    },
+    {
+      label: "System",
+      items: [
+        {
+          id: "Settings",
+          label: "Settings",
+          icon: Settings,
+        },
+      ],
+    },
   ];
+
+  const handleMenuClick = (menuId: string) => {
+    setActiveMenu(menuId);
+
+    // Mobile: close sidebar after choosing a menu.
+    if (window.innerWidth < 768) {
+      setIsOpen(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.clear();
@@ -76,95 +211,208 @@ export default function SidebarAdmin({ isOpen, setIsOpen, activeMenu, setActiveM
 
   return (
     <>
-      {/* Overlay Backdrop Mobile */}
+      {/* --------------------------------------------------------------------- */}
+      {/* MOBILE OVERLAY                                                       */}
+      {/* --------------------------------------------------------------------- */}
+
       {isOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm md:hidden"
+        <div
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm md:hidden"
           style={{ zIndex: 60 }}
           onClick={() => setIsOpen(false)}
+          aria-hidden="true"
         />
       )}
-      
-      <aside 
-        className={`fixed h-screen bg-[#0B0E14] border-r border-white/5 flex flex-col transition-transform duration-300 shadow-2xl md:transition-all ${isOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0 md:w-20"}`}
+
+      {/* --------------------------------------------------------------------- */}
+      {/* SIDEBAR                                                               */}
+      {/* --------------------------------------------------------------------- */}
+
+      <aside
+        className={`fixed h-screen bg-[#0B0E14] border-r border-white/5 flex flex-col shadow-2xl transition-transform duration-300 md:transition-all ${
+          isOpen
+            ? "translate-x-0 w-64"
+            : "-translate-x-full md:translate-x-0 md:w-20"
+        }`}
         style={{ zIndex: 70 }}
       >
-        
-        {/* HEADER */}
-      <div className="p-6 mb-4 flex items-center justify-between border-b border-white/5">
-        {isOpen && (
-          <h1 className="text-white font-black italic tracking-tighter text-xl uppercase">
-            DANISH<span className="text-blue-500">ADMIN</span>
-          </h1>
-        )}
-        <button onClick={() => setIsOpen(!isOpen)} className="p-2 hover:bg-white/5 rounded-xl text-slate-400">
-          {isOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
-        </button>
-      </div>
+        {/* ----------------------------------------------------------------- */}
+        {/* HEADER                                                            */}
+        {/* ----------------------------------------------------------------- */}
 
-      {/* NAVIGASI */}
-      <nav className="flex-1 px-4 space-y-6 overflow-y-auto py-4 custom-scrollbar">
-        {menuGroups.map((group) => (
-          <div key={group.label} className="space-y-2">
-            {isOpen && <p className="px-4 text-[9px] font-black uppercase tracking-[0.3em] text-slate-600 mb-3">{group.label}</p>}
-            {group.items.map((item) => (
-              <div 
-                key={item.id} 
-                onClick={() => setActiveMenu(item.id)} 
-                className={`flex items-center gap-4 p-3.5 rounded-xl cursor-pointer transition-all ${
-                  activeMenu === item.id 
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/40' 
-                  : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'
+        <div className="flex items-center justify-between border-b border-white/5 px-5 py-5">
+          {isOpen && (
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-bold tracking-[-0.04em] text-white">
+                DANISH<span className="text-blue-500">ADMIN</span>
+              </h1>
+
+              <p className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-slate-500">
+                DaPay Admin System
+              </p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            aria-label={isOpen ? "Collapse sidebar" : "Open sidebar"}
+            className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            {isOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+
+        {/* ----------------------------------------------------------------- */}
+        {/* NAVIGATION                                                        */}
+        {/* ----------------------------------------------------------------- */}
+
+        <nav
+          className="custom-scrollbar flex-1 overflow-y-auto px-3 py-4"
+          aria-label="Admin navigation"
+        >
+          {menuGroups.map((group) => (
+            <section
+              key={group.label}
+              className="mb-5 last:mb-0"
+              aria-labelledby={`sidebar-group-${group.label}`}
+            >
+              {isOpen && (
+                <p
+                  id={`sidebar-group-${group.label}`}
+                  className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500"
+                >
+                  {group.label}
+                </p>
+              )}
+
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive = activeMenu === item.id;
+                  const Icon = item.icon;
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleMenuClick(item.id)}
+                      aria-current={isActive ? "page" : undefined}
+                      title={!isOpen ? item.label : undefined}
+                      className={`group flex w-full items-center rounded-xl p-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${
+                        isOpen ? "gap-3.5" : "justify-center"
+                      } ${
+                        isActive
+                          ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                          : "text-slate-500 hover:bg-white/5 hover:text-slate-200"
+                      }`}
+                    >
+                      <Icon
+                        size={20}
+                        strokeWidth={1.9}
+                        className={`shrink-0 transition-colors ${
+                          isActive
+                            ? "text-white"
+                            : "text-slate-500 group-hover:text-slate-200"
+                        }`}
+                      />
+
+                      {isOpen && (
+                        <span className="truncate text-sm font-semibold tracking-tight">
+                          {item.label}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </nav>
+
+        {/* ----------------------------------------------------------------- */}
+        {/* BOTTOM UTILITY                                                    */}
+        {/* ----------------------------------------------------------------- */}
+
+        {isOpen && (
+          <div className="space-y-3 px-5 py-4">
+            {/* TODAY */}
+            <div className="rounded-xl border border-white/5 bg-white/4 p-3">
+              <div className="mb-2 flex items-center gap-2 text-blue-400">
+                <Calendar size={14} />
+                <span className="text-[10px] font-semibold uppercase tracking-widest">
+                  Today
+                </span>
+              </div>
+
+              <p className="text-xs font-semibold leading-5 text-white">
+                {new Intl.DateTimeFormat("id-ID", {
+                  dateStyle: "full",
+                }).format(new Date())}
+              </p>
+            </div>
+
+            {/* MEMO */}
+            <div
+              className={`rounded-xl border p-3 transition-colors ${
+                hasUrgentEvent
+                  ? "border-rose-500/20 bg-rose-500/10"
+                  : "border-amber-500/20 bg-amber-500/10"
+              }`}
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <div
+                  className={`flex items-center gap-2 ${
+                    hasUrgentEvent ? "text-rose-500" : "text-amber-500"
+                  }`}
+                >
+                  <FileText size={14} />
+
+                  <span className="text-[10px] font-semibold uppercase tracking-widest">
+                    Memo
+                  </span>
+                </div>
+
+                <div
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    hasUrgentEvent ? "bg-rose-500" : "bg-amber-500"
+                  }`}
+                />
+              </div>
+
+              <p
+                className={`text-[11px] font-medium leading-5 ${
+                  hasUrgentEvent ? "text-rose-200" : "text-slate-400"
                 }`}
               >
-                <item.icon size={20} /> 
-                {isOpen && <span className="text-xs font-bold tracking-wide uppercase italic">{item.id}</span>}
-              </div>
-            ))}
-          </div>
-        ))}
-      </nav>
-
-      {/* WIDGET BAWAH */}
-      {isOpen && (
-        <div className="px-6 py-4 space-y-4">
-          <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
-            <div className="flex items-center gap-2 text-blue-400 mb-2">
-              <Calendar size={14} />
-              <span className="text-[9px] font-black uppercase tracking-widest">Today</span>
+                &quot;{todayMemo}&quot;
+              </p>
             </div>
-            <p className="text-white text-xs font-bold italic uppercase">
-              {new Intl.DateTimeFormat('id-ID', { dateStyle: 'full' }).format(new Date())}
-            </p>
           </div>
+        )}
 
-          <div className={`rounded-2xl p-3 border transition-all duration-500 ${
-            hasUrgentEvent ? "bg-rose-500/10 border-rose-500/20 animate-pulse" : "bg-amber-500/10 border-amber-500/20"
-          }`}>
-            <div className="flex items-center justify-between mb-2">
-               <div className={`flex items-center gap-2 ${hasUrgentEvent ? "text-rose-500" : "text-amber-500"}`}>
-                <FileText size={14} />
-                <span className="text-[9px] font-black uppercase tracking-widest">Memo</span>
-              </div>
-              <div className={`w-1.5 h-1.5 rounded-full ${hasUrgentEvent ? "bg-rose-500" : "bg-amber-500 animate-pulse"}`}></div>
-            </div>
-            <p className={`text-[10px] leading-tight italic font-bold uppercase ${
-              hasUrgentEvent ? "text-rose-200" : "text-slate-400"
-            }`}>
-              "{todayMemo}"
-            </p>
-          </div>
+        {/* ----------------------------------------------------------------- */}
+        {/* LOGOUT                                                            */}
+        {/* ----------------------------------------------------------------- */}
+
+        <div className="border-t border-white/5 p-3">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={`flex w-full items-center gap-3 rounded-xl p-3 text-rose-500 transition-all hover:bg-rose-500/10 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 ${
+              !isOpen ? "justify-center" : ""
+            }`}
+            title={!isOpen ? "Logout" : undefined}
+          >
+            <LogOut size={20} strokeWidth={1.9} />
+
+            {isOpen && (
+              <span className="text-sm font-semibold">
+                Logout
+              </span>
+            )}
+          </button>
         </div>
-      )}
-
-{/* LOGOUT */}
-      <div className="p-4 border-t border-white/5">
-        <button onClick={handleLogout} className={`w-full flex items-center gap-4 p-4 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all font-black italic uppercase tracking-widest ${!isOpen && 'justify-center'}`}>
-          <LogOut size={20} />
-          {isOpen && <span className="text-[10px]">Logout</span>}
-        </button>
-      </div>
-    </aside>
-   </>
+      </aside>
+    </>
   );
 }

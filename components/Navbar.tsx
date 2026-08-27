@@ -197,13 +197,15 @@ const handleLogout = async () => {
             )}
 
             {/* LOGO */}
-            <Link href="/" className="flex items-center gap-2">
-            <div className="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-500/20">
-              <Gamepad2 className="text-white w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
-            <span className="text-lg sm:text-xl font-black text-white tracking-tighter uppercase italic leading-none">
-              Danis<span className="text-blue-500">Pay</span>
-            </span>
+          <Link href="/" className="flex items-center shrink-0">
+            <Image
+              src="/images/DaPay.svg"
+              alt="DanisPay"
+              width={1269}
+              height={313}
+              priority
+              className="h-7 sm:h-8 w-auto"
+            />
           </Link>
         </div> {/* Penutup div pembungkus Menu & Logo */}
 

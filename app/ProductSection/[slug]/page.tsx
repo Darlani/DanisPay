@@ -42,7 +42,9 @@ function DetailContent({ slug }: { slug: string }) {
   const [showAllItems, setShowAllItems] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPromoApplied, setIsPromoApplied] = useState(false);
-  const [uniqueCode, setUniqueCode] = useState(0); // State baru untuk simpan kode unik
+  const [uniqueCode, setUniqueCode] = useState(0);
+  const [reservationId, setReservationId] = useState<string | null>(null);
+  const [reservedTotalAmount, setReservedTotalAmount] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [discount, setDiscount] = useState(0);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -196,9 +198,20 @@ const getBrowserData = async () => {
 
 const handlePreCheckout = async () => {
     if (!selectedItemId || !selectedPayment) return;
+    if (usedCoinsAmount > 0 || selectedPayment === 'Koin DaPay') {
+      alert("Pembayaran dengan Koin DaPay sedang tidak tersedia.");
+      return;
+    }
+
+    if (isPromoApplied || discount > 0) {
+      alert("Voucher belum tersedia untuk checkout dengan nominal unik.");
+      return;
+    }
     
     setIsModalOpen(true); 
     setUniqueCode(0); 
+    setReservationId(null);
+    setReservedTotalAmount(null);
 
     // 🚀 LOGIKA BARU: Kode unik 0 HANYA jika bayar pakai Koin DaPay
     if (selectedPayment === 'Koin DaPay') {
@@ -213,15 +226,26 @@ try {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          basePrice: priceBeforeBalance,
-          userId: currentUser?.id, // Kirim ID user jika ada
-          paymentMethod: selectedPayment // 🚀 WAJIB: Kirim ini agar backend tahu
+          basePrice: String(priceBeforeBalance),
         })
       });
       const data = await res.json();
-      if (data.success) setUniqueCode(data.uniqueCode);
+      if (
+        !res.ok ||
+        !data.success ||
+        typeof data.reservationId !== 'string' ||
+        !Number.isSafeInteger(data.uniqueCode) ||
+        data.uniqueCode < 1 ||
+        typeof data.totalAmount !== 'string'
+      ) {
+        throw new Error(data.error || "Gagal menyiapkan nominal pembayaran.");
+      }
+      setUniqueCode(data.uniqueCode);
+      setReservationId(data.reservationId);
+      setReservedTotalAmount(data.totalAmount);
     } catch (err) {
-      console.error("Gagal ambil kode unik");
+      setIsModalOpen(false);
+      alert(err instanceof Error ? err.message : "Gagal menyiapkan nominal pembayaran.");
     } finally {
       setIsLoading(false);
     }
@@ -242,40 +266,44 @@ const handleCheckout = async (customPayload?: any) => {
       // 🚀 FIX: Tangkap used_balance lokal dari pascabayar jika ada titipan payload
       const activeUsedBalance = customPayload?.override_used_balance !== undefined ? customPayload.override_used_balance : usedCoinsAmount;
 
+      if (activeUsedBalance > 0 || activePayment === 'Koin DaPay') {
+        throw new Error("Pembayaran dengan Koin DaPay sedang tidak tersedia.");
+      }
+
+      if (!reservationId || !reservedTotalAmount) {
+        throw new Error("Reservasi nominal pembayaran tidak tersedia. Silakan ulangi checkout.");
+      }
+
       // Gunakan uniqueCode dari state, bukan diacak lagi di sini
-      const totalAmount = Number(activePrice) + uniqueCode; 
-      const isFullCoin = totalAmount === 0;
-      const orderIdStr = `DANISH-${Math.floor(Math.random() * 90000) + 10000}`;
+      const totalAmount = reservedTotalAmount;
       const combinedCustomerNo = zoneId ? `${accId}(${zoneId})` : accId;
       const browserData = await getBrowserData();
       
-      const paymentMethodName = isFullCoin ? 'Koin DaPay' : (usedCoinsAmount > 0 ? `${activePayment} + Koin DaPay` : activePayment);
+      const paymentMethodName = activePayment;
+      const { data: { session } } = await supabase.auth.getSession();
 
       const response = await fetch('/api/orders/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
-          order_id: orderIdStr, 
+          reservationId,
           sku: activeSku, 
           product_name: productData.name, 
           item_label: activeLabel,
           customer_no: combinedCustomerNo, 
           buy_price: activeCost, 
           price: activePrice, 
-          unique_code: uniqueCode,
-          total_amount: totalAmount, 
           payment_method: paymentMethodName,
-          status: 'Pending', 
           user_contact: email || `GUEST-${browserData.deviceId.slice(0, 8)}`, 
           ip_address: browserData.ip,
           device_id: browserData.deviceId, 
-          user_id: currentUser?.id || null, 
-          email: currentUser?.email || null, 
           referred_by: referrer || null,
           category: productData.category || "game", 
-          created_at: new Date().toISOString(), 
           // 🚀 FIX: Gunakan variabel penangkap pintar agar koin pascabayar tidak hangus/0
-          used_balance: activeUsedBalance, 
+          used_balance: 0,
           cashback: (memberType?.toLowerCase() === 'special') ? estimasiCashback : 0, 
           voucher_amount: isPromoApplied ? discount : 0,
           raw_tagihan: customPayload?.raw_tagihan || 0,
@@ -288,6 +316,12 @@ const handleCheckout = async (customPayload?: any) => {
       const resData = await response.json();
       if (!response.ok) throw new Error(resData.error || "Gagal membuat pesanan.");
 
+      const createdOrderId = resData.order_id;
+
+      if (!createdOrderId) {
+        throw new Error("Server tidak mengembalikan Order ID.");
+      }
+
       // --- MULAI: UPDATE CACHE GUEST ---
       // Simpan history ke LocalStorage HANYA JIKA user belum login (Guest)
       if (!currentUser) {
@@ -296,8 +330,8 @@ const handleCheckout = async (customPayload?: any) => {
           let history = guestCache ? JSON.parse(guestCache) : [];
           
           const newOrderToCache = {
-            id: resData.id || orderIdStr, 
-            order_id: orderIdStr, 
+            id: resData.id || createdOrderId,
+            order_id: createdOrderId,
             product_name: productData.name, 
             customer_no: combinedCustomerNo, 
             status: 'Pending', 
@@ -316,15 +350,7 @@ const handleCheckout = async (customPayload?: any) => {
       }
       // --- SELESAI: UPDATE CACHE GUEST ---
 
-      if (isFullCoin && currentUser?.email) {
-        await fetch('/api/orders/process/coin', {
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order_id: orderIdStr, email: currentUser.email })
-        });
-      }
-
-      router.push(`/checkout/pay/${orderIdStr}`);
+      router.push(`/checkout/pay/${createdOrderId}`);
     } catch (err: any) { 
       alert("Gagal: " + err.message); 
     } finally { 

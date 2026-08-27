@@ -1,101 +1,175 @@
-import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { authenticateRequest } from "@/utils/serverAuth";
+import { supabaseAdmin } from "@/utils/supabaseAdmin";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const SIGNED_INTEGER_PATTERN = /^(?:0|[1-9][0-9]*)$/;
+const BIGINT_MAX = BigInt("9223372036854775807");
 
-export async function POST(req: Request) {
+function badRequest(error: string) {
+  return NextResponse.json({ error }, { status: 400 });
+}
+
+function parseTrustedSetting(value: number | null, fallback: bigint) {
+  if (value === null) {
+    return fallback;
+  }
+
+  if (!Number.isSafeInteger(value) || value < 0) {
+    return null;
+  }
+
+  return BigInt(value);
+}
+
+function mapRpcError(message: string) {
+  switch (message) {
+    case "WITHDRAWAL_INVALID_USER":
+    case "WITHDRAWAL_INVALID_INPUT":
+    case "WITHDRAWAL_AMOUNT_OVERFLOW":
+      return badRequest("Data penarikan tidak valid.");
+    case "WITHDRAWAL_PROFILE_NOT_FOUND":
+      return NextResponse.json({ error: "Profil pengguna tidak ditemukan." }, { status: 404 });
+    case "WITHDRAWAL_PROFILE_INVALID":
+      return NextResponse.json({ error: "Saldo pengguna tidak dapat diproses." }, { status: 409 });
+    case "WITHDRAWAL_INSUFFICIENT_BALANCE":
+      return NextResponse.json({ error: "Saldo tidak cukup." }, { status: 409 });
+    case "WITHDRAWAL_PENDING_EXISTS":
+      return NextResponse.json(
+        { error: "Anda masih memiliki penarikan yang sedang diproses." },
+        { status: 409 },
+      );
+    default:
+      return NextResponse.json(
+        { error: "Gagal memproses penarikan." },
+        { status: 500 },
+      );
+  }
+}
+
+export async function POST(request: Request) {
+  const authentication = await authenticateRequest(request);
+
+  if (!authentication.ok) {
+    return NextResponse.json(
+      { error: authentication.message },
+      { status: authentication.status },
+    );
+  }
+
+  let body: unknown;
+
   try {
-        // --- 0. PROTEKSI MAINTENANCE LEVEL API (Gembok Utama) ---
-        const { data: maintenanceCheck } = await supabaseAdmin
-          .from('store_settings')
-          .select('is_maintenance')
-          .single();
-    
-        if (maintenanceCheck?.is_maintenance) {
-          return NextResponse.json({ 
-            error: "Sistem sedang pemeliharaan (Maintenance). Deposit dihentikan sementara demi keamanan saldo Anda." 
-          }, { status: 503 });
-        }
-        // -------------------------------------------------------
-const { email, amount, bankName, accNumber, accName } = await req.json();
+    body = await request.json();
+  } catch {
+    return badRequest("Body request harus berupa JSON yang valid.");
+  }
 
-    // 1. Ambil Pengaturan dari store_settings (Dinamis)
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return badRequest("Body request tidak valid.");
+  }
+
+  const { amount, bankName, accountNumber, accountName } = body as Record<string, unknown>;
+
+  if (typeof amount !== "string" || !SIGNED_INTEGER_PATTERN.test(amount)) {
+    return badRequest("Nominal penarikan harus berupa bilangan bulat positif.");
+  }
+
+  let parsedAmount: bigint;
+
+  try {
+    parsedAmount = BigInt(amount);
+  } catch {
+    return badRequest("Nominal penarikan tidak valid.");
+  }
+
+  if (parsedAmount <= BigInt(0) || parsedAmount > BIGINT_MAX) {
+    return badRequest("Nominal penarikan tidak valid.");
+  }
+
+  if (
+    typeof bankName !== "string"
+    || typeof accountNumber !== "string"
+    || typeof accountName !== "string"
+  ) {
+    return badRequest("Data rekening tidak valid.");
+  }
+
+  const trimmedBankName = bankName.trim();
+  const trimmedAccountNumber = accountNumber.trim();
+  const trimmedAccountName = accountName.trim();
+
+  if (!trimmedBankName || !trimmedAccountNumber || !trimmedAccountName) {
+    return badRequest("Data rekening wajib diisi.");
+  }
+
+  try {
+    const { data: maintenance, error: maintenanceError } = await supabaseAdmin
+      .from("store_settings")
+      .select("is_maintenance")
+      .single();
+
+    if (maintenanceError) {
+      return NextResponse.json(
+        { error: "Gagal memuat pengaturan sistem." },
+        { status: 500 },
+      );
+    }
+
+    if (maintenance?.is_maintenance) {
+      return NextResponse.json(
+        { error: "Sistem sedang pemeliharaan. Penarikan dihentikan sementara." },
+        { status: 503 },
+      );
+    }
+
     const { data: settings, error: settingsError } = await supabaseAdmin
-      .from('store_settings')
-      .select('withdraw_fee, withdraw_min') // Pastikan lo sudah tambah kolom ini
+      .from("store_settings")
+      .select("withdraw_fee, withdraw_min")
       .single();
 
-    if (settingsError || !settings) throw new Error('Gagal memuat pengaturan sistem');
-
-    const adminFee = Number(settings.withdraw_fee || 0);
-    const minWD = Number(settings.withdraw_min || 10000);
-    const totalDeduction = amount + adminFee;
-
-    // 2. Validasi Nominal Minimal & Input
-    if (!email || amount < minWD) {
-      return NextResponse.json({ error: `Minimal penarikan adalah Rp${minWD.toLocaleString()}` }, { status: 400 });
-    }
-    
-    // 1. Ambil saldo asli dari DB
-    const { data: profile, error: pError } = await supabaseAdmin
-      .from('profiles')
-      .select('balance')
-      .eq('email', email)
-      .single();
-
-if (pError || !profile) throw new Error('User tidak ditemukan');
-    if (profile.balance < totalDeduction) return NextResponse.json({ error: 'Saldo tidak cukup!' }, { status: 400 });
-
-    // 🔥 GEMBOK ANTI-SPAM: Cek apakah user masih punya WD yang menggantung (Pending)
-    const { data: pendingWD } = await supabaseAdmin
-      .from('withdrawals')
-      .select('id')
-      .eq('user_email', email)
-      .eq('status', 'Pending')
-      .maybeSingle();
-
-    if (pendingWD) {
-      return NextResponse.json({ 
-        error: 'Sabar Bos! Anda masih memiliki penarikan yang sedang diproses.' 
-      }, { status: 400 });
+    if (settingsError || !settings) {
+      return NextResponse.json(
+        { error: "Gagal memuat pengaturan sistem." },
+        { status: 500 },
+      );
     }
 
-    const newBalance = profile.balance - totalDeduction;
+    const adminFee = parseTrustedSetting(settings.withdraw_fee, BigInt(0));
+    const minimumWithdrawal = parseTrustedSetting(settings.withdraw_min, BigInt(10000));
 
-    // 🔥 OPTIMASI SPEED: Jalankan Insert WD, Update Saldo, dan Log secara Parallel
-    const [wdResult, updateResult, logResult] = await Promise.all([
-      supabaseAdmin.from('withdrawals').insert([{
-        user_email: email,
-        amount: amount,
-        held_amount: totalDeduction,
-        status: 'Pending',
-        bank_name: bankName,
-        account_number: accNumber,
-        account_name: accName,
-        admin_fee: adminFee
-      }]),
-      supabaseAdmin.from('profiles').update({ balance: newBalance }).eq('email', email),
-      supabaseAdmin.from('balance_logs').insert([{
-        user_email: email,
-        amount: -totalDeduction,
-        type: 'Withdraw',
-        description: `Penarikan Rp${amount.toLocaleString()} (Pending Admin)`,
-        initial_balance: profile.balance,
-        final_balance: newBalance
-      }])
-    ]);
+    if (adminFee === null || minimumWithdrawal === null) {
+      return NextResponse.json(
+        { error: "Pengaturan penarikan tidak valid." },
+        { status: 500 },
+      );
+    }
 
-    // Cek kalau ada yang error pas eksekusi barengan
-    if (wdResult.error) throw wdResult.error;
-    if (updateResult.error) throw updateResult.error;
-    if (logResult.error) throw logResult.error;
+    if (parsedAmount < minimumWithdrawal) {
+      return badRequest(`Minimal penarikan adalah Rp${minimumWithdrawal.toString()}.`);
+    }
 
-    return NextResponse.json({ success: true, newBalance });
+    const { data: withdrawalId, error } = await supabaseAdmin.rpc(
+      "create_withdrawal_atomic",
+      {
+        p_user_id: authentication.user.id,
+        p_amount: amount,
+        p_bank_name: trimmedBankName,
+        p_account_number: trimmedAccountNumber,
+        p_account_name: trimmedAccountName,
+        p_admin_fee: adminFee.toString(),
+      },
+    );
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      return mapRpcError(error.message);
+    }
+
+    if (typeof withdrawalId !== "string") {
+      return NextResponse.json({ error: "Gagal memproses penarikan." }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, withdrawalId });
+  } catch {
+    return NextResponse.json({ error: "Gagal memproses penarikan." }, { status: 500 });
   }
 }

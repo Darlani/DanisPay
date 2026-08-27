@@ -62,9 +62,49 @@ const [errorMsg, setErrorMsg] = useState("");
         body: JSON.stringify({ email, password })
       });
 
-      const result = await res.json();
+      type LoginResponse = {
+        success?: boolean;
+        error?: string;
+        user?: {
+          id: string;
+          email: string;
+          full_name: string;
+          role?: string;
+        };
+        session?: {
+          access_token: string;
+          refresh_token: string;
+          expires_in: number;
+        };
+      };
 
-      if (!res.ok) throw new Error(result.error || "Gagal Login");
+      let result: LoginResponse | null = null;
+      const rawText = await res.text();
+
+      if (rawText) {
+        try {
+          result = JSON.parse(rawText) as LoginResponse;
+        } catch {
+          result = null;
+        }
+      }
+
+      if (!res.ok) {
+        const errorMessage =
+          result?.error ||
+          (res.status >= 500
+            ? "Server sedang mengalami kendala. Silakan coba lagi beberapa saat."
+            : "Gagal login. Silakan periksa kembali email dan password Anda.");
+        throw new Error(errorMessage);
+      }
+
+      if (!result || typeof result !== "object") {
+        throw new Error("Server sedang mengalami kendala. Silakan coba lagi beberapa saat.");
+      }
+
+      if (!result.session?.access_token || !result.user) {
+        throw new Error(result.error || "Sesi login tidak valid. Silakan coba lagi.");
+      }
 
       const { error: sessionError } = await supabase.auth.setSession({
         access_token: result.session.access_token,
@@ -74,13 +114,13 @@ const [errorMsg, setErrorMsg] = useState("");
       if (sessionError) throw sessionError;
 
       // Cek role dari response (jika tidak ada anggap member biasa)
-      const userRole = result.user.role || 'member';
+      const userRole = result.user?.role || 'member';
 
       if (userRole === 'admin' || userRole === 'manager') {
         // Cek ke backend Supabase apakah admin/manager ini sudah mengaktifkan 2FA
         const { data: mfaData } = await supabase.auth.mfa.listFactors();
         // Pakai .all dan sesuaikan nama properti dengan typing Supabase (factor_type)
-        const totpFactor = mfaData?.all?.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
+        const totpFactor = mfaData?.all?.find((f) => f.factor_type === 'totp' && f.status === 'verified');
 
         if (totpFactor) {
           // Jika sudah punya 2FA, simpan ID factor-nya dan tampilkan form PIN
@@ -91,24 +131,25 @@ const [errorMsg, setErrorMsg] = useState("");
           router.push("/setup-2fa");
         }
       } else {
-// Jika member biasa, bebas akses tanpa 2FA
-        localStorage.setItem("userEmail", result.user.email);
-        localStorage.setItem("userName", result.user.full_name);
-        
-        // Ambil umur token otomatis dari pusat (Supabase)
-        const expiresIn = result.session.expires_in;
-        
-        // Simpan token ke cookie agar proxy.ts bisa membacanya
-        document.cookie = `sb-access-token=${result.session.access_token}; path=/; max-age=${expiresIn}; Secure; SameSite=Lax`;
-        document.cookie = `userRole=member; path=/; max-age=${expiresIn}; Secure; SameSite=Lax`;
-        
-        // KEMBALIKAN PENANDA LOKAL UNTUK NAVBAR
-        localStorage.setItem("isUser", "true");
-        
-        router.push("/user");
+        // Jika member biasa, bebas akses tanpa 2FA
+        localStorage.setItem("userEmail", result.user.email);
+        localStorage.setItem("userName", result.user.full_name);
+
+        // Ambil umur token otomatis dari pusat (Supabase)
+        const expiresIn = result.session.expires_in;
+
+        // Simpan token ke cookie agar proxy.ts bisa membacanya
+        document.cookie = `sb-access-token=${result.session.access_token}; path=/; max-age=${expiresIn}; Secure; SameSite=Lax`;
+        document.cookie = `userRole=member; path=/; max-age=${expiresIn}; Secure; SameSite=Lax`;
+
+        // KEMBALIKAN PENANDA LOKAL UNTUK NAVBAR
+        localStorage.setItem("isUser", "true");
+
+        router.push("/user");
       }
-    } catch (err: any) {
-      setErrorMsg(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Gagal login. Silakan coba lagi.";
+      setErrorMsg(message);
     } finally {
       setLoading(false);
     }

@@ -1,88 +1,182 @@
-import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/utils/supabaseAdmin';
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/utils/supabaseAdmin";
 
-export async function POST(req: Request) {
+const POSITIVE_INTEGER = /^(?:[1-9][0-9]*)$/;
+const RESERVATION_LIFETIME_MS = 5 * 60 * 1000;
+
+function parseBasePrice(value: unknown): bigint | null {
+  if (typeof value !== "string" || !POSITIVE_INTEGER.test(value)) {
+    return null;
+  }
+
   try {
-    // Tambahkan paymentMethod di sini
-    const { basePrice, userId, paymentMethod } = await req.json();
+    return BigInt(value);
+  } catch {
+    return null;
+  }
+}
 
-    // ==========================================
-    // 1. CEK METODE PEMBAYARAN
-    // ==========================================
-    if (paymentMethod === 'Koin DaPay') {
-      return NextResponse.json({ success: true, uniqueCode: 0 });
+function normalizeTotal(value: unknown): string | null {
+  if (typeof value === "string" && POSITIVE_INTEGER.test(value)) {
+    return value;
+  }
+
+  if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) {
+    return String(value);
+  }
+
+  return null;
+}
+
+export async function POST(request: Request) {
+  try {
+    const body: unknown = await request.json();
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Body request tidak valid." }, { status: 400 });
     }
 
-    // ==========================================
-    // 2. LOGIKA PENCARIAN KODE UNIK (Bank / QRIS / E-Wallet)
-    // ==========================================
+    const bodyRecord = body as Record<string, unknown>;
 
-    // A. SENSOR KEPADATAN & CLEANUP (5 Menit)
-    const { count: totalPending } = await supabaseAdmin.from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'Pending');
-    
-    await supabaseAdmin.from('code_reservations').delete().lt('expired_at', new Date().toISOString());
+    if (Object.keys(bodyRecord).some((key) => key !== "basePrice")) {
+      return NextResponse.json({ error: "Body request tidak valid." }, { status: 400 });
+    }
 
-    // B. LOGIKA RANGEMAX AWAL
+    const { basePrice } = bodyRecord;
+    const baseAmount = parseBasePrice(basePrice);
+
+    if (baseAmount === null) {
+      return NextResponse.json(
+        { error: "Nominal pembayaran harus berupa bilangan bulat positif." },
+        { status: 400 },
+      );
+    }
+
+    const now = new Date();
+    const expiry = new Date(now.getTime() + RESERVATION_LIFETIME_MS).toISOString();
+
+    const { error: cleanupError } = await supabaseAdmin
+      .from("code_reservations")
+      .delete()
+      .lt("expired_at", now.toISOString());
+
+    if (cleanupError) {
+      throw cleanupError;
+    }
+
+    const [ordersCount, depositsCount, pendingOrders, pendingDeposits, reservations] =
+      await Promise.all([
+        supabaseAdmin
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "Pending"),
+        supabaseAdmin
+          .from("deposits")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "Pending"),
+        supabaseAdmin.from("orders").select("total_amount").eq("status", "Pending"),
+        supabaseAdmin.from("deposits").select("total_amount").eq("status", "Pending"),
+        supabaseAdmin.from("code_reservations").select("total_amount"),
+      ]);
+
+    const queryError = [
+      ordersCount.error,
+      depositsCount.error,
+      pendingOrders.error,
+      pendingDeposits.error,
+      reservations.error,
+    ].find(Boolean);
+
+    if (queryError) {
+      throw queryError;
+    }
+
+    const lockedTotals = new Set(
+      [
+        ...(pendingOrders.data ?? []).map((row) => normalizeTotal(row.total_amount)),
+        ...(pendingDeposits.data ?? []).map((row) => normalizeTotal(row.total_amount)),
+        ...(reservations.data ?? []).map((row) => normalizeTotal(row.total_amount)),
+      ].filter((value): value is string => value !== null),
+    );
+
+    const totalPending = (ordersCount.count ?? 0) + (depositsCount.count ?? 0);
     let rangeMax = 100;
-    if ((totalPending || 0) > 350) rangeMax = 999;
-    else if ((totalPending || 0) > 170) rangeMax = 500;
-    else if ((totalPending || 0) > 70) rangeMax = 200;
+    if (totalPending > 350) rangeMax = 999;
+    else if (totalPending > 170) rangeMax = 500;
+    else if (totalPending > 70) rangeMax = 200;
 
-    // C. TARIK DATA NOMINAL TERKUNCI (Hanya kolom total_amount)
-    const [resOrders, resReservations] = await Promise.all([
-      supabaseAdmin.from('orders').select('total_amount').eq('status', 'Pending'),
-      supabaseAdmin.from('code_reservations').select('total_amount')
-    ]);
+    const reserve = async (candidate: number) => {
+      const totalAmount = (baseAmount + BigInt(candidate)).toString();
 
-    const lockedSet = new Set([
-      ...(resOrders.data?.map(o => o.total_amount) || []),
-      ...(resReservations.data?.map(r => r.total_amount) || [])
-    ]);
+      if (lockedTotals.has(totalAmount)) {
+        return null;
+      }
 
-    let uniqueCode = 0;
-    let isReserved = false;
+      const { data: reservation, error: reservationError } = await supabaseAdmin
+        .from("code_reservations")
+        .insert({ total_amount: totalAmount, expired_at: expiry })
+        .select("id")
+        .single();
 
-    // D. STAGE 1: RANDOM QUICK TRY (Coba 5x Keberuntungan)
-    for (let attempts = 0; attempts < 5; attempts++) {
-      let currentRandomRange = rangeMax;
-      if (attempts > 3) currentRandomRange = 500; 
-
-      const randomCandidate = Math.floor(Math.random() * currentRandomRange) + 1;
-      const targetNominal = basePrice + randomCandidate;
-
-      if (!lockedSet.has(targetNominal)) {
-        const { error } = await supabaseAdmin.from('code_reservations')
-          .insert([{ total_amount: targetNominal, expired_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() }]);
-        
-        if (!error) {
-          uniqueCode = randomCandidate;
-          isReserved = true;
-          break;
+      if (reservationError) {
+        if (reservationError.code === "23505") {
+          return null;
         }
+        throw reservationError;
+      }
+
+      const [orderCollision, depositCollision] = await Promise.all([
+        supabaseAdmin
+          .from("orders")
+          .select("id")
+          .eq("status", "Pending")
+          .eq("total_amount", totalAmount)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("deposits")
+          .select("id")
+          .eq("status", "Pending")
+          .eq("total_amount", totalAmount)
+          .maybeSingle(),
+      ]);
+
+      if (orderCollision.error || depositCollision.error) {
+        await supabaseAdmin.from("code_reservations").delete().eq("id", reservation.id);
+        throw orderCollision.error ?? depositCollision.error;
+      }
+
+      if (orderCollision.data || depositCollision.data) {
+        await supabaseAdmin.from("code_reservations").delete().eq("id", reservation.id);
+        lockedTotals.add(totalAmount);
+        return null;
+      }
+
+      return { reservationId: reservation.id, uniqueCode: candidate, totalAmount };
+    };
+
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const candidateRange = attempt === 5 ? 500 : rangeMax;
+      const reserved = await reserve(Math.floor(Math.random() * candidateRange) + 1);
+      if (reserved) {
+        return NextResponse.json({ success: true, ...reserved });
       }
     }
 
-    // E. STAGE 2: SEQUENTIAL GAP SEARCH (Cari lubang terkecil jika random gagal)
-    if (!isReserved) {
-      for (let i = 1; i <= 2000; i++) {
-        const targetNominal = basePrice + i;
-        if (!lockedSet.has(targetNominal)) {
-          const { error } = await supabaseAdmin.from('code_reservations')
-            .insert([{ total_amount: targetNominal, expired_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() }]);
-          
-          if (!error) {
-            uniqueCode = i;
-            isReserved = true;
-            break;
-          }
-        }
+    for (let candidate = 1; candidate <= 2000; candidate += 1) {
+      const reserved = await reserve(candidate);
+      if (reserved) {
+        return NextResponse.json({ success: true, ...reserved });
       }
     }
 
-    return NextResponse.json({ success: true, uniqueCode });
-  } catch (err) {
-    return NextResponse.json({ success: false, uniqueCode: Math.floor(Math.random() * 999) + 1 });
+    return NextResponse.json(
+      { error: "Kode unik pembayaran sedang penuh. Silakan coba lagi." },
+      { status: 409 },
+    );
+  } catch {
+    return NextResponse.json(
+      { error: "Gagal menyiapkan nominal pembayaran unik." },
+      { status: 500 },
+    );
   }
 }

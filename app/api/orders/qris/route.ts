@@ -1,121 +1,335 @@
-import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/utils/supabaseAdmin'; // Gunakan admin untuk query
+import { NextResponse } from "next/server";
 
-// Kode mentah dari GoPay Bos
-const BASE_STATIC_QRIS = process.env.QRIS_BASE_STATIC || "";
+import { supabaseAdmin } from "@/utils/supabaseAdmin";
 
-function generateDynamicQRIS(staticQRIS: string, nominal: number) {
-  // 1. Ambil string asli dari .env
-  let payload = staticQRIS.trim();
+import {
+  generateQrisWithFallback,
+} from "@/lib/qris/qris-generator";
 
-  // PENTING: Jangan ubah "010211" menjadi "010212".
-  // Biarkan berstatus "Statis" (11) di mata Bank, TAPI kita injeksi nominal (Tag 54) ke dalamnya.
-  // Ini trik "Open-Static" aman untuk menghindari validasi Tag 62 dari bank.
-  
-  // 2. Buang CRC bawaan di paling belakang (Hapus 4 karakter hex: "XXXX")
-  // Kita HANYA buang nilainya, jangan buang tag "6304"-nya
-  payload = payload.slice(0, -4);
+import {
+  QrisProvider,
+} from "@/lib/qris/qris-config";
 
-  // 3. Inject Nominal (Tag 54) persis sebelum Tag 58
-  const amountStr = Math.floor(nominal).toString();
-  const tag54 = `54${amountStr.length.toString().padStart(2, '0')}${amountStr}`;
-  
-  if (payload.includes("5802ID")) {
-    const parts = payload.split("5802ID");
-    payload = parts[0] + tag54 + "5802ID" + parts[1];
-  } else {
-    // Fallback darurat jika aneh
-    payload = payload.replace("6304", tag54 + "6304"); 
-  }
-
-  // 4. Hitung ulang CRC16
-  let crc = 0xFFFF;
-  for (let i = 0; i < payload.length; i++) {
-    crc ^= payload.charCodeAt(i) << 8;
-    for (let j = 0; j < 8; j++) {
-      if ((crc & 0x8000) !== 0) crc = (crc << 1) ^ 0x1021;
-      else crc = crc << 1;
-    }
-  }
-
-  const crcHex = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-  return payload + crcHex;
-}
-
-export async function POST(request: Request) {
+export async function POST(
+  request: Request
+) {
   try {
-    const { orderId } = await request.json();
+    const body =
+      await request.json();
+
+    const orderId =
+      typeof body.orderId === "string"
+        ? body.orderId.trim()
+        : "";
 
     if (!orderId) {
-      return NextResponse.json({ error: "Order ID missing" }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Order ID missing",
+        },
+        { status: 400 }
+      );
     }
 
-    // Pagar Pengaman: Pastikan kunci QRIS di .env sudah diisi [cite: 2026-03-06]
-    if (!BASE_STATIC_QRIS) {
-      console.error("❌ Error: QRIS_BASE_STATIC belum diisi di .env VPS!");
-      return NextResponse.json({ error: "Sistem QRIS belum siap" }, { status: 500 });
-    }
+    /*
+     * =====================================================
+     * 1. AMBIL ORDER
+     * =====================================================
+     */
 
-// Ambil data spesifik agar performa maksimal
-    const { data: order, error } = await supabaseAdmin
-      .from('orders')
-      .select('total_amount, status, qris_string, created_at') // Tambahkan created_at di sini
-      .eq('order_id', orderId)
+    const {
+      data: order,
+      error: orderError,
+    } = await supabaseAdmin
+      .from("orders")
+      .select(
+        "order_id, total_amount, status, qris_string, created_at"
+      )
+      .eq(
+        "order_id",
+        orderId
+      )
       .single();
 
-    if (error || !order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    if (
+      orderError ||
+      !order
+    ) {
+      console.error(
+        "ORDER NOT FOUND:",
+        orderError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Order not found",
+        },
+        { status: 404 }
+      );
     }
 
-  if (order.status !== 'Pending') {
-      return NextResponse.json({ error: "Order is not pending" }, { status: 400 });
+    /*
+     * =====================================================
+     * 2. HANYA ORDER PENDING
+     * =====================================================
+     */
+
+    if (
+      order.status !== "Pending"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Order is not pending",
+        },
+        { status: 400 }
+      );
     }
 
-    // Pagar Keamanan: Cek apakah sudah lewat 2 jam (Sinkron dengan Frontend)
-    const createdAt = new Date(order.created_at).getTime();
-    const now = new Date().getTime();
-    const twoHoursInMs = 2 * 60 * 60 * 1000;
+    /*
+     * =====================================================
+     * 3. EXPIRED 2 JAM
+     * =====================================================
+     */
 
-    if (now - createdAt > twoHoursInMs) {
-      // Opsional: Update status jadi Gagal/Expired di sini biar database bersih
+    const createdAt =
+      new Date(
+        order.created_at
+      ).getTime();
+
+    const now =
+      Date.now();
+
+    const twoHours =
+      2 *
+      60 *
+      60 *
+      1000;
+
+    if (
+      !Number.isFinite(
+        createdAt
+      ) ||
+      now - createdAt >
+        twoHours
+    ) {
       await supabaseAdmin
-        .from('orders')
-        .update({ status: 'Gagal' })
-        .eq('order_id', orderId);
+        .from("orders")
+        .update({
+          status: "Gagal",
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          "order_id",
+          orderId
+        );
 
-      return NextResponse.json({ error: "Order sudah kadaluarsa (2 jam)" }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Order sudah kadaluarsa (2 jam).",
+        },
+        { status: 400 }
+      );
     }
 
-    // Jika sudah ada QRIS, langsung return (Hemat CPU & Speed < 200ms)
-    if (order.qris_string) {
-      return NextResponse.json({ 
-        success: true, 
-        qrisString: order.qris_string 
+    /*
+     * =====================================================
+     * 4. JIKA QR SUDAH ADA
+     *
+     * PENTING:
+     *
+     * QR order lama JANGAN berubah
+     * ketika admin melakukan switch provider.
+     *
+     * Contoh:
+     *
+     * Order A dibuat saat DANA Dynamic
+     * Admin switch ke GoPay Static
+     *
+     * Order A tetap menggunakan QR DANA.
+     *
+     * Order B yang baru akan menggunakan GoPay.
+     * =====================================================
+     */
+
+    if (
+      order.qris_string
+    ) {
+      return NextResponse.json({
+        success: true,
+        qrisString:
+          order.qris_string,
+        cached: true,
       });
     }
 
-// Pastikan nominal adalah angka bulat untuk Tag 54
-    const nominalAmount = Math.floor(Number(order.total_amount));
+    /*
+     * =====================================================
+     * 5. AMBIL PROVIDER AKTIF
+     * =====================================================
+     */
 
-    // Generate string QRIS Dinamis
-    const dynamicString = generateDynamicQRIS(BASE_STATIC_QRIS, nominalAmount);
+    const {
+      data: settings,
+      error: settingsError,
+    } = await supabaseAdmin
+      .from("qris_settings")
+      .select(
+        "id, active_provider, updated_at"
+      )
+      .eq("id", 1)
+      .maybeSingle();
 
-    // Update 'updated_at' & Simpan QRIS agar tidak generate ulang
-    // Kita jalankan update, lalu return hasil ke user
-    await supabaseAdmin
-      .from('orders')
-      .update({ 
-        updated_at: new Date().toISOString(),
-        qris_string: dynamicString // Masukkan ke kolom baru
+    if (
+      settingsError
+    ) {
+      console.error(
+        "QRIS SETTINGS ERROR:",
+        settingsError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Gagal membaca konfigurasi QRIS.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const provider =
+      (
+        settings?.active_provider ||
+        "dana_dynamic"
+      ) as QrisProvider;
+
+    /*
+     * =====================================================
+     * 6. NOMINAL
+     * =====================================================
+     */
+
+    const nominalAmount =
+      Math.floor(
+        Number(
+          order.total_amount
+        )
+      );
+
+    if (
+      !Number.isFinite(
+        nominalAmount
+      ) ||
+      nominalAmount <= 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Nominal order tidak valid.",
+        },
+        { status: 400 }
+      );
+    }
+
+    /*
+     * =====================================================
+     * 7. GENERATE QR
+     * =====================================================
+     */
+
+    const generated =
+      generateQrisWithFallback(
+        provider,
+        nominalAmount
+      );
+
+    /*
+     * =====================================================
+     * 8. SIMPAN QR KE ORDER
+     * =====================================================
+     */
+
+    const {
+      error: updateError,
+    } = await supabaseAdmin
+      .from("orders")
+      .update({
+        qris_string:
+          generated.qrisString,
+
+        updated_at:
+          new Date().toISOString(),
       })
-      .eq('order_id', orderId);
+      .eq(
+        "order_id",
+        orderId
+      );
 
-    return NextResponse.json({ 
-      success: true, 
-      qrisString: dynamicString 
-    });
+    if (
+      updateError
+    ) {
+      console.error(
+        "GAGAL SIMPAN QRIS:",
+        updateError
+      );
 
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Gagal menyimpan QRIS.",
+        },
+        { status: 500 }
+      );
+    }
+
+    /*
+     * =====================================================
+     * 9. RESPONSE
+     * =====================================================
+     */
+
+    return NextResponse.json({
+      success: true,
+
+      provider:
+        generated.provider,
+
+      type:
+        generated.type,
+
+      amount:
+        generated.amount,
+
+      qrisString:
+        generated.qrisString,
+
+      cached: false,
+    });
+
+  } catch (error) {
+    console.error(
+      "QRIS GENERATOR ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Gagal membuat QRIS.",
+      },
+      { status: 500 }
+    );
   }
 }

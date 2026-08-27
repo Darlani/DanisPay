@@ -1,105 +1,83 @@
-import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/utils/supabaseAdmin';
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/utils/supabaseAdmin";
 
-export async function GET(req: Request) {
-  // 1. SATPAM API (Khusus Robot Tukang Sapu)
-  const { searchParams } = new URL(req.url);
-  const querySecret = searchParams.get('secret');
-  const authHeader = req.headers.get('Authorization');
-  const WEBHOOK_SECRET = process.env.CRON_SECRET;
+function isAuthorizedCron(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  return Boolean(secret) && request.headers.get("authorization") === `Bearer ${secret}`;
+}
 
-  const isAuthorized = authHeader === `Bearer ${WEBHOOK_SECRET}` || querySecret === WEBHOOK_SECRET;
+function isPositiveInteger(value: unknown) {
+  return (
+    (typeof value === "number" && Number.isSafeInteger(value) && value > 0) ||
+    (typeof value === "string" && /^(?:[1-9][0-9]*)$/.test(value))
+  );
+}
 
-  if (!isAuthorized) {
-    return NextResponse.json({ error: "Akses Ditolak! Kunci rahasia salah." }, { status: 401 });
+export async function GET(request: Request) {
+  if (!isAuthorizedCron(request)) {
+    return NextResponse.json({ error: "Akses ditolak." }, { status: 401 });
   }
 
-  // 2. LOGIKA CLEANUP: Pesanan lebih dari 2 jam = Hangus
-  const duaJamLalu = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-
-  console.error(`🚨 [DEBUG-CLEANUP] Robot Aktif! Cek data sebelum: ${duaJamLalu}`);
-
   try {
-    // A. TARIK SEMUA PESANAN EXPIRED (Ambil kolom spesifik untuk amunisi Resend tanpa SELECT *)
-    const { data: expiredOrders, error: fetchErr } = await supabaseAdmin
-      .from('orders')
-      .select('id, order_id, user_id, used_balance, product_name, total_amount, payment_method, user_contact, email, profiles(balance, email)')
-      .eq('status', 'Pending')
-      .lt('created_at', duaJamLalu);
+    const expiry = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const { data: candidates, error } = await supabaseAdmin
+      .from("orders")
+      .select("id, used_balance, total_amount")
+      .eq("status", "Pending")
+      .lt("created_at", expiry);
 
-    if (fetchErr) throw fetchErr;
-
-    if (!expiredOrders || expiredOrders.length === 0) {
-      console.log(`✅ [CLEANUP SUKSES]: 0 pesanan sampah ditemukan.`);
-      return NextResponse.json({ success: true, message: "Aman, tidak ada data expired.", cleaned_count: 0 });
+    if (error) {
+      throw error;
     }
 
-    // B. LOOPING UNTUK REFUND (JIKA ADA KOIN YANG TERSANDERA)
     let cleanedCount = 0;
 
-    for (const order of expiredOrders) {
-      const koinDipakai = order.used_balance || 0;
+    for (const candidate of candidates ?? []) {
+      const isMixed =
+        isPositiveInteger(candidate.used_balance) && isPositiveInteger(candidate.total_amount);
 
-      // Jika user pakai koin saat checkout tapi gak jadi bayar sisanya (QRIS kadaluarsa)
-      if (order.user_id && koinDipakai > 0) {
-        const currentBalance = (order.profiles as any)?.balance || 0;
-        const newBalance = currentBalance + koinDipakai;
-        const userEmail = (order.profiles as any)?.email || "User";
+      if (isMixed) {
+        const { data: refunded, error: refundError } = await supabaseAdmin.rpc(
+          "refund_expired_mixed_order_atomic",
+          { p_order_id: candidate.id },
+        );
 
-        // 1. Kembalikan Saldo Koin
-        await supabaseAdmin.from('profiles').update({ balance: newBalance }).eq('id', order.user_id);
-        
-        // 2. Catat Sejarah Mutasi
-        await supabaseAdmin.from('balance_logs').insert([{
-          user_id: order.user_id,
-          user_email: userEmail,
-          amount: koinDipakai,
-          type: 'Refund',
-          description: `Refund Koin (Order Batal Expired) #${order.order_id}`,
-          initial_balance: currentBalance,
-          final_balance: newBalance
-        }]);
+        if (refundError) {
+          throw refundError;
+        }
+
+        // false is a normal no-op when another resolver/cleanup already won.
+        if (refunded === true) {
+          cleanedCount += 1;
+        }
+        continue;
       }
 
-      // C. UPDATE STATUS JADI GAGAL (Penjelasan super jelas agar tidak bisa dimanipulasi user)
-      await supabaseAdmin.from('orders').update({ 
-        status: 'Gagal',
-        notes: `Batal Otomatis: Batas waktu pembayaran habis (Tidak ada dana masuk dalam 2 jam). ${koinDipakai > 0 ? `Koin Rp ${koinDipakai.toLocaleString('id-ID')} telah dikembalikan aman ke saldo.` : ''}`
-      }).eq('id', order.id);
+      // External-only expiry has no wallet principal to refund. Conditional
+      // update makes the candidate query non-authoritative and race-safe.
+      const { data: expiredOrder, error: expireError } = await supabaseAdmin
+        .from("orders")
+        .update({
+          status: "Gagal",
+          updated_at: new Date().toISOString(),
+          notes: "Batal Otomatis: Batas waktu pembayaran habis (Tidak ada dana masuk dalam 2 jam).",
+        })
+        .eq("id", candidate.id)
+        .eq("status", "Pending")
+        .select("id")
+        .maybeSingle();
 
-      // === AUTOMATIC RESEND NOTICE (EXPIRED/CANCELED) ===
-      const targetContactCleanup = order.user_contact || order.email || (order.profiles as any)?.email;
-      if (targetContactCleanup && targetContactCleanup.includes('@')) {
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://127.0.0.1:3000';
-        fetch(`${siteUrl}/api/transaction/send-receipt`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderId: order.order_id,
-            productName: order.product_name || 'Produk Digital',
-            status: 'Gagal',
-            paymentMethod: order.payment_method || 'Sistem Otomatis',
-            totalAmount: order.total_amount || 0,
-            userContact: targetContactCleanup,
-            // Suntik alasan spesifik ke API Resend agar struk email memuat alasan kadaluarsa
-            reason: 'Batas waktu pembayaran habis (Sistem tidak menerima dana dalam 2 jam)' 
-          })
-        }).catch(err => console.error("Gagal auto-receipt cleanup notice:", err));
+      if (expireError) {
+        throw expireError;
       }
 
-      cleanedCount++;
+      if (expiredOrder) {
+        cleanedCount += 1;
+      }
     }
 
-    console.error(`✅ [CLEANUP-REPORT] Berhasil hapus: ${cleanedCount} data.`);
-
-    return NextResponse.json({ 
-      success: true, 
-      message: "Cleanup & Refund Berhasil",
-      cleaned_count: cleanedCount 
-    });
-
-  } catch (error: any) {
-    console.error("❌ [CLEANUP FATAL ERROR]:", error.message);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true, cleaned_count: cleanedCount });
+  } catch {
+    return NextResponse.json({ success: false, error: "Gagal membersihkan order kedaluwarsa." }, { status: 500 });
   }
 }

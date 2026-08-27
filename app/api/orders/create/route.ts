@@ -1,249 +1,290 @@
-import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/utils/supabaseAdmin';
-import { isPaymentAllowed } from '@/utils/LogicPembayaran';
-// crypto sudah tidak dipakai di sini, tapi saya biarkan agar tidak error jika ada module lain yang butuh
-import crypto from 'crypto'; 
+import crypto from "crypto";
+import { NextResponse } from "next/server";
+import { isPaymentAllowed } from "@/utils/LogicPembayaran";
+import { authenticateRequest } from "@/utils/serverAuth";
+import { supabaseAdmin } from "@/utils/supabaseAdmin";
 
-export async function POST(req: Request) {
+type DatabaseProduct = {
+  id?: string;
+  sku: string;
+  name?: string | null;
+  price?: number | null;
+  cost?: number | null;
+  discount?: number | null;
+  cashback?: number | null;
+  categories?: { name?: string | null }[] | null;
+};
+
+function safeNonNegativeInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+    ? value
+    : null;
+}
+
+function rpcFailure(message: string) {
+  if (message.includes("ORDER_RESERVATION")) {
+    return NextResponse.json(
+      { error: "Reservasi nominal pembayaran tidak lagi tersedia. Silakan ulangi checkout." },
+      { status: 409 },
+    );
+  }
+
+  if (message.includes("ORDER_PENDING_TOTAL_COLLISION")) {
+    return NextResponse.json(
+      { error: "Nominal pembayaran baru saja dipakai. Silakan ulangi checkout." },
+      { status: 409 },
+    );
+  }
+
+  return NextResponse.json({ error: "Gagal membuat pesanan." }, { status: 500 });
+}
+
+export async function POST(request: Request) {
   try {
-    const body = await req.json();
-    
-    // 1. Ekstrak data dari frontend
-    const { 
-      sku, payment_method, total_amount, used_balance, user_id, email,
-      product_name, order_id, customer_no, item_label, user_contact,
-      ip_address, device_id, referred_by, voucher_amount,
-      voucher_code, inquiry_result, unique_code
-    } = body;
+    let body: unknown;
 
-    // --- 2. DETEKSI SUMBER PRODUK (Hybrid Search) ---
-    let dbProduct: any = null;
-    let productType: 'manual' | 'provider' = 'provider';
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Body request tidak valid." }, { status: 400 });
+    }
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Body request tidak valid." }, { status: 400 });
+    }
+
+    const input = body as Record<string, unknown>;
+    const sku = typeof input.sku === "string" ? input.sku.trim() : "";
+    const paymentMethod =
+      typeof input.payment_method === "string" ? input.payment_method.trim() : "";
+    const reservationId =
+      typeof input.reservationId === "string" ? input.reservationId.trim() : "";
+    const requestedCoinAmount = safeNonNegativeInteger(input.used_balance);
+    const requestedVoucherAmount = safeNonNegativeInteger(input.voucher_amount);
+    const requestedVoucherCode =
+      typeof input.voucher_code === "string" ? input.voucher_code.trim() : "";
+
+    if (
+      !sku ||
+      !paymentMethod ||
+      !reservationId ||
+      requestedCoinAmount === null ||
+      requestedVoucherAmount === null
+    ) {
+      return NextResponse.json({ error: "Data checkout tidak lengkap." }, { status: 400 });
+    }
+
+    // The new reservation flow has no trusted server-side voucher redemption
+    // primitive yet. Never turn a client-provided discount into a payable base.
+    if (requestedVoucherAmount > 0 || requestedVoucherCode) {
+      return NextResponse.json(
+        { error: "Voucher belum tersedia untuk checkout dengan nominal unik." },
+        { status: 409 },
+      );
+    }
+
+    const voucherAmount = 0;
+
+    // Mixed/full Koin intentionally stays unavailable until the remaining
+    // state writers and expiry-refund protocol are deployed together.
+    if (requestedCoinAmount > 0 || paymentMethod.includes("Koin DaPay")) {
+      return NextResponse.json(
+        { error: "Pembayaran dengan Koin DaPay sedang tidak tersedia." },
+        { status: 409 },
+      );
+    }
+
+    const authorization = request.headers.get("authorization");
+    let authenticatedUserId: string | null = null;
+
+    if (authorization) {
+      const authentication = await authenticateRequest(request);
+      if (!authentication.ok) {
+        return NextResponse.json(
+          { error: authentication.message },
+          { status: authentication.status },
+        );
+      }
+      authenticatedUserId = authentication.user.id;
+    }
+
+    let dbProduct: DatabaseProduct | null = null;
+    let productType: "manual" | "provider" = "provider";
 
     const { data: semiAutoData } = await supabaseAdmin
-      .from('product_semi_auto')
-      .select('id, sku, name, price_numeric, cost_numeric, discount, cashback, categories(name)')
-      .eq('sku', sku)
+      .from("product_semi_auto")
+      .select("id, sku, name, price_numeric, cost_numeric, discount, cashback, categories(name)")
+      .eq("sku", sku)
       .maybeSingle();
 
     if (semiAutoData) {
-      dbProduct = { ...semiAutoData, price: semiAutoData.price_numeric, cost: semiAutoData.cost_numeric };
-      productType = 'manual';
+      dbProduct = {
+        ...semiAutoData,
+        price: semiAutoData.price_numeric,
+        cost: semiAutoData.cost_numeric,
+      };
+      productType = "manual";
     } else {
       const { data: providerData } = await supabaseAdmin
-        .from('product_automatic')
-        .select('sku, name, price, cost, discount, cashback, categories(name)')
-        .eq('sku', sku)
-        .single();
-
-      if (providerData) {
-        dbProduct = providerData;
-        productType = 'provider';
-      }
+        .from("product_automatic")
+        .select("sku, name, price, cost, discount, cashback, categories(name)")
+        .eq("sku", sku)
+        .maybeSingle();
+      dbProduct = providerData;
     }
 
     if (!dbProduct) {
       return NextResponse.json({ error: "Produk tidak ditemukan di rak database!" }, { status: 400 });
     }
 
-    // --- 2.5 CEK SAKLAR SIMULASI ---
-    const { data: settings } = await supabaseAdmin.from('store_settings').select('is_digiflazz_active').single();
-    const isLive = settings?.is_digiflazz_active ?? true;
+    const category = dbProduct.categories?.[0]?.name?.toLowerCase() || "";
+    const isPascabayar =
+      productType === "provider" &&
+      (category.includes("pascabayar") || dbProduct.sku.toLowerCase() === "pln");
 
-    // --- 3. LOGIKA CASHBACK ---
-    let finalCashback = 0;
-    if (user_id) {
-      const { data: userProfile } = await supabaseAdmin.from('profiles').select('member_type').eq('id', user_id).maybeSingle();
-      if (userProfile?.member_type?.toLowerCase() === 'special') {
-        finalCashback = dbProduct.cashback || 0;
+    // This route has no durable, server-verifiable inquiry record to reload by
+    // reference. Do not derive payment authority from browser inquiry details.
+    if (isPascabayar) {
+      return NextResponse.json(
+        { error: "Checkout Pascabayar belum tersedia untuk nominal unik." },
+        { status: 409 },
+      );
+    }
+
+    let expectedBaseAmount: number;
+    let rawTagihan = 0;
+    let buyPrice: number;
+    let price: number;
+    let itemLabel = typeof input.item_label === "string" ? input.item_label : null;
+    let customerName: string | null = null;
+    let segmentPower: string | null = null;
+    let standMeter: string | null = null;
+    let description: unknown = null;
+    let apiRefId: string;
+
+    if (isPascabayar) {
+      const inquiry =
+        input.inquiry_result && typeof input.inquiry_result === "object" && !Array.isArray(input.inquiry_result)
+          ? (input.inquiry_result as Record<string, unknown>)
+          : null;
+      const tagihan = safeNonNegativeInteger(inquiry?.amount);
+      const supplierAdmin = safeNonNegativeInteger(inquiry?.adminSupplier);
+      const storeAdmin = safeNonNegativeInteger(dbProduct.price);
+      const denda = safeNonNegativeInteger(
+        (inquiry?.desc as { detail?: Array<{ denda?: unknown }> } | undefined)?.detail?.[0]?.denda,
+      ) ?? 0;
+
+      if (tagihan === null || supplierAdmin === null || storeAdmin === null) {
+        return NextResponse.json({ error: "Data tagihan tidak valid." }, { status: 400 });
       }
-    } 
 
-    // --- 4. VALIDASI HARGA SERVER-SIDE ---
-    let hargaSeharusnya = 0;
-    let modalPascabayar = 0;
-    let hargaJualPascabayar = 0;
-    let kodeUnikUser = 0; 
-    let tagihanMurni = 0; 
-    
-    const totalInputUser = total_amount + used_balance + (voucher_amount || 0);
-    const namaKategori = (dbProduct.categories as any)?.name?.toLowerCase() || "";
-    
-const isPascabayar = productType === 'provider' && (namaKategori.includes('pascabayar') || dbProduct.sku.toLowerCase() === 'pln');
+      rawTagihan = tagihan;
+      price = tagihan + storeAdmin + denda;
+      buyPrice = tagihan + supplierAdmin + denda;
+      expectedBaseAmount = price - voucherAmount;
+      itemLabel = typeof inquiry?.period === "string" ? `Tagihan ${inquiry.period}` : "Tagihan Listrik";
+      customerName = typeof inquiry?.customerName === "string" ? inquiry.customerName : null;
+      segmentPower = typeof inquiry?.segmentPower === "string" ? inquiry.segmentPower : null;
+      standMeter = typeof inquiry?.standMeter === "string" ? inquiry.standMeter : null;
+      description = inquiry?.desc ?? { info: "Waiting for payment..." };
+      apiRefId = typeof inquiry?.ref_id === "string" && inquiry.ref_id.trim() ? inquiry.ref_id : "";
+    } else {
+      const productPrice = safeNonNegativeInteger(dbProduct.price);
+      const productDiscount = safeNonNegativeInteger(dbProduct.discount) ?? 0;
+      const productCost = safeNonNegativeInteger(dbProduct.cost) ?? 0;
 
-if (isPascabayar) {
-      try {
-        // 1. Ambil data dari hasil inquiry yang dikirim frontend
-        tagihanMurni = Number(inquiry_result?.amount || 0);
-        const adminToko = Number(dbProduct.price || 0); 
-        const adminSupplier = Number(inquiry_result?.adminSupplier || 0);
-
-        // 1.5 EKSTRAK DENDA DARI DESC JSON
-        let dendaTagihan = 0;
-        try {
-            if (inquiry_result?.desc?.detail && inquiry_result.desc.detail.length > 0) {
-                dendaTagihan = Number(inquiry_result.desc.detail[0].denda) || 0;
-            }
-        } catch (e) {
-            console.error("Gagal ekstrak denda:", e);
-        }
-
-        // 2. Hitung harga yang seharusnya dibayar user (WAJIB TAMBAH DENDA)
-        hargaJualPascabayar = tagihanMurni + adminToko + dendaTagihan;
-        modalPascabayar = tagihanMurni + adminSupplier + dendaTagihan; 
-        
-        hargaSeharusnya = hargaJualPascabayar;
-        
-        // 3. Validasi angka dengan menghitung unique_code murni dari sisa transfer bank
-        // totalInputUser = total_amount (sisa transfer) + used_balance (koin riil) + voucher
-        // Contoh: 44.561 + 4.521 + 0 = 49.082
-        const selisihMurni = Math.floor(totalInputUser - hargaSeharusnya);
-        
-        // Jika ada kode unik dari payment gateway, ambil selisihnya
-        kodeUnikUser = (selisihMurni > 0 && selisihMurni < 1000) ? selisihMurni : 0;
-        
-        // Cek manipulasi: Total gabungan setelah dibersihkan dari kode unik WAJIB presisi dengan harga server
-        const totalUserTanpaKodeUnik = Math.floor(totalInputUser - kodeUnikUser);
-
-        if (Math.abs(totalUserTanpaKodeUnik - hargaSeharusnya) > 100) { 
-           console.error(`⚠️ Price Mismatch Pascabayar! Server: ${hargaSeharusnya}, Hitungan User: ${totalUserTanpaKodeUnik} (TotalInput: ${totalInputUser}, KodeUnik: ${kodeUnikUser})`);
-           return NextResponse.json({ error: `Harga tagihan tidak sinkron, silakan ulangi cek tagihan.` }, { status: 400 });
-        }
-      } catch (error: any) {
-        console.error("🔥 Error Pascabayar Create:", error.message);
-        return NextResponse.json({ error: "Gagal memproses data tagihan." }, { status: 500 });
+      if (productPrice === null) {
+        return NextResponse.json({ error: "Harga produk tidak valid." }, { status: 500 });
       }
+
+      expectedBaseAmount = Math.floor(productPrice * (1 - productDiscount / 100)) - voucherAmount;
+      price = productPrice;
+      buyPrice = productCost;
+      apiRefId = "";
     }
-    else {
-      // LOGIKA PRABAYAR
-      hargaSeharusnya = Math.floor(dbProduct.price * (1 - ((dbProduct.discount || 0) / 100)));
-      if (Math.abs(totalInputUser - hargaSeharusnya) > 1500) {
-        return NextResponse.json({ error: "Deteksi manipulasi harga prabayar!" }, { status: 400 });
+
+    if (!Number.isSafeInteger(expectedBaseAmount) || expectedBaseAmount <= 0) {
+      return NextResponse.json({ error: "Nominal pembayaran tidak valid." }, { status: 400 });
+    }
+
+    const cleanPaymentMethod = paymentMethod.split(" + ")[0];
+    const { data: payData } = await supabaseAdmin
+      .from("payment_accounts")
+      .select("name, is_maintenance, start_hour, end_hour, min_price")
+      .eq("name", cleanPaymentMethod)
+      .maybeSingle();
+
+    if (typeof payData?.name !== "string" || !payData.name.trim()) {
+      return NextResponse.json({ error: "Metode pembayaran tidak tersedia." }, { status: 403 });
+    }
+
+    if (!isPaymentAllowed(payData.name, dbProduct.name || "General", expectedBaseAmount, payData)) {
+      return NextResponse.json({ error: "Metode pembayaran tidak tersedia." }, { status: 403 });
+    }
+
+    let cashback = 0;
+    if (authenticatedUserId) {
+      const { data: userProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("member_type")
+        .eq("id", authenticatedUserId)
+        .maybeSingle();
+      if (userProfile?.member_type?.toLowerCase() === "special") {
+        cashback = safeNonNegativeInteger(dbProduct.cashback) ?? 0;
       }
     }
 
-    // --- 5. VALIDASI PEMBAYARAN ---
-    // 🚀 Bersihkan nama pembayaran jika ada gabungan koin parsial (Contoh: "QRIS + Koin DaPay" -> diambil "QRIS" saja)
-    const cleanPaymentMethod = payment_method.split(' + ')[0];
-
-    let payData: any = null;
-    if (cleanPaymentMethod !== 'Koin DaPay') {
-      const { data } = await supabaseAdmin.from('payment_accounts').select('is_maintenance, start_hour, end_hour, min_price').eq('name', cleanPaymentMethod).maybeSingle();
-      payData = data;
-    }
-
-    const allowed = cleanPaymentMethod === 'Koin DaPay' ? true : isPaymentAllowed(cleanPaymentMethod, product_name || "General", total_amount, payData);
-    if (!allowed) return NextResponse.json({ error: "Metode pembayaran tidak tersedia." }, { status: 403 });
-
-    // --- 6. PEMETAAN DATA KE TABEL ORDERS ---
-    const safeProductName = dbProduct.name || product_name || "Produk Digital";
-    let dynamicLabel = safeProductName; 
-    if (isPascabayar && inquiry_result?.period) {
-      dynamicLabel = `Tagihan ${inquiry_result.period}`;
-    }
-
-    const orderData = {
-      order_id,
-      // 🚀 PAKSA SIMPAN ID INQUIRY ASLI DARI DIGIFLAZZ (INQ-xxxx)
-      api_ref_id: inquiry_result?.ref_id || order_id, 
-      
+    const orderId = `DANISH-${crypto.randomUUID().replace(/-/g, "").toUpperCase()}`;
+    const orderPayload = {
+      order_id: orderId,
+      api_ref_id: apiRefId || orderId,
       sku: dbProduct.sku,
-      product_name: safeProductName,
-      item_label: isPascabayar ? (inquiry_result?.period ? `Tagihan ${inquiry_result.period}` : "Tagihan Listrik") : item_label,
-      customer_no,
-      buy_price: isPascabayar ? modalPascabayar : (dbProduct.cost || 0), 
-      price: isPascabayar ? hargaJualPascabayar : (dbProduct.price || 0),
-      discount: isPascabayar ? 0 : (dbProduct.discount || 0),
-      voucher_code: voucher_code || null,
-      voucher_amount: voucher_amount || 0,
-      cashback: finalCashback, 
-      unique_code: isPascabayar ? kodeUnikUser : Number(unique_code || 0),
-      total_amount: total_amount, 
-      payment_method,
-      
-      product_type: productType, 
-      manual_product_id: productType === 'manual' ? dbProduct.id : null,
-
-      status: (used_balance >= totalInputUser && !isLive) ? 'Berhasil' : 'Pending',
-      sn: (used_balance >= totalInputUser && !isLive) ? `SIM-KOIN-${Math.floor(Math.random() * 9999)}` : null,
-
-      user_contact,
-      email: email || null,
-      referred_by: referred_by || null,
-      category: namaKategori || "umum",
-      ip_address,
-      device_id,
-      used_balance,
-      user_id: user_id || null,
-      raw_tagihan: isPascabayar ? tagihanMurni : 0,
-
-      customer_name: inquiry_result?.customerName || null,
-      segment_power: inquiry_result?.segmentPower || null,
-      // 🚀 TAMBAHKAN BARIS INI: Agar stand meter masuk ke database sejak awal
-      stand_meter: inquiry_result?.standMeter || null, 
-      
-      // Simpan seluruh object desc dari frontend
-      desc: inquiry_result?.desc ? inquiry_result.desc : (isPascabayar ? { info: "Waiting for payment..." } : null), 
-
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString() 
+      product_name: dbProduct.name || "Produk Digital",
+      item_label: itemLabel,
+      customer_no: typeof input.customer_no === "string" ? input.customer_no : null,
+      buy_price: buyPrice,
+      price,
+      discount: isPascabayar ? 0 : safeNonNegativeInteger(dbProduct.discount) ?? 0,
+      voucher_code: null,
+      voucher_amount: voucherAmount,
+      cashback,
+      payment_method: payData.name,
+      product_type: productType,
+      manual_product_id: productType === "manual" ? dbProduct.id : null,
+      sn: null,
+      user_contact: typeof input.user_contact === "string" ? input.user_contact : null,
+      referred_by: typeof input.referred_by === "string" ? input.referred_by : null,
+      category: category || "umum",
+      ip_address: typeof input.ip_address === "string" ? input.ip_address : null,
+      device_id: typeof input.device_id === "string" ? input.device_id : null,
+      raw_tagihan: rawTagihan,
+      customer_name: customerName,
+      segment_power: segmentPower,
+      stand_meter: standMeter,
+      desc: description,
     };
 
-    // --- 6.5 VALIDASI TABRAKAN & PEMBERSIHAN RESERVASI (CARA PRO) ---
-    // Cek sekali lagi apakah nominal ini tiba-tiba dipakai orang lain dalam jeda milidetik
-    const { data: duplicate } = await supabaseAdmin.from('orders').select('id').eq('status', 'Pending').eq('total_amount', total_amount).maybeSingle();
-    
-    if (duplicate) {
-      return NextResponse.json({ error: "Nominal ini baru saja diambil orang lain, silakan klik Beli Sekarang lagi." }, { status: 409 });
+    const { data: createdOrder, error: rpcError } = await supabaseAdmin.rpc(
+      "create_pending_order_from_reservation",
+      {
+        p_reservation_id: reservationId,
+        p_external_base_amount: String(expectedBaseAmount),
+        p_authenticated_user_id: authenticatedUserId,
+        p_order_data: orderPayload,
+      },
+    );
+
+    if (rpcError) {
+      return rpcFailure(rpcError.message || "");
     }
 
-    // Hapus booking di tabel reservasi karena nominal sudah resmi jadi Order
-    await supabaseAdmin.from('code_reservations').delete().eq('total_amount', total_amount);
-
-    // --- 7. EKSEKUSI INSERT ---
-    const { error: insertError } = await supabaseAdmin.from('orders').insert([orderData]); 
-    if (insertError) throw insertError;
-
-    // 🚀 AMANKAN KOIN: Potong langsung saldo koin jika user_id valid dan used_balance > 0
-    if (user_id && used_balance > 0) {
-      try {
-        // A. Ambil saldo terakhir user dari profiles
-        const { data: profile, error: profileErr } = await supabaseAdmin
-          .from('profiles')
-          .select('balance')
-          .eq('id', user_id)
-          .single();
-
-        if (!profileErr && profile) {
-          const currentBalance = Number(profile.balance || 0);
-          const newBalance = currentBalance - used_balance;
-
-          // B. Potong langsung di tabel profiles (kolom saldo = 'balance')
-          await supabaseAdmin
-            .from('profiles')
-            .update({ balance: newBalance })
-            .eq('id', user_id);
-
-          // C. Catat riwayat pengurangan koin ke balance_logs
-          await supabaseAdmin
-            .from('balance_logs')
-            .insert([{
-              user_id: user_id,
-              amount: -used_balance, // Gunakan minus jika log Bos mencatat pengurangan dengan angka negatif
-              type: 'Payment',
-              description: `Potongan Koin Pembelian ${isPascabayar ? 'Pascabayar' : 'Prabayar'} - No.Pel: ${customer_no} (Order ID: ${order_id})`,
-              created_at: new Date().toISOString()
-            }]);
-        }
-      } catch (coinErr: any) {
-        console.error("🔥 Gagal auto-potong koin di create order:", coinErr.message);
-      }
+    const result = createdOrder as { id?: string; order_id?: string } | null;
+    if (!result?.order_id) {
+      return NextResponse.json({ error: "Gagal membuat pesanan." }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, order_id: order_id });
-
-  } catch (err: any) {
-    console.error("🔥 Error API Create:", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ success: true, id: result.id, order_id: result.order_id });
+  } catch {
+    return NextResponse.json({ error: "Gagal membuat pesanan." }, { status: 500 });
   }
 }

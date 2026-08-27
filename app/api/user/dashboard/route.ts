@@ -1,19 +1,26 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/utils/supabaseAdmin";
+import { authenticateRequest } from "@/utils/serverAuth";
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
+    const authentication = await authenticateRequest(req);
 
-    if (!email) {
-      return NextResponse.json({ error: "Email wajib dikirim!" }, { status: 400 });
+    if (!authentication.ok) {
+      return NextResponse.json(
+        { error: authentication.message },
+        { status: authentication.status },
+      );
     }
+
+    const userId = authentication.user.id;
+    const email = authentication.user.email;
 
     // 1. Ambil Profil dulu (karena kita butuh referral_code untuk query selanjutnya)
     const { data: profile, error: profErr } = await supabaseAdmin
       .from("profiles")
       .select("full_name, balance, referral_code, member_type")
-      .eq("email", email)
+      .eq("id", userId)
       .single();
 
     if (profErr || !profile) {
@@ -25,7 +32,7 @@ export async function POST(req: Request) {
       supabaseAdmin.from("deposits").select("id, status, payment_method, created_at, amount").eq("user_email", email).order("created_at", { ascending: false }),
       supabaseAdmin.from("withdrawals").select("status, amount, held_amount").eq("user_email", email).order("created_at", { ascending: false }),
       supabaseAdmin.from("balance_logs").select("id, type, amount, description, created_at").eq("user_email", email).order("created_at", { ascending: false }),
-      supabaseAdmin.from("orders").select("id, order_id, created_at, status, product_name, price").eq("email", email).order("created_at", { ascending: false }),
+      supabaseAdmin.from("orders").select("id, order_id, created_at, status, product_name, price").eq("user_id", userId).order("created_at", { ascending: false }),
       profile.referral_code 
         ? supabaseAdmin.from("profiles").select("full_name, email, created_at").eq("referred_by", profile.referral_code).order("created_at", { ascending: false }) 
         : Promise.resolve({ data: [] })
@@ -43,7 +50,7 @@ export async function POST(req: Request) {
         referrals: referralsRes.data || []
       }
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("API Dashboard Error:", err);
     return NextResponse.json({ error: "Gagal memproses data server." }, { status: 500 });
   }
