@@ -86,7 +86,7 @@ export default function LogoutDoorButton({
               delay: 0.25,
               ease: "easeInOut",
             }}
-            className="absolute bottom-[4px] left-[5px]"
+            className="absolute bottom-1 left-1.25"
           >
             <div className="mx-auto h-1 w-1 rounded-full bg-white" />
             <div className="mx-auto mt-0.5 h-2 w-[3.5px] rounded-full bg-white" />
@@ -171,10 +171,10 @@ export default function LogoutDoorButton({
             delay: 0.25,
             ease: "easeInOut",
           }}
-          className="absolute bottom-[3px] md:bottom-[4px] left-[3.5px] md:left-[5px]"
+          className="absolute bottom-0.75 md:bottom-1 left-[3.5px] md:left-1.25"
         >
           <div className="mx-auto h-0.75 w-0.75 md:h-1 md:w-1 rounded-full bg-white" />
-          <div className="mx-auto mt-0.25 md:mt-0.5 h-1.5 w-[2.5px] md:h-2 md:w-[3.5px] rounded-full bg-white" />
+          <div className="mx-auto mt-px md:mt-0.5 h-1.5 w-[2.5px] md:h-2 md:w-[3.5px] rounded-full bg-white" />
         </motion.div>
 
         {/* Daun pintu */}
@@ -196,7 +196,7 @@ export default function LogoutDoorButton({
             transformOrigin: "left center",
             transformStyle: "preserve-3d",
           }}
-          className="absolute h-3.75 w-3 md:h-5 md:w-3.75 rounded-[2px] md:rounded-[2.5px] bg-red-950 border-r border-white/30"
+          className="absolute h-3.75 w-3 md:h-5 md:w-3.75 rounded-xs md:rounded-[2.5px] bg-red-950 border-r border-white/30"
         >
           {/* Kenop pintu */}
           <div className="absolute right-0.5 top-1/2 h-0.5 w-0.5 md:h-0.75 md:w-0.75 -translate-y-1/2 rounded-full bg-yellow-300 shadow-[0_0_4px_rgba(253,224,71,.8)]" />

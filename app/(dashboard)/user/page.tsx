@@ -1463,7 +1463,7 @@ export default function UserDashboard() {
                 onClick={() => handleMenuNavigation("settings")}
                 title={`Profil: ${userData.name || firstName} (${displayMemberType})`}
                 aria-label="Profil Pengguna"
-                className="group flex items-center gap-1.5 md:gap-2 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2.5 md:pr-3 lg:pr-4 shadow-2xs transition-all duration-200 hover:border-slate-300 hover:bg-slate-50/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer min-w-0 max-w-[125px] md:max-w-[155px] lg:max-w-[185px]"
+                className="group flex items-center gap-1.5 md:gap-2 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2.5 md:pr-3 lg:pr-4 shadow-2xs transition-all duration-200 hover:border-slate-300 hover:bg-slate-50/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer min-w-0 max-w-31.25 md:max-w-38.75 lg:max-w-46.25"
               >
                 {/* Avatar Photo or Initial */}
                 <div className="flex h-6.5 w-6.5 md:h-7 md:w-7 lg:h-8 lg:w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 text-white font-black text-[10px] md:text-[11px] lg:text-xs shadow-xs ring-1 ring-white">
@@ -1515,7 +1515,7 @@ export default function UserDashboard() {
           {/* SALDO DAYAP (Modern Glassmorphism Multi-Device)       */}
           {/* ====================================================== */}
 
-          <div className="group relative flex h-full min-h-40 xs:min-h-[170px] sm:min-h-47.5 md:min-h-60 lg:min-h-68 xl:min-h-75 flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-[24px] xl:rounded-[28px] border border-blue-400/30 bg-linear-to-br from-[#1e3a8a]/90 via-[#1d4ed8]/85 to-[#312e81]/90 p-2.5 xs:p-3 sm:p-4.5 md:p-5 lg:p-6 xl:p-7 text-white shadow-[0_16px_40px_rgba(30,58,138,0.22)] backdrop-blur-2xl ring-1 ring-inset ring-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(30,58,138,0.32)]">
+          <div className="group relative flex h-full min-h-40 xs:min-h-[170px] sm:min-h-47.5 md:min-h-60 lg:min-h-68 xl:min-h-75 flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-3xl xl:rounded-[28px] border border-blue-400/30 bg-linear-to-br from-[#1e3a8a]/90 via-[#1d4ed8]/85 to-[#312e81]/90 p-2.5 xs:p-3 sm:p-4.5 md:p-5 lg:p-6 xl:p-7 text-white shadow-[0_16px_40px_rgba(30,58,138,0.22)] backdrop-blur-2xl ring-1 ring-inset ring-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(30,58,138,0.32)]">
             {/* Top Specular Glare / Light Rim */}
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/40 to-transparent" aria-hidden="true" />
 
@@ -1590,7 +1590,7 @@ export default function UserDashboard() {
           {/* KOIN DAPAY (Modern Glassmorphism Multi-Device)        */}
           {/* ====================================================== */}
 
-          <div className="group relative flex h-full min-h-40 xs:min-h-[170px] sm:min-h-47.5 md:min-h-60 lg:min-h-68 xl:min-h-75 flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-[24px] xl:rounded-[28px] border border-purple-200/75 bg-linear-to-br from-white/90 via-purple-50/70 to-violet-100/60 p-2.5 xs:p-3 sm:p-4.5 md:p-5 lg:p-6 xl:p-7 shadow-[0_16px_40px_rgba(139,92,246,0.10)] backdrop-blur-2xl ring-1 ring-inset ring-white/80 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(139,92,246,0.16)]">
+          <div className="group relative flex h-full min-h-40 xs:min-h-[170px] sm:min-h-47.5 md:min-h-60 lg:min-h-68 xl:min-h-75 flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-3xl xl:rounded-[28px] border border-purple-200/75 bg-linear-to-br from-white/90 via-purple-50/70 to-violet-100/60 p-2.5 xs:p-3 sm:p-4.5 md:p-5 lg:p-6 xl:p-7 shadow-[0_16px_40px_rgba(139,92,246,0.10)] backdrop-blur-2xl ring-1 ring-inset ring-white/80 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(139,92,246,0.16)]">
             {/* Top Specular Glare / Light Rim */}
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white to-transparent" aria-hidden="true" />
 
