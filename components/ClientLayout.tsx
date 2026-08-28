@@ -11,7 +11,7 @@ const MaintenancePage = dynamic(() => import("./MaintenancePage"));
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAdminPage = pathname?.startsWith("/admin");
+  const isDashboardPage = pathname?.startsWith("/user") || pathname?.startsWith("/admin");
 
   // Jika maintenance, langsung potong kompas biar gak load yang lain
   if (STORE_CONFIG.isMaintenanceMode) {
@@ -20,17 +20,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <>
-      {!isAdminPage && <Navbar />}
+      {!isDashboardPage && <Navbar />}
       
       {/* Tambahkan pb-20 di HP agar konten tidak ketutupan BottomNav */}
-      <main className={`grow relative ${!isAdminPage ? "pb-20 md:pb-0" : ""}`}>
+      <main className={`grow relative ${!isDashboardPage ? "pb-20 md:pb-0" : ""}`}>
         {children}
       </main>
 
-      {!isAdminPage && <Footer />}
+      {!isDashboardPage && <Footer />}
       
-      {/* Tampilkan Bottom Navigasi khusus Mobile */}
-      {!isAdminPage && <BottomNav />}
+      {/* Tampilkan Bottom Navigasi khusus Mobile di Landing Page */}
+      {!isDashboardPage && <BottomNav />}
     </>
   );
 }

@@ -8,13 +8,15 @@ import {
 } from "react";
 import {
   ArrowUpRight,
+  Bell,
   CheckCircle2,
+  ChevronDown,
   Copy,
   CreditCard,
   Gift,
   History,
-  Info,
   Loader2,
+  Menu,
   PlusCircle,
   RefreshCw,
   ShoppingBag,
@@ -93,6 +95,9 @@ type DashboardProfile = {
   balance?: number | string | null;
   coin_balance?: number | string | null;
   member_type?: string | null;
+  avatar_url?: string | null;
+  photo_url?: string | null;
+  image?: string | null;
 };
 
 type DashboardData = {
@@ -202,6 +207,324 @@ function getStatusClasses(status: string) {
   }
 }
 
+function getProductImage(name?: string | null): string | null {
+  if (!name) return null;
+  const lower = name.toLowerCase().trim();
+
+  // Mobile Legends
+  if (lower.includes("mobile legend") || lower.includes("mlbb") || lower.includes("diamond ml")) {
+    return "/images/mlbb-1.jpg";
+  }
+  // Free Fire
+  if (lower.includes("free fire") || lower.includes("ff max") || lower.includes("ff global") || lower === "ff" || lower.startsWith("ff ")) {
+    return "/images/ff-1.jpg";
+  }
+  // PUBG
+  if (lower.includes("pubg")) {
+    return "/images/pubg-1.jpg";
+  }
+  // Genshin Impact
+  if (lower.includes("genshin")) {
+    return "/images/genshin.jpg";
+  }
+  // Honkai Star Rail
+  if (lower.includes("honkai") || lower.includes("hsr")) {
+    return "/images/hsr.jpg";
+  }
+  // Valorant
+  if (lower.includes("valorant")) {
+    return "/images/valorant-1.jpg";
+  }
+  // Roblox
+  if (lower.includes("roblox") || lower.includes("robux")) {
+    return "/images/roblox.jpg";
+  }
+  // Honor of Kings
+  if (lower.includes("honor of kings") || lower.includes("hok")) {
+    return "/images/hok-1.jpg";
+  }
+  // Call of Duty
+  if (lower.includes("call of duty") || lower.includes("codm") || lower.includes("cod mobile")) {
+    return "/images/codm-1.jpg";
+  }
+  // Brawl Stars
+  if (lower.includes("brawl star")) {
+    return "/images/brawl-stars.jpg";
+  }
+  // Minecraft
+  if (lower.includes("minecraft")) {
+    return "/images/minecraft.jpg";
+  }
+  // Point Blank
+  if (lower.includes("point blank") || lower.includes(" pb ") || lower.startsWith("pb ") || lower === "pb") {
+    return "/images/pb.jpg";
+  }
+  // League of Legends / Wild Rift
+  if (lower.includes("league of legend") || lower.includes("wild rift") || lower.includes(" lol ") || lower.startsWith("lol ") || lower === "lol") {
+    return "/images/lol.jpg";
+  }
+  // Steam
+  if (lower.includes("steam")) {
+    return "/images/steam.jpg";
+  }
+  // Google Play
+  if (lower.includes("google play") || lower.includes("googleplay")) {
+    return "/images/google-play.jpg";
+  }
+  // PlayStation / PSN
+  if (lower.includes("playstation") || lower.includes("psn")) {
+    return "/images/psn-1.jpg";
+  }
+  // Xbox / PC Game Pass
+  if (lower.includes("game pass")) {
+    return "/images/pc-game-pass.jpg";
+  }
+  if (lower.includes("xbox")) {
+    return "/images/xbox.jpg";
+  }
+  // Garena
+  if (lower.includes("garena") || lower.includes("undawn")) {
+    return "/images/garena.jpg";
+  }
+  // Razer
+  if (lower.includes("razer")) {
+    return "/images/razer-1.jpg";
+  }
+  // Pokemon
+  if (lower.includes("pokemon")) {
+    return "/images/pokemon-go.jpg";
+  }
+  // Fate Grand Order
+  if (lower.includes("fate") || lower.includes("fgo")) {
+    return "/images/fgo.jpg";
+  }
+  // Fortnite
+  if (lower.includes("fortnite")) {
+    return "/images/fortnite.jpg";
+  }
+  // EA / FIFA / FC
+  if (lower.includes("fifa") || lower.includes("ea sports") || lower.includes("fc mobile") || lower === "ea" || lower.startsWith("ea ")) {
+    return "/images/ea.jpg";
+  }
+  // Whiteout Survival
+  if (lower.includes("whiteout")) {
+    return "/images/whiteout-1.jpg";
+  }
+  // Monopoly Go
+  if (lower.includes("monopoly")) {
+    return "/images/monopoly.jpg";
+  }
+  // Candy Crush
+  if (lower.includes("candy crush")) {
+    return "/images/candy-crush-1.jpg";
+  }
+  // Coin Master
+  if (lower.includes("coin master")) {
+    return "/images/coin-master.jpg";
+  }
+  // Royal Match
+  if (lower.includes("royal match")) {
+    return "/images/royal-match.jpg";
+  }
+  // AU2 Mobile
+  if (lower.includes("au2")) {
+    return "/images/au2.jpg";
+  }
+  // Entertainment & Apps
+  if (lower.includes("netflix")) {
+    return "/images/netflix-1.jpg";
+  }
+  if (lower.includes("spotify")) {
+    return "/images/spotify.jpg";
+  }
+  if (lower.includes("canva")) {
+    return "/images/canva.jpg";
+  }
+  if (lower.includes("capcut")) {
+    return "/images/capcut.jpg";
+  }
+  if (lower.includes("discord")) {
+    return "/images/discord.jpg";
+  }
+  if (lower.includes("telegram")) {
+    return "/images/telegram.jpg";
+  }
+  if (lower.includes("tiktok")) {
+    return "/images/tiktok.jpg";
+  }
+  if (lower.includes("vidio")) {
+    return "/images/vidio.jpg";
+  }
+  if (lower.includes("webtoon")) {
+    return "/images/webtoon.jpg";
+  }
+  if (lower.includes("youku")) {
+    return "/images/youku.jpg";
+  }
+  if (lower.includes("ometv") || lower.includes("ome tv")) {
+    return "/images/ometv.jpg";
+  }
+  if (lower.includes("apple") || lower.includes("itunes")) {
+    return "/images/apple.jpg";
+  }
+  if (lower.includes("amazon")) {
+    return "/images/amazon.jpg";
+  }
+  if (lower.includes("mcafee")) {
+    return "/images/mcafee.jpg";
+  }
+  if (lower.includes("exitlag")) {
+    return "/images/exitlag.jpg";
+  }
+  if (lower.includes("turbo vpn") || lower.includes("vpn")) {
+    return "/images/turbo-vpn.jpg";
+  }
+  // Utilities & Telco
+  if (lower.includes("tagihan listrik") || lower.includes("pln pasca")) {
+    return "/images/tagihan-listrik-1.jpg";
+  }
+  if (lower.includes("token listrik") || lower.includes("token pln") || lower.includes("pln") || lower.includes("listrik")) {
+    return "/images/token-listrik-1.jpg";
+  }
+  if (lower.includes("telkomsel") || lower.includes("simpati") || lower.includes("kartu as")) {
+    return "/images/telkomsel-1.jpg";
+  }
+  if (lower.includes("indosat") || lower.includes("im3") || lower.includes("ooredoo")) {
+    return "/images/indosat-1.jpg";
+  }
+  if (lower.includes("axis")) {
+    return "/images/axis.jpg";
+  }
+  if (lower.includes("xl")) {
+    return "/images/xl.jpg";
+  }
+  if (lower.includes("tri") || lower.includes("three") || lower.includes("3 tri")) {
+    return "/images/tri.jpg";
+  }
+  if (lower.includes("smartfren")) {
+    return "/images/smartfren.jpg";
+  }
+  if (lower.includes("by.u") || lower.includes("byu")) {
+    return "/images/byU.webp";
+  }
+  // Travel & E-Commerce
+  if (lower.includes("shopee")) {
+    return "/images/shopee.jpg";
+  }
+  if (lower.includes("lazada")) {
+    return "/images/lazada.jpg";
+  }
+  if (lower.includes("zalora")) {
+    return "/images/zalora-1.jpg";
+  }
+  if (lower.includes("maxim")) {
+    return "/images/maxim-2.jpg";
+  }
+  if (lower.includes("linkaja")) {
+    return "/images/linkaja.jpg";
+  }
+  if (lower.includes("pesawat") || lower.includes("flight")) {
+    return "/images/flight.jpg";
+  }
+  if (lower.includes("kereta") || lower.includes("train") || lower.includes("kai")) {
+    return "/images/train.jpg";
+  }
+  if (lower.includes("hotel")) {
+    return "/images/hotel.jpg";
+  }
+  if (lower.includes("niagahoster")) {
+    return "/images/niagahoster.jpg";
+  }
+  if (lower.includes("domain")) {
+    return "/images/domain-shop.jpg";
+  }
+  if (lower.includes("vps")) {
+    return "/images/vps-gaming-1.jpg";
+  }
+
+  return null;
+}
+
+function generateCumulativeMonthlyPoints<T extends { created_at?: string | null }>(
+  items: T[],
+  valueExtractor?: (item: T) => number
+): number[] {
+  const days = 30;
+  const now = new Date();
+  const dailyTotals = new Array(days).fill(0);
+
+  items.forEach((item) => {
+    if (!item.created_at) return;
+    const itemDate = new Date(item.created_at);
+    if (isNaN(itemDate.getTime())) return;
+
+    const diffTime = now.getTime() - itemDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays >= 0 && diffDays < days) {
+      const dayIndex = days - 1 - diffDays;
+      const val = valueExtractor ? valueExtractor(item) : 0;
+      dailyTotals[dayIndex] += Math.max(0, val);
+    }
+  });
+
+  const cumulative: number[] = [];
+  let running = 0;
+  for (let i = 0; i < days; i++) {
+    running += dailyTotals[i];
+    cumulative.push(running);
+  }
+
+  return cumulative;
+}
+
+function buildSvgSparkline(
+  points: number[],
+  width = 96,
+  height = 36,
+  padding = 4
+): { linePath: string; areaPath: string } {
+  if (!points || points.length === 0) {
+    const defaultLine = `M ${padding} ${height - padding} L ${width - padding} ${height - padding}`;
+    const defaultArea = `M ${padding} ${height - padding} L ${width - padding} ${height - padding} L ${width - padding} ${height} L ${padding} ${height} Z`;
+    return { linePath: defaultLine, areaPath: defaultArea };
+  }
+
+  const minVal = 0;
+  const maxVal = Math.max(...points, 1);
+
+  const availableWidth = width - padding * 2;
+  const availableHeight = height - padding * 2;
+
+  const coords = points.map((val, idx) => {
+    const x = padding + (idx / (points.length - 1)) * availableWidth;
+    const normalized = Math.min(Math.max((val - minVal) / (maxVal - minVal), 0), 1);
+    const y = height - padding - normalized * availableHeight;
+    return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) };
+  });
+
+  let linePath = `M ${coords[0].x} ${coords[0].y}`;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p0 = coords[i === 0 ? 0 : i - 1];
+    const p1 = coords[i];
+    const p2 = coords[i + 1];
+    const p3 = coords[i + 2] || p2;
+
+    const cp1x = Number((p1.x + (p2.x - p0.x) / 6).toFixed(1));
+    const cp1y = Number((p1.y + (p2.y - p0.y) / 6).toFixed(1));
+    const cp2x = Number((p2.x - (p3.x - p1.x) / 6).toFixed(1));
+    const cp2y = Number((p2.y - (p3.y - p1.y) / 6).toFixed(1));
+
+    linePath += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  }
+
+  const lastCoord = coords[coords.length - 1];
+  const firstCoord = coords[0];
+  const areaPath = `${linePath} L ${lastCoord.x} ${height} L ${firstCoord.x} ${height} Z`;
+
+  return { linePath, areaPath };
+}
+
 /* ================================================================== */
 /* PAGE                                                               */
 /* ================================================================== */
@@ -218,16 +541,24 @@ export default function UserDashboard() {
   /* USER DATA                                                        */
   /* ---------------------------------------------------------------- */
 
-  const [userData, setUserData] = useState({
+  const [userData, setUserData] = useState<{
+    email: string;
+    name: string;
+    refCode: string;
+    balance: number;
+    coinBalance: number;
+    avatarUrl?: string | null;
+  }>({
     email: "",
     name: "",
     refCode: "",
     balance: 0,
     coinBalance: 0,
+    avatarUrl: null,
   });
 
   const [memberType, setMemberType] = useState<
-    "Reguler" | "Special"
+    "Reguler" | "Special" | "Gold" | string
   >("Reguler");
 
   const [orders, setOrders] = useState<
@@ -257,6 +588,18 @@ export default function UserDashboard() {
   const [currentDomain, setCurrentDomain] =
     useState("");
 
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(() => {
+    if (typeof window !== "undefined") {
+      const width = window.innerWidth;
+      // Tier 2: Tablet (768px s/d 884px) -> Default Navigation Rail (76px) agar konten luas
+      if (width >= 768 && width <= 884) {
+        return false;
+      }
+    }
+    // Tier 3: Desktop (> 884px) -> Default Terbuka Penuh
+    return true;
+  });
+
   /* ---------------------------------------------------------------- */
   /* UPGRADE                                                          */
   /* ---------------------------------------------------------------- */
@@ -270,6 +613,17 @@ export default function UserDashboard() {
   /* ================================================================= */
   /* CALCULATIONS                                                     */
   /* ================================================================= */
+
+  const displayMemberType = useMemo(() => {
+    const raw = String(memberType || "").trim();
+    const lower = raw.toLowerCase();
+    if (lower === "gold") return "Gold Member";
+    if (lower === "special") return "Special Member";
+    if (lower === "regular" || lower === "reguler") return "Regular Member";
+    if (!raw) return "Regular Member";
+    if (lower.endsWith("member")) return raw;
+    return `${raw} Member`;
+  }, [memberType]);
 
   const totalReferralCommission = useMemo(() => {
     return balanceLogs
@@ -286,6 +640,49 @@ export default function UserDashboard() {
         0,
       );
   }, [balanceLogs]);
+
+  const monthlyReferralCommission = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return balanceLogs
+      .filter((log) => {
+        if (!log.created_at) return false;
+        const d = new Date(log.created_at);
+        const isThisMonth =
+          !isNaN(d.getTime()) &&
+          d.getMonth() === currentMonth &&
+          d.getFullYear() === currentYear;
+
+        return (
+          isThisMonth &&
+          Number(log.amount) > 0 &&
+          ["Referral", "Commission"].includes(String(log.type))
+        );
+      })
+      .reduce(
+        (sum, log) =>
+          sum + Number(log.amount),
+        0,
+      );
+  }, [balanceLogs]);
+
+  const monthlyReferrals = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return referrals.filter((r) => {
+      if (!r.created_at) return false;
+      const d = new Date(r.created_at);
+      return (
+        !isNaN(d.getTime()) &&
+        d.getMonth() === currentMonth &&
+        d.getFullYear() === currentYear
+      );
+    });
+  }, [referrals]);
 
   const totalWithdrawn = useMemo(() => {
     return withdrawals
@@ -336,6 +733,49 @@ export default function UserDashboard() {
           0,
         );
     }, [withdrawals]);
+
+  const referralSparkline = useMemo(() => {
+    const referralLogs = balanceLogs.filter(
+      (log) =>
+        Number(log.amount) > 0 &&
+        ["Referral", "Commission"].includes(String(log.type)),
+    );
+    const points = generateCumulativeMonthlyPoints(
+      referralLogs,
+      (item) => Number(item.amount || 0),
+    );
+    return buildSvgSparkline(points);
+  }, [balanceLogs]);
+
+  const withdrawalSparkline = useMemo(() => {
+    const successfulWithdrawals = withdrawals.filter(
+      (w) => normalizeStatus(w.status) === "Berhasil",
+    );
+    const points = generateCumulativeMonthlyPoints(
+      successfulWithdrawals,
+      (item) => Number(item.amount || 0),
+    );
+    return buildSvgSparkline(points);
+  }, [withdrawals]);
+
+  const depositSparkline = useMemo(() => {
+    const successfulDeposits = deposits.filter(
+      (d) => normalizeStatus(d.status) === "Berhasil",
+    );
+    const points = generateCumulativeMonthlyPoints(
+      successfulDeposits,
+      (item) => Number(item.amount || 0),
+    );
+    return buildSvgSparkline(points);
+  }, [deposits]);
+
+  const ordersSparkline = useMemo(() => {
+    const points = generateCumulativeMonthlyPoints(
+      orders,
+      () => 1,
+    );
+    return buildSvgSparkline(points);
+  }, [orders]);
 
   /* ================================================================= */
   /* FETCH DASHBOARD                                                  */
@@ -388,6 +828,12 @@ export default function UserDashboard() {
         const data = result.data;
         const profile = data?.profile;
 
+        const avatarUrl =
+          profile?.avatar_url ||
+          profile?.photo_url ||
+          profile?.image ||
+          null;
+
         setUserData((previous) => ({
           email:
             profile?.email ||
@@ -395,20 +841,24 @@ export default function UserDashboard() {
             "",
           name:
             profile?.full_name ||
+            previous.name ||
             "",
           refCode:
             profile?.referral_code ||
+            previous.refCode ||
             "",
           balance:
             Number(profile?.balance || 0),
           coinBalance:
             Number(profile?.coin_balance || 0),
+          avatarUrl:
+            avatarUrl ||
+            previous.avatarUrl ||
+            null,
         }));
 
         setMemberType(
-          profile?.member_type === "Special"
-            ? "Special"
-            : "Reguler",
+          profile?.member_type || "Reguler",
         );
 
         setOrders(
@@ -706,6 +1156,8 @@ export default function UserDashboard() {
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
+        isSidebarExpanded={isSidebarExpanded}
+        setIsSidebarExpanded={setIsSidebarExpanded}
       >
         <OrdersViewUser />
       </DashboardShell>
@@ -726,6 +1178,8 @@ export default function UserDashboard() {
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
+        isSidebarExpanded={isSidebarExpanded}
+        setIsSidebarExpanded={setIsSidebarExpanded}
       >
         <WalletViewUser />
       </DashboardShell>
@@ -746,6 +1200,8 @@ export default function UserDashboard() {
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
+        isSidebarExpanded={isSidebarExpanded}
+        setIsSidebarExpanded={setIsSidebarExpanded}
       >
         <DepositViewUser />
       </DashboardShell>
@@ -756,7 +1212,7 @@ export default function UserDashboard() {
   /* WITHDRAW                                                          */
   /* ================================================================= */
 
-  if (activeMenu === "withdraw") {
+  if (activeMenu === "withdraw" || activeMenu === "withdrawal") {
     return (
       <DashboardShell
         activeMenu="withdraw"
@@ -766,6 +1222,8 @@ export default function UserDashboard() {
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
+        isSidebarExpanded={isSidebarExpanded}
+        setIsSidebarExpanded={setIsSidebarExpanded}
       >
         <WithdrawViewUser />
       </DashboardShell>
@@ -786,6 +1244,8 @@ export default function UserDashboard() {
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
+        isSidebarExpanded={isSidebarExpanded}
+        setIsSidebarExpanded={setIsSidebarExpanded}
       >
         <AffiliateViewUser />
       </DashboardShell>
@@ -806,6 +1266,8 @@ export default function UserDashboard() {
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
+        isSidebarExpanded={isSidebarExpanded}
+        setIsSidebarExpanded={setIsSidebarExpanded}
       >
         <SettingsViewUser />
       </DashboardShell>
@@ -826,6 +1288,8 @@ export default function UserDashboard() {
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
+        isSidebarExpanded={isSidebarExpanded}
+        setIsSidebarExpanded={setIsSidebarExpanded}
       >
         <HelpViewUser />
       </DashboardShell>
@@ -853,6 +1317,8 @@ export default function UserDashboard() {
       memberType={memberType}
       balance={Number(userData.balance)}
       setActiveMenu={handleMenuNavigation}
+      isSidebarExpanded={isSidebarExpanded}
+      setIsSidebarExpanded={setIsSidebarExpanded}
     >
       {/* ============================================================ */}
       {/* DASHBOARD CONTENT                                            */}
@@ -860,46 +1326,181 @@ export default function UserDashboard() {
 
       <main className="min-w-0">
         {/* ======================================================== */}
-        {/* HEADER                                                   */}
+        {/* 1. MOBILE HEADER (< 768px) - MATCHING MOBILE MOCKUP      */}
         {/* ======================================================== */}
 
-        <section className="mb-6 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-7">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                  Member Area
-                </p>
+        <div className="block md:hidden mb-4">
+          {/* MOBILE TOP BAR */}
+          <div className="mb-2.5 flex items-center justify-between gap-1.5 xs:gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-1.5 xs:p-2 shadow-xs backdrop-blur-md">
+            {/* 1. HAMBURGER MENU BUTTON */}
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("open-user-sidebar"));
+              }}
+              aria-label="Buka navigasi sidebar"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
+            >
+              <Menu size={18} strokeWidth={2} />
+            </button>
+
+            {/* 2. NOTIFICATION BELL WITH BADGE */}
+            <button
+              type="button"
+              onClick={() => handleMenuNavigation("settings")}
+              title="Pusat Notifikasi"
+              aria-label="Pusat Notifikasi (3 Notifikasi Baru)"
+              className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
+            >
+              <Bell size={16} className="text-slate-700" />
+              <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 px-0.5 items-center justify-center rounded-full bg-red-500 text-[8.5px] font-black text-white ring-2 ring-white shadow-xs">
+                3
+              </span>
+            </button>
+
+            {/* 3. USER PROFILE PILL */}
+            <button
+              type="button"
+              onClick={() => handleMenuNavigation("settings")}
+              title={`Profil: ${userData.name || firstName} (${displayMemberType})`}
+              aria-label="Profil Pengguna"
+              className="group flex flex-1 min-w-0 items-center justify-between gap-1.5 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2.5 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 text-white font-black text-[11px] shadow-xs ring-1 ring-white">
+                  {userData.avatarUrl ? (
+                    <img
+                      src={userData.avatarUrl}
+                      alt={firstName}
+                      className="h-full w-full object-cover rounded-full"
+                    />
+                  ) : (
+                    firstName.charAt(0).toUpperCase()
+                  )}
+                </div>
+
+                <div className="text-left min-w-0">
+                  <p className="truncate text-xs font-bold text-slate-900 leading-none">
+                    {firstName}
+                  </p>
+                  <p className="mt-0.5 text-[9px] font-medium text-slate-400 leading-none truncate">
+                    {displayMemberType}
+                  </p>
+                </div>
               </div>
 
-              <h1 className="mt-1.5 truncate text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+              <ChevronDown size={13} className="text-slate-400 shrink-0" />
+            </button>
+
+            {/* 4. REFRESH BUTTON */}
+            <button
+              type="button"
+              onClick={() => void fetchDashboardData(false)}
+              title="Muat ulang data dashboard"
+              aria-label="Muat ulang data"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-600 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
+            >
+              <RefreshCw size={14} className="transition-transform group-hover:rotate-180" />
+            </button>
+          </div>
+
+          {/* MOBILE HERO GREETING CARD */}
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/90 p-2.5 xs:p-3 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60">
+            <div className="relative flex h-10 w-10 xs:h-11 xs:w-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-amber-100/90 via-orange-50 to-amber-200/60 border border-amber-200/80 shadow-2xs text-lg xs:text-xl">
+              <span className="select-none">👋</span>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm xs:text-base sm:text-lg font-black tracking-tight text-slate-950 leading-tight truncate">
+                <span className="text-slate-600 font-bold">Selamat datang, </span>
+                <span className="text-slate-950 font-black">{firstName}!</span>
+              </h1>
+              <p className="mt-0.5 text-[9.5px] xs:text-[10.5px] font-medium text-slate-400 truncate">
+                Kelola saldo, transaksi, & koin di DaPay
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ======================================================== */}
+        {/* 2. DESKTOP & TABLET HEADER (>= 768px)                     */}
+        {/* ======================================================== */}
+
+        <section className="hidden md:block mb-4 sm:mb-5 rounded-2xl md:rounded-[22px] border border-slate-200/80 bg-white/80 p-2.5 sm:p-3 md:px-4 md:py-3 lg:px-5 lg:py-3.5 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60">
+          <div className="flex items-center justify-between gap-2 md:gap-3 lg:gap-4 min-w-0">
+            {/* LEFT GREETING (Dynamic Fluid Typography on Tablet & Desktop) */}
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm xs:text-base md:text-[clamp(16px,1.8vw,20px)] lg:text-2xl font-black tracking-tight text-slate-900 leading-tight truncate">
                 Selamat datang, {firstName} 👋
               </h1>
 
-              <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+              {/* Subtitle: Hidden on Tablet when Sidebar is Expanded, Visible on Navigation Rail & Wide Desktop */}
+              <p className={`hidden ${!isSidebarExpanded ? "md:block" : "lg:block"} mt-0.5 text-[clamp(12px,1.35vw,14.5px)] lg:text-xs text-slate-500 font-medium leading-snug truncate`}>
                 Kelola saldo, transaksi, koin, dan referral Anda di DaPay.
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5 self-start sm:self-center shrink-0">
-              <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200/90 bg-slate-50/80 px-3.5 py-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-linear-to-br from-blue-600 to-indigo-600 text-[10px] font-black text-white shadow-xs">
-                  {firstName.charAt(0).toUpperCase()}
-                </div>
-                <span className="text-xs font-bold text-slate-700">
-                  {memberType === "Special" ? "Special Member" : "Reguler Member"}
+            {/* RIGHT CONTROLS: NOTIFICATION, USER AVATAR PILL, REFRESH (Always Pinned at Top-Right) */}
+            <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 shrink-0 ml-auto">
+              {/* 1. NOTIFICATION BELL WITH BADGE */}
+              <button
+                type="button"
+                onClick={() => handleMenuNavigation("settings")}
+                title="Pusat Notifikasi"
+                aria-label="Pusat Notifikasi (3 Notifikasi Baru)"
+                className="relative flex h-8 w-8 md:h-8.5 md:w-8.5 lg:h-9.5 lg:w-9.5 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition-all duration-200 hover:bg-slate-50 hover:text-blue-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer"
+              >
+                <Bell size={15} className="text-slate-700" />
+                {/* Red Notification Count Badge */}
+                <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 px-0.5 items-center justify-center rounded-full bg-red-500 text-[8.5px] font-black text-white ring-2 ring-white shadow-xs">
+                  3
                 </span>
-              </div>
+              </button>
 
+              {/* 2. USER AVATAR PILL WITH EXTENDED CONTAINER & DYNAMIC STATUS */}
+              <button
+                type="button"
+                onClick={() => handleMenuNavigation("settings")}
+                title={`Profil: ${userData.name || firstName} (${displayMemberType})`}
+                aria-label="Profil Pengguna"
+                className="group flex items-center gap-1.5 md:gap-2 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2.5 md:pr-3 lg:pr-4 shadow-2xs transition-all duration-200 hover:border-slate-300 hover:bg-slate-50/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer min-w-0 max-w-[125px] md:max-w-[155px] lg:max-w-[185px]"
+              >
+                {/* Avatar Photo or Initial */}
+                <div className="flex h-6.5 w-6.5 md:h-7 md:w-7 lg:h-8 lg:w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 text-white font-black text-[10px] md:text-[11px] lg:text-xs shadow-xs ring-1 ring-white">
+                  {userData.avatarUrl ? (
+                    <img
+                      src={userData.avatarUrl}
+                      alt={firstName}
+                      className="h-full w-full object-cover rounded-full"
+                    />
+                  ) : (
+                    firstName.charAt(0).toUpperCase()
+                  )}
+                </div>
+
+                {/* Name & Dynamic Role Text from Database */}
+                <div className="text-left min-w-0 flex-1 pr-0.5">
+                  <p className="truncate text-[11px] md:text-xs lg:text-sm font-bold text-slate-900 leading-none group-hover:text-blue-600 transition-colors">
+                    {firstName}
+                  </p>
+                  <p className="mt-0.5 text-[8.5px] md:text-[9.5px] lg:text-[10.5px] font-semibold text-slate-500 leading-none truncate">
+                    {displayMemberType}
+                  </p>
+                </div>
+
+                {/* Chevron Icon */}
+                <ChevronDown size={13} className="text-slate-400 transition-transform duration-200 group-hover:translate-y-0.5 shrink-0" />
+              </button>
+
+              {/* 3. ICON-ONLY REFRESH BUTTON */}
               <button
                 type="button"
                 onClick={() => void fetchDashboardData(false)}
                 title="Muat ulang data dashboard"
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-600 shadow-2xs transition hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95"
+                aria-label="Muat ulang data"
+                className="flex h-8 w-8 md:h-8.5 md:w-8.5 lg:h-9.5 lg:w-9.5 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-600 shadow-2xs transition-all duration-200 hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer"
               >
-                <RefreshCw size={14} className="text-slate-500 transition-transform group-hover:rotate-180" />
-                <span>Refresh</span>
+                <RefreshCw size={13} className="transition-transform group-hover:rotate-180" />
               </button>
             </div>
           </div>
@@ -909,94 +1510,97 @@ export default function UserDashboard() {
         {/* SALDO + KOIN                                             */}
         {/* ======================================================== */}
 
-        <section className="mb-6 grid gap-5 lg:grid-cols-2">
+        <section className="mb-5 sm:mb-6 grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3.5 md:grid-cols-2 md:gap-4 lg:gap-5 xl:gap-6 items-stretch">
           {/* ====================================================== */}
-          {/* SALDO DAYAP                                             */}
+          {/* SALDO DAYAP (Modern Glassmorphism Multi-Device)       */}
           {/* ====================================================== */}
 
-          <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-blue-400/20 bg-linear-to-br from-[#1E40AF] via-[#1D4ED8] to-[#312E81] p-6 text-white shadow-[0_16px_36px_rgba(30,64,175,0.18)] ring-1 ring-inset ring-white/15 sm:p-7">
-            {/* Ambient Background Glow & Watermark */}
-            <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-white/10 blur-3xl" aria-hidden="true" />
-            <div className="pointer-events-none absolute -right-2 top-1/2 -translate-y-1/2 text-white/8" aria-hidden="true">
-              <Wallet size={150} strokeWidth={1.1} />
+          <div className="group relative flex h-full min-h-40 xs:min-h-[170px] sm:min-h-47.5 md:min-h-60 lg:min-h-68 xl:min-h-75 flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-[24px] xl:rounded-[28px] border border-blue-400/30 bg-linear-to-br from-[#1e3a8a]/90 via-[#1d4ed8]/85 to-[#312e81]/90 p-2.5 xs:p-3 sm:p-4.5 md:p-5 lg:p-6 xl:p-7 text-white shadow-[0_16px_40px_rgba(30,58,138,0.22)] backdrop-blur-2xl ring-1 ring-inset ring-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(30,58,138,0.32)]">
+            {/* Top Specular Glare / Light Rim */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/40 to-transparent" aria-hidden="true" />
+
+            {/* Ambient Multi-Color Glass Glow Orbs */}
+            <div className="pointer-events-none absolute -right-16 -top-20 h-60 w-60 rounded-full bg-linear-to-br from-cyan-400/25 via-blue-400/20 to-indigo-500/20 blur-3xl" aria-hidden="true" />
+            <div className="pointer-events-none absolute -left-12 -bottom-12 h-52 w-52 rounded-full bg-indigo-500/25 blur-3xl" aria-hidden="true" />
+
+            {/* Ambient Frosted Watermark */}
+            <div className="pointer-events-none absolute -right-3 top-1/2 -translate-y-1/2 text-white/5 opacity-50 md:opacity-100 transition-transform duration-700 group-hover:scale-105" aria-hidden="true">
+              <Wallet size={160} strokeWidth={1} />
             </div>
 
             <div className="relative z-10 flex h-full flex-col justify-between">
               {/* Header Card */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/15 text-white shadow-xs backdrop-blur-md">
-                    <Wallet size={19} strokeWidth={2} />
+              <div className="flex items-start justify-between gap-1 xs:gap-1.5 md:gap-3">
+                <div className="flex items-center gap-1.5 xs:gap-2 md:gap-3 min-w-0">
+                  <div className="flex h-7 w-7 xs:h-8 xs:w-8 md:h-10 md:w-10 lg:h-11 lg:w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl md:rounded-2xl border border-white/25 bg-white/15 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_20px_rgba(0,0,0,0.15)] backdrop-blur-md">
+                    <Wallet size={14} className="xs:h-4 xs:w-4 md:h-4.5 md:w-4.5" strokeWidth={2.2} />
                   </div>
-                  <div>
-                    <h2 className="text-sm font-bold tracking-tight text-white sm:text-base">
+                  <div className="min-w-0">
+                    <h2 className="text-[12px] xs:text-[13px] sm:text-[15px] md:text-sm lg:text-base font-bold tracking-tight text-white leading-tight truncate">
                       Saldo DaPay
                     </h2>
-                    <p className="text-[11px] font-medium text-blue-200/80">
+                    <p className="hidden md:block text-[10px] lg:text-[11px] font-medium text-blue-200/80 leading-tight">
                       Aset Utama (Likuid)
                     </p>
                   </div>
                 </div>
 
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/15 px-3 py-1 text-[10px] font-semibold text-emerald-200 backdrop-blur-xs">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+                <span className={`hidden ${!isSidebarExpanded ? "md:inline-flex" : "lg:inline-flex"} items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-500/20 px-2 xs:px-2.5 py-0.5 text-[9px] md:text-[9.5px] font-bold text-emerald-200 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-emerald-300/20 whitespace-nowrap`}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" aria-hidden="true" />
                   Bisa Ditarik
                 </span>
               </div>
 
               {/* Nominal Area */}
-              <div className="my-6 sm:my-7">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-200/70">
+              <div className="my-2 xs:my-2.5 md:my-4 lg:my-5 xl:my-6">
+                <p className="text-[8.5px] xs:text-[9.5px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-[0.18em] text-blue-200/70">
                   Saldo Tersedia
                 </p>
-                <p className="mt-1.5 truncate text-3xl font-black tracking-tight text-white sm:text-[2.5rem] lg:text-[2.75rem] leading-none">
+                <p className="mt-0.5 md:mt-1 truncate text-[13px] xs:text-[15px] sm:text-[17px] md:text-[clamp(15px,1.9vw,22px)] lg:text-2xl xl:text-3xl 2xl:text-4xl font-black tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.25)] leading-none">
                   {formatRupiah(userData.balance)}
                 </p>
               </div>
 
-              {/* Actions & Footer */}
+              {/* Actions */}
               <div>
-                <div className="flex flex-wrap gap-2.5">
+                <div className={`grid grid-cols-1 ${!isSidebarExpanded ? "md:grid-cols-2" : "lg:grid-cols-2"} gap-1 xs:gap-1.5 md:gap-2 lg:gap-2.5 w-full`}>
                   <button
                     type="button"
                     onClick={() => handleMenuNavigation("deposit")}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-xs font-bold text-blue-800 shadow-sm transition hover:bg-blue-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white active:scale-95"
+                    className="inline-flex w-full h-6.5 xs:h-7.5 sm:h-8.5 md:h-9 lg:h-10 xl:h-10.5 items-center justify-center gap-1 xs:gap-1.5 md:gap-1.5 rounded-md xs:rounded-lg md:rounded-xl bg-white px-1.5 xs:px-2 md:px-2.5 lg:px-4 text-[10px] xs:text-[11px] md:text-xs font-bold text-blue-900 shadow-[0_4px_14px_rgba(0,0,0,0.15)] transition-all duration-200 hover:bg-blue-50 hover:shadow-[0_6px_20px_rgba(255,255,255,0.25)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white active:scale-95 cursor-pointer whitespace-nowrap"
                   >
-                    <PlusCircle size={15} />
-                    <span>Isi Saldo</span>
+                    <PlusCircle size={11} className="xs:h-3 xs:w-3 md:h-3.5 md:w-3.5 shrink-0" />
+                    <span className="truncate">Isi Saldo</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleMenuNavigation("withdraw")}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 text-xs font-bold text-white backdrop-blur-md transition hover:bg-white/20 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white active:scale-95"
+                    className="inline-flex w-full h-6.5 xs:h-7.5 sm:h-8.5 md:h-9 lg:h-10 xl:h-10.5 items-center justify-center gap-1 xs:gap-1.5 md:gap-1.5 rounded-md xs:rounded-lg md:rounded-xl border border-white/30 bg-white/15 px-1.5 xs:px-2 md:px-2.5 lg:px-4 text-[10px] xs:text-[11px] md:text-xs font-bold text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-200 hover:bg-white/25 hover:border-white/45 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white active:scale-95 cursor-pointer whitespace-nowrap"
                   >
-                    <ArrowUpRight size={15} />
-                    <span>Tarik Saldo</span>
+                    <ArrowUpRight size={11} className="xs:h-3 xs:w-3 md:h-3.5 md:w-3.5 shrink-0" />
+                    <span className="truncate">Tarik Saldo</span>
                   </button>
-                </div>
-
-                <div className="mt-5 border-t border-white/10 pt-3.5">
-                  <p className="text-[11px] font-medium leading-relaxed text-blue-100/75">
-                    Dapat digunakan untuk semua transaksi checkout dan dapat ditarik tunai.
-                  </p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* ====================================================== */}
-          {/* KOIN DAPAY                                             */}
+          {/* KOIN DAPAY (Modern Glassmorphism Multi-Device)        */}
           {/* ====================================================== */}
 
-          <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-purple-200/70 bg-linear-to-br from-[#FAF8FF] via-[#FFFFFF] to-[#F1EAFF] p-6 shadow-[0_18px_40px_rgba(139,92,246,0.07)] ring-1 ring-inset ring-white sm:p-7">
-            {/* Ambient Background Glow & Light Field */}
-            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-linear-to-tr from-violet-300/25 via-purple-200/30 to-pink-200/15 blur-3xl" aria-hidden="true" />
-            <div className="pointer-events-none absolute -left-12 -bottom-12 h-48 w-48 rounded-full bg-purple-200/20 blur-2xl" aria-hidden="true" />
+          <div className="group relative flex h-full min-h-40 xs:min-h-[170px] sm:min-h-47.5 md:min-h-60 lg:min-h-68 xl:min-h-75 flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-[24px] xl:rounded-[28px] border border-purple-200/75 bg-linear-to-br from-white/90 via-purple-50/70 to-violet-100/60 p-2.5 xs:p-3 sm:p-4.5 md:p-5 lg:p-6 xl:p-7 shadow-[0_16px_40px_rgba(139,92,246,0.10)] backdrop-blur-2xl ring-1 ring-inset ring-white/80 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(139,92,246,0.16)]">
+            {/* Top Specular Glare / Light Rim */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white to-transparent" aria-hidden="true" />
 
-            {/* Layered Decorative 3D Coins Artwork (Matching Mockup) */}
+            {/* Ambient Multi-Color Glass Glow Orbs */}
+            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-linear-to-tr from-violet-400/25 via-purple-300/30 to-pink-300/20 blur-3xl" aria-hidden="true" />
+            <div className="pointer-events-none absolute -left-12 -bottom-12 h-52 w-52 rounded-full bg-purple-300/25 blur-3xl" aria-hidden="true" />
+
+            {/* Layered Decorative 3D Coins Artwork */}
             <div
-              className="pointer-events-none absolute -right-8 top-1/2 -translate-y-1/2 opacity-[0.14] sm:opacity-[0.18]"
+              className="pointer-events-none absolute -right-6 xs:-right-8 top-1/2 -translate-y-1/2 opacity-[0.14] sm:opacity-[0.18] transition-transform duration-700 group-hover:scale-105"
               style={{ perspective: "1000px" }}
               aria-hidden="true"
             >
@@ -1006,12 +1610,12 @@ export default function UserDashboard() {
                   transformStyle: "preserve-3d",
                 }}
               >
-                <DaPayCoin size={175} showShadow={false} showText={true} />
+                <DaPayCoin size={155} showShadow={false} showText={true} />
               </div>
             </div>
 
             <div
-              className="pointer-events-none absolute right-1 -bottom-4 opacity-[0.16] sm:opacity-[0.20]"
+              className="pointer-events-none absolute right-1 -bottom-3 sm:-bottom-4 opacity-[0.16] sm:opacity-[0.20] transition-transform duration-700 group-hover:scale-105"
               style={{ perspective: "1000px" }}
               aria-hidden="true"
             >
@@ -1021,17 +1625,17 @@ export default function UserDashboard() {
                   transformStyle: "preserve-3d",
                 }}
               >
-                <DaPayCoin size={105} showShadow={false} showText={true} />
+                <DaPayCoin size={95} showShadow={false} showText={true} />
               </div>
             </div>
 
             <div className="relative z-10 flex h-full flex-col justify-between">
               {/* Header Card */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 sm:gap-3.5">
+              <div className="flex items-start justify-between gap-1 xs:gap-1.5 md:gap-3">
+                <div className="flex items-center gap-1.5 xs:gap-2 md:gap-3 min-w-0">
                   {/* Hero Coin Brand Asset with Glowing Aura Halo */}
                   <div
-                    className="relative flex shrink-0 items-center justify-center rounded-full p-2 bg-linear-to-tr from-violet-200/60 via-purple-100/50 to-violet-300/40 border border-violet-200/80 shadow-[0_4px_18px_rgba(139,92,246,0.20)]"
+                    className="relative flex shrink-0 items-center justify-center rounded-full p-0.5 xs:p-1 md:p-1.5 lg:p-2 bg-linear-to-tr from-violet-200/70 via-white/80 to-purple-200/50 border border-white/80 shadow-[0_6px_20px_rgba(139,92,246,0.22),inset_0_1px_1px_rgba(255,255,255,0.8)] backdrop-blur-md"
                     style={{ perspective: "800px" }}
                     aria-hidden="true"
                   >
@@ -1041,62 +1645,60 @@ export default function UserDashboard() {
                         transformStyle: "preserve-3d",
                       }}
                     >
-                      <DaPayCoin size={44} showShadow={true} showText={true} />
+                      <div className="md:hidden">
+                        <DaPayCoin size={22} showShadow={true} showText={true} />
+                      </div>
+                      <div className="hidden md:block">
+                        <DaPayCoin size={34} showShadow={true} showText={true} />
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <h2 className="text-base font-black tracking-tight text-slate-900 sm:text-lg">
+                  <div className="min-w-0">
+                    <h2 className="text-[12px] xs:text-[13px] sm:text-[15px] md:text-sm lg:text-base font-black tracking-tight text-slate-900 leading-tight truncate">
                       Koin DaPay
                     </h2>
-                    <p className="text-xs font-semibold text-purple-600">
+                    <p className="hidden md:block text-[10px] font-semibold text-purple-600 leading-tight">
                       Reward & Cashback
                     </p>
                   </div>
                 </div>
 
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-100/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-violet-700 shadow-2xs">
-                  <span className="text-[11px] text-violet-600 leading-none" aria-hidden="true">✦</span>
+                <span className={`hidden ${!isSidebarExpanded ? "md:inline-flex" : "lg:inline-flex"} items-center gap-1.5 rounded-full border border-purple-200/90 bg-white/70 px-2 xs:px-2.5 py-0.5 text-[9px] md:text-[9.5px] font-black uppercase tracking-[0.14em] text-purple-700 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60 whitespace-nowrap`}>
+                  <span className="text-[10px] xs:text-[11px] text-purple-600 leading-none" aria-hidden="true">✦</span>
                   Reward
                 </span>
               </div>
 
               {/* Nominal Area */}
-              <div className="my-6 sm:my-7">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-900/60">
+              <div className="my-2 xs:my-2.5 md:my-4 lg:my-5 xl:my-6">
+                <p className="text-[8.5px] xs:text-[9.5px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-[0.18em] text-purple-900/60">
                   Total Reward Koin
                 </p>
-                <div className="mt-1.5 flex items-baseline gap-2">
-                  <span className="truncate text-4xl sm:text-5xl font-black tracking-tight text-slate-950 leading-none">
+                <div className="mt-0.5 md:mt-1 flex items-baseline gap-1 md:gap-1.5">
+                  <span className="truncate text-[13px] xs:text-[15px] sm:text-[17px] md:text-[clamp(16px,2vw,24px)] lg:text-3xl xl:text-4xl font-black tracking-tight text-slate-950 leading-none">
                     {coinBalance.toLocaleString("id-ID")}
                   </span>
-                  <span className="text-xl sm:text-2xl font-black tracking-tight text-violet-700">
+                  <span className="text-[10px] xs:text-[11px] sm:text-[13px] md:text-sm lg:text-lg font-black tracking-tight text-violet-700">
                     KOIN
                   </span>
                 </div>
               </div>
 
-              {/* Informational Callout & Footer */}
+              {/* Informational Callout */}
               <div>
-                <div className="flex items-center gap-3.5 rounded-2xl border border-purple-200/70 bg-white/85 p-3 shadow-2xs backdrop-blur-xs max-w-md sm:p-3.5">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-200/80 bg-violet-50 text-violet-700 shadow-2xs" aria-hidden="true">
-                    <Gift size={18} />
+                <div className="flex items-center gap-1.5 xs:gap-2 md:gap-2.5 rounded-md xs:rounded-lg md:rounded-xl border border-purple-200/60 bg-white/75 p-1.5 xs:p-2 md:p-2.5 lg:p-3 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60 w-full max-w-md">
+                  <div className="flex h-5 w-5 xs:h-6 xs:w-6 md:h-8 md:w-8 shrink-0 items-center justify-center rounded-sm xs:rounded-md md:rounded-lg border border-purple-200/80 bg-purple-100/70 text-purple-700 shadow-2xs backdrop-blur-xs" aria-hidden="true">
+                    <Gift size={11} className="xs:h-3 xs:w-3 md:h-4 md:w-4" />
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-900 sm:text-[13px]">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] xs:text-[10.5px] sm:text-[12px] md:text-xs font-bold text-slate-900 leading-tight">
                       Gunakan Koin DaPay saat checkout
                     </p>
-                    <p className="text-[11px] text-slate-500 sm:text-xs">
+                    <p className="hidden md:block mt-0.5 text-[10px] lg:text-xs text-slate-500 leading-tight">
                       untuk potongan harga langsung.
                     </p>
                   </div>
-                </div>
-
-                <div className="mt-5 border-t border-purple-100 pt-3.5">
-                  <p className="flex items-center gap-1.5 text-[11px] font-medium leading-relaxed text-slate-500">
-                    <Info size={13} className="shrink-0 text-purple-400" aria-hidden="true" />
-                    <span>Koin reward tidak dapat ditarik atau diuangkan ke rekening bank.</span>
-                  </p>
                 </div>
               </div>
             </div>
@@ -1107,13 +1709,14 @@ export default function UserDashboard() {
         {/* KPI SUMMARY                                              */}
         {/* ======================================================== */}
 
-        <section className="mb-6 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <section className="mb-5 sm:mb-6 grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3.5 md:grid-cols-2 md:gap-3.5 lg:grid-cols-4 lg:gap-4 xl:gap-5">
           <KpiCard
             icon={<ArrowUpRight size={17} />}
             label="Komisi Referral"
             value={formatRupiah(totalReferralCommission)}
             note="Masuk ke Saldo DaPay"
             tone="purple"
+            sparkline={referralSparkline}
           />
 
           <KpiCard
@@ -1126,6 +1729,7 @@ export default function UserDashboard() {
                 : "Penarikan berhasil"
             }
             tone="emerald"
+            sparkline={withdrawalSparkline}
           />
 
           <KpiCard
@@ -1134,6 +1738,7 @@ export default function UserDashboard() {
             value={formatRupiah(totalDeposit)}
             note="Deposit berhasil"
             tone="blue"
+            sparkline={depositSparkline}
           />
 
           <KpiCard
@@ -1142,6 +1747,7 @@ export default function UserDashboard() {
             value={orders.length.toLocaleString("id-ID")}
             note="Total pesanan"
             tone="amber"
+            sparkline={ordersSparkline}
           />
         </section>
 
@@ -1149,162 +1755,182 @@ export default function UserDashboard() {
         {/* OPERATIONAL SECTION: TRANSAKSI & STATISTIK AFILIASI      */}
         {/* ======================================================== */}
 
-        <section className="mb-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="mb-6 grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px] lg:items-stretch w-full min-w-0">
           {/* ====================================================== */}
           {/* TRANSAKSI TERBARU (~70%)                               */}
           {/* ====================================================== */}
 
-          <div className="flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-5 shadow-2xs sm:p-6">
-            <div>
-              {/* Section Header */}
-              <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-blue-600">
-                    <History size={16} />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-black text-slate-900">
-                      Transaksi Terbaru
-                    </h2>
-                    <p className="text-[11px] font-medium text-slate-400">
-                      Aktivitas pesanan digital terkini
-                    </p>
-                  </div>
+          <div className="flex h-full flex-col rounded-2xl xs:rounded-3xl md:rounded-3xl border border-slate-200/80 bg-white p-3 xs:p-4 sm:p-5 shadow-2xs w-full min-w-0">
+            {/* Section Header */}
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 pb-2.5 xs:pb-3">
+              <div className="flex items-center gap-1.5 xs:gap-2 min-w-0">
+                <div className="flex h-6.5 w-6.5 xs:h-7 xs:w-7 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-blue-600">
+                  <History size={13} className="xs:h-3.5 xs:w-3.5" />
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleMenuNavigation("orders")}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 transition hover:text-blue-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500"
-                >
-                  <span>Lihat Semua →</span>
-                </button>
+                <div className="min-w-0">
+                  <h2 className="text-[11px] xs:text-xs font-black text-slate-900 sm:text-sm truncate">
+                    Transaksi Terbaru
+                  </h2>
+                  <p className="hidden xs:block text-[10px] font-medium text-slate-400 truncate">
+                    Aktivitas pesanan digital terkini
+                  </p>
+                </div>
               </div>
 
-              {/* Content Area */}
-              <div className="mt-3.5">
-                {orders.length === 0 ? (
-                  <EmptyDashboard text="Belum ada transaksi pesanan tercatat." />
-                ) : (
-                  <>
-                    {/* Desktop / Tablet Modern Data Table (md+) */}
-                    <div className="hidden overflow-x-auto md:block">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            <th className="pb-3 pl-2 pr-3 font-bold">Produk & Layanan</th>
-                            <th className="px-3 pb-3 font-bold">ID Pesanan</th>
-                            <th className="px-3 pb-3 font-bold">Waktu</th>
-                            <th className="px-3 pb-3 font-bold text-center">Status</th>
-                            <th className="pb-3 pl-3 pr-2 font-bold text-right">Harga</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-slate-700">
-                          {orders.slice(0, 5).map((order) => {
-                            const status = normalizeStatus(order.status);
-                            const style = getStatusClasses(status);
-                            const orderRef = order.order_id || order.id;
+              <button
+                type="button"
+                onClick={() => handleMenuNavigation("orders")}
+                className="inline-flex shrink-0 items-center gap-0.5 text-[10px] xs:text-[11px] font-bold text-blue-600 transition hover:text-blue-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                <span>Lihat Semua →</span>
+              </button>
+            </div>
 
-                            return (
-                              <tr
-                                key={order.id}
-                                className="group h-17.5 transition hover:bg-slate-50/70"
-                              >
-                                {/* Produk */}
-                                <td className="py-3 pl-2 pr-3">
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-600">
-                                      <ShoppingBag size={15} />
+            {/* Content Area */}
+            <div className="flex flex-1 flex-col pt-1 min-w-0">
+              {orders.length === 0 ? (
+                <EmptyDashboard text="Belum ada transaksi pesanan tercatat." />
+              ) : (
+                <>
+                  {/* Desktop / Tablet Modern Data Table (md+ on Navigation Rail / 2xl+ when Expanded) */}
+                  <div className={`hidden h-full flex-1 overflow-x-auto ${!isSidebarExpanded ? "md:block" : "2xl:block"}`}>
+                    <table className="h-full w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          <th className="pb-2.5 pl-1 pr-3 font-bold">Produk & Layanan</th>
+                          <th className="px-3 pb-2.5 font-bold">ID Pesanan</th>
+                          <th className="px-3 pb-2.5 font-bold">Waktu</th>
+                          <th className="px-3 pb-2.5 font-bold text-center">Status</th>
+                          <th className="pb-2.5 pl-3 pr-1 font-bold text-right">Harga</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700">
+                        {orders.slice(0, 5).map((order) => {
+                          const status = normalizeStatus(order.status);
+                          const style = getStatusClasses(status);
+                          const orderRef = order.order_id || order.id;
+                          const productImg = getProductImage(order.product_name);
+
+                          return (
+                            <tr
+                              key={order.id}
+                              className="group transition hover:bg-slate-50/70"
+                            >
+                              {/* Produk */}
+                              <td className="py-2.5 pl-1 pr-3 align-middle">
+                                <div className="flex items-center gap-2">
+                                  {productImg && (
+                                    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-slate-50">
+                                      <img
+                                        src={productImg}
+                                        alt={order.product_name || "Produk"}
+                                        className="h-full w-full object-cover"
+                                      />
                                     </div>
-                                    <div className="min-w-0">
-                                      <p className="truncate font-bold text-slate-900">
-                                        {order.product_name || "Produk Digital"}
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-bold text-slate-900">
+                                      {order.product_name || "Produk Digital"}
+                                    </p>
+                                    {order.item_label && (
+                                      <p className="truncate text-[10px] text-slate-400">
+                                        {order.item_label}
                                       </p>
-                                      {order.item_label && (
-                                        <p className="truncate text-[10px] text-slate-400">
-                                          {order.item_label}
-                                        </p>
-                                      )}
-                                    </div>
+                                    )}
                                   </div>
-                                </td>
+                                </div>
+                              </td>
 
-                                {/* ID Pesanan */}
-                                <td className="px-3 py-3">
-                                  <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-700">
-                                    #{orderRef.slice(-8)}
-                                  </span>
-                                </td>
+                              {/* ID Pesanan */}
+                              <td className="whitespace-nowrap px-3 py-2.5 align-middle">
+                                <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700">
+                                  #{orderRef.slice(-8)}
+                                </span>
+                              </td>
 
-                                {/* Waktu */}
-                                <td className="whitespace-nowrap px-3 py-3 text-slate-500">
-                                  {formatDate(order.created_at)}
-                                </td>
+                              {/* Waktu */}
+                              <td className="whitespace-nowrap px-3 py-2.5 text-[11px] text-slate-500 align-middle">
+                                {formatDate(order.created_at)}
+                              </td>
 
-                                {/* Status */}
-                                <td className="whitespace-nowrap px-3 py-3 text-center">
-                                  <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[9px] font-bold ${style.badge}`}>
-                                    <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
-                                    {status}
-                                  </span>
-                                </td>
+                              {/* Status */}
+                              <td className="whitespace-nowrap px-3 py-2.5 text-center align-middle">
+                                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold ${style.badge}`}>
+                                  <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
+                                  {status}
+                                </span>
+                              </td>
 
-                                {/* Harga */}
-                                <td className="whitespace-nowrap py-3 pl-3 pr-2 text-right font-black text-slate-950">
-                                  {formatRupiah(order.total_amount ?? order.price)}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                              {/* Harga */}
+                              <td className="whitespace-nowrap py-2.5 pl-3 pr-1 text-right text-xs font-black text-slate-950 align-middle">
+                                {formatRupiah(order.total_amount ?? order.price)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
 
-                    {/* Mobile Activity Feed (< md) */}
-                    <div className="divide-y divide-slate-100 md:hidden">
-                      {orders.slice(0, 5).map((order) => {
-                        const status = normalizeStatus(order.status);
-                        const style = getStatusClasses(status);
-                        const orderRef = order.order_id || order.id;
+                  {/* Mobile, Tablet & Desktop Activity Feed (Matches Mockup) */}
+                  <div className={`divide-y divide-slate-100 ${!isSidebarExpanded ? "md:hidden" : "2xl:hidden"}`}>
+                    {orders.slice(0, 5).map((order) => {
+                      const status = normalizeStatus(order.status);
+                      const style = getStatusClasses(status);
+                      const orderRef = order.order_id || order.id;
+                      const productImg = getProductImage(order.product_name);
 
-                        return (
-                          <div
-                            key={order.id}
-                            className="flex items-center gap-3 py-3.5 first:pt-1 last:pb-1"
-                          >
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-700">
-                              <ShoppingBag size={17} />
-                            </div>
+                      return (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between gap-3 py-3 first:pt-1 last:pb-1 min-w-0"
+                        >
+                          {/* Left: Product Image & Details */}
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            {productImg ? (
+                              <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-1 shadow-2xs">
+                                <img
+                                  src={productImg}
+                                  alt={order.product_name || "Produk"}
+                                  className="h-full w-full object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-50 text-slate-400">
+                                <ShoppingBag size={18} />
+                              </div>
+                            )}
 
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-bold text-slate-900">
+                              <p className="truncate text-xs sm:text-sm font-bold text-slate-900 leading-tight">
                                 {order.product_name || "Produk Digital"}
                               </p>
-                              <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-slate-400">
-                                <span className="font-mono font-semibold text-slate-600">
+                              <div className="mt-1 flex items-center gap-1.5 text-[10px] sm:text-xs text-slate-400 font-semibold truncate">
+                                <span className="font-mono text-slate-500 font-bold">
                                   #{orderRef.slice(-8)}
                                 </span>
                                 <span aria-hidden="true">•</span>
-                                <span>{formatDate(order.created_at)}</span>
+                                <span className="truncate">{formatDate(order.created_at)}</span>
                               </div>
                             </div>
-
-                            <div className="text-right">
-                              <p className="text-xs font-black text-slate-950">
-                                {formatRupiah(order.total_amount ?? order.price)}
-                              </p>
-                              <span className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[8px] font-bold ${style.badge}`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
-                                {status}
-                              </span>
-                            </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
+
+                          {/* Right: Price & Status Pill Badge (Stacked) */}
+                          <div className="shrink-0 text-right flex flex-col items-end gap-1">
+                            <p className="text-xs sm:text-sm font-black text-slate-950 leading-tight">
+                              {formatRupiah(order.total_amount ?? order.price)}
+                            </p>
+                            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] sm:text-[10px] font-bold ${style.badge}`}>
+                              <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
+                              {status}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1312,19 +1938,19 @@ export default function UserDashboard() {
           {/* STATISTIK AFILIASI (~30%)                              */}
           {/* ====================================================== */}
 
-          <div className="flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-4.5 shadow-2xs sm:p-5">
-            <div className="space-y-3">
+          <div className="flex h-full flex-col justify-between rounded-2xl xs:rounded-3xl md:rounded-3xl border border-slate-200/80 bg-white p-3 xs:p-4 sm:p-5 shadow-2xs w-full min-w-0">
+            <div className="space-y-2.5 xs:space-y-3">
               {/* Header */}
-              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-purple-100 bg-purple-50 text-purple-600">
-                    <Gift size={14} />
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5 xs:pb-3">
+                <div className="flex items-center gap-1.5 xs:gap-2 min-w-0">
+                  <div className="flex h-6.5 w-6.5 xs:h-7 xs:w-7 shrink-0 items-center justify-center rounded-lg border border-purple-100 bg-purple-50 text-purple-600">
+                    <Gift size={13} className="xs:h-3.5 xs:w-3.5" />
                   </div>
-                  <div>
-                    <h2 className="text-xs font-black text-slate-900 sm:text-sm">
+                  <div className="min-w-0">
+                    <h2 className="text-[11px] xs:text-xs font-black text-slate-900 sm:text-sm truncate">
                       Statistik Afiliasi
                     </h2>
-                    <p className="text-[10px] font-medium text-slate-400">
+                    <p className="hidden xs:block text-[10px] font-medium text-slate-400 truncate">
                       Performa mitra & pendapatan
                     </p>
                   </div>
@@ -1333,41 +1959,41 @@ export default function UserDashboard() {
                 <button
                   type="button"
                   onClick={() => handleMenuNavigation("affiliate")}
-                  className="inline-flex items-center text-[11px] font-bold text-purple-600 transition hover:text-purple-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-purple-500"
+                  className="inline-flex shrink-0 items-center text-[10px] xs:text-[11px] font-bold text-purple-600 transition hover:text-purple-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-purple-500"
                 >
                   <span>Lihat Detail →</span>
                 </button>
               </div>
 
               {/* Metrics Grid */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-2.5">
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="grid grid-cols-2 gap-1.5 xs:gap-2">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-2 xs:p-2.5 min-w-0">
+                  <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">
                     Total Mitra
                   </p>
-                  <p className="mt-0.5 text-base font-black text-slate-950">
-                    {referrals.length} <span className="text-[10px] font-semibold text-slate-500">Orang</span>
+                  <p className="mt-0.5 text-xs xs:text-sm sm:text-base font-black text-slate-950 truncate">
+                    {referrals.length} <span className="text-[9px] xs:text-[10px] font-semibold text-slate-500">Orang</span>
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-purple-100 bg-purple-50/80 p-2.5">
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-purple-700">
+                <div className="rounded-xl border border-purple-100 bg-purple-50/80 p-2 xs:p-2.5 min-w-0">
+                  <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-purple-700 truncate">
                     Komisi Referral
                   </p>
-                  <p className="mt-0.5 truncate text-base font-black text-purple-900">
+                  <p className="mt-0.5 truncate text-xs xs:text-sm sm:text-base font-black text-purple-900">
                     {formatRupiah(totalReferralCommission)}
                   </p>
                 </div>
               </div>
 
               {/* Progress Referral Bulan Ini */}
-              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5">
-                <div className="flex items-center justify-between gap-1 text-[10px]">
-                  <span className="font-bold text-slate-700">
-                    Progress: {referrals.length}/25 Mitra
+              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2 xs:p-2.5 min-w-0">
+                <div className="flex items-center justify-between gap-1 text-[9.5px] xs:text-[10px]">
+                  <span className="font-bold text-slate-700 truncate">
+                    Progress: {monthlyReferrals.length}/25 Mitra
                   </span>
-                  <span className="rounded-md bg-purple-100/80 px-1.5 py-0.2 font-mono text-[9px] font-black text-purple-700">
-                    {Math.min(Math.round((referrals.length / 25) * 100), 100)}%
+                  <span className="shrink-0 rounded-md bg-purple-100/80 px-1.5 py-0.2 font-mono text-[8.5px] xs:text-[9px] font-black text-purple-700">
+                    {Math.min(Math.round((monthlyReferrals.length / 25) * 100), 100)}%
                   </span>
                 </div>
 
@@ -1376,9 +2002,9 @@ export default function UserDashboard() {
                   <div
                     className="h-full rounded-full bg-linear-to-r from-purple-500 to-indigo-600 transition-all duration-500"
                     style={{
-                      width: `${Math.max(
-                        4,
-                        Math.min(Math.round((referrals.length / 25) * 100), 100)
+                      width: `${Math.min(
+                        Math.round((monthlyReferrals.length / 25) * 100),
+                        100,
                       )}%`,
                     }}
                   />
@@ -1386,33 +2012,33 @@ export default function UserDashboard() {
               </div>
 
               {/* Monthly Commission Insight */}
-              <div className="rounded-xl border border-purple-100/90 bg-linear-to-br from-purple-50/70 via-white to-violet-50/40 p-2.5 shadow-2xs">
+              <div className="rounded-xl border border-purple-100/90 bg-linear-to-br from-purple-50/70 via-white to-violet-50/40 p-2 xs:p-2.5 shadow-2xs min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-purple-100 bg-purple-100 text-purple-700">
-                    <Wallet size={11} />
+                  <div className="flex h-4.5 w-4.5 xs:h-5 xs:w-5 shrink-0 items-center justify-center rounded-md border border-purple-100 bg-purple-100 text-purple-700">
+                    <Wallet size={10} className="xs:h-2.5 xs:w-2.5" />
                   </div>
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-purple-900">
+                  <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-purple-900 truncate">
                     Komisi Bulan Ini
                   </p>
                 </div>
 
-                <p className="mt-1 truncate text-base font-black text-purple-950">
-                  {formatRupiah(totalReferralCommission)}
+                <p className="mt-1 truncate text-xs xs:text-sm sm:text-base font-black text-purple-950">
+                  {formatRupiah(monthlyReferralCommission)}
                 </p>
 
-                <p className="mt-0.5 text-[10px] leading-tight text-slate-500">
+                <p className="mt-0.5 text-[9px] xs:text-[10px] leading-tight text-slate-500">
                   Otomatis masuk ke <strong className="font-bold text-slate-700">Saldo DaPay</strong> dari transaksi mitra.
                 </p>
               </div>
             </div>
 
             {/* Referral Link & Copy Container */}
-            <div className="mt-3 border-t border-slate-100 pt-2.5">
-              <p className="mb-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="mt-2.5 xs:mt-3 border-t border-slate-100 pt-2 xs:pt-2.5 min-w-0">
+              <p className="mb-1 text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-slate-400">
                 Tautan Referral Anda
               </p>
-              <div className="flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50 p-1 shadow-2xs">
-                <code className="min-w-0 flex-1 truncate px-2 font-mono text-[10px] font-semibold text-slate-700">
+              <div className="flex items-center gap-1 xs:gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50 p-1 shadow-2xs min-w-0">
+                <code className="min-w-0 flex-1 truncate px-1.5 xs:px-2 font-mono text-[9px] xs:text-[10px] font-semibold text-slate-700">
                   {referralLink || "Link belum tersedia"}
                 </code>
 
@@ -1420,25 +2046,15 @@ export default function UserDashboard() {
                   type="button"
                   onClick={copyReferralLink}
                   disabled={!referralLink}
-                  className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-lg bg-purple-600 px-2.5 text-[11px] font-bold text-white transition hover:bg-purple-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
+                  className="inline-flex h-6.5 xs:h-7 shrink-0 items-center justify-center gap-1 rounded-lg bg-purple-600 px-2 xs:px-2.5 text-[10px] xs:text-[11px] font-bold text-white transition hover:bg-purple-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
                 >
-                  <Copy size={11} />
+                  <Copy size={10} className="xs:h-2.5 xs:w-2.5" />
                   <span>Salin</span>
                 </button>
               </div>
             </div>
           </div>
         </section>
-
-        {/* ======================================================== */}
-        {/* FOOTER                                                   */}
-        {/* ======================================================== */}
-
-        <footer className="py-6 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-400">
-            © 2026 DANISHTOPUP OFFICIAL PARTNER • ALL RIGHTS RESERVED
-          </p>
-        </footer>
       </main>
 
       {/* ============================================================ */}
@@ -1531,13 +2147,17 @@ function DashboardShell({
   memberType,
   balance,
   setActiveMenu,
+  isSidebarExpanded,
+  setIsSidebarExpanded,
 }: {
   children: React.ReactNode;
   activeMenu: string;
   userName: string;
-  memberType: "Reguler" | "Special";
+  memberType: "Reguler" | "Special" | "Gold" | string;
   balance: number;
   setActiveMenu: (menu: string) => void;
+  isSidebarExpanded?: boolean;
+  setIsSidebarExpanded?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const bottomNavActive =
     activeMenu === "overview"
@@ -1553,7 +2173,7 @@ function DashboardShell({
               : "overview";
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans antialiased text-slate-900">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans antialiased text-slate-900 select-none cursor-default">
       <div className="mx-auto flex min-h-screen w-full max-w-450">
         <UserSidebar
           userName={userName}
@@ -1561,9 +2181,11 @@ function DashboardShell({
           balance={balance}
           activeMenu={activeMenu}
           setActiveMenu={setActiveMenu}
+          isSidebarExpanded={isSidebarExpanded}
+          setIsSidebarExpanded={setIsSidebarExpanded}
         />
 
-        <main className="min-w-0 flex-1 px-4 pb-28 pt-4 sm:px-6 lg:px-8 xl:px-10 xl:pb-8">
+        <main className="min-w-0 flex-1 px-2.5 xs:px-4 pb-28 pt-3 sm:pt-4 sm:px-6 md:pb-8 lg:px-8 xl:px-10">
           <div className="mx-auto w-full max-w-330">
             {children}
           </div>
@@ -1588,12 +2210,14 @@ function KpiCard({
   value,
   note,
   tone,
+  sparkline,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   note: string;
   tone: "purple" | "emerald" | "blue" | "amber";
+  sparkline?: { linePath: string; areaPath: string };
 }) {
   const classes = {
     purple: {
@@ -1626,12 +2250,19 @@ function KpiCard({
     },
   }[tone];
 
+  const linePath =
+    sparkline?.linePath ||
+    "M 4 32 L 92 32";
+  const areaPath =
+    sparkline?.areaPath ||
+    "M 4 32 L 92 32 L 92 36 L 4 36 Z";
+
   return (
-    <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4.5 shadow-2xs transition hover:shadow-xs">
-      {/* Background Mini Sparkline Chart */}
+    <div className="relative flex flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl border border-slate-200/80 bg-white p-2.5 xs:p-3 sm:p-4.5 shadow-2xs transition hover:shadow-xs min-h-24 xs:min-h-[105px] sm:min-h-30">
+      {/* Background Real 30-Day Cumulative Sparkline Chart */}
       <svg
         viewBox="0 0 96 36"
-        className="pointer-events-none absolute bottom-1 right-2 h-10 w-24 opacity-[0.10]"
+        className="pointer-events-none absolute bottom-0.5 right-1.5 h-8 xs:h-9 sm:h-10 w-16 xs:w-20 sm:w-24 opacity-[0.14]"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
@@ -1643,34 +2274,34 @@ function KpiCard({
           </linearGradient>
         </defs>
         <path
-          d="M2 28 C 16 26, 22 14, 34 18 C 46 22, 54 8, 66 12 C 78 16, 84 4, 94 6"
+          d={linePath}
           stroke={classes.sparkleStroke}
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         <path
-          d="M2 28 C 16 26, 22 14, 34 18 C 46 22, 54 8, 66 12 C 78 16, 84 4, 94 6 L 94 36 L 2 36 Z"
+          d={areaPath}
           fill={`url(#${classes.gradId})`}
         />
       </svg>
 
-      <div className="relative z-10 flex items-start justify-between gap-3">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      <div className="relative z-10 flex items-start justify-between gap-1.5 xs:gap-2 sm:gap-3">
+        <p className="truncate text-[8.5px] xs:text-[9.5px] sm:text-[10px] md:text-xs font-bold uppercase tracking-wider text-slate-400">
           {label}
         </p>
 
-        <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${classes.icon}`}>
+        <div className={`flex h-6.5 w-6.5 xs:h-7 xs:w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg xs:rounded-xl ${classes.icon}`}>
           {icon}
         </div>
       </div>
 
-      <div className="relative z-10 mt-3">
-        <p className="truncate text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
+      <div className="relative z-10 mt-1.5 xs:mt-2 sm:mt-3">
+        <p className="truncate text-[13px] xs:text-[15px] sm:text-lg md:text-base lg:text-xl xl:text-2xl font-black tracking-tight text-slate-950 leading-none">
           {value}
         </p>
 
-        <p className={`mt-1 truncate text-[10px] font-semibold ${classes.note}`}>
+        <p className={`mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] md:text-[11px] font-semibold ${classes.note}`}>
           {note}
         </p>
       </div>

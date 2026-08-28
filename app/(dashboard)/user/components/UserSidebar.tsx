@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -11,18 +13,22 @@ import {
   Settings,
   CircleHelp,
   Crown,
-  BadgePercent,
   ChevronLeft,
   Menu,
   X,
 } from "lucide-react";
+import { supabase } from "@/utils/supabaseClient";
+import LogoutDoorButton from "@/components/UI/logout-door-button";
+import ThemeToggle from "@/components/UI/theme-toggle";
 
 type SidebarProps = {
   userName: string;
-  memberType: "Reguler" | "Special";
+  memberType: "Reguler" | "Special" | "Gold" | string;
   balance: number;
   activeMenu: string;
   setActiveMenu: (menu: string) => void;
+  isSidebarExpanded?: boolean;
+  setIsSidebarExpanded?: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 type MenuItem = {
@@ -110,26 +116,45 @@ export default function UserSidebar({
   balance,
   activeMenu,
   setActiveMenu,
+  isSidebarExpanded,
+  setIsSidebarExpanded,
 }: SidebarProps) {
   void balance;
+  void userName;
 
-  const [isOpen, setIsOpen] = useState(true);
+  const [internalIsOpen, setInternalIsOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      const width = window.innerWidth;
+      // Tier 2: Tablet (768px s/d 884px) -> Default Navigation Rail (76px) agar konten luas
+      if (width >= 768 && width <= 884) {
+        return false;
+      }
+    }
+    // Tier 3: Desktop (> 884px) -> Default Terbuka Penuh
+    return true;
+  });
+
+  const isOpen =
+    isSidebarExpanded !== undefined ? isSidebarExpanded : internalIsOpen;
+  const setIsOpen = setIsSidebarExpanded || setInternalIsOpen;
+
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  const firstName =
-    userName?.trim()?.split(/\s+/)[0] || "Member";
-
   const desktopSidebarWidth = isOpen
-    ? "xl:w-[clamp(230px,17vw,260px)]"
-    : "xl:w-[76px]";
+    ? "md:w-[clamp(230px,17vw,260px)]"
+    : "md:w-[76px]";
 
   const desktopSpacerWidth = isOpen
-    ? "xl:w-[clamp(230px,17vw,260px)]"
-    : "xl:w-[76px]";
+    ? "md:w-[clamp(230px,17vw,260px)]"
+    : "md:w-[76px]";
 
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 1280) {
+      const width = window.innerWidth;
+
+      // Tier 1: Mobile (< 768px)
+      // Tutup drawer mobile jika viewport meluas ke tablet/desktop
+      if (width >= 768) {
         setIsMobileOpen(false);
       }
     };
@@ -161,27 +186,46 @@ export default function UserSidebar({
     setActiveMenu(menuId);
 
     // Di layar mobile, tutup drawer setelah memilih menu.
-    if (window.innerWidth < 1280) {
+    if (window.innerWidth < 768) {
       setIsMobileOpen(false);
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+    document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+    localStorage.clear();
+    window.location.href = "/";
+  };
+
+  useEffect(() => {
+    const handleOpenSidebar = () => {
+      setIsMobileOpen(true);
+    };
+
+    window.addEventListener("open-user-sidebar", handleOpenSidebar);
+    return () => {
+      window.removeEventListener("open-user-sidebar", handleOpenSidebar);
+    };
+  }, []);
+
   return (
     <>
       {/* ============================================================ */}
-      {/* DESKTOP SPACER                                               */}
+      {/* DESKTOP SPACER (>= 768px)                                    */}
       {/* ============================================================ */}
 
       <div
         aria-hidden="true"
         className={[
-          "hidden shrink-0 transition-[width] duration-300 ease-out xl:block",
+          "hidden shrink-0 transition-[width] duration-300 ease-out md:block",
           desktopSpacerWidth,
         ].join(" ")}
       />
 
       {/* ============================================================ */}
-      {/* MOBILE OVERLAY                                                */}
+      {/* MOBILE OVERLAY (< 768px)                                      */}
       {/* ============================================================ */}
 
       {isMobileOpen && (
@@ -189,22 +233,9 @@ export default function UserSidebar({
           type="button"
           aria-label="Tutup navigasi"
           onClick={closeMobile}
-          className="fixed inset-0 z-60 bg-slate-950/30 backdrop-blur-[2px] xl:hidden"
+          className="fixed inset-0 z-60 bg-slate-950/30 backdrop-blur-[2px] md:hidden"
         />
       )}
-
-      {/* ============================================================ */}
-      {/* MOBILE OPEN BUTTON                                            */}
-      {/* ============================================================ */}
-
-      <button
-        type="button"
-        onClick={() => setIsMobileOpen(true)}
-        aria-label="Buka navigasi"
-        className="fixed left-4 top-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 xl:hidden"
-      >
-        <Menu size={18} strokeWidth={2} />
-      </button>
 
       {/* ============================================================ */}
       {/* SIDEBAR                                                       */}
@@ -216,11 +247,11 @@ export default function UserSidebar({
           "border-r border-slate-200 bg-white",
           "shadow-[8px_0_28px_rgba(15,23,42,0.045)]",
           "transition-[width,transform] duration-300 ease-out",
-          "w-[min(86vw,320px)]",
+          "w-[clamp(170px,48vw,205px)]",
           desktopSidebarWidth,
           isMobileOpen
             ? "translate-x-0"
-            : "-translate-x-full xl:translate-x-0",
+            : "-translate-x-full md:translate-x-0",
         ].join(" ")}
       >
         {/* ========================================================== */}
@@ -231,35 +262,33 @@ export default function UserSidebar({
           className={[
             "relative flex shrink-0 border-b border-slate-100",
             isOpen
-              ? "items-start justify-between px-4 py-5"
+              ? "items-center justify-between px-3.5 py-3.5 md:px-4 md:py-4"
               : "items-center justify-center px-2 py-4",
           ].join(" ")}
         >
           {isOpen ? (
-            <div className="min-w-0 px-1">
-              <p className="text-[9px] font-black uppercase tracking-[0.34em] text-blue-600">
-                Danish
-              </p>
-
-              <h1 className="mt-0.5 text-[28px] font-black italic leading-none tracking-[-0.06em] text-slate-950">
-                -TOPUP
-              </h1>
-
-              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-
-                <span className="text-[8px] font-bold uppercase tracking-[0.12em] text-blue-700">
-                  Official Partner
-                </span>
-              </div>
-            </div>
+            <Link
+              href="/"
+              title="Kembali ke Beranda"
+              className="group flex items-center min-w-0 px-0.5 rounded-lg transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              <Image
+                src="/images/DaPay.svg"
+                alt="DaPay"
+                width={1269}
+                height={313}
+                priority
+                className="h-6 md:h-7.5 w-auto"
+              />
+            </Link>
           ) : (
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-[11px] font-black italic text-blue-700"
-              title="DaPay"
+            <Link
+              href="/"
+              title="Kembali ke Beranda"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-[11px] font-black italic text-blue-700 transition hover:bg-blue-100 hover:border-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               DP
-            </div>
+            </Link>
           )}
 
           {/* DESKTOP COLLAPSE */}
@@ -271,7 +300,7 @@ export default function UserSidebar({
                 ? "Sembunyikan sidebar"
                 : "Tampilkan sidebar"
             }
-            className="absolute -right-3 top-5 hidden h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-blue-200 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 xl:inline-flex"
+            className="absolute -right-3 top-5 hidden h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-blue-200 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 md:inline-flex"
           >
             {isOpen ? (
               <ChevronLeft size={14} />
@@ -285,32 +314,32 @@ export default function UserSidebar({
             type="button"
             onClick={closeMobile}
             aria-label="Tutup navigasi"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 xl:hidden"
+            className="inline-flex h-7.5 w-7.5 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 md:hidden"
           >
-            <X size={17} />
+            <X size={16} />
           </button>
         </div>
 
         {/* ========================================================== */}
-        {/* NAVIGATION                                                  */}
+        {/* NAVIGATION (75% Dynamic Height on Mobile)                   */}
         {/* ========================================================== */}
 
         <nav
-          className="custom-scrollbar flex-1 overflow-y-auto px-3 py-4"
+          className="custom-scrollbar flex-1 overflow-y-auto px-2.5 py-2.5 md:px-3 md:py-4"
           aria-label="Navigasi member"
         >
           {MENU_GROUPS.map((group) => (
             <section
               key={group.label}
-              className="mb-5 last:mb-0"
+              className="mb-2.5 md:mb-5 last:mb-0"
             >
               {isOpen && (
-                <p className="mb-2 px-3 text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                <p className="mb-1 md:mb-2 px-2 text-[7.5px] md:text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                   {group.label}
                 </p>
               )}
 
-              <div className="space-y-1">
+              <div className="space-y-0.5 md:space-y-1">
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const isActive =
@@ -334,25 +363,25 @@ export default function UserSidebar({
                         handleMenuClick(item.id)
                       }
                       className={[
-                        "group flex w-full items-center rounded-xl text-left transition-all duration-200",
+                        "group flex w-full items-center rounded-lg md:rounded-xl text-left transition-all duration-200",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset",
 
                         isOpen
-                          ? "gap-3 px-3 py-2.5"
+                          ? "gap-2 md:gap-3 px-2 py-1.5 md:px-3 md:py-2.5"
                           : "justify-center px-2 py-3",
 
                         isActive
-                          ? "border border-blue-100 bg-blue-50 text-blue-700 shadow-[0_2px_8px_rgba(37,99,235,0.06)]"
+                          ? "border border-blue-100 bg-blue-50 text-blue-700 shadow-[0_2px_8px_rgba(37,99,235,0.06)] font-bold"
                           : "border border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-950",
                       ].join(" ")}
                     >
                       <Icon
-                        size={18}
+                        size={16}
                         strokeWidth={
                           isActive ? 2.2 : 1.9
                         }
                         className={[
-                          "shrink-0 transition-colors",
+                          "shrink-0 transition-colors md:h-4.5 md:w-4.5",
                           isActive
                             ? "text-blue-600"
                             : "text-slate-500 group-hover:text-slate-700",
@@ -360,7 +389,7 @@ export default function UserSidebar({
                       />
 
                       {isOpen && (
-                        <span className="truncate text-[12px] font-semibold tracking-tight">
+                        <span className="truncate text-[11px] md:text-[12px] font-semibold tracking-tight">
                           {item.label}
                         </span>
                       )}
@@ -373,38 +402,38 @@ export default function UserSidebar({
         </nav>
 
         {/* ========================================================== */}
-        {/* BOTTOM AREA                                                */}
+        {/* BOTTOM AREA (Compact Spacing on Mobile)                     */}
         {/* ========================================================== */}
 
-        <div className="shrink-0 border-t border-slate-100 px-3 py-3">
+        <div className="shrink-0 border-t border-slate-100 px-2.5 py-2.5 md:px-3 md:py-3">
           {isOpen ? (
             <>
               {/* UPGRADE */}
-              {memberType !== "Special" && (
+              {memberType !== "Special" && memberType !== "Gold" && (
                 <button
                   type="button"
                   onClick={() =>
                     handleMenuClick("upgrade")
                   }
-                  className="mb-3 w-full rounded-2xl border border-indigo-100 bg-linear-to-br from-violet-500 via-indigo-500 to-blue-600 p-3.5 text-left shadow-[0_10px_24px_rgba(79,70,229,0.14)] transition hover:shadow-[0_12px_28px_rgba(79,70,229,0.2)]"
+                  className="mb-2 md:mb-3 w-full rounded-xl md:rounded-2xl border border-indigo-100 bg-linear-to-br from-violet-500 via-indigo-500 to-blue-600 p-2.5 md:p-3.5 text-left shadow-[0_6px_18px_rgba(79,70,229,0.12)] transition hover:shadow-[0_10px_24px_rgba(79,70,229,0.18)]"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
-                      <Crown size={15} />
+                  <div className="flex items-center gap-2 md:gap-2.5">
+                    <div className="flex h-6.5 w-6.5 md:h-8 md:w-8 shrink-0 items-center justify-center rounded-lg md:rounded-xl bg-white/15 text-white">
+                      <Crown size={13} className="md:h-3.75 md:w-3.75" />
                     </div>
 
-                    <div className="min-w-0">
-                      <p className="text-[8px] font-semibold uppercase tracking-[0.15em] text-indigo-100">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[7.5px] md:text-[8px] font-semibold uppercase tracking-[0.15em] text-indigo-100">
                         Upgrade ke
                       </p>
 
-                      <h3 className="mt-0.5 text-[12px] font-black leading-none text-white">
+                      <h3 className="truncate text-[10.5px] md:text-[12px] font-black leading-none text-white">
                         Special Member
                       </h3>
                     </div>
                   </div>
 
-                  <div className="mt-3 space-y-1">
+                  <div className="hidden md:block mt-3 space-y-1">
                     <Benefit>
                       Cashback lebih besar
                     </Benefit>
@@ -422,69 +451,24 @@ export default function UserSidebar({
                     </Benefit>
                   </div>
 
-                  <div className="mt-3 flex h-8 w-full items-center justify-center gap-1.5 rounded-xl bg-white px-3 text-[9px] font-black text-indigo-700">
+                  <div className="mt-1.5 md:mt-3 flex h-6.5 md:h-8 w-full items-center justify-center gap-1 rounded-lg md:rounded-xl bg-white px-2 md:px-3 text-[8.5px] md:text-[9px] font-black text-indigo-700">
                     Upgrade Sekarang
                     <span aria-hidden="true">→</span>
                   </div>
                 </button>
               )}
 
-              {/* PROFILE */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-violet-500 to-blue-500 text-xs font-black text-white">
-                    {firstName.charAt(0).toUpperCase()}
-                  </div>
-
-                  <div className="min-w-0">
-                    <p className="truncate text-[10px] font-bold text-slate-900">
-                      {userName || "DaPay User"}
-                    </p>
-
-                    <p className="truncate text-[9px] text-slate-400">
-                      Member DaPay
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-2 flex items-center gap-1.5">
-                  <BadgePercent
-                    size={11}
-                    className={
-                      memberType === "Special"
-                        ? "text-amber-500"
-                        : "text-blue-500"
-                    }
-                  />
-
-                  <span
-                    className={[
-                      "text-[8px] font-bold uppercase tracking-[0.12em]",
-                      memberType === "Special"
-                        ? "text-amber-600"
-                        : "text-blue-600",
-                    ].join(" ")}
-                  >
-                    {memberType === "Special"
-                      ? "Special Member"
-                      : "Reguler Member"}
-                  </span>
-                </div>
+              {/* THEME TOGGLE */}
+              <div className="mb-1.5 md:mb-2.5">
+                <ThemeToggle showLabel />
               </div>
 
-              <div className="mt-3 px-3">
-                <p className="text-[8px] font-medium leading-4 text-slate-400">
-                  © 2026 Danishtopup
-                </p>
-
-                <p className="text-[8px] leading-4 text-slate-300">
-                  Official Partner
-                </p>
-              </div>
+              {/* LOGOUT */}
+              <LogoutDoorButton onLogout={handleLogout} />
             </>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              {memberType !== "Special" && (
+              {memberType !== "Special" && memberType !== "Gold" && (
                 <button
                   type="button"
                   onClick={() =>
@@ -497,38 +481,9 @@ export default function UserSidebar({
                 </button>
               )}
 
-              <div
-                title={userName || "DaPay User"}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-violet-500 to-blue-500 text-xs font-black text-white"
-              >
-                {firstName.charAt(0).toUpperCase()}
-              </div>
+              <ThemeToggle isCollapsed />
 
-              <div className="my-1 h-px w-8 bg-slate-200" />
-
-              <button
-                type="button"
-                title="Pengaturan"
-                onClick={() =>
-                  handleMenuClick("settings")
-                }
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-50 hover:text-blue-600"
-                aria-label="Pengaturan"
-              >
-                <Settings size={17} />
-              </button>
-
-              <button
-                type="button"
-                title="Bantuan"
-                onClick={() =>
-                  handleMenuClick("help")
-                }
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-50 hover:text-blue-600"
-                aria-label="Bantuan"
-              >
-                <CircleHelp size={17} />
-              </button>
+              <LogoutDoorButton onLogout={handleLogout} isCollapsed />
             </div>
           )}
         </div>

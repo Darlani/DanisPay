@@ -7,20 +7,28 @@ import { useState, useEffect } from "react";
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const [role, setRole] = useState<'admin' | 'user' | null>(null);
-
-  useEffect(() => {
+  const [role, setRole] = useState<'admin' | 'user' | null>(() => {
     if (typeof window !== "undefined") {
       const isAdmin = localStorage.getItem("isAdmin") === "true";
       const isUser = localStorage.getItem("isUser") === "true";
-      if (isAdmin) setRole('admin');
-      else if (isUser) setRole('user');
-      else setRole(null);
+      if (isAdmin) return "admin";
+      if (isUser) return "user";
     }
+    return null;
+  });
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const isAdmin = localStorage.getItem("isAdmin") === "true";
+      const isUser = localStorage.getItem("isUser") === "true";
+      setRole(isAdmin ? "admin" : isUser ? "user" : null);
+    };
+
+    handleStorageChange();
   }, [pathname]);
 
-  // Sembunyikan di halaman Admin agar tidak tabrakan dengan Sidebar
-  if (pathname.startsWith('/admin')) return null;
+  // Sembunyikan di halaman Dashboard (Admin & User) agar tidak tabrakan dengan Navigation Dashboard
+  if (pathname.startsWith('/admin') || pathname.startsWith('/user')) return null;
 
   return (
     // Class md:hidden akan menyembunyikan div ini di layar tablet/desktop

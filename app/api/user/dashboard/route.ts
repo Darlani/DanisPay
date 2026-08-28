@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     // 2. Ambil semua data lainnya SECARA PARALEL (Ini kunci supaya render super kilat di bawah 50ms)
     const [depositsRes, withdrawalsRes, logsRes, ordersRes, referralsRes] = await Promise.all([
       supabaseAdmin.from("deposits").select("id, status, payment_method, created_at, amount").eq("user_email", email).order("created_at", { ascending: false }),
-      supabaseAdmin.from("withdrawals").select("status, amount, held_amount").eq("user_email", email).order("created_at", { ascending: false }),
+      supabaseAdmin.from("withdrawals").select("id, status, amount, held_amount, created_at").eq("user_email", email).order("created_at", { ascending: false }),
       supabaseAdmin.from("balance_logs").select("id, type, amount, description, created_at").eq("user_email", email).order("created_at", { ascending: false }),
       supabaseAdmin.from("orders").select("id, order_id, created_at, status, product_name, price").eq("user_id", userId).order("created_at", { ascending: false }),
       profile.referral_code 

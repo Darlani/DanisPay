@@ -64,7 +64,7 @@ export default function UserBottomNav({
 
   return (
     <nav
-      className="fixed bottom-3 left-3 right-3 z-50 flex rounded-3xl border border-slate-200 bg-white/95 p-2 shadow-[0_12px_32px_rgba(15,23,42,0.14)] backdrop-blur-md xl:hidden sm:left-4 sm:right-4"
+      className="fixed bottom-2.5 xs:bottom-3 left-2.5 xs:left-3 right-2.5 xs:right-3 z-50 flex rounded-2xl xs:rounded-3xl border border-slate-200/90 bg-white/95 p-1.5 xs:p-2 shadow-[0_12px_32px_rgba(15,23,42,0.14)] backdrop-blur-md md:hidden sm:left-4 sm:right-4"
       aria-label="Navigasi member"
     >
       {items.map((item) => {
@@ -85,25 +85,26 @@ export default function UserBottomNav({
                 : undefined
             }
             className={[
-              "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2.5 transition-all duration-200",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+              "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 xs:gap-1 rounded-xl px-1 xs:px-2 py-1.5 xs:py-2 transition-all duration-200",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 active:scale-95",
               selected
-                ? "bg-blue-50 text-blue-600"
+                ? "bg-blue-50 text-blue-600 font-bold"
                 : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
             ].join(" ")}
           >
             <Icon
-              size={19}
+              size={18}
               strokeWidth={
                 selected ? 2.3 : 1.9
               }
+              className="shrink-0 xs:h-[19px] xs:w-[19px]"
             />
 
             <span
               className={[
-                "text-[9px] font-semibold",
+                "truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold leading-tight",
                 selected
-                  ? "text-blue-700"
+                  ? "text-blue-700 font-bold"
                   : "text-slate-500",
               ].join(" ")}
             >

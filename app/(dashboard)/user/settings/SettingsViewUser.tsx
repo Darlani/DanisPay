@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   UserRound,
   WalletCards,
-  X,
 } from "lucide-react";
 
 import { supabase } from "@/utils/supabaseClient";

@@ -2023,7 +2023,7 @@ function MobileWithdrawalCard({
       : amount + fee;
 
   return (
-    <article className="p-4">
+    <article className="p-3 xs:p-4 min-w-0">
       <button
         type="button"
         onClick={() =>
@@ -2031,61 +2031,65 @@ function MobileWithdrawalCard({
             withdrawal,
           )
         }
-        className="w-full text-left"
+        className="w-full text-left min-w-0"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+        <div className="flex items-start justify-between gap-2 xs:gap-3 min-w-0">
+          <div className="flex min-w-0 items-start gap-2 xs:gap-3 flex-1">
+            <div className="flex h-8 w-8 xs:h-9 xs:w-9 shrink-0 items-center justify-center rounded-lg xs:rounded-xl bg-rose-50 text-rose-600">
               <ArrowUpFromLine
-                size={17}
+                size={15}
+                className="xs:h-4 xs:w-4"
               />
             </div>
 
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-slate-900">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs xs:text-sm font-bold text-slate-900 leading-tight">
                 {normalizeBankName(
                   withdrawal.bank_name,
                 )}
               </p>
 
-              <p className="mt-1 truncate text-[10px] text-slate-400">
+              <p className="mt-0.5 truncate text-[9px] xs:text-[10px] text-slate-400">
                 {maskAccountNumber(
                   withdrawal.account_number,
                 )}
+                {" · "}
+                {withdrawal.account_name ||
+                  "-"}
               </p>
             </div>
           </div>
 
           <span
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-bold ${style.badge}`}
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 xs:px-2 py-0.2 text-[8px] font-bold ${style.badge}`}
           >
             <span
-              className={`h-1.5 w-1.5 rounded-full ${style.dot}`}
+              className={`h-1 w-1 rounded-full ${style.dot}`}
             />
 
             {status}
           </span>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-3">
-          <div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">
+        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl xs:rounded-2xl bg-slate-50 p-2 xs:p-2.5">
+          <div className="min-w-0">
+            <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400 truncate">
               Nominal
             </p>
 
-            <p className="mt-1 text-sm font-black text-slate-900">
+            <p className="mt-0.5 truncate text-xs xs:text-sm font-black text-slate-900">
               {formatRupiah(
                 amount,
               )}
             </p>
           </div>
 
-          <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">
+          <div className="text-right min-w-0">
+            <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400 truncate">
               Dana Ditahan
             </p>
 
-            <p className="mt-1 text-sm font-black text-indigo-700">
+            <p className="mt-0.5 truncate text-xs xs:text-sm font-black text-indigo-700">
               {formatRupiah(
                 heldAmount,
               )}
@@ -2093,14 +2097,14 @@ function MobileWithdrawalCard({
           </div>
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-3 text-[10px] text-slate-400">
-          <span>
+        <div className="mt-2.5 flex items-center justify-between gap-2 text-[9px] xs:text-[10px] text-slate-400">
+          <span className="truncate">
             {formatDate(
               withdrawal.created_at,
             )}
           </span>
 
-          <span className="font-semibold text-slate-600">
+          <span className="shrink-0 font-semibold text-slate-600">
             Fee{" "}
             {formatRupiah(
               fee,

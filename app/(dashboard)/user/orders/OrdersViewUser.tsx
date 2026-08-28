@@ -1127,11 +1127,6 @@ function DesktopOrderRow({
       order.status,
     );
 
-  const payment =
-    getPaymentComposition(
-      order,
-    );
-
   return (
     <tr className="group transition-colors hover:bg-slate-50/70">
       {/* PRODUCT */}

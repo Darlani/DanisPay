@@ -1927,31 +1927,31 @@ function MobileWalletCard({
       : log.final_balance;
 
   return (
-    <article className="p-4">
+    <article className="p-3 xs:p-4 min-w-0">
       <button
         type="button"
         onClick={() =>
           onView(log)
         }
-        className="w-full text-left"
+        className="w-full text-left min-w-0"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
+        <div className="flex items-start justify-between gap-2 xs:gap-3 min-w-0">
+          <div className="flex min-w-0 items-start gap-2 xs:gap-3 flex-1">
             <div
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${meta.iconClass}`}
+              className={`flex h-8 w-8 xs:h-9 xs:w-9 shrink-0 items-center justify-center rounded-lg xs:rounded-xl ${meta.iconClass}`}
             >
-              <Icon size={17} />
+              <Icon size={15} className="xs:h-4 xs:w-4" />
             </div>
 
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-slate-900">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs xs:text-sm font-bold text-slate-900 leading-tight">
                 {entry.description}
               </p>
 
-              <div className="mt-1 flex flex-wrap items-center gap-2">
+              <div className="mt-1 flex flex-wrap items-center gap-1.5 xs:gap-2">
                 <span
                   className={[
-                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em]",
+                    "inline-flex items-center gap-1 rounded-full border px-1.5 xs:px-2 py-0.2 text-[8px] font-bold uppercase tracking-[0.08em]",
                     isCoin
                       ? "border-violet-100 bg-violet-50 text-violet-700"
                       : "border-blue-100 bg-blue-50 text-blue-700",
@@ -1959,11 +1959,11 @@ function MobileWalletCard({
                 >
                   {isCoin ? (
                     <Coins
-                      size={9}
+                      size={8}
                     />
                   ) : (
                     <CircleDollarSign
-                      size={9}
+                      size={8}
                     />
                   )}
 
@@ -1972,7 +1972,7 @@ function MobileWalletCard({
                     : "Saldo"}
                 </span>
 
-                <span className="truncate text-[9px] text-slate-400">
+                <span className="truncate text-[8.5px] xs:text-[9px] text-slate-400">
                   {formatDate(
                     log.created_at,
                   )}
@@ -1982,7 +1982,7 @@ function MobileWalletCard({
           </div>
 
           <span
-            className={`shrink-0 text-sm font-black ${
+            className={`shrink-0 text-xs xs:text-sm font-black leading-tight ${
               entry.amount >
               0
                 ? isCoin
@@ -2004,13 +2004,13 @@ function MobileWalletCard({
           </span>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-3">
-          <div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">
+        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl xs:rounded-2xl bg-slate-50 p-2 xs:p-2.5">
+          <div className="min-w-0">
+            <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400 truncate">
               Sebelum
             </p>
 
-            <p className="mt-1 text-xs font-semibold text-slate-600">
+            <p className="mt-0.5 truncate text-[11px] xs:text-xs font-semibold text-slate-600">
               {isCoin
                 ? formatCoins(
                     before,
@@ -2021,12 +2021,12 @@ function MobileWalletCard({
             </p>
           </div>
 
-          <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">
+          <div className="text-right min-w-0">
+            <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400 truncate">
               Sesudah
             </p>
 
-            <p className="mt-1 text-xs font-black text-slate-800">
+            <p className="mt-0.5 truncate text-[11px] xs:text-xs font-black text-slate-800">
               {isCoin
                 ? formatCoins(
                     after,
