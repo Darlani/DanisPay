@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import {
   useCallback,
   useEffect,
@@ -614,16 +616,8 @@ export default function UserDashboard() {
   /* CALCULATIONS                                                     */
   /* ================================================================= */
 
-  const displayMemberType = useMemo(() => {
-    const raw = String(memberType || "").trim();
-    const lower = raw.toLowerCase();
-    if (lower === "gold") return "Gold Member";
-    if (lower === "special") return "Special Member";
-    if (lower === "regular" || lower === "reguler") return "Regular Member";
-    if (!raw) return "Regular Member";
-    if (lower.endsWith("member")) return raw;
-    return `${raw} Member`;
-  }, [memberType]);
+
+
 
   const totalReferralCommission = useMemo(() => {
     return balanceLogs
@@ -1150,16 +1144,19 @@ export default function UserDashboard() {
     return (
       <DashboardShell
         activeMenu="orders"
-        userName={
-          userData.name || "Member DaPay"
-        }
+        userName={userData.name || "Member DaPay"}
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
         isSidebarExpanded={isSidebarExpanded}
         setIsSidebarExpanded={setIsSidebarExpanded}
+        avatarUrl={userData.avatarUrl}
+        onRefresh={() => void fetchDashboardData(false)}
       >
-        <OrdersViewUser />
+        <OrdersViewUser
+          initialOrders={orders}
+          isSidebarExpanded={isSidebarExpanded}
+        />
       </DashboardShell>
     );
   }
@@ -1172,16 +1169,21 @@ export default function UserDashboard() {
     return (
       <DashboardShell
         activeMenu="wallet"
-        userName={
-          userData.name || "Member DaPay"
-        }
+        userName={userData.name || "Member DaPay"}
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
         isSidebarExpanded={isSidebarExpanded}
         setIsSidebarExpanded={setIsSidebarExpanded}
+        avatarUrl={userData.avatarUrl}
+        onRefresh={() => void fetchDashboardData(false)}
       >
-        <WalletViewUser />
+        <WalletViewUser
+          initialBalance={Number(userData.balance || 0)}
+          initialCoinBalance={Number(userData.coinBalance || 0)}
+          initialLogs={balanceLogs}
+          isSidebarExpanded={isSidebarExpanded}
+        />
       </DashboardShell>
     );
   }
@@ -1194,14 +1196,14 @@ export default function UserDashboard() {
     return (
       <DashboardShell
         activeMenu="deposit"
-        userName={
-          userData.name || "Member DaPay"
-        }
+        userName={userData.name || "Member DaPay"}
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
         isSidebarExpanded={isSidebarExpanded}
         setIsSidebarExpanded={setIsSidebarExpanded}
+        avatarUrl={userData.avatarUrl}
+        onRefresh={() => void fetchDashboardData(false)}
       >
         <DepositViewUser />
       </DashboardShell>
@@ -1216,14 +1218,14 @@ export default function UserDashboard() {
     return (
       <DashboardShell
         activeMenu="withdraw"
-        userName={
-          userData.name || "Member DaPay"
-        }
+        userName={userData.name || "Member DaPay"}
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
         isSidebarExpanded={isSidebarExpanded}
         setIsSidebarExpanded={setIsSidebarExpanded}
+        avatarUrl={userData.avatarUrl}
+        onRefresh={() => void fetchDashboardData(false)}
       >
         <WithdrawViewUser />
       </DashboardShell>
@@ -1238,14 +1240,14 @@ export default function UserDashboard() {
     return (
       <DashboardShell
         activeMenu="affiliate"
-        userName={
-          userData.name || "Member DaPay"
-        }
+        userName={userData.name || "Member DaPay"}
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
         isSidebarExpanded={isSidebarExpanded}
         setIsSidebarExpanded={setIsSidebarExpanded}
+        avatarUrl={userData.avatarUrl}
+        onRefresh={() => void fetchDashboardData(false)}
       >
         <AffiliateViewUser />
       </DashboardShell>
@@ -1260,14 +1262,14 @@ export default function UserDashboard() {
     return (
       <DashboardShell
         activeMenu="settings"
-        userName={
-          userData.name || "Member DaPay"
-        }
+        userName={userData.name || "Member DaPay"}
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
         isSidebarExpanded={isSidebarExpanded}
         setIsSidebarExpanded={setIsSidebarExpanded}
+        avatarUrl={userData.avatarUrl}
+        onRefresh={() => void fetchDashboardData(false)}
       >
         <SettingsViewUser />
       </DashboardShell>
@@ -1282,14 +1284,14 @@ export default function UserDashboard() {
     return (
       <DashboardShell
         activeMenu="help"
-        userName={
-          userData.name || "Member DaPay"
-        }
+        userName={userData.name || "Member DaPay"}
         memberType={memberType}
         balance={Number(userData.balance)}
         setActiveMenu={handleMenuNavigation}
         isSidebarExpanded={isSidebarExpanded}
         setIsSidebarExpanded={setIsSidebarExpanded}
+        avatarUrl={userData.avatarUrl}
+        onRefresh={() => void fetchDashboardData(false)}
       >
         <HelpViewUser />
       </DashboardShell>
@@ -1300,212 +1302,25 @@ export default function UserDashboard() {
   /* MAIN DASHBOARD                                                    */
   /* ================================================================= */
 
-  const firstName =
-    userData.name
-      .trim()
-      .split(/\s+/)[0] ||
-    "Member";
-
   const coinBalance = userData.coinBalance;
 
   return (
     <DashboardShell
       activeMenu="overview"
-      userName={
-        userData.name || "Member DaPay"
-      }
+      userName={userData.name || "Member DaPay"}
       memberType={memberType}
       balance={Number(userData.balance)}
       setActiveMenu={handleMenuNavigation}
       isSidebarExpanded={isSidebarExpanded}
       setIsSidebarExpanded={setIsSidebarExpanded}
+      avatarUrl={userData.avatarUrl}
+      onRefresh={() => void fetchDashboardData(false)}
     >
       {/* ============================================================ */}
       {/* DASHBOARD CONTENT                                            */}
       {/* ============================================================ */}
 
       <main className="min-w-0">
-        {/* ======================================================== */}
-        {/* 1. MOBILE HEADER (< 768px) - MATCHING MOBILE MOCKUP      */}
-        {/* ======================================================== */}
-
-        <div className="block md:hidden mb-4">
-          {/* MOBILE TOP BAR */}
-          <div className="mb-2.5 flex items-center justify-between gap-1.5 xs:gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-1.5 xs:p-2 shadow-xs backdrop-blur-md">
-            {/* 1. HAMBURGER MENU BUTTON */}
-            <button
-              type="button"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent("open-user-sidebar"));
-              }}
-              aria-label="Buka navigasi sidebar"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
-            >
-              <Menu size={18} strokeWidth={2} />
-            </button>
-
-            {/* 2. NOTIFICATION BELL WITH BADGE */}
-            <button
-              type="button"
-              onClick={() => handleMenuNavigation("settings")}
-              title="Pusat Notifikasi"
-              aria-label="Pusat Notifikasi (3 Notifikasi Baru)"
-              className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
-            >
-              <Bell size={16} className="text-slate-700" />
-              <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 px-0.5 items-center justify-center rounded-full bg-red-500 text-[8.5px] font-black text-white ring-2 ring-white shadow-xs">
-                3
-              </span>
-            </button>
-
-            {/* 3. USER PROFILE PILL */}
-            <button
-              type="button"
-              onClick={() => handleMenuNavigation("settings")}
-              title={`Profil: ${userData.name || firstName} (${displayMemberType})`}
-              aria-label="Profil Pengguna"
-              className="group flex flex-1 min-w-0 items-center justify-between gap-1.5 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2.5 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
-            >
-              <div className="flex items-center gap-1.5 min-w-0">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 text-white font-black text-[11px] shadow-xs ring-1 ring-white">
-                  {userData.avatarUrl ? (
-                    <img
-                      src={userData.avatarUrl}
-                      alt={firstName}
-                      className="h-full w-full object-cover rounded-full"
-                    />
-                  ) : (
-                    firstName.charAt(0).toUpperCase()
-                  )}
-                </div>
-
-                <div className="text-left min-w-0">
-                  <p className="truncate text-xs font-bold text-slate-900 leading-none">
-                    {firstName}
-                  </p>
-                  <p className="mt-0.5 text-[9px] font-medium text-slate-400 leading-none truncate">
-                    {displayMemberType}
-                  </p>
-                </div>
-              </div>
-
-              <ChevronDown size={13} className="text-slate-400 shrink-0" />
-            </button>
-
-            {/* 4. REFRESH BUTTON */}
-            <button
-              type="button"
-              onClick={() => void fetchDashboardData(false)}
-              title="Muat ulang data dashboard"
-              aria-label="Muat ulang data"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-600 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
-            >
-              <RefreshCw size={14} className="transition-transform group-hover:rotate-180" />
-            </button>
-          </div>
-
-          {/* MOBILE HERO GREETING CARD */}
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/90 p-2.5 xs:p-3 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60">
-            <div className="relative flex h-10 w-10 xs:h-11 xs:w-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-amber-100/90 via-orange-50 to-amber-200/60 border border-amber-200/80 shadow-2xs text-lg xs:text-xl">
-              <span className="select-none">👋</span>
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <h1 className="text-sm xs:text-base sm:text-lg font-black tracking-tight text-slate-950 leading-tight truncate">
-                <span className="text-slate-600 font-bold">Selamat datang, </span>
-                <span className="text-slate-950 font-black">{firstName}!</span>
-              </h1>
-              <p className="mt-0.5 text-[9.5px] xs:text-[10.5px] font-medium text-slate-400 truncate">
-                Kelola saldo, transaksi, & koin di DaPay
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* ======================================================== */}
-        {/* 2. DESKTOP & TABLET HEADER (>= 768px)                     */}
-        {/* ======================================================== */}
-
-        <section className="hidden md:block mb-4 sm:mb-5 rounded-2xl md:rounded-[22px] border border-slate-200/80 bg-white/80 p-2.5 sm:p-3 md:px-4 md:py-3 lg:px-5 lg:py-3.5 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60">
-          <div className="flex items-center justify-between gap-2 md:gap-3 lg:gap-4 min-w-0">
-            {/* LEFT GREETING (Dynamic Fluid Typography on Tablet & Desktop) */}
-            <div className="min-w-0 flex-1">
-              <h1 className="text-sm xs:text-base md:text-[clamp(16px,1.8vw,20px)] lg:text-2xl font-black tracking-tight text-slate-900 leading-tight truncate">
-                Selamat datang, {firstName} 👋
-              </h1>
-
-              {/* Subtitle: Hidden on Tablet when Sidebar is Expanded, Visible on Navigation Rail & Wide Desktop */}
-              <p className={`hidden ${!isSidebarExpanded ? "md:block" : "lg:block"} mt-0.5 text-[clamp(12px,1.35vw,14.5px)] lg:text-xs text-slate-500 font-medium leading-snug truncate`}>
-                Kelola saldo, transaksi, koin, dan referral Anda di DaPay.
-              </p>
-            </div>
-
-            {/* RIGHT CONTROLS: NOTIFICATION, USER AVATAR PILL, REFRESH (Always Pinned at Top-Right) */}
-            <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 shrink-0 ml-auto">
-              {/* 1. NOTIFICATION BELL WITH BADGE */}
-              <button
-                type="button"
-                onClick={() => handleMenuNavigation("settings")}
-                title="Pusat Notifikasi"
-                aria-label="Pusat Notifikasi (3 Notifikasi Baru)"
-                className="relative flex h-8 w-8 md:h-8.5 md:w-8.5 lg:h-9.5 lg:w-9.5 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition-all duration-200 hover:bg-slate-50 hover:text-blue-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer"
-              >
-                <Bell size={15} className="text-slate-700" />
-                {/* Red Notification Count Badge */}
-                <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 px-0.5 items-center justify-center rounded-full bg-red-500 text-[8.5px] font-black text-white ring-2 ring-white shadow-xs">
-                  3
-                </span>
-              </button>
-
-              {/* 2. USER AVATAR PILL WITH EXTENDED CONTAINER & DYNAMIC STATUS */}
-              <button
-                type="button"
-                onClick={() => handleMenuNavigation("settings")}
-                title={`Profil: ${userData.name || firstName} (${displayMemberType})`}
-                aria-label="Profil Pengguna"
-                className="group flex items-center gap-1.5 md:gap-2 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2.5 md:pr-3 lg:pr-4 shadow-2xs transition-all duration-200 hover:border-slate-300 hover:bg-slate-50/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer min-w-0 max-w-31.25 md:max-w-38.75 lg:max-w-46.25"
-              >
-                {/* Avatar Photo or Initial */}
-                <div className="flex h-6.5 w-6.5 md:h-7 md:w-7 lg:h-8 lg:w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 text-white font-black text-[10px] md:text-[11px] lg:text-xs shadow-xs ring-1 ring-white">
-                  {userData.avatarUrl ? (
-                    <img
-                      src={userData.avatarUrl}
-                      alt={firstName}
-                      className="h-full w-full object-cover rounded-full"
-                    />
-                  ) : (
-                    firstName.charAt(0).toUpperCase()
-                  )}
-                </div>
-
-                {/* Name & Dynamic Role Text from Database */}
-                <div className="text-left min-w-0 flex-1 pr-0.5">
-                  <p className="truncate text-[11px] md:text-xs lg:text-sm font-bold text-slate-900 leading-none group-hover:text-blue-600 transition-colors">
-                    {firstName}
-                  </p>
-                  <p className="mt-0.5 text-[8.5px] md:text-[9.5px] lg:text-[10.5px] font-semibold text-slate-500 leading-none truncate">
-                    {displayMemberType}
-                  </p>
-                </div>
-
-                {/* Chevron Icon */}
-                <ChevronDown size={13} className="text-slate-400 transition-transform duration-200 group-hover:translate-y-0.5 shrink-0" />
-              </button>
-
-              {/* 3. ICON-ONLY REFRESH BUTTON */}
-              <button
-                type="button"
-                onClick={() => void fetchDashboardData(false)}
-                title="Muat ulang data dashboard"
-                aria-label="Muat ulang data"
-                className="flex h-8 w-8 md:h-8.5 md:w-8.5 lg:h-9.5 lg:w-9.5 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-600 shadow-2xs transition-all duration-200 hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer"
-              >
-                <RefreshCw size={13} className="transition-transform group-hover:rotate-180" />
-              </button>
-            </div>
-          </div>
-        </section>
-
         {/* ======================================================== */}
         {/* SALDO + KOIN                                             */}
         {/* ======================================================== */}
@@ -2140,6 +1955,14 @@ export default function UserDashboard() {
 /* DASHBOARD SHELL                                                    */
 /* ================================================================== */
 
+function getTimeGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 11) return "Selamat pagi";
+  if (hour >= 11 && hour < 15) return "Selamat siang";
+  if (hour >= 15 && hour < 19) return "Selamat sore";
+  return "Selamat malam";
+}
+
 function DashboardShell({
   children,
   activeMenu,
@@ -2149,6 +1972,8 @@ function DashboardShell({
   setActiveMenu,
   isSidebarExpanded,
   setIsSidebarExpanded,
+  avatarUrl,
+  onRefresh,
 }: {
   children: React.ReactNode;
   activeMenu: string;
@@ -2158,6 +1983,8 @@ function DashboardShell({
   setActiveMenu: (menu: string) => void;
   isSidebarExpanded?: boolean;
   setIsSidebarExpanded?: React.Dispatch<React.SetStateAction<boolean>>;
+  avatarUrl?: string | null;
+  onRefresh?: () => void;
 }) {
   const bottomNavActive =
     activeMenu === "overview"
@@ -2171,6 +1998,56 @@ function DashboardShell({
             : activeMenu === "affiliate"
               ? "affiliate"
               : "overview";
+
+  const firstName =
+    userName.trim().split(/\s+/)[0] || "Member";
+
+  const displayMemberType =
+    memberType === "Special"
+      ? "Special Member"
+      : memberType === "Gold"
+        ? "Gold Member"
+        : "Regular Member";
+
+  const greeting = getTimeGreeting();
+
+  const PAGE_META: Record<string, { title: string; subtitle: string }> = {
+    orders: {
+      title: "Riwayat Transaksi",
+      subtitle: "Semua transaksi digital yang pernah dilakukan.",
+    },
+    wallet: {
+      title: "Riwayat Saldo DaPay",
+      subtitle: "Mutasi saldo masuk, keluar, cashback, dan referral.",
+    },
+    deposit: {
+      title: "Isi Saldo DaPay",
+      subtitle: "Pilih metode pembayaran untuk top up saldo.",
+    },
+    withdraw: {
+      title: "Tarik Saldo DaPay",
+      subtitle: "Tarik saldo ke rekening atau e-wallet terdaftar.",
+    },
+    withdrawal: {
+      title: "Tarik Saldo DaPay",
+      subtitle: "Tarik saldo ke rekening atau e-wallet terdaftar.",
+    },
+    affiliate: {
+      title: "Program Afiliasi DaPay",
+      subtitle: "Kelola mitra, komisi referral, dan tautan referral.",
+    },
+    settings: {
+      title: "Pengaturan Akun",
+      subtitle: "Profil, keamanan, autentikasi, dan preferensi akun.",
+    },
+    help: {
+      title: "Pusat Bantuan",
+      subtitle: "FAQ, tiket bantuan, dan hubungi tim DaPay.",
+    },
+  };
+
+  const pageTitle = PAGE_META[activeMenu]?.title ?? activeMenu;
+  const pageSubtitle = PAGE_META[activeMenu]?.subtitle ?? "";
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans antialiased text-slate-900 select-none cursor-default">
@@ -2187,6 +2064,210 @@ function DashboardShell({
 
         <main className="min-w-0 flex-1 px-2.5 xs:px-4 pb-28 pt-3 sm:pt-4 sm:px-6 md:pb-8 lg:px-8 xl:px-10">
           <div className="mx-auto w-full max-w-330">
+
+            {/* ====================================================== */}
+            {/* MOBILE HEADER (< 768px) — ALL WORKSPACES               */}
+            {/* ====================================================== */}
+
+            <div className="block md:hidden mb-4">
+              {/* MOBILE TOP BAR */}
+              <div className="mb-2.5 flex items-center justify-between gap-1.5 xs:gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-1.5 xs:p-2 shadow-xs backdrop-blur-md">
+                {/* 1. HAMBURGER MENU BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("open-user-sidebar"));
+                  }}
+                  aria-label="Buka navigasi sidebar"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
+                >
+                  <Menu size={18} strokeWidth={2} />
+                </button>
+
+                {/* 2. NOTIFICATION BELL WITH BADGE */}
+                <button
+                  type="button"
+                  onClick={() => setActiveMenu("settings")}
+                  title="Pusat Notifikasi"
+                  aria-label="Pusat Notifikasi (3 Notifikasi Baru)"
+                  className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
+                >
+                  <Bell size={16} className="text-slate-700" />
+                  <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 px-0.5 items-center justify-center rounded-full bg-red-500 text-[8.5px] font-black text-white ring-2 ring-white shadow-xs">
+                    3
+                  </span>
+                </button>
+
+                {/* 3. USER PROFILE PILL */}
+                <button
+                  type="button"
+                  onClick={() => setActiveMenu("settings")}
+                  title={`Profil: ${userName} (${displayMemberType})`}
+                  aria-label="Profil Pengguna"
+                  className="group flex flex-1 min-w-0 items-center justify-between gap-1.5 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2.5 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 text-white font-black text-[11px] shadow-xs ring-1 ring-white">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={firstName}
+                          className="h-full w-full object-cover rounded-full"
+                        />
+                      ) : (
+                        firstName.charAt(0).toUpperCase()
+                      )}
+                    </div>
+
+                    <div className="text-left min-w-0">
+                      <p className="truncate text-xs font-bold text-slate-900 leading-none">
+                        {firstName}
+                      </p>
+                      <p className="mt-0.5 text-[9px] font-medium text-slate-400 leading-none truncate">
+                        {displayMemberType}
+                      </p>
+                    </div>
+                  </div>
+
+                  <ChevronDown size={13} className="text-slate-400 shrink-0" />
+                </button>
+
+                {/* 4. REFRESH BUTTON */}
+                <button
+                  type="button"
+                  onClick={onRefresh}
+                  title="Muat ulang data"
+                  aria-label="Muat ulang data"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-600 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
+                >
+                  <RefreshCw size={14} />
+                </button>
+              </div>
+
+              {/* MOBILE PAGE TITLE CARD */}
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/90 p-2.5 xs:p-3 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60">
+                {activeMenu === "overview" ? (
+                  <div className="relative flex h-10 w-10 xs:h-11 xs:w-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-amber-100/90 via-orange-50 to-amber-200/60 border border-amber-200/80 shadow-2xs text-lg xs:text-xl">
+                    <span className="select-none">👋</span>
+                  </div>
+                ) : null}
+
+                <div className="min-w-0 flex-1">
+                  {activeMenu === "overview" ? (
+                    <>
+                      <h1 className="text-sm xs:text-base font-black tracking-tight text-slate-950 leading-tight truncate">
+                        <span className="text-slate-600 font-bold">{greeting}, </span>
+                        <span className="text-slate-950 font-black">{firstName}!</span>
+                      </h1>
+                      <p className="mt-0.5 text-[9.5px] xs:text-[10.5px] font-medium text-slate-400 truncate">
+                        Ringkasan saldo, transaksi, koin & aktivitas akun.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h1 className="text-sm xs:text-base font-black tracking-tight text-slate-950 leading-tight truncate">
+                        {pageTitle}
+                      </h1>
+                      <p className="mt-0.5 text-[9.5px] xs:text-[10.5px] font-medium text-slate-400 truncate">
+                        {pageSubtitle}
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ====================================================== */}
+            {/* TABLET & DESKTOP HEADER (>= 768px) — ALL WORKSPACES    */}
+            {/* ====================================================== */}
+
+            <section className="hidden md:block mb-4 sm:mb-5 rounded-2xl md:rounded-[22px] border border-slate-200/80 bg-white/80 p-2.5 sm:p-3 md:px-4 md:py-3 lg:px-5 lg:py-3.5 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60">
+              <div className="flex items-center justify-between gap-2 md:gap-3 lg:gap-4 min-w-0">
+                {/* LEFT: TITLE */}
+                <div className="min-w-0 flex-1">
+                  {activeMenu === "overview" ? (
+                    <>
+                      <h1 className="text-sm xs:text-base md:text-[clamp(16px,1.8vw,20px)] lg:text-2xl font-black tracking-tight text-slate-900 leading-tight truncate">
+                        {greeting}, {firstName} 👋
+                      </h1>
+                      <p className={`hidden ${!isSidebarExpanded ? "md:block" : "lg:block"} mt-0.5 text-[clamp(12px,1.35vw,14.5px)] lg:text-xs text-slate-500 font-medium leading-snug truncate`}>
+                        Ringkasan saldo, transaksi, koin, dan aktivitas akun.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h1 className="text-sm xs:text-base md:text-[clamp(16px,1.8vw,20px)] lg:text-2xl font-black tracking-tight text-slate-900 leading-tight truncate">
+                        {pageTitle}
+                      </h1>
+                      <p className={`hidden ${!isSidebarExpanded ? "md:block" : "lg:block"} mt-0.5 text-[clamp(12px,1.35vw,14.5px)] lg:text-xs text-slate-500 font-medium leading-snug truncate`}>
+                        {pageSubtitle}
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                {/* RIGHT CONTROLS */}
+                <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 shrink-0 ml-auto">
+                  {/* 1. NOTIFICATION BELL */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveMenu("settings")}
+                    title="Pusat Notifikasi"
+                    aria-label="Pusat Notifikasi (3 Notifikasi Baru)"
+                    className="relative flex h-8 w-8 md:h-8.5 md:w-8.5 lg:h-9.5 lg:w-9.5 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition-all duration-200 hover:bg-slate-50 hover:text-blue-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer"
+                  >
+                    <Bell size={15} className="text-slate-700" />
+                    <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 px-0.5 items-center justify-center rounded-full bg-red-500 text-[8.5px] font-black text-white ring-2 ring-white shadow-xs">
+                      3
+                    </span>
+                  </button>
+
+                  {/* 2. USER AVATAR PILL */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveMenu("settings")}
+                    title={`Profil: ${userName} (${displayMemberType})`}
+                    aria-label="Profil Pengguna"
+                    className="group flex items-center gap-1.5 md:gap-2 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2.5 md:pr-3 lg:pr-4 shadow-2xs transition-all duration-200 hover:border-slate-300 hover:bg-slate-50/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer min-w-0 max-w-31.25 md:max-w-38.75 lg:max-w-46.25"
+                  >
+                    <div className="flex h-6.5 w-6.5 md:h-7 md:w-7 lg:h-8 lg:w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 text-white font-black text-[10px] md:text-[11px] lg:text-xs shadow-xs ring-1 ring-white">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={firstName}
+                          className="h-full w-full object-cover rounded-full"
+                        />
+                      ) : (
+                        firstName.charAt(0).toUpperCase()
+                      )}
+                    </div>
+
+                    <div className="text-left min-w-0 flex-1 pr-0.5">
+                      <p className="truncate text-[11px] md:text-xs lg:text-sm font-bold text-slate-900 leading-none group-hover:text-blue-600 transition-colors">
+                        {firstName}
+                      </p>
+                      <p className="mt-0.5 text-[8.5px] md:text-[9.5px] lg:text-[10.5px] font-semibold text-slate-500 leading-none truncate">
+                        {displayMemberType}
+                      </p>
+                    </div>
+
+                    <ChevronDown size={13} className="text-slate-400 transition-transform duration-200 group-hover:translate-y-0.5 shrink-0" />
+                  </button>
+
+                  {/* 3. REFRESH BUTTON */}
+                  <button
+                    type="button"
+                    onClick={onRefresh}
+                    title="Muat ulang data"
+                    aria-label="Muat ulang data"
+                    className="flex h-8 w-8 md:h-8.5 md:w-8.5 lg:h-9.5 lg:w-9.5 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-600 shadow-2xs transition-all duration-200 hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer"
+                  >
+                    <RefreshCw size={13} />
+                  </button>
+                </div>
+              </div>
+            </section>
+
             {children}
           </div>
         </main>

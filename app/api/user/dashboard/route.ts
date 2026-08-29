@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       supabaseAdmin.from("deposits").select("id, status, payment_method, created_at, amount").eq("user_email", email).order("created_at", { ascending: false }),
       supabaseAdmin.from("withdrawals").select("id, status, amount, held_amount, created_at").eq("user_email", email).order("created_at", { ascending: false }),
       supabaseAdmin.from("balance_logs").select("id, type, amount, description, created_at").eq("user_email", email).order("created_at", { ascending: false }),
-      supabaseAdmin.from("orders").select("id, order_id, created_at, status, product_name, price").eq("user_id", userId).order("created_at", { ascending: false }),
+      supabaseAdmin.from("orders").select("id, order_id, api_ref_id, sku, product_name, item_label, customer_no, customer_name, price, total_amount, discount, voucher_code, voucher_amount, payment_method, sn, category, status, used_balance, created_at, updated_at").eq("user_id", userId).order("created_at", { ascending: false }),
       profile.referral_code 
         ? supabaseAdmin.from("profiles").select("full_name, email, created_at").eq("referred_by", profile.referral_code).order("created_at", { ascending: false }) 
         : Promise.resolve({ data: [] })
