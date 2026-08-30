@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -66,7 +66,13 @@ export default function OrderFilterBar({
   isSidebarExpanded = false,
 }: OrderFilterBarProps) {
   const desktopDateInputRef = useRef<HTMLInputElement>(null);
+  const tabletDateInputRef = useRef<HTMLInputElement>(null);
   const mobileDateInputRef = useRef<HTMLInputElement>(null);
+  const tabletSearchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+
+  const [isTabletSearchOpen, setIsTabletSearchOpen] = useState(Boolean(filters.search));
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(Boolean(filters.search));
 
   const isFiltered =
     Boolean(filters.search) ||
@@ -85,8 +91,32 @@ export default function OrderFilterBar({
     gagal: 0,
   };
 
-  const handleDateIconClick = (isMobile = false) => {
-    const input = isMobile ? mobileDateInputRef.current : desktopDateInputRef.current;
+  const handleToggleTabletSearch = () => {
+    setIsTabletSearchOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => tabletSearchInputRef.current?.focus(), 50);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleMobileSearch = () => {
+    setIsMobileSearchOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => mobileSearchInputRef.current?.focus(), 50);
+      }
+      return next;
+    });
+  };
+
+  const handleDateIconClick = (target: "desktop" | "tablet" | "mobile") => {
+    let input: HTMLInputElement | null = null;
+    if (target === "desktop") input = desktopDateInputRef.current;
+    else if (target === "tablet") input = tabletDateInputRef.current;
+    else input = mobileDateInputRef.current;
+
     if (!input) return;
 
     if (typeof (input as HTMLInputElement & { showPicker?: () => void }).showPicker === "function") {
@@ -221,7 +251,7 @@ export default function OrderFilterBar({
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           />
           <input
-            type="search"
+            type="text"
             value={filters.search}
             onChange={(e) => onFilterChange({ search: e.target.value, page: 1 })}
             placeholder="Cari Order ID, Produk, Pelanggan..."
@@ -245,7 +275,7 @@ export default function OrderFilterBar({
           <div className="relative shrink-0">
             <button
               type="button"
-              onClick={() => handleDateIconClick(false)}
+              onClick={() => handleDateIconClick("desktop")}
               className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs ${
                 filters.date
                   ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 font-bold ring-2 ring-blue-500/20"
@@ -264,13 +294,13 @@ export default function OrderFilterBar({
               )}
             </button>
 
-            {/* Hidden Date Input Trigger */}
+            {/* Hidden Date Input Trigger (Anchored Left) */}
             <input
               ref={desktopDateInputRef}
               type="date"
               value={filters.date}
               onChange={(e) => onFilterChange({ date: e.target.value, page: 1 })}
-              className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
+              className="absolute left-0 top-0 h-full w-full opacity-0 pointer-events-none"
               tabIndex={-1}
               aria-hidden="true"
             />
@@ -292,104 +322,36 @@ export default function OrderFilterBar({
       </div>
 
       {/* ============================================================ */}
-      {/* 2. TABLET, MOBILE, ULTRA-COMPACT (< 1024px)                  */}
+      {/* 2. TABLET (640px-1023px) — 1-LINE HORIZONTAL TOOLBAR         */}
       {/* ============================================================ */}
-      <div className="block lg:hidden space-y-2 rounded-2xl border border-slate-200/90 bg-white/95 p-2 xs:p-2.5 backdrop-blur-md shadow-xs">
-        {/* ROW 1: FULL WIDTH SEARCH INPUT + CALENDAR + RESET */}
-        <div className="flex items-center gap-1.5 xs:gap-2">
-          {/* Search Box */}
-          <div className="relative flex-1 min-w-0">
-            <Search
-              size={13}
-              className="pointer-events-none absolute left-2.5 xs:left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              type="search"
-              value={filters.search}
-              onChange={(e) => onFilterChange({ search: e.target.value, page: 1 })}
-              placeholder="Cari transaksi..."
-              className="h-8.5 xs:h-9 w-full rounded-xl border border-slate-200/90 bg-slate-50/70 pl-7.5 xs:pl-8.5 pr-7 xs:pr-8 text-[11px] xs:text-xs font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
-            />
-            {filters.search && (
-              <button
-                type="button"
-                onClick={() => onFilterChange({ search: "", page: 1 })}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer p-0.5"
-                aria-label="Hapus kata kunci"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
-
-          {/* CALENDAR DATE BUTTON */}
-          <div className="relative shrink-0">
-            <button
-              type="button"
-              onClick={() => handleDateIconClick(true)}
-              className={`relative inline-flex h-8.5 w-8.5 xs:h-9 xs:w-9 shrink-0 items-center justify-center rounded-xl border transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs ${
-                filters.date
-                  ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 font-bold ring-2 ring-blue-500/20"
-                  : "border-slate-200/90 bg-slate-50/80 text-slate-600 hover:border-slate-300 hover:bg-slate-100"
-              }`}
-              title={
-                filters.date
-                  ? `Tanggal: ${formatDateOnly(filters.date)} (Klik untuk ubah)`
-                  : "Filter Tanggal Transaksi"
-              }
-              aria-label="Filter Tanggal"
-            >
-              <CalendarDays size={14} />
-              {filters.date && (
-                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-white" />
-              )}
-            </button>
-
-            {/* Hidden Mobile Date Input */}
-            <input
-              ref={mobileDateInputRef}
-              type="date"
-              value={filters.date}
-              onChange={(e) => onFilterChange({ date: e.target.value, page: 1 })}
-              className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
-              tabIndex={-1}
-              aria-hidden="true"
-            />
-          </div>
-
-          {/* RESET BUTTON */}
-          {isFiltered && (
-            <button
-              type="button"
-              onClick={onReset}
-              className="inline-flex h-8.5 xs:h-9 shrink-0 items-center gap-1 rounded-xl border border-rose-200/90 bg-rose-50/90 px-2 xs:px-2.5 text-[10.5px] xs:text-xs font-bold text-rose-700 hover:border-rose-300 hover:bg-rose-100 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
-              title="Reset Semua Filter"
-            >
-              <RotateCcw size={11} />
-              <span>Reset</span>
-            </button>
-          )}
-        </div>
-
-        {/* ROW 2: 2x2 PROPORTIONAL GRID ON MOBILE (<640px) / 1x4 FULL-WIDTH GRID ON TABLET (640px-1023px) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 xs:gap-2 sm:gap-2.5 w-full pt-1.5 border-t border-slate-100/80">
-          {/* 1. Status Dropdown */}
-          <div className="relative w-full min-w-0">
+      <div className="hidden sm:block lg:hidden rounded-2xl border border-slate-200/90 bg-white/95 p-2.5 backdrop-blur-md shadow-xs space-y-2">
+        {/* 1-LINE HORIZONTAL TOOLBAR */}
+        <div className="flex items-center justify-between gap-1.5 md:gap-2">
+          {/* 1. STATUS DROPDOWN (AUTO-EXPAND IN BOTH EXPANDED SIDEBAR & NAVIGATION RAIL) */}
+          <div
+            className={`relative min-w-0 transition-all duration-200 ${
+              !isSidebarExpanded ? "flex-[1.2]" : "flex-[1.25]"
+            }`}
+          >
             <select
               value={filters.status}
               onChange={(e) => onFilterChange({ status: e.target.value, page: 1 })}
               aria-label="Filter Status"
-              className={`h-8 xs:h-8.5 w-full appearance-none rounded-xl border px-2.5 xs:px-3 pr-6 xs:pr-7 text-[10px] xs:text-[11px] sm:text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
+              className={`h-9 w-full appearance-none rounded-xl border ${
+                !isSidebarExpanded ? "px-2.5 pr-7" : "px-2 text-center"
+              } text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
                 filters.status !== "Semua"
                   ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
-                  : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 focus:border-blue-500 focus:bg-white"
+                  : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
               }`}
             >
               {STATUS_CONFIG.map((st) => {
                 const countVal = counts[st.countKey] ?? 0;
                 const labelText =
-                  st.key === "Semua" && isSidebarExpanded
-                    ? `Status (${countVal})`
+                  st.key === "Semua"
+                    ? !isSidebarExpanded
+                      ? `Semua Status (${countVal})`
+                      : `Status (${countVal})`
                     : `${st.label} (${countVal})`;
                 return (
                   <option key={st.key} value={st.key}>
@@ -398,28 +360,36 @@ export default function OrderFilterBar({
                 );
               })}
             </select>
-            <ChevronDown
-              size={11}
-              className={`pointer-events-none absolute right-2 xs:right-2.5 top-1/2 -translate-y-1/2 transition ${
-                filters.status !== "Semua" ? "text-blue-600" : "text-slate-400"
-              }`}
-            />
+            {!isSidebarExpanded && (
+              <ChevronDown
+                size={12}
+                className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 transition ${
+                  filters.status !== "Semua" ? "text-blue-600" : "text-slate-400"
+                }`}
+              />
+            )}
           </div>
 
-          {/* 2. Kategori Dropdown (Hidden on mobile <640px, visible on tablet sm:) */}
-          <div className="relative hidden sm:block w-full min-w-0">
+          {/* 2. KATEGORI DROPDOWN (AUTO-EXPAND IN BOTH EXPANDED SIDEBAR & NAVIGATION RAIL) */}
+          <div
+            className={`relative min-w-0 transition-all duration-200 ${
+              !isSidebarExpanded ? "flex-[1.15]" : "flex-[1.2]"
+            }`}
+          >
             <select
               value={filters.category}
               onChange={(e) => onFilterChange({ category: e.target.value, page: 1 })}
               aria-label="Filter Kategori"
-              className={`h-8 xs:h-8.5 w-full appearance-none rounded-xl border px-2.5 xs:px-3 pr-6 xs:pr-7 text-[10px] xs:text-[11px] sm:text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
+              className={`h-9 w-full appearance-none rounded-xl border ${
+                !isSidebarExpanded ? "px-2.5 pr-7" : "px-2 text-center"
+              } text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
                 filters.category !== "Semua"
                   ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
-                  : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 focus:border-blue-500 focus:bg-white"
+                  : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
               }`}
             >
               <option value="Semua">
-                {isSidebarExpanded ? "Kategori" : "Semua Kategori"}
+                {!isSidebarExpanded ? "Semua Kategori" : "Kategori"}
               </option>
               {categories.map((cat) => (
                 <option key={cat} value={cat}>
@@ -427,47 +397,225 @@ export default function OrderFilterBar({
                 </option>
               ))}
             </select>
-            <ChevronDown
-              size={11}
-              className={`pointer-events-none absolute right-2 xs:right-2.5 top-1/2 -translate-y-1/2 transition ${
-                filters.category !== "Semua" ? "text-blue-600" : "text-slate-400"
-              }`}
-            />
+            {!isSidebarExpanded && (
+              <ChevronDown
+                size={12}
+                className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 transition ${
+                  filters.category !== "Semua" ? "text-blue-600" : "text-slate-400"
+                }`}
+              />
+            )}
           </div>
 
-          {/* 3. Pembayaran Dropdown (Hidden on mobile <640px, visible on tablet sm:) */}
-          <div className="relative hidden sm:block w-full min-w-0">
+          {/* 3. METODE DROPDOWN (AUTO-EXPAND IN BOTH EXPANDED SIDEBAR & NAVIGATION RAIL) */}
+          <div
+            className={`relative min-w-0 transition-all duration-200 ${
+              !isSidebarExpanded ? "flex-[1.1]" : "flex-[1.15]"
+            }`}
+          >
             <select
               value={filters.paymentMethod}
               onChange={(e) => onFilterChange({ paymentMethod: e.target.value, page: 1 })}
               aria-label="Filter Pembayaran"
-              className={`h-8 xs:h-8.5 w-full appearance-none rounded-xl border px-2.5 xs:px-3 pr-6 xs:pr-7 text-[10px] xs:text-[11px] sm:text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
+              className={`h-9 w-full appearance-none rounded-xl border ${
+                !isSidebarExpanded ? "px-2.5 pr-7" : "px-2 text-center"
+              } text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
                 filters.paymentMethod !== "Semua"
                   ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
-                  : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 focus:border-blue-500 focus:bg-white"
+                  : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
               }`}
             >
               {PAYMENT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.value === "Semua" && isSidebarExpanded ? "Metode" : opt.label}
+                  {opt.value === "Semua"
+                    ? !isSidebarExpanded
+                      ? "Semua Metode"
+                      : "Metode"
+                    : opt.label}
                 </option>
               ))}
             </select>
-            <ChevronDown
-              size={11}
-              className={`pointer-events-none absolute right-2 xs:right-2.5 top-1/2 -translate-y-1/2 transition ${
-                filters.paymentMethod !== "Semua" ? "text-blue-600" : "text-slate-400"
-              }`}
-            />
+            {!isSidebarExpanded && (
+              <ChevronDown
+                size={12}
+                className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 transition ${
+                  filters.paymentMethod !== "Semua" ? "text-blue-600" : "text-slate-400"
+                }`}
+              />
+            )}
           </div>
 
-          {/* 4. Urutan Dropdown */}
-          <div className="relative w-full min-w-0">
+          {/* 4. TERBARU (SORT) DROPDOWN (AUTO-EXPAND IN BOTH EXPANDED SIDEBAR & NAVIGATION RAIL) */}
+          <div
+            className={`relative min-w-0 transition-all duration-200 ${
+              !isSidebarExpanded ? "flex-1" : "flex-[1.15]"
+            }`}
+          >
             <select
               value={filters.sort}
               onChange={(e) => onFilterChange({ sort: e.target.value as SortOption, page: 1 })}
               aria-label="Urutan Transaksi"
-              className={`h-8 xs:h-8.5 w-full appearance-none rounded-xl border px-2.5 xs:px-3 pr-6 xs:pr-7 text-[10px] xs:text-[11px] sm:text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
+              className={`h-9 w-full appearance-none rounded-xl border ${
+                !isSidebarExpanded ? "px-2.5 pr-7" : "px-2 text-center"
+              } text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
+                filters.sort !== "newest"
+                  ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
+                  : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
+              }`}
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            {!isSidebarExpanded && (
+              <ChevronDown
+                size={12}
+                className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 transition ${
+                  filters.sort !== "newest" ? "text-blue-600" : "text-slate-400"
+                }`}
+              />
+            )}
+          </div>
+
+          {/* ACTION ICONS: 5. PANCARIAN, 6. CALENDER, 7. RESET */}
+          <div className="flex items-center gap-1.5 shrink-0 pl-1 border-l border-slate-100">
+            {/* SEARCH ICON TOGGLE BUTTON */}
+            <button
+              type="button"
+              onClick={handleToggleTabletSearch}
+              aria-label="Pencarian Transaksi"
+              title={isTabletSearchOpen ? "Tutup Pencarian" : "Buka Pencarian"}
+              className={`relative inline-flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
+                isTabletSearchOpen || Boolean(filters.search)
+                  ? "border-blue-400 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20 font-bold"
+                  : "border-slate-200/90 bg-slate-50/70 text-slate-600 hover:border-slate-300 hover:bg-slate-100/70 hover:text-slate-900"
+              }`}
+            >
+              <Search size={14} />
+              {Boolean(filters.search) && !isTabletSearchOpen && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600 border border-white"></span>
+                </span>
+              )}
+            </button>
+
+            {/* DATE PICKER ICON BUTTON (ANCHORED LEFT) */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => handleDateIconClick("tablet")}
+                aria-label="Filter Tanggal"
+                title={filters.date ? `Tanggal: ${filters.date}` : "Filter Tanggal"}
+                className={`relative inline-flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
+                  filters.date
+                    ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20 font-bold"
+                    : "border-slate-200/90 bg-slate-50/70 text-slate-600 hover:border-slate-300 hover:bg-slate-100/70 hover:text-slate-900"
+                }`}
+              >
+                <CalendarDays size={14} />
+                {filters.date && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600 border border-white"></span>
+                  </span>
+                )}
+              </button>
+              <input
+                ref={tabletDateInputRef}
+                type="date"
+                value={filters.date}
+                onChange={(e) => onFilterChange({ date: e.target.value, page: 1 })}
+                className="absolute left-0 top-0 h-full w-full opacity-0 pointer-events-none"
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+            </div>
+
+            {/* RESET BUTTON */}
+            {isFiltered && (
+              <button
+                type="button"
+                onClick={onReset}
+                className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl border border-rose-200/90 bg-rose-50/90 px-2.5 text-xs font-bold text-rose-700 hover:border-rose-300 hover:bg-rose-100 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
+                title="Reset Filter"
+              >
+                <RotateCcw size={12} />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* EXPANDABLE SEARCH ROW IN TABLET (SINGLE X) */}
+        {isTabletSearchOpen && (
+          <div className="relative pt-2 border-t border-slate-100 animate-in fade-in slide-in-from-top-1 duration-200">
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 mt-1"
+            />
+            <input
+              ref={tabletSearchInputRef}
+              type="text"
+              value={filters.search}
+              onChange={(e) => onFilterChange({ search: e.target.value, page: 1 })}
+              placeholder="Cari Order ID, Produk, Pelanggan..."
+              className="h-9 w-full rounded-xl border border-blue-400 bg-blue-50/30 pl-9 pr-8 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
+            />
+            {filters.search && (
+              <button
+                type="button"
+                onClick={() => onFilterChange({ search: "", page: 1 })}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer mt-1"
+                title="Hapus kata kunci"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================ */}
+      {/* 3. MOBILE & ULTRA-COMPACT (< 640px) — 1-LINE HORIZONTAL BAR  */}
+      {/* ============================================================ */}
+      <div className="block sm:hidden rounded-2xl border border-slate-200/90 bg-white/95 p-2 xs:p-2.5 backdrop-blur-md shadow-xs space-y-2">
+        {/* 1-LINE HORIZONTAL TOOLBAR */}
+        <div className="flex items-center justify-between gap-1 xs:gap-1.5">
+          {/* 1. STATUS DROPDOWN (NO CHEVRON — MAXIMIZED COLUMN WIDTH) */}
+          <div className="relative flex-[1.15] min-w-0 transition-all duration-200">
+            <select
+              value={filters.status}
+              onChange={(e) => onFilterChange({ status: e.target.value, page: 1 })}
+              aria-label="Filter Status"
+              className={`h-8.5 xs:h-9 w-full appearance-none rounded-xl border px-1.5 xs:px-2 text-center text-[10.5px] xs:text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
+                filters.status !== "Semua"
+                  ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
+                  : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 focus:border-blue-500 focus:bg-white"
+              }`}
+            >
+              {STATUS_CONFIG.map((st) => {
+                const countVal = counts[st.countKey] ?? 0;
+                const labelText =
+                  st.key === "Semua"
+                    ? `Semua Status (${countVal})`
+                    : `${st.label} (${countVal})`;
+                return (
+                  <option key={st.key} value={st.key}>
+                    {labelText}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* 2. TERBARU (SORT) DROPDOWN (NO CHEVRON — MAXIMIZED COLUMN WIDTH) */}
+          <div className="relative flex-1 min-w-0 transition-all duration-200">
+            <select
+              value={filters.sort}
+              onChange={(e) => onFilterChange({ sort: e.target.value as SortOption, page: 1 })}
+              aria-label="Urutan Transaksi"
+              className={`h-8.5 xs:h-9 w-full appearance-none rounded-xl border px-1.5 xs:px-2 text-center text-[10.5px] xs:text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
                 filters.sort !== "newest"
                   ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                   : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 focus:border-blue-500 focus:bg-white"
@@ -479,14 +627,103 @@ export default function OrderFilterBar({
                 </option>
               ))}
             </select>
-            <SlidersHorizontal
-              size={11}
-              className={`pointer-events-none absolute right-2 xs:right-2.5 top-1/2 -translate-y-1/2 transition ${
-                filters.sort !== "newest" ? "text-blue-600" : "text-slate-400"
+          </div>
+
+          {/* ACTION ICONS: 3. PENCARIAN, 4. CALENDER, 5. RESET */}
+          <div className="flex items-center gap-1 xs:gap-1.5 shrink-0 pl-1 border-l border-slate-100">
+            {/* SEARCH ICON TOGGLE BUTTON */}
+            <button
+              type="button"
+              onClick={handleToggleMobileSearch}
+              aria-label="Pencarian Transaksi"
+              title={isMobileSearchOpen ? "Tutup Pencarian" : "Buka Pencarian"}
+              className={`relative inline-flex h-8.5 w-8.5 xs:h-9 xs:w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
+                isMobileSearchOpen || Boolean(filters.search)
+                  ? "border-blue-400 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20 font-bold"
+                  : "border-slate-200/90 bg-slate-50/70 text-slate-600 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
               }`}
-            />
+            >
+              <Search size={13} />
+              {Boolean(filters.search) && !isMobileSearchOpen && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600 border border-white"></span>
+                </span>
+              )}
+            </button>
+
+            {/* DATE PICKER ICON BUTTON (ANCHORED LEFT) */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => handleDateIconClick("mobile")}
+                aria-label="Filter Tanggal"
+                title={filters.date ? `Tanggal: ${filters.date}` : "Filter Tanggal"}
+                className={`relative inline-flex h-8.5 w-8.5 xs:h-9 xs:w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
+                  filters.date
+                    ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20 font-bold"
+                    : "border-slate-200/90 bg-slate-50/70 text-slate-600 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+              >
+                <CalendarDays size={13} />
+                {filters.date && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600 border border-white"></span>
+                  </span>
+                )}
+              </button>
+              <input
+                ref={mobileDateInputRef}
+                type="date"
+                value={filters.date}
+                onChange={(e) => onFilterChange({ date: e.target.value, page: 1 })}
+                className="absolute left-0 top-0 h-full w-full opacity-0 pointer-events-none"
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+            </div>
+
+            {/* RESET BUTTON */}
+            {isFiltered && (
+              <button
+                type="button"
+                onClick={onReset}
+                className="inline-flex h-8.5 xs:h-9 shrink-0 items-center gap-1 rounded-xl border border-rose-200/90 bg-rose-50/90 px-2 text-[10.5px] xs:text-xs font-bold text-rose-700 hover:border-rose-300 hover:bg-rose-100 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
+                title="Reset Filter"
+              >
+                <RotateCcw size={11} />
+                <span>Reset</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* EXPANDABLE SEARCH ROW IN MOBILE (SINGLE X) */}
+        {isMobileSearchOpen && (
+          <div className="relative pt-1.5 border-t border-slate-100 animate-in fade-in slide-in-from-top-1 duration-200">
+            <Search
+              size={13}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 mt-0.5"
+            />
+            <input
+              ref={mobileSearchInputRef}
+              type="text"
+              value={filters.search}
+              onChange={(e) => onFilterChange({ search: e.target.value, page: 1 })}
+              placeholder="Cari transaksi..."
+              className="h-8.5 xs:h-9 w-full rounded-xl border border-blue-400 bg-blue-50/30 pl-8 pr-7 text-[11px] xs:text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
+            />
+            {filters.search && (
+              <button
+                type="button"
+                onClick={() => onFilterChange({ search: "", page: 1 })}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer mt-0.5"
+                title="Hapus kata kunci"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ACTIVE DATE BADGE (IF DATE FILTER IS ACTIVE) */}

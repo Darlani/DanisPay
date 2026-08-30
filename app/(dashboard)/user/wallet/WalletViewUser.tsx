@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
+  CircleDollarSign,
+  Coins,
   Package,
   RefreshCw,
   WalletCards,
@@ -14,6 +16,7 @@ import {
   WalletEntry,
   WalletFilters,
   WalletSummary,
+  cleanDescription,
   detectAsset,
   detectFlow,
   flowLabel,
@@ -48,7 +51,7 @@ function computeEntriesFromLogs(rawLogs: BalanceLog[]): WalletEntry[] {
       log,
       asset,
       amount,
-      description: log.description || log.type || "Aktivitas Keuangan",
+      description: cleanDescription(log.description, log.type, asset),
       type: log.type || "Aktivitas",
       flow: detectFlow(amount),
       createdAt: log.created_at || "",
@@ -319,6 +322,90 @@ export default function WalletViewUser({
     });
   };
 
+  // Dynamic ledger title based on active filter state
+  const ledgerTitle = useMemo(() => {
+    // 1. Tab Koin
+    if (filters.asset === "Koin") {
+      // Prioritas Filter Arus: jika arus Masuk atau Keluar dipilih
+      if (filters.flow === "Masuk") {
+        return "Mutasi Koin Masuk";
+      }
+      if (filters.flow === "Keluar") {
+        return "Mutasi Koin Keluar";
+      }
+
+      // Jika arus "Semua", tapi filter jenis dipilih
+      if (filters.type && filters.type !== "Semua") {
+        const typeLower = filters.type.toLowerCase();
+        if (
+          typeLower.includes("deposit") ||
+          typeLower.includes("withdraw") ||
+          typeLower.includes("tarik") ||
+          typeLower.includes("penarikan")
+        ) {
+          return "Mutasi Koin";
+        }
+        if (typeLower.includes("admin") || typeLower.includes("adjustment")) {
+          return "Mutasi Koin Admin Adjustment";
+        }
+        if (typeLower.includes("refund")) {
+          return "Mutasi Koin Refund";
+        }
+        return `Mutasi Koin ${filters.type}`;
+      }
+
+      // Default Tab Koin tanpa filter jenis/arus
+      return "Mutasi Koin";
+    }
+
+    // 2. Tab Saldo
+    if (filters.asset === "Saldo") {
+      // Prioritas Filter Arus: jika arus Masuk atau Keluar dipilih, abaikan filter jenis
+      if (filters.flow === "Masuk") {
+        return "Mutasi Saldo Masuk";
+      }
+      if (filters.flow === "Keluar") {
+        return "Mutasi Saldo Keluar";
+      }
+      // Jika arus "Semua", tapi filter jenis dipilih (Deposit, Withdraw, Admin Adjustment, Refund, dll.)
+      if (filters.type && filters.type !== "Semua") {
+        return `Mutasi Saldo ${filters.type}`;
+      }
+      return "Mutasi Saldo";
+    }
+
+    // 3. Tab Semua (filters.asset === "Semua")
+    // Prioritas Filter Arus
+    if (filters.flow === "Masuk") {
+      return "Mutasi Saldo & Koin Masuk";
+    }
+    if (filters.flow === "Keluar") {
+      return "Mutasi Saldo & Koin Keluar";
+    }
+    // Jika arus "Semua", tapi filter jenis dipilih
+    if (filters.type && filters.type !== "Semua") {
+      return `Mutasi Saldo & Koin ${filters.type}`;
+    }
+
+    // Default ketika tab Semua dipilih dan tanpa filter
+    return "Mutasi Saldo & Koin";
+  }, [filters.asset, filters.flow, filters.type]);
+
+  // Dynamic header icon based on asset
+  const HeaderIcon =
+    filters.asset === "Koin"
+      ? Coins
+      : filters.asset === "Saldo"
+      ? CircleDollarSign
+      : WalletCards;
+
+  const headerIconBg =
+    filters.asset === "Koin"
+      ? "bg-violet-50 text-violet-600 border border-violet-100"
+      : filters.asset === "Saldo"
+      ? "bg-blue-50 text-blue-600 border border-blue-100"
+      : "bg-blue-50 text-blue-600 border border-blue-100";
+
   return (
     <section className="w-full relative min-w-0">
       {/* ============================================================ */}
@@ -344,12 +431,12 @@ export default function WalletViewUser({
         {/* Table/List Subheader */}
         <div className="flex items-center justify-between border-b border-slate-100 px-3.5 py-3 sm:px-5">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-              <WalletCards size={15} />
+            <span className={`flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200 ${headerIconBg}`}>
+              <HeaderIcon size={15} />
             </span>
             <div className="min-w-0">
               <h2 className="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">
-                Mutasi Saldo & Koin
+                {ledgerTitle}
               </h2>
               <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">
                 Menampilkan {visibleEntries.length} dari {filteredEntries.length} mutasi

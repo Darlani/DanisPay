@@ -145,6 +145,84 @@ export function normalizeType(type?: string | null): string {
   return String(type || "").trim().toLowerCase();
 }
 
+/**
+ * Sanitizes mutation descriptions for the user frontend by removing raw technical metadata:
+ * - Order IDs / Transaction IDs (e.g. `(Order #ORD-12345)`, `(Acc Admin #12345)`, `(Full Koin #ORD-12345)`, `#12345`)
+ * - Source annotations (e.g. `(source: tripay)`, `[source: api]`, `source: midtrans`)
+ * - Raw UUID strings
+ * - Trailing punctuation / IDs
+ */
+export function cleanDescription(
+  rawDesc?: string | null,
+  rawType?: string | null,
+  asset?: AssetType,
+): string {
+  if (!rawDesc || !rawDesc.trim()) {
+    const norm = normalizeType(rawType);
+    if (asset === "coin") {
+      if (norm === "cashback") return "Cashback Koin";
+      if (norm === "bonus" || norm === "reward") return "Bonus Koin";
+      if (norm === "referral") return "Komisi Referral Koin";
+      if (norm === "refund") return "Pengembalian Koin";
+      return "Mutasi Koin";
+    }
+    if (norm === "deposit") return "Deposit Saldo";
+    if (norm === "withdraw" || norm === "penarikan") return "Penarikan Saldo";
+    if (
+      norm === "payment" ||
+      norm === "pembayaran" ||
+      norm === "purchase" ||
+      norm === "order"
+    ) {
+      return "Pembayaran Pesanan";
+    }
+    if (norm === "refund") return "Pengembalian Dana";
+    if (norm === "cashback") return "Cashback Transaksi";
+    if (norm === "referral") return "Komisi Referral";
+    if (norm === "bonus") return "Bonus Transaksi";
+    if (
+      norm === "adminadjustment" ||
+      norm === "admin_adjustment" ||
+      norm === "adjustment"
+    ) {
+      return "Penyesuaian Saldo Admin";
+    }
+    if (norm === "upgrade") return "Upgrade Akun Member";
+    return "Aktivitas Keuangan";
+  }
+
+  let text = rawDesc.trim();
+
+  // If text is purely a UUID or hash, fallback
+  if (/^[0-9a-fA-F-]{20,}$/.test(text)) {
+    return cleanDescription(null, rawType, asset);
+  }
+
+  // 1. Remove all parenthetical content completely (e.g. `(pending admin)`, `(Acc Admin #123)`, `(source: tripay)`)
+  text = text.replace(/\s*\([^)]*\)/g, "");
+
+  // 2. Remove all square bracket content (e.g. `[source: api]`, `[ID #123]`)
+  text = text.replace(/\s*\[[^\]]*\]/g, "");
+
+  // 3. Remove all curly brace content
+  text = text.replace(/\s*\{[^}]*\}/g, "");
+
+  // 4. Remove trailing / standalone hashtag IDs (e.g. #ORD-12345, #12345)
+  text = text.replace(/\s*#[A-Za-z0-9_-]+/g, "");
+
+  // 5. Remove standalone source / id prefixes (e.g. "source: manual", "ID: 12345")
+  text = text.replace(/\b(?:source|sumber|id|ref)[:=\s]+[A-Za-z0-9_-]+/gi, "");
+
+  // 6. Clean up multiple spaces and dangling punctuation
+  text = text.replace(/\s+/g, " ").replace(/\s*[-:,/]\s*$/, "").trim();
+
+  if (!text || text.length < 2) {
+    return cleanDescription(null, rawType, asset);
+  }
+
+  return text;
+}
+
 /* ================================================================== */
 /* AGENTS.MD COMPLIANT TYPE MAPPING & DIRECTION RULES                 */
 /* ================================================================== */

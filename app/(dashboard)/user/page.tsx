@@ -77,9 +77,13 @@ type DashboardWithdrawal = {
 
 type DashboardBalanceLog = {
   id: string;
+  user_id?: string | null;
+  user_email?: string | null;
   amount: number | string;
   type: string;
   description?: string | null;
+  initial_balance?: number | string | null;
+  final_balance?: number | string | null;
   created_at?: string | null;
 };
 
@@ -1205,7 +1209,12 @@ export default function UserDashboard() {
         avatarUrl={userData.avatarUrl}
         onRefresh={() => void fetchDashboardData(false)}
       >
-        <DepositViewUser />
+        <DepositViewUser
+          initialBalance={Number(userData.balance || 0)}
+          initialCoinBalance={Number(userData.coinBalance || 0)}
+          initialDeposits={deposits}
+          isSidebarExpanded={isSidebarExpanded}
+        />
       </DashboardShell>
     );
   }
@@ -1227,7 +1236,12 @@ export default function UserDashboard() {
         avatarUrl={userData.avatarUrl}
         onRefresh={() => void fetchDashboardData(false)}
       >
-        <WithdrawViewUser />
+        <WithdrawViewUser
+          initialBalance={Number(userData.balance || 0)}
+          initialCoinBalance={Number(userData.coinBalance || 0)}
+          initialWithdrawals={withdrawals}
+          isSidebarExpanded={isSidebarExpanded}
+        />
       </DashboardShell>
     );
   }

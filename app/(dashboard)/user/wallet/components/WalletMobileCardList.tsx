@@ -14,6 +14,7 @@ import {
   formatSignedCoins,
   formatSignedRupiah,
   getEntryMeta,
+  toNumber,
 } from "../types";
 
 interface WalletMobileCardListProps {
@@ -43,12 +44,24 @@ export default function WalletMobileCardList({
         const log = entry.log;
         const isCoin = entry.asset === "coin";
 
-        const beforeAmount = isCoin
-          ? log.initial_coin_balance
+        const rawBefore = isCoin
+          ? log.initial_coin_balance ?? log.initial_balance
           : log.initial_balance;
-        const afterAmount = isCoin
-          ? log.final_coin_balance
+        const rawAfter = isCoin
+          ? log.final_coin_balance ?? log.final_balance
           : log.final_balance;
+
+        let beforeAmount =
+          rawBefore !== null && rawBefore !== undefined ? toNumber(rawBefore) : null;
+        let afterAmount =
+          rawAfter !== null && rawAfter !== undefined ? toNumber(rawAfter) : null;
+
+        // Smart fallback if one of before/after is available
+        if (beforeAmount === null && afterAmount !== null) {
+          beforeAmount = afterAmount - entry.amount;
+        } else if (afterAmount === null && beforeAmount !== null) {
+          afterAmount = beforeAmount + entry.amount;
+        }
 
         const isIncome = entry.flow === "income";
         const isExpense = entry.flow === "expense";
