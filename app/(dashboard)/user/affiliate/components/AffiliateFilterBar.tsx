@@ -2,27 +2,31 @@
 
 import React, { useRef, useState } from "react";
 import { CalendarDays, ChevronDown, RotateCcw, Search, X } from "lucide-react";
-import { STATUS_OPTIONS, WithdrawalFilters, WithdrawalStatusCounts } from "../types";
+import {
+  AffiliateFilters,
+  MEMBER_FILTER_OPTIONS,
+  MemberSortOption,
+  formatDateOnly,
+} from "../types";
 
-interface WithdrawFilterBarProps {
-  filters: WithdrawalFilters;
-  statusCounts: WithdrawalStatusCounts;
+interface AffiliateFilterBarProps {
+  filters: AffiliateFilters;
   isFiltered: boolean;
+  totalItems: number;
   onSearchChange: (value: string) => void;
-  onStatusChange: (value: string) => void;
+  onSortChange: (value: MemberSortOption) => void;
   onDateChange: (value: string) => void;
   onResetFilters: () => void;
 }
 
-export default function WithdrawFilterBar({
+export default function AffiliateFilterBar({
   filters,
-  statusCounts,
   isFiltered,
   onSearchChange,
-  onStatusChange,
+  onSortChange,
   onDateChange,
   onResetFilters,
-}: WithdrawFilterBarProps) {
+}: AffiliateFilterBarProps) {
   const desktopDateInputRef = useRef<HTMLInputElement>(null);
   const mobileDateInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,7 +44,8 @@ export default function WithdrawFilterBar({
   };
 
   const handleDateIconClick = (target: "desktop" | "mobile") => {
-    const input = target === "desktop" ? desktopDateInputRef.current : mobileDateInputRef.current;
+    const input =
+      target === "desktop" ? desktopDateInputRef.current : mobileDateInputRef.current;
     if (input) {
       if (typeof input.showPicker === "function") {
         input.showPicker();
@@ -57,17 +62,17 @@ export default function WithdrawFilterBar({
       {/* ============================================================ */}
       <div className="block sm:hidden">
         <div className="flex items-center justify-between gap-1.5 xs:gap-2">
-          {/* A. STATUS FILTER DROPDOWN */}
+          {/* A. MEMBER FILTER DROPDOWN */}
           <div className="relative flex-1 min-w-0">
             <select
-              value={filters.status}
-              onChange={(e) => onStatusChange(e.target.value)}
-              aria-label="Filter status penarikan"
-              className="h-8.5 w-full appearance-none rounded-xl border border-slate-200/90 bg-slate-50/90 px-2.5 pr-7 text-[11px] font-bold text-slate-700 outline-none transition hover:bg-slate-100/80 focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100 cursor-pointer truncate"
+              value={filters.sortBy}
+              onChange={(e) => onSortChange(e.target.value as MemberSortOption)}
+              aria-label="Filter pengurutan member downline"
+              className="h-8.5 w-full appearance-none rounded-xl border border-slate-200/90 bg-slate-50/90 px-2.5 pr-7 text-[11px] font-bold text-slate-700 outline-none transition hover:bg-slate-100/80 focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100 cursor-pointer truncate"
             >
-              {STATUS_OPTIONS.map((opt) => (
+              {MEMBER_FILTER_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label} ({statusCounts[opt.countKey]})
+                  {opt.label}
                 </option>
               ))}
             </select>
@@ -81,10 +86,10 @@ export default function WithdrawFilterBar({
           <button
             type="button"
             onClick={handleToggleMobileSearch}
-            aria-label="Buka Pencarian Penarikan"
+            aria-label="Buka Pencarian Member"
             className={`flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-xl border transition active:scale-95 cursor-pointer ${
               filters.search || isMobileSearchOpen
-                ? "border-rose-400 bg-rose-50 text-rose-600 shadow-2xs"
+                ? "border-amber-400 bg-amber-50 text-amber-600 shadow-2xs"
                 : "border-slate-200/90 bg-slate-50/90 text-slate-600 hover:bg-slate-100"
             }`}
           >
@@ -98,24 +103,28 @@ export default function WithdrawFilterBar({
               type="date"
               value={filters.date}
               onChange={(e) => onDateChange(e.target.value)}
-              aria-label="Pilih tanggal transaksi"
+              aria-label="Filter Tanggal Bergabung"
               className="sr-only"
               tabIndex={-1}
             />
             <button
               type="button"
               onClick={() => handleDateIconClick("mobile")}
-              title={filters.date ? `Tanggal: ${filters.date}` : "Filter Tanggal"}
-              aria-label={filters.date ? `Tanggal terpilih ${filters.date}` : "Filter Tanggal"}
+              title={
+                filters.date
+                  ? `Tanggal: ${formatDateOnly(filters.date)} (Klik untuk ubah)`
+                  : "Filter Tanggal Bergabung"
+              }
+              aria-label="Filter Tanggal Bergabung"
               className={`relative flex h-8.5 w-8.5 items-center justify-center rounded-xl border transition active:scale-95 cursor-pointer shadow-2xs ${
                 filters.date
-                  ? "border-rose-400 bg-rose-50 text-rose-600 font-bold ring-2 ring-rose-500/20"
+                  ? "border-amber-400 bg-amber-50 text-amber-600 font-bold ring-2 ring-amber-500/20"
                   : "border-slate-200/90 bg-slate-50/80 text-slate-600 hover:border-slate-300 hover:bg-slate-100/80 hover:text-slate-900"
               }`}
             >
               <CalendarDays size={14} />
               {filters.date && (
-                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-rose-600 ring-2 ring-white" />
+                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-600 ring-2 ring-white" />
               )}
             </button>
           </div>
@@ -146,9 +155,9 @@ export default function WithdrawFilterBar({
               type="search"
               value={filters.search}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Cari bank, rekening, atau nominal..."
-              aria-label="Cari transaksi penarikan saldo"
-              className="h-8.5 w-full rounded-xl border border-rose-200 bg-rose-50/40 pl-8.5 pr-8 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none transition focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+              placeholder="Cari nama atau email member..."
+              aria-label="Cari member downline"
+              className="h-8.5 w-full rounded-xl border border-amber-200 bg-amber-50/40 pl-8.5 pr-8 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
             />
             <button
               type="button"
@@ -166,30 +175,30 @@ export default function WithdrawFilterBar({
       </div>
 
       {/* ============================================================ */}
-      {/* 2. TABLET & DESKTOP TOOLBAR (>= 640px) [LOCKED]              */}
+      {/* 2. TABLET & DESKTOP TOOLBAR (>= 640px)                       */}
       {/* ============================================================ */}
-      <div className="hidden sm:flex items-center gap-2 sm:gap-2.5">
-        {/* A. SEMUA STATUS DROPDOWN */}
-        <div className="relative shrink-0 min-w-36 sm:min-w-40">
+      <div className="hidden sm:flex items-center gap-2.5 sm:gap-3">
+        {/* A. MEMBER FILTER DROPDOWN */}
+        <div className="relative shrink-0 w-44 lg:w-48">
           <select
-            value={filters.status}
-            onChange={(e) => onStatusChange(e.target.value)}
-            aria-label="Filter status penarikan"
-            className="h-9.5 w-full appearance-none rounded-xl border border-slate-200/90 bg-slate-50/90 pl-3 pr-8 text-xs font-bold text-slate-700 outline-none transition hover:bg-slate-100/80 focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100 cursor-pointer truncate"
+            value={filters.sortBy}
+            onChange={(e) => onSortChange(e.target.value as MemberSortOption)}
+            aria-label="Filter pengurutan member downline"
+            className="h-9.5 w-full appearance-none rounded-xl border border-slate-200/90 bg-slate-50/80 px-3 pr-8 text-xs font-bold text-slate-700 outline-none transition hover:bg-slate-100/80 focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100 cursor-pointer truncate"
           >
-            {STATUS_OPTIONS.map((opt) => (
+            {MEMBER_FILTER_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {opt.label} ({statusCounts[opt.countKey]})
+                {opt.label}
               </option>
             ))}
           </select>
           <ChevronDown
-            size={13}
+            size={14}
             className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"
           />
         </div>
 
-        {/* B. PENCARIAN (SEARCH INPUT) */}
+        {/* B. SEARCH INPUT */}
         <div className="relative min-w-0 flex-1">
           <Search
             size={14}
@@ -199,9 +208,9 @@ export default function WithdrawFilterBar({
             type="search"
             value={filters.search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Cari bank, rekening, atau nominal..."
-            aria-label="Cari transaksi penarikan saldo"
-            className="h-9.5 w-full rounded-xl border border-slate-200/90 bg-slate-50/80 pl-8.5 pr-8 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none transition focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+            placeholder="Cari nama atau email member downline..."
+            aria-label="Cari member downline"
+            className="h-9.5 w-full rounded-xl border border-slate-200/90 bg-slate-50/80 pl-8.5 pr-8 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
           />
           {filters.search && (
             <button
@@ -215,31 +224,35 @@ export default function WithdrawFilterBar({
           )}
         </div>
 
-        {/* C. CALENDER (ICON BUTTON WITH ACTIVE INDICATOR) */}
+        {/* C. CALENDAR DATE FILTER ICON BUTTON */}
         <div className="relative shrink-0">
           <input
             ref={desktopDateInputRef}
             type="date"
             value={filters.date}
             onChange={(e) => onDateChange(e.target.value)}
-            aria-label="Pilih tanggal transaksi"
+            aria-label="Filter Tanggal Bergabung"
             className="sr-only"
             tabIndex={-1}
           />
           <button
             type="button"
             onClick={() => handleDateIconClick("desktop")}
-            title={filters.date ? `Tanggal: ${filters.date}` : "Filter Tanggal"}
-            aria-label={filters.date ? `Tanggal terpilih ${filters.date}` : "Filter Tanggal"}
+            title={
+              filters.date
+                ? `Tanggal: ${formatDateOnly(filters.date)} (Klik untuk ubah)`
+                : "Filter Tanggal Bergabung"
+            }
+            aria-label="Filter Tanggal Bergabung"
             className={`relative flex h-9.5 w-9.5 items-center justify-center rounded-xl border transition active:scale-95 cursor-pointer shadow-2xs ${
               filters.date
-                ? "border-rose-400 bg-rose-50 text-rose-600 font-bold ring-2 ring-rose-500/20"
+                ? "border-amber-400 bg-amber-50 text-amber-700 font-bold ring-2 ring-amber-500/20"
                 : "border-slate-200/90 bg-slate-50/80 text-slate-600 hover:border-slate-300 hover:bg-slate-100/80 hover:text-slate-900"
             }`}
           >
             <CalendarDays size={15} />
             {filters.date && (
-              <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-rose-600 ring-2 ring-white" />
+              <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-600 ring-2 ring-white" />
             )}
           </button>
         </div>
@@ -261,3 +274,4 @@ export default function WithdrawFilterBar({
     </section>
   );
 }
+

@@ -53,11 +53,11 @@ async redirects() {
     ];
   },
 
-async rewrites() {
+  async rewrites() {
     return [
       {
-        // Tambahkan 'public' ke daftar pengecualian agar folder public (gambar/logo) tidak ikut ter-rewrite
-        source: '/:slug((?!admin|api|login|checkout|public|_next|static|favicon.ico).*)',
+        // Tambahkan rute aplikasi (ref, register, user, auth, dsb) dan 'public' ke daftar pengecualian agar tidak ter-rewrite ke ProductSection
+        source: '/:slug((?!admin|api|login|register|ref|user|checkout|forgot-password|setup-2fa|update-password|promotions|qris-analyzer|qris-generator|public|_next|static|favicon.ico).*)',
         destination: '/ProductSection/:slug',
       },
     ];

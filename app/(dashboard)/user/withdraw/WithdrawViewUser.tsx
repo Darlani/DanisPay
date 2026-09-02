@@ -81,25 +81,30 @@ export default function WithdrawViewUser({
   };
 
   return (
-    <div className="w-full space-y-4 sm:space-y-5">
-      {/* 1. TOP ACTION BAR (BUTTON TARIK SALDO RIGHT-ALIGNED) */}
-      <div className="flex items-center justify-end">
+    <section className="w-full relative">
+      {/* ============================================================ */}
+      {/* 1. TOP ACTION BAR (BUTTON TARIK SALDO RIGHT-ALIGNED)         */}
+      {/* ============================================================ */}
+      <div className="mb-3 sm:mb-4 flex items-center justify-end">
         <button
           type="button"
           onClick={() => setIsCreateOpen(true)}
-          className="inline-flex h-9 sm:h-9.5 items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 text-xs font-bold text-white shadow-2xs transition hover:bg-rose-700 active:scale-95 cursor-pointer"
+          aria-label="Tarik Saldo DaPay"
+          className="inline-flex h-8 xs:h-8.5 sm:h-9 items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3 sm:px-4 text-xs font-bold text-white shadow-2xs transition active:scale-95 cursor-pointer hover:bg-rose-700 hover:shadow-xs"
         >
           <ArrowUpFromLine size={14} />
-          <span>+ Tarik Saldo</span>
+          <span>Tarik Saldo</span>
         </button>
       </div>
 
-      {/* 2. ASSET & SUMMARY KPI CARDS */}
+      {/* ============================================================ */}
+      {/* 2. ASSET & SUMMARY KPI CARDS                                 */}
+      {/* ============================================================ */}
       <WithdrawKpiCards summary={summary} />
 
       {/* ERROR BANNER IF ANY */}
       {error && (
-        <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+        <div className="mb-4 sm:mb-5 flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
           <div className="flex items-center gap-2">
             <AlertCircle size={15} className="shrink-0" />
             <span>{error}</span>
@@ -115,7 +120,9 @@ export default function WithdrawViewUser({
         </div>
       )}
 
-      {/* 3. 1-LINE HORIZONTAL FILTER BAR */}
+      {/* ============================================================ */}
+      {/* 3. 1-LINE HORIZONTAL FILTER BAR                              */}
+      {/* ============================================================ */}
       <WithdrawFilterBar
         filters={filters}
         statusCounts={statusCounts}
@@ -175,20 +182,14 @@ export default function WithdrawViewUser({
             />
           </div>
 
-          {/* B. TABLET (640px-1023px): If sidebar expanded -> Card List, If Navigation Rail -> Compact Table */}
+          {/* B. TABLET (640px-1023px): 3-Kolom saat Sidebar Terbuka, 5-Kolom saat Navigation Rail */}
           <div className="hidden sm:block lg:hidden">
-            {isSidebarExpanded ? (
-              <WithdrawMobileCardList
-                withdrawals={visibleWithdrawals}
-                onSelectWithdrawal={setSelectedWithdrawal}
-              />
-            ) : (
-              <WithdrawDesktopTable
-                withdrawals={visibleWithdrawals}
-                onSelectWithdrawal={setSelectedWithdrawal}
-                onCopy={handleCopy}
-              />
-            )}
+            <WithdrawDesktopTable
+              withdrawals={visibleWithdrawals}
+              onSelectWithdrawal={setSelectedWithdrawal}
+              onCopy={handleCopy}
+              isSidebarExpanded={isSidebarExpanded}
+            />
           </div>
 
           {/* C. DESKTOP (≥1024px): Full Desktop Table */}
@@ -237,6 +238,6 @@ export default function WithdrawViewUser({
           <span>{toastMessage}</span>
         </div>
       )}
-    </div>
+    </section>
   );
 }

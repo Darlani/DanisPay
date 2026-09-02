@@ -1263,7 +1263,19 @@ export default function UserDashboard() {
         avatarUrl={userData.avatarUrl}
         onRefresh={() => void fetchDashboardData(false)}
       >
-        <AffiliateViewUser />
+        <AffiliateViewUser
+          initialProfile={{
+            full_name: userData.name,
+            email: userData.email,
+            referral_code: userData.refCode,
+            balance: userData.balance,
+            member_type: memberType,
+            coin_balance: userData.coinBalance,
+          }}
+          initialReferrals={referrals}
+          initialBalanceLogs={balanceLogs}
+          isSidebarExpanded={isSidebarExpanded}
+        />
       </DashboardShell>
     );
   }
@@ -1272,10 +1284,17 @@ export default function UserDashboard() {
   /* SETTINGS                                                          */
   /* ================================================================= */
 
-  if (activeMenu === "settings") {
+  if (activeMenu === "settings" || activeMenu.startsWith("settings-")) {
+    const settingsSection: "profile" | "security" | "notifications" =
+      activeMenu === "settings-security"
+        ? "security"
+        : activeMenu === "settings-notifications"
+          ? "notifications"
+          : "profile";
+
     return (
       <DashboardShell
-        activeMenu="settings"
+        activeMenu={activeMenu}
         userName={userData.name || "Member DaPay"}
         memberType={memberType}
         balance={Number(userData.balance)}
@@ -1285,7 +1304,20 @@ export default function UserDashboard() {
         avatarUrl={userData.avatarUrl}
         onRefresh={() => void fetchDashboardData(false)}
       >
-        <SettingsViewUser />
+        <SettingsViewUser
+          initialProfile={{
+            full_name: userData.name,
+            email: userData.email,
+            referral_code: userData.refCode,
+            balance: userData.balance,
+            coin_balance: userData.coinBalance,
+            member_type: memberType,
+            avatar_url: userData.avatarUrl,
+          }}
+          activeSection={settingsSection}
+          onSectionChange={(sec) => handleMenuNavigation(`settings-${sec}`)}
+          isSidebarExpanded={isSidebarExpanded}
+        />
       </DashboardShell>
     );
   }
@@ -2054,6 +2086,18 @@ function DashboardShell({
       title: "Pengaturan Akun",
       subtitle: "Profil, keamanan, autentikasi, dan preferensi akun.",
     },
+    "settings-profile": {
+      title: "Profil Pengguna",
+      subtitle: "Informasi dasar akun member dan data terdaftar.",
+    },
+    "settings-security": {
+      title: "Keamanan Akun",
+      subtitle: "Perbarui password dan proteksi otentikasi akun.",
+    },
+    "settings-notifications": {
+      title: "Preferensi Notifikasi",
+      subtitle: "Kelola pemberitahuan transaksi, saldo, dan promo.",
+    },
     help: {
       title: "Pusat Bantuan",
       subtitle: "FAQ, tiket bantuan, dan hubungi tim DaPay.",
@@ -2101,7 +2145,7 @@ function DashboardShell({
                 {/* 2. NOTIFICATION BELL WITH BADGE */}
                 <button
                   type="button"
-                  onClick={() => setActiveMenu("settings")}
+                  onClick={() => setActiveMenu("settings-notifications")}
                   title="Pusat Notifikasi"
                   aria-label="Pusat Notifikasi (3 Notifikasi Baru)"
                   className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
@@ -2115,7 +2159,7 @@ function DashboardShell({
                 {/* 3. USER PROFILE PILL */}
                 <button
                   type="button"
-                  onClick={() => setActiveMenu("settings")}
+                  onClick={() => setActiveMenu("settings-profile")}
                   title={`Profil: ${userName} (${displayMemberType})`}
                   aria-label="Profil Pengguna"
                   className="group flex flex-1 min-w-0 items-center justify-between gap-1.5 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2.5 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
@@ -2225,7 +2269,7 @@ function DashboardShell({
                   {/* 1. NOTIFICATION BELL */}
                   <button
                     type="button"
-                    onClick={() => setActiveMenu("settings")}
+                    onClick={() => setActiveMenu("settings-notifications")}
                     title="Pusat Notifikasi"
                     aria-label="Pusat Notifikasi (3 Notifikasi Baru)"
                     className="relative flex h-8 w-8 md:h-8.5 md:w-8.5 lg:h-9.5 lg:w-9.5 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition-all duration-200 hover:bg-slate-50 hover:text-blue-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer"
@@ -2239,7 +2283,7 @@ function DashboardShell({
                   {/* 2. USER AVATAR PILL */}
                   <button
                     type="button"
-                    onClick={() => setActiveMenu("settings")}
+                    onClick={() => setActiveMenu("settings-profile")}
                     title={`Profil: ${userName} (${displayMemberType})`}
                     aria-label="Profil Pengguna"
                     className="group flex items-center gap-1.5 md:gap-2 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2.5 md:pr-3 lg:pr-4 shadow-2xs transition-all duration-200 hover:border-slate-300 hover:bg-slate-50/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer min-w-0 max-w-31.25 md:max-w-38.75 lg:max-w-46.25"

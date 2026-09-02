@@ -25,13 +25,153 @@ interface WithdrawDesktopTableProps {
   withdrawals: Withdrawal[];
   onSelectWithdrawal: (withdrawal: Withdrawal) => void;
   onCopy: (text: string, label: string) => void;
+  isSidebarExpanded?: boolean;
 }
 
 export default function WithdrawDesktopTable({
   withdrawals,
   onSelectWithdrawal,
   onCopy,
+  isSidebarExpanded = false,
 }: WithdrawDesktopTableProps) {
+  // TABLET EXPANDED SIDEBAR: 3-COLUMN COMPACT TABLE
+  if (isSidebarExpanded) {
+    return (
+      <div className="overflow-hidden rounded-2xl md:rounded-[22px] border border-slate-200/80 bg-white/95 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-full border-collapse text-left text-xs">
+            {/* THEAD (3 KOLOM) */}
+            <thead>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75 text-[10px] sm:text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
+                {/* 1. TUJUAN & REKENING */}
+                <th className="py-3.5 pl-3.5 pr-2 whitespace-nowrap">
+                  Tujuan & Rekening
+                </th>
+
+                {/* 2. NOMINAL & DANA DITAHAN */}
+                <th className="px-2.5 py-3.5 text-right whitespace-nowrap">
+                  Nominal & Dana Ditahan
+                </th>
+
+                {/* 3. STATUS & AKSI */}
+                <th className="py-3.5 pl-2 pr-3.5 text-center whitespace-nowrap">
+                  Status & Aksi
+                </th>
+              </tr>
+            </thead>
+
+            {/* TBODY (3 KOLOM) */}
+            <tbody className="divide-y divide-slate-100/90 text-slate-700">
+              {withdrawals.map((w) => {
+                const status = normalizeWithdrawalStatus(w.status);
+                const statusStyle = getStatusClasses(status);
+                const bankName = normalizeBankName(w.bank_name);
+                const logoUrl = getBankLogo(w.bank_name);
+                const maskedAcc = maskAccountNumber(w.account_number);
+                const amount = toNumber(w.amount);
+                const fee = toNumber(w.admin_fee);
+                const heldAmount =
+                  w.held_amount !== null && w.held_amount !== undefined
+                    ? toNumber(w.held_amount)
+                    : amount + fee;
+
+                return (
+                  <tr
+                    key={w.id}
+                    className="group transition-colors duration-150 hover:bg-rose-50/30"
+                  >
+                    {/* 1. TUJUAN & REKENING */}
+                    <td className="py-3 pl-3.5 pr-2 align-middle">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-white p-0.5 shadow-2xs overflow-hidden"
+                          title={bankName}
+                        >
+                          {logoUrl ? (
+                            <img
+                              src={logoUrl}
+                              alt={bankName}
+                              className="h-full w-full object-contain"
+                            />
+                          ) : bankName.toLowerCase().includes("bank") ? (
+                            <Building2 size={16} className="text-blue-600" />
+                          ) : (
+                            <WalletCards size={16} className="text-emerald-600" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 truncate max-w-32 sm:max-w-40">
+                            {bankName}
+                          </p>
+                          <div className="flex items-center gap-1 font-mono text-[10px] text-slate-400 mt-0.5">
+                            <span className="truncate max-w-24">
+                              {maskedAcc}
+                            </span>
+                            {w.account_number && (
+                              <button
+                                type="button"
+                                onClick={() => onCopy(w.account_number || "", "Nomor Rekening")}
+                                title="Salin Nomor Rekening"
+                                aria-label="Salin Nomor Rekening"
+                                className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-slate-400 opacity-70 transition hover:bg-slate-200 hover:text-slate-700 group-hover:opacity-100 cursor-pointer"
+                              >
+                                <Copy size={9} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* 2. NOMINAL & DANA DITAHAN */}
+                    <td className="px-2.5 py-3 text-right whitespace-nowrap align-middle">
+                      <p className="font-black text-slate-950">
+                        {formatRupiah(amount)}
+                      </p>
+                      <p className="text-[10px] font-bold text-indigo-700 mt-0.5">
+                        Ditahan: {formatRupiah(heldAmount)}
+                      </p>
+                      <p className="text-[9.5px] font-medium text-slate-400 mt-0.5">
+                        {formatDate(w.created_at)}
+                      </p>
+                    </td>
+
+                    {/* 3. STATUS & AKSI */}
+                    <td className="py-3 pl-2 pr-3.5 text-center align-middle">
+                      <div className="flex flex-col items-center justify-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9.5px] font-bold ${statusStyle.badge}`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`}
+                          />
+                          {statusStyle.label}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => onSelectWithdrawal(w)}
+                          title="Lihat Detail Penarikan"
+                          aria-label="Lihat Detail Penarikan"
+                          className="inline-flex h-6.5 items-center justify-center gap-1 rounded-md border border-slate-200/90 bg-white px-2 text-[10px] font-bold text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:border-slate-300 hover:bg-slate-50"
+                        >
+                          <Eye size={11} />
+                          <span>Detail</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  // STANDARD TABLE: TABLET NAVIGATION RAIL (5 COLUMNS) & DESKTOP ≥1024px (7 COLUMNS)
   return (
     <div className="overflow-hidden rounded-2xl md:rounded-[22px] border border-slate-200/80 bg-white/95 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60">
       <div className="overflow-x-auto">
@@ -217,4 +357,3 @@ export default function WithdrawDesktopTable({
     </div>
   );
 }
-

@@ -14,6 +14,10 @@ import {
   CircleHelp,
   Crown,
   ChevronLeft,
+  ChevronDown,
+  CircleUserRound,
+  ShieldCheck,
+  Bell,
   Menu,
   X,
 } from "lucide-react";
@@ -31,10 +35,17 @@ type SidebarProps = {
   setIsSidebarExpanded?: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
+type SubMenuItem = {
+  id: string;
+  label: string;
+  icon: typeof CircleUserRound;
+};
+
 type MenuItem = {
   id: string;
   label: string;
   icon: typeof LayoutDashboard;
+  subItems?: SubMenuItem[];
 };
 
 type MenuGroup = {
@@ -100,6 +111,23 @@ const MENU_GROUPS: MenuGroup[] = [
         id: "settings",
         label: "Pengaturan",
         icon: Settings,
+        subItems: [
+          {
+            id: "settings-profile",
+            label: "Profil",
+            icon: CircleUserRound,
+          },
+          {
+            id: "settings-security",
+            label: "Keamanan",
+            icon: ShieldCheck,
+          },
+          {
+            id: "settings-notifications",
+            label: "Notifikasi",
+            icon: Bell,
+          },
+        ],
       },
       {
         id: "help",
@@ -178,15 +206,30 @@ export default function UserSidebar({
     };
   }, [isMobileOpen]);
 
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(() => {
+    return activeMenu.startsWith("settings") ? ["settings"] : [];
+  });
+
   const closeMobile = () => {
     setIsMobileOpen(false);
   };
 
-  const handleMenuClick = (menuId: string) => {
+  const handleMenuClick = (menuId: string, hasSubItems = false) => {
+    if (hasSubItems) {
+      // Toggle expansion without changing activeMenu or navigating workspace
+      setExpandedMenus((prev) =>
+        prev.includes(menuId) ? prev.filter((id) => id !== menuId) : [...prev, menuId]
+      );
+      if (!isOpen) {
+        setIsOpen(true);
+      }
+      return;
+    }
+
     setActiveMenu(menuId);
 
     // Di layar mobile, tutup drawer setelah memilih menu.
-    if (window.innerWidth < 768) {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
       setIsMobileOpen(false);
     }
   };
@@ -342,58 +385,100 @@ export default function UserSidebar({
               <div className="space-y-0.5 md:space-y-1">
                 {group.items.map((item) => {
                   const Icon = item.icon;
-                  const isActive =
-                    activeMenu === item.id;
+                  const hasSubItems = Boolean(item.subItems && item.subItems.length > 0);
+                  const isExpanded =
+                    expandedMenus.includes(item.id) ||
+                    (hasSubItems && activeMenu.startsWith(item.id));
+                  const isChildActive = Boolean(
+                    item.subItems && item.subItems.some((sub) => activeMenu === sub.id)
+                  );
+                  const isActive = activeMenu === item.id || isChildActive;
 
                   return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      title={
-                        !isOpen
-                          ? item.label
-                          : undefined
-                      }
-                      aria-current={
-                        isActive
-                          ? "page"
-                          : undefined
-                      }
-                      onClick={() =>
-                        handleMenuClick(item.id)
-                      }
-                      className={[
-                        "group flex w-full items-center rounded-lg md:rounded-xl text-left transition-all duration-200",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset",
-
-                        isOpen
-                          ? "gap-2 md:gap-3 px-2 py-1.5 md:px-3 md:py-2.5"
-                          : "justify-center px-2 py-3",
-
-                        isActive
-                          ? "border border-blue-100 bg-blue-50 text-blue-700 shadow-[0_2px_8px_rgba(37,99,235,0.06)] font-bold"
-                          : "border border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-950",
-                      ].join(" ")}
-                    >
-                      <Icon
-                        size={16}
-                        strokeWidth={
-                          isActive ? 2.2 : 1.9
-                        }
+                    <div key={item.id} className="space-y-0.5">
+                      <button
+                        type="button"
+                        title={!isOpen ? item.label : undefined}
+                        aria-current={isActive ? "page" : undefined}
+                        aria-expanded={hasSubItems ? isExpanded : undefined}
+                        onClick={() => handleMenuClick(item.id, hasSubItems)}
                         className={[
-                          "shrink-0 transition-colors md:h-4.5 md:w-4.5",
-                          isActive
-                            ? "text-blue-600"
-                            : "text-slate-500 group-hover:text-slate-700",
-                        ].join(" ")}
-                      />
+                          "group flex w-full items-center rounded-lg md:rounded-xl text-left transition-all duration-200 cursor-pointer",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset",
 
-                      {isOpen && (
-                        <span className="truncate text-[11px] md:text-[12px] font-semibold tracking-tight">
-                          {item.label}
-                        </span>
+                          isOpen
+                            ? "gap-2 md:gap-3 px-2 py-1.5 md:px-3 md:py-2.5"
+                            : "justify-center px-2 py-3",
+
+                          isActive
+                            ? "border border-blue-100 bg-blue-50 text-blue-700 shadow-[0_2px_8px_rgba(37,99,235,0.06)] font-bold"
+                            : "border border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-950",
+                        ].join(" ")}
+                      >
+                        <Icon
+                          size={16}
+                          strokeWidth={isActive ? 2.2 : 1.9}
+                          className={[
+                            "shrink-0 transition-colors md:h-4.5 md:w-4.5",
+                            isActive
+                              ? "text-blue-600"
+                              : "text-slate-500 group-hover:text-slate-700",
+                          ].join(" ")}
+                        />
+
+                        {isOpen && (
+                          <div className="flex flex-1 items-center justify-between min-w-0">
+                            <span className="truncate text-[11px] md:text-[12px] font-semibold tracking-tight">
+                              {item.label}
+                            </span>
+                            {hasSubItems && (
+                              <ChevronDown
+                                size={12}
+                                className={`text-slate-400 transition-transform duration-200 ${
+                                  isExpanded ? "rotate-180 text-blue-600" : ""
+                                }`}
+                              />
+                            )}
+                          </div>
+                        )}
+                      </button>
+
+                      {/* SUB MENU ACCORDION (PROFILE, SECURITY, NOTIFICATIONS) */}
+                      {isOpen && hasSubItems && isExpanded && (
+                        <div className="ml-3 sm:ml-4 pl-2.5 sm:pl-3 border-l-2 border-blue-100 space-y-0.5 py-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                          {item.subItems?.map((sub) => {
+                            const SubIcon = sub.icon;
+                            const isSubActive = activeMenu === sub.id;
+
+                            return (
+                              <button
+                                key={sub.id}
+                                type="button"
+                                onClick={() => handleMenuClick(sub.id, false)}
+                                className={`flex w-full items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                                  isSubActive
+                                    ? "bg-blue-100/70 text-blue-800 font-bold shadow-2xs"
+                                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-100/60"
+                                }`}
+                              >
+                                <SubIcon
+                                  size={13}
+                                  strokeWidth={isSubActive ? 2.2 : 1.8}
+                                  className={
+                                    isSubActive
+                                      ? "text-blue-600 shrink-0"
+                                      : "text-slate-400 shrink-0 group-hover:text-slate-600"
+                                  }
+                                />
+                                <span className="truncate text-[10.5px] md:text-[11px]">
+                                  {sub.label}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>

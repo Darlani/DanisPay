@@ -30,12 +30,24 @@ function RegisterForm() {
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+  const refFromUrl = searchParams.get("ref");
+  const initialReferralCode = (refFromUrl && refFromUrl !== "undefined" && refFromUrl !== "null")
+    ? (() => {
+        try {
+          return decodeURIComponent(refFromUrl).trim().toUpperCase();
+        } catch {
+          return String(refFromUrl).trim().toUpperCase();
+        }
+      })()
+    : "";
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     password: "",
     confirmPassword: "",
-    referralCode: ""
+    referralCode: initialReferralCode
   });
 
   // --- CEK MAINTENANCE ---
@@ -49,7 +61,7 @@ function RegisterForm() {
             setIsMaintenance(true);
           }
         }
-      } catch (err) {
+      } catch {
         console.error("Gagal cek status maintenance");
       } finally {
         setCheckingMaintenance(false);
@@ -59,13 +71,22 @@ function RegisterForm() {
   }, []);
 
   // --- CEK REFERRAL URL ---
-  const refFromUrl = searchParams.get("ref");
   useEffect(() => {
     if (refFromUrl && refFromUrl !== "undefined" && refFromUrl !== "null") {
-      setFormData((prev) => ({ 
-        ...prev, 
-        referralCode: refFromUrl.toUpperCase() 
-      }));
+      try {
+        const clean = decodeURIComponent(refFromUrl).trim().toUpperCase();
+        if (clean) {
+          setFormData((prev) => ({
+            ...prev,
+            referralCode: clean
+          }));
+        }
+      } catch {
+        setFormData((prev) => ({
+          ...prev,
+          referralCode: String(refFromUrl).trim().toUpperCase()
+        }));
+      }
     }
   }, [refFromUrl]);
 
@@ -121,17 +142,26 @@ function RegisterForm() {
     let finalReferral = formData.referralCode.trim().toUpperCase();
 
     if (finalReferral) {
-      const { data: checkRef } = await supabase
-        .from('profiles')
-        .select('referral_code')
-        .eq('referral_code', finalReferral)
-        .maybeSingle();
+      try {
+        const res = await fetch("/api/auth/validate-referral", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: finalReferral }),
+        });
 
-      if (!checkRef) {
+        const result = await res.json();
+
+        if (!res.ok || !result.valid) {
+          setLoading(false);
+          return setErrorMsg(result.message || "KODE REFERRAL TIDAK VALID!");
+        }
+
+        finalReferral = result.referral_code;
+      } catch (err: unknown) {
+        console.error("[register] referral validation error:", err);
         setLoading(false);
-        return setErrorMsg("KODE REFERRAL TIDAK VALID!");
+        return setErrorMsg("Gagal memvalidasi kode referral. Silakan coba lagi.");
       }
-      finalReferral = checkRef.referral_code;
     }
 
     try {
@@ -153,8 +183,9 @@ function RegisterForm() {
         setSuccessMsg("Pendaftaran Berhasil! Silakan cek email / langsung login.");
         setTimeout(() => router.push("/login"), 2000);
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Gagal mendaftar.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Gagal mendaftar.";
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }
@@ -170,7 +201,7 @@ function RegisterForm() {
         }
       });
       if (error) throw error;
-    } catch (error: any) {
+    } catch {
       setErrorMsg("Gagal login dengan Google.");
       setSocialLoading(false);
     }
@@ -329,12 +360,12 @@ function RegisterForm() {
             <input
               type="text"
               className={`w-full bg-slate-900/50 border border-white/10 text-white text-xs rounded-2xl pl-12 p-4 outline-none focus:ring-2 focus:ring-emerald-500 font-bold uppercase tracking-widest border-dashed ${
-                formData.referralCode && searchParams.get("ref") && searchParams.get("ref") !== "undefined" 
+                formData.referralCode && refFromUrl && refFromUrl !== "undefined" && refFromUrl !== "null"
                 ? "opacity-60 cursor-not-allowed" : ""
               }`}
               placeholder="KODE REFERRAL (OPSIONAL)"
               value={formData.referralCode || ""} 
-              readOnly={!!searchParams.get("ref") && searchParams.get("ref") !== "undefined" && searchParams.get("ref") !== "null"}
+              readOnly={Boolean(refFromUrl && refFromUrl !== "undefined" && refFromUrl !== "null")}
               onChange={(e) => setFormData({...formData, referralCode: e.target.value.toUpperCase()})}
             />
           </div>
