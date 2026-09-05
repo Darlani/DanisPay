@@ -136,9 +136,16 @@ export default function OrderDetailModal({
               <p className="text-[9px] font-black uppercase tracking-widest text-blue-600">
                 Detail Transaksi
               </p>
-              <h2 className="mt-0.5 truncate text-sm xs:text-base font-black tracking-tight text-slate-950">
-                {displayOrderId(order.order_id)}
-              </h2>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="mt-0.5 truncate text-sm xs:text-base font-black tracking-tight text-slate-950">
+                  {displayOrderId(order.order_id)}
+                </h2>
+                {order.is_sandbox && (
+                  <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider text-amber-600 border border-amber-500/20">
+                    Sandbox
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

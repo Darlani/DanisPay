@@ -11,6 +11,7 @@ import {
 import TransactionHistoryModal from '@/components/TransactionHistoryModal'; 
 import { supabase } from "@/utils/supabaseClient";
 import { Turnstile } from '@marsidev/react-turnstile';
+import SandboxSessionControl from '@/components/sandbox/SandboxSessionControl';
 
 interface NavbarProps {
   isSidebarOpen?: boolean;
@@ -276,6 +277,7 @@ const handleLogout = async () => {
                 </div>
               ) : role && !isLoginPage ? (
                 <div className="flex items-center gap-2 ml-2 border-l border-slate-700 pl-4">
+                  <SandboxSessionControl variant="navbar" />
                   <Link href={role === 'admin' ? "/admin" : "/user"} className="flex items-center gap-1.5 bg-blue-600/10 text-blue-500 px-4 py-2 rounded-lg text-[10px] font-bold uppercase border border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all">
                     <UserCircle size={14} /> Akun
                   </Link>

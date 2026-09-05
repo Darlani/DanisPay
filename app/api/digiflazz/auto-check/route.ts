@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 import { providerRegistry } from '@/lib/providers/registry';
 import { reconcileOrderResolution } from '@/lib/providers/reconciliation.service';
+import { sandboxExecutionSimulator } from '@/lib/providers/sandbox/simulator';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,8 @@ interface OrderRow {
   provider_used: string | null;
   vendor_sku: string | null;
   sn?: string | null;
+  is_sandbox?: boolean | null;
+  updated_at?: string | null;
 }
 
 /**
@@ -62,22 +65,18 @@ export async function GET(req: Request) {
       .select('*')
       .single();
 
-    const isLiveMode = ((st as any)?.is_live_mode ?? (st as any)?.is_digiflazz_active) === true;
+    const isLiveMode = (st as { is_live_mode?: boolean } | null)?.is_live_mode === true;
 
-    if (!isLiveMode) {
-      return NextResponse.json({ message: 'Mode Simulasi: Satpam Patroli Libur Bos!' });
-    }
-
-    // Ambil order batch: status = 'Diproses', product_type = 'provider', limit 5
+    // Ambil order batch: status = 'Diproses', product_type = 'provider', limit 10
     const { data: pendingOrdersData, error: fetchErr } = await supabaseAdmin
       .from('orders')
       .select(
-        'id, order_id, api_ref_id, sku, customer_no, user_id, email, user_contact, payment_method, total_amount, status, category, product_name, price, used_balance, buy_price, provider_used, vendor_sku, sn'
+        'id, order_id, api_ref_id, sku, customer_no, user_id, email, user_contact, payment_method, total_amount, status, category, product_name, price, used_balance, buy_price, provider_used, vendor_sku, sn, is_sandbox, updated_at'
       )
       .eq('status', 'Diproses')
       .eq('product_type', 'provider')
       .order('updated_at', { ascending: true })
-      .limit(5);
+      .limit(10);
 
     if (fetchErr || !pendingOrdersData || pendingOrdersData.length === 0) {
       return NextResponse.json({ message: 'Tidak ada pesanan yang perlu dicek.' });
@@ -91,6 +90,30 @@ export async function GET(req: Request) {
     // 3. LOOPING REKONSILIASI BATCH (SEKUENSIAL & TERISOLASI PER ORDER)
     for (const order of pendingOrders) {
       try {
+        // --- 0. ISOLASI SANDBOX ASYNCHRONOUS RESOLVER (OPTION 1) ---
+        const isSandboxOrder = order.is_sandbox === true || !isLiveMode;
+        if (isSandboxOrder) {
+          // Periksa jeda waktu: minimal 3 detik sejak updated_at agar realistis
+          const orderUpdatedAt = order.updated_at ? new Date(order.updated_at).getTime() : 0;
+          const ageMs = Date.now() - orderUpdatedAt;
+
+          if (ageMs < 3000) {
+            console.log(`⏳ [AUTO-CHECK] Order Sandbox #${order.order_id} masih dalam masa tunggu simulasi (${ageMs}ms). Lewati.`);
+            continue;
+          }
+
+          console.log(`🧪 [AUTO-CHECK] Menyelesaikan order sandbox #${order.order_id} via SandboxExecutionSimulator...`);
+          await sandboxExecutionSimulator.resolveSandboxOrder({
+            id: order.id,
+            order_id: order.order_id,
+            customer_no: order.customer_no,
+            user_id: order.user_id,
+            user_email: order.email,
+            used_balance: order.used_balance
+          });
+          processedCount++;
+          continue; // PENTING: Order sandbox TIDAK BOLEH menyentuh adapter vendor nyata!
+        }
         // Resolve executing provider code
         // For legacy rows where provider_used is null, default narrowly to 'DIGIFLAZZ' to preserve established behavior
         const providerCode = (order.provider_used || 'DIGIFLAZZ').trim().toUpperCase();

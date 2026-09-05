@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { sandboxFinancialEngine } from '@/lib/providers/sandbox/financial';
 
 // IMPORT FUNGSI LOGIKA MURNI (Direct Call)
 import { runCheckoutPascabayar } from '@/app/api/digiflazz/pascabayar/checkout/route';
@@ -30,7 +31,7 @@ function canTransitionOrderStatus(currentStatus: OrderStatus, nextStatus: OrderS
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! 
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 function escapeHtml(text: string) {
@@ -60,10 +61,10 @@ async function sendTelegram(message: string) {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const email = searchParams.get('email'); 
+    const email = searchParams.get('email');
 
     if (email) {
-      const userColumns = 'id, order_id, created_at, status, product_name, item_label, total_amount, payment_method, sn';
+      const userColumns = 'id, order_id, created_at, status, product_name, item_label, total_amount, payment_method, sn, is_sandbox';
       const { data, error } = await supabaseAdmin.from('orders').select(userColumns).eq('email', email).order('created_at', { ascending: false });
       if (error) throw error;
       return NextResponse.json(data || []);
@@ -73,7 +74,7 @@ export async function GET(req: Request) {
     const token = authHeader?.replace('Bearer ', '');
     const isAdminCookie = req.headers.get('cookie')?.includes('isAdmin=true');
 
-    let hasAccess = isAdminCookie; 
+    let hasAccess = isAdminCookie;
 
     if (token) {
       const { data: { user } } = await supabaseAdmin.auth.getUser(token);
@@ -94,16 +95,30 @@ export async function GET(req: Request) {
   'product_name, item_label, total_amount, price, buy_price, ' +
   'payment_method, user_contact, customer_name, customer_no, category, ' +
   'cashback, referral_commission, voucher_amount, discount, ' +
-  'unique_code, used_balance, product_type, notes';
+  'unique_code, used_balance, product_type, notes, is_sandbox';
 
-const { data, error } = await supabaseAdmin
-  .from('orders')
-  .select(adminColumns)
-  .order('created_at', { ascending: false });
+    const id = searchParams.get('id');
+    if (id) {
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      let singleQuery = supabaseAdmin.from('orders').select(adminColumns);
+      if (isUUID) {
+        singleQuery = singleQuery.or(`id.eq.${id},order_id.eq.${id}`);
+      } else {
+        singleQuery = singleQuery.eq('order_id', id);
+      }
+      const { data: singleData, error: singleError } = await singleQuery.maybeSingle();
+      if (singleError) throw singleError;
+      return NextResponse.json(singleData);
+    }
 
-if (error) throw error;
+    const { data, error } = await supabaseAdmin
+      .from('orders')
+      .select(adminColumns)
+      .order('created_at', { ascending: false });
 
-return NextResponse.json(data || []);
+    if (error) throw error;
+
+    return NextResponse.json(data || []);
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -112,14 +127,14 @@ return NextResponse.json(data || []);
 
 export async function PATCH(req: Request) {
   try {
-    const { data: settings } = await supabaseAdmin.from('store_settings').select('*').single();
-    const isLiveMode = ((settings as any)?.is_live_mode ?? (settings as any)?.is_digiflazz_active) === true;
+    const { data: settings } = await supabaseAdmin.from('store_settings').select('is_live_mode').maybeSingle();
+    const isLiveMode = settings?.is_live_mode === true;
 
     const cookieStore = req.headers.get('cookie');
     const isAdminCookie = cookieStore?.includes('isAdmin=true');
     const authHeader = req.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
-    
+
     let adminEmail = "Admin (via Cookie)";
     let hasAccess = false;
 
@@ -156,7 +171,7 @@ export async function PATCH(req: Request) {
 
     const { data: oldOrder } = await supabaseAdmin
       .from('orders')
-      .select('id, status, order_id, product_name, item_label, user_id, used_balance, total_amount, unique_code, cashback, buy_price, referred_by, category, raw_tagihan')
+      .select('id, status, order_id, product_name, item_label, user_id, used_balance, total_amount, unique_code, cashback, buy_price, referred_by, category, raw_tagihan, is_sandbox')
       .eq('id', id)
       .single();
 
@@ -206,12 +221,19 @@ export async function PATCH(req: Request) {
       );
     }
 
+    const isSandbox = Boolean((oldOrder as Record<string, unknown>).is_sandbox);
+
+    const updatePayload: Record<string, unknown> = {
+      status: currentStatus,
+      updated_at: new Date().toISOString(),
+    };
+    if (isSandbox && currentStatus === 'Berhasil') {
+      updatePayload.sn = `SIM-DANISH-${Math.floor(10000000 + Math.random() * 90000000)}`;
+    }
+
     const { data: updatedOrder, error: updateError } = await supabaseAdmin
       .from('orders')
-      .update({
-        status: currentStatus,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', id)
       .eq('status', oldStatusRaw)
       .select('id')
@@ -226,130 +248,151 @@ export async function PATCH(req: Request) {
       );
     }
 
+    // Handle Sandbox Refund if failed
+    if (isSandbox && currentStatus === 'Gagal' && Number(oldOrder.used_balance || 0) > 0 && (oldStatusRaw === 'Diproses' || oldStatusRaw === 'Berhasil')) {
+      await sandboxFinancialEngine.executeCoinRefund(oldOrder.order_id);
+    }
+
     await supabaseAdmin.from('admin_logs').insert([{
       admin_email: adminEmail,
       action: "UPDATE_STATUS",
       target: oldOrder.order_id || id,
-      details: `Mengubah status #${oldOrder.order_id} dari ${oldStatusRaw} menjadi ${currentStatus}`
+      details: `Mengubah status #${oldOrder.order_id} dari ${oldStatusRaw} menjadi ${currentStatus}${isSandbox ? ' [SANDBOX]' : ''}`
     }]);
 
     const safeProductName = escapeHtml(oldOrder.product_name || "Produk Digital");
-    const safeItemLabel = escapeHtml(oldOrder.item_label || "Item"); 
+    const safeItemLabel = escapeHtml(oldOrder.item_label || "Item");
     const safeEmail = escapeHtml(user_email || "-");
-    const safeInvoiceId = escapeHtml(oldOrder.order_id || id.slice(-8)); 
+    const safeInvoiceId = escapeHtml(oldOrder.order_id || id.slice(-8));
     const tipeUser = user_email && user_email !== 'null' ? `MEMBER (${safeEmail})` : "GUEST";
 
-    const isFirstTimeSuccess = (currentStatus === 'Diproses' || currentStatus === 'Berhasil') && 
+    const isFirstTimeSuccess = (currentStatus === 'Diproses' || currentStatus === 'Berhasil') &&
                                (oldStatusRaw !== 'Diproses' && oldStatusRaw !== 'Berhasil');
 
     if (isFirstTimeSuccess) {
-       if (oldOrder.used_balance > 0 && user_email && user_email !== 'null') {
-         const { data: prof } = await supabaseAdmin.from('profiles').select('balance').eq('id', oldOrder.user_id).maybeSingle();
-         if (prof) {
-           const finalBal = Math.max(0, (prof.balance || 0) - oldOrder.used_balance);
-           await supabaseAdmin.from('profiles').update({ balance: finalBal }).eq('id', oldOrder.user_id);
-           await supabaseAdmin.from('balance_logs').insert([{
-            user_id: oldOrder.user_id, user_email, amount: -oldOrder.used_balance, type: 'Payment',
-             description: `Potongan Koin DaPay (Acc Admin #${oldOrder.order_id})`,
-             initial_balance: prof.balance || 0, final_balance: finalBal
-           }]);
+       if (isSandbox) {
+         // Delegasikan pemotongan koin sandbox dan rewards secara idempoten ke SandboxFinancialEngine
+         if (Number(oldOrder.used_balance || 0) > 0 && user_email && user_email !== 'null') {
+           await sandboxFinancialEngine.executeCoinPayment(oldOrder.order_id);
          }
-       }
-
-       if (user_email && user_email !== 'null') {
-         const { data: buyerProf } = await supabaseAdmin.from('profiles').select('member_type').eq('id', oldOrder.user_id).maybeSingle();
-         if (buyerProf?.member_type?.toLowerCase() === 'special') {
-           const { data: prodData } = await supabaseAdmin.from('products').select('cashback').eq('name', oldOrder.product_name).maybeSingle();
-           const cb = prodData?.cashback || 0;
-           if (cb > 0) {
-             const { data: freshProf } = await supabaseAdmin.from('profiles').select('balance').eq('id', oldOrder.user_id).maybeSingle();
-             const newBal = (freshProf?.balance || 0) + cb;
-             await supabaseAdmin.from('profiles').update({ balance: newBal }).eq('id', oldOrder.user_id);
+         await sandboxFinancialEngine.executeSuccessRewards(oldOrder.order_id);
+       } else if (!isSandbox) {
+         // =====================================================================
+         // 🚀 ALUR MUTASI LIVE (STRICTLY NON-SANDBOX ONLY)
+         // =====================================================================
+         if (oldOrder.used_balance > 0 && user_email && user_email !== 'null') {
+           const { data: prof } = await supabaseAdmin.from('profiles').select('balance').eq('id', oldOrder.user_id).maybeSingle();
+           if (prof) {
+             const finalBal = Math.max(0, (prof.balance || 0) - oldOrder.used_balance);
+             await supabaseAdmin.from('profiles').update({ balance: finalBal }).eq('id', oldOrder.user_id);
              await supabaseAdmin.from('balance_logs').insert([{
-               user_id: oldOrder.user_id, user_email, amount: cb, type: 'Cashback',
-               description: `Cashback Special (Acc Admin #${oldOrder.order_id})`,
-               initial_balance: freshProf?.balance || 0, final_balance: newBal
+               user_id: oldOrder.user_id, user_email, amount: -oldOrder.used_balance, type: 'Payment',
+               description: `Potongan Koin DaPay (Acc Admin #${oldOrder.order_id})`,
+               initial_balance: prof.balance || 0, final_balance: finalBal
              }]);
            }
          }
-       }
 
-       if (user_email && user_email !== 'null') {
-         const { count } = await supabaseAdmin.from('orders')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', oldOrder.user_id)
-          .in('status', ['Berhasil', 'Diproses'])
-          .neq('id', id); 
-
-         const isFirstTransaction = (count || 0) === 0; 
-         const { data: buyerProfile } = await supabaseAdmin.from('profiles').select('id, referred_by, balance').eq('id', oldOrder.user_id).maybeSingle();
-
-         if (buyerProfile?.referred_by) {
-           const [refSettingsRes, referrerRes] = await Promise.all([
-             supabaseAdmin.from('store_settings').select('first_referral_percent, next_referral_percent, welcome_bonus_amount, welcome_bonus_min_trx').single(),
-             supabaseAdmin.from('profiles').select('id, balance, email').eq('referral_code', buyerProfile.referred_by).maybeSingle()
-           ]);
-
-           const refSettings = refSettingsRes.data;
-           const referrer = referrerRes.data;
-
-           if (refSettings) {
-             const realRevenue = (oldOrder.total_amount || 0) - (oldOrder.unique_code || 0) + (oldOrder.used_balance || 0);
-
-             if (isFirstTransaction && (refSettings.welcome_bonus_amount || 0) > 0) {
-               const minTrx = refSettings.welcome_bonus_min_trx || 50000;
-               if (realRevenue >= minTrx) {
-                 const welcomeBonus = refSettings.welcome_bonus_amount;
-                 const newBuyerBal = (buyerProfile.balance || 0) + welcomeBonus;
-
-                 await Promise.all([
-                   supabaseAdmin.from('profiles').update({ balance: newBuyerBal }).eq('id', oldOrder.user_id),
-                   supabaseAdmin.from('balance_logs').insert([{
-                     user_id: oldOrder.user_id, user_email: user_email, amount: welcomeBonus, type: 'Bonus',
-                     description: `Bonus Welcome (Trx Pertama >= Rp${minTrx.toLocaleString('id-ID')})`,
-                     initial_balance: buyerProfile.balance || 0, final_balance: newBuyerBal
-                   }])
-                 ]);
-               }
+         if (!isSandbox && user_email && user_email !== 'null') {
+           const { data: buyerProf } = await supabaseAdmin.from('profiles').select('member_type').eq('id', oldOrder.user_id).maybeSingle();
+           if (buyerProf?.member_type?.toLowerCase() === 'special') {
+             const { data: prodData } = await supabaseAdmin.from('products').select('cashback').eq('name', oldOrder.product_name).maybeSingle();
+             const cb = prodData?.cashback || 0;
+             if (cb > 0) {
+               const { data: freshProf } = await supabaseAdmin.from('profiles').select('balance').eq('id', oldOrder.user_id).maybeSingle();
+               const newBal = (freshProf?.balance || 0) + cb;
+               await supabaseAdmin.from('profiles').update({ balance: newBal }).eq('id', oldOrder.user_id);
+               await supabaseAdmin.from('balance_logs').insert([{
+                 user_id: oldOrder.user_id, user_email, amount: cb, type: 'Cashback',
+                 description: `Cashback Special (Acc Admin #${oldOrder.order_id})`,
+                 initial_balance: freshProf?.balance || 0, final_balance: newBal
+               }]);
              }
+           }
+         }
 
-             if (referrer && oldOrder.referred_by) {
-            const kategori = (oldOrder.category || "").toLowerCase();
-            const isPascabayar = kategori.includes('pascabayar') || kategori.includes('pln');
+         if (!isSandbox && user_email && user_email !== 'null') {
+           const { count } = await supabaseAdmin.from('orders')
+             .select('*', { count: 'exact', head: true })
+             .eq('user_id', oldOrder.user_id)
+             .eq('is_sandbox', false)
+             .in('status', ['Berhasil', 'Diproses'])
+             .neq('id', id);
 
-            let profitMurni = 0;
-            const realRevenue = (oldOrder.total_amount || 0) - (oldOrder.unique_code || 0) + (oldOrder.used_balance || 0);
+           const isFirstTransaction = (count || 0) === 0;
+           const { data: buyerProfile } = await supabaseAdmin.from('profiles').select('id, referred_by, balance').eq('id', oldOrder.user_id).maybeSingle();
 
-            if (isPascabayar) {
-              const modalReal = (oldOrder.raw_tagihan || 0) + (oldOrder.buy_price || 0);
-              profitMurni = realRevenue - modalReal - (oldOrder.cashback || 0);
-            } else {
-              profitMurni = realRevenue - (oldOrder.buy_price || 0) - (oldOrder.cashback || 0);
-            }
+           if (buyerProfile?.referred_by) {
+             const [refSettingsRes, referrerRes] = await Promise.all([
+               supabaseAdmin.from('store_settings').select('first_referral_percent, next_referral_percent, welcome_bonus_amount, welcome_bonus_min_trx').single(),
+               supabaseAdmin.from('profiles').select('id, balance, email').eq('referral_code', buyerProfile.referred_by).maybeSingle()
+             ]);
 
-            if (profitMurni > 0) {
-                 const rate = isFirstTransaction ? refSettings.first_referral_percent : refSettings.next_referral_percent;
-                 const commission = Math.floor(profitMurni * (rate / 100));
+             const refSettings = refSettingsRes.data;
+             const referrer = referrerRes.data;
 
-                 if (commission > 0) {
-                   const newRefBal = (referrer.balance || 0) + commission;
-                   
+             if (refSettings) {
+               const realRevenue = (oldOrder.total_amount || 0) - (oldOrder.unique_code || 0) + (oldOrder.used_balance || 0);
+
+               if (isFirstTransaction && (refSettings.welcome_bonus_amount || 0) > 0) {
+                 const minTrx = refSettings.welcome_bonus_min_trx || 50000;
+                 if (realRevenue >= minTrx) {
+                   const welcomeBonus = refSettings.welcome_bonus_amount;
+                   const newBuyerBal = (buyerProfile.balance || 0) + welcomeBonus;
+
                    await Promise.all([
-                     supabaseAdmin.from('profiles').update({ balance: newRefBal }).eq('id', referrer.id),
-                     supabaseAdmin.from('orders').update({ referral_commission: commission }).eq('id', id),
+                     supabaseAdmin.from('profiles').update({ balance: newBuyerBal }).eq('id', oldOrder.user_id),
                      supabaseAdmin.from('balance_logs').insert([{
-                       user_id: referrer.id, user_email: referrer.email, amount: commission, type: 'Referral',
-                       description: `Komisi Referral ${rate}% (Acc Admin #${oldOrder.order_id})`,
-                       initial_balance: referrer.balance || 0, final_balance: newRefBal
+                       user_id: oldOrder.user_id, user_email: user_email, amount: welcomeBonus, type: 'Bonus',
+                       description: `Bonus Welcome (Trx Pertama >= Rp${minTrx.toLocaleString('id-ID')})`,
+                       initial_balance: buyerProfile.balance || 0, final_balance: newBuyerBal
                      }])
                    ]);
+                 }
+               }
+
+               if (referrer && oldOrder.referred_by) {
+                 const kategori = (oldOrder.category || "").toLowerCase();
+                 const isPascabayar = kategori.includes('pascabayar') || kategori.includes('pln');
+
+                 let profitMurni = 0;
+                 const realRevenue = (oldOrder.total_amount || 0) - (oldOrder.unique_code || 0) + (oldOrder.used_balance || 0);
+
+                 if (isPascabayar) {
+                   const modalReal = (oldOrder.raw_tagihan || 0) + (oldOrder.buy_price || 0);
+                   profitMurni = realRevenue - modalReal - (oldOrder.cashback || 0);
+                 } else {
+                   profitMurni = realRevenue - (oldOrder.buy_price || 0) - (oldOrder.cashback || 0);
+                 }
+
+                 if (profitMurni > 0) {
+                   const rate = isFirstTransaction ? refSettings.first_referral_percent : refSettings.next_referral_percent;
+                   const commission = Math.floor(profitMurni * (rate / 100));
+
+                   if (commission > 0) {
+                     const newRefBal = (referrer.balance || 0) + commission;
+
+                     await Promise.all([
+                       supabaseAdmin.from('profiles').update({ balance: newRefBal }).eq('id', referrer.id),
+                       supabaseAdmin.from('orders').update({ referral_commission: commission }).eq('id', id),
+                       supabaseAdmin.from('balance_logs').insert([{
+                         user_id: referrer.id, user_email: referrer.email, amount: commission, type: 'Referral',
+                         description: `Komisi Referral ${rate}% (Acc Admin #${oldOrder.order_id})`,
+                         initial_balance: referrer.balance || 0, final_balance: newRefBal
+                       }])
+                     ]);
+                   }
                  }
                }
              }
            }
          }
        }
-    } 
+    }
+
+    if (isSandbox && currentStatus === 'Berhasil') {
+      await sandboxFinancialEngine.executeSuccessRewards(oldOrder.order_id);
+    }
 
     const usedCoin = oldOrder.used_balance || 0;
     const nominalTransfer = oldOrder.total_amount || 0;
@@ -360,7 +403,7 @@ export async function PATCH(req: Request) {
     const modalNotif = isPascaNotif ? ((oldOrder.raw_tagihan || 0) + (oldOrder.buy_price || 0)) : (oldOrder.buy_price || 0);
     const untungBersih = (oldOrder.total_amount + oldOrder.used_balance) - modalNotif - (oldOrder.cashback || 0);
 
-    const detailPembayaran = usedCoin > 0 
+    const detailPembayaran = usedCoin > 0
       ? `🪙 Koin DaPay: <b>- Rp ${usedCoin.toLocaleString('id-ID')}</b>\n` +
         `💰 Nominal Transfer: <b>Rp ${nominalTransfer.toLocaleString('id-ID')}</b>\n` +
         `🧾 Total Pesanan: <b>Rp ${grandTotal.toLocaleString('id-ID')}</b>\n` +
@@ -382,8 +425,8 @@ export async function PATCH(req: Request) {
       const emoji = currentStatus === 'Gagal' ? '❌' : 'ℹ️';
       telegramMessage = `<b>UPDATE STATUS PESANAN ${emoji}</b>\n\n` +
         `📦 Produk: <b>${safeProductName}</b>\n` +
-        detailPembayaran + 
-        `👤 User: ${tipeUser}\n` +        
+        detailPembayaran +
+        `👤 User: ${tipeUser}\n` +
         `🆔 Invoice: <b>${safeInvoiceId}</b>\n` +
         `🔄 Perubahan: <b>${oldStatusRaw.toUpperCase()}</b> ➡️ <b>${currentStatus.toUpperCase()}</b>`;
     }
@@ -393,18 +436,18 @@ export async function PATCH(req: Request) {
     // =========================================================================
     // 🚀 EKSEKUSI NEMBAK KE DIGIFLAZZ (DIRECT LOGIC CALL - ANTI MACET)
     // =========================================================================
-    if (currentStatus === 'Diproses' && isLiveMode) {
+    if (currentStatus === 'Diproses' && isLiveMode && !isSandbox) {
        console.log(`🚀 [ADMIN ACTION] Menjalankan fungsi checkout internal untuk #${oldOrder.order_id}...`);
-       
+
        try {
            const kategoriLengkap = (oldOrder.category || "").toLowerCase();
            const isPasca = kategoriLengkap.includes('pascabayar') || kategoriLengkap.includes('pln');
-           
+
            if (isPasca) {
                console.log("⚡ Memanggil runCheckoutPascabayar secara langsung...");
                // PANGGIL FUNGSI SECARA LANGSUNG (Tanpa mockRequest, Tanpa macet!)
                const result = await runCheckoutPascabayar(oldOrder.order_id);
-               
+
                if (result.error) {
                    console.error(`❌ Checkout Pascabayar GAGAL:`, result.error);
                } else {
@@ -419,7 +462,7 @@ export async function PATCH(req: Request) {
                await processPrabayar(mockRequest);
                console.log(`✅ Sukses trigger Checkout Prabayar untuk #${oldOrder.order_id}`);
            }
-           
+
        } catch (apiErr: any) {
            console.error("🔥 Gagal memanggil fungsi Checkout:", apiErr.message);
        }
@@ -436,7 +479,7 @@ export async function DELETE(req: Request) {
   try {
     const authHeader = req.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
-    
+
     if (!token) return NextResponse.json({ error: "Token diperlukan!" }, { status: 401 });
 
     const { data: { user } } = await supabaseAdmin.auth.getUser(token);
@@ -449,12 +492,12 @@ export async function DELETE(req: Request) {
     const body = await req.json();
     const { id } = body;
     const { error } = await supabaseAdmin.from('orders').delete().eq('id', id);
-    
+
     if (error) throw error;
-    
+
     console.log(`🗑️ Order ID ${id} berhasil dihapus.`);
     return NextResponse.json({ message: "Berhasil dihapus" });
-    
+
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }

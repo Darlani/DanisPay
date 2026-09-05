@@ -60,6 +60,7 @@ type DashboardOrder = {
   payment_method?: string | null;
   created_at?: string | null;
   customer_no?: string | null;
+  is_sandbox?: boolean | null;
 };
 
 type DashboardDeposit = {

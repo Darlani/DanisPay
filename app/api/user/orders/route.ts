@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     let query = supabaseAdmin
       .from("orders")
       .select(
-        "id, order_id, api_ref_id, sku, product_name, item_label, customer_no, customer_name, buy_price, price, discount, voucher_code, voucher_amount, cashback, payment_method, product_type, sn, category, status, used_balance, unique_code, total_amount, desc, created_at, updated_at",
+        "id, order_id, api_ref_id, sku, product_name, item_label, customer_no, customer_name, buy_price, price, discount, voucher_code, voucher_amount, cashback, payment_method, product_type, sn, category, status, used_balance, unique_code, total_amount, desc, created_at, updated_at, is_sandbox",
         { count: "exact" },
       )
       .eq("user_id", userId);

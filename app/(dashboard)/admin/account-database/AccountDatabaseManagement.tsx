@@ -9,6 +9,7 @@ import {
   Eye,
   FileSpreadsheet,
   FileText,
+  FlaskConical,
   Loader2,
   Search,
   Shield,
@@ -30,6 +31,7 @@ type AccountUser = {
   created_at: string | null;
   last_activity_at?: string | null;
   activity_status?: MemberActivityStatus;
+  is_tester?: boolean | null;
 };
 
 type AccountDatabaseResponse = {
@@ -511,6 +513,7 @@ function AccountDetailModal({
             <div className="flex justify-between gap-6 py-3"><dt className="text-sm text-slate-500">Email</dt><dd className="max-w-[60%] truncate text-right text-sm font-semibold text-slate-800" title={user.email || undefined}>{user.email || "-"}</dd></div>
             <div className="flex justify-between gap-6 py-3"><dt className="text-sm text-slate-500">Jabatan</dt><dd className="text-right text-sm font-semibold text-slate-800">{identity.jabatan}</dd></div>
             <div className="flex justify-between gap-6 py-3"><dt className="text-sm text-slate-500">Role</dt><dd><RoleBadge user={user} /></dd></div>
+            <div className="flex justify-between gap-6 py-3"><dt className="text-sm text-slate-500">Status Tester</dt><dd className="text-right text-sm font-semibold">{user.is_tester ? <span className="font-bold text-amber-600">Tester Sandbox</span> : <span className="text-slate-400">Non-Tester</span>}</dd></div>
             <div className="flex justify-between gap-6 py-3"><dt className="text-sm text-slate-500">Bergabung</dt><dd className="text-right text-sm font-semibold text-slate-800">{formatDate(user.created_at)}</dd></div>
           </dl>
         ) : (
@@ -520,6 +523,7 @@ function AccountDetailModal({
               <DetailRow label="Email" title={user.email || undefined}>{user.email || "-"}</DetailRow>
               <DetailRow label="Role"><RoleBadge user={user} /></DetailRow>
               <DetailRow label="Member Type"><MemberTypeBadge user={user} /></DetailRow>
+              <DetailRow label="Status Tester">{user.is_tester ? <span className="font-bold text-amber-600">Tester Sandbox</span> : <span className="text-slate-400">Non-Tester</span>}</DetailRow>
               <DetailRow label="Bergabung">{formatDate(user.created_at)}</DetailRow>
             </DetailSection>
             <DetailSection title="Aktivitas Transaksi">
@@ -895,6 +899,7 @@ export default function AccountDatabaseManagement() {
   const [detailUser, setDetailUser] = useState<AccountUser | null>(null);
   const [mutationUser, setMutationUser] = useState<AccountUser | null>(null);
   const [adjustmentUser, setAdjustmentUser] = useState<AccountUser | null>(null);
+  const [testerTogglingId, setTesterTogglingId] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -915,6 +920,64 @@ export default function AccountDatabaseManagement() {
       setLoading(false);
     }
   }, []);
+
+  const handleToggleTester = useCallback(async (targetUser: AccountUser) => {
+    if (testerTogglingId) return;
+    const newStatus = !targetUser.is_tester;
+    setTesterTogglingId(targetUser.id);
+    setUsers((prev) =>
+      prev.map((u) => (u.id === targetUser.id ? { ...u, is_tester: newStatus } : u))
+    );
+
+    // Broadcast instantaneously (0ms) across all tabs in browser
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(
+          "dapay_tester_realtime_event",
+          JSON.stringify({ userId: targetUser.id, isTester: newStatus, ts: Date.now() })
+        );
+        if ("BroadcastChannel" in window) {
+          const bc = new BroadcastChannel("dapay_tester_sync");
+          bc.postMessage({ userId: targetUser.id, isTester: newStatus });
+          bc.close();
+        }
+        window.dispatchEvent(
+          new CustomEvent("sandboxSessionChanged", {
+            detail: { userId: targetUser.id, isTester: newStatus }
+          })
+        );
+      } catch {
+        // ignore
+      }
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Sesi admin tidak tersedia.");
+
+      const res = await fetch(`/api/admin/members/${targetUser.id}/tester`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ is_tester: newStatus }),
+      });
+      if (res.ok) {
+        window.dispatchEvent(
+          new CustomEvent("sandboxSessionChanged", {
+            detail: { userId: targetUser.id, isTester: newStatus }
+          })
+        );
+      } else {
+        await fetchUsers();
+      }
+    } catch {
+      await fetchUsers();
+    } finally {
+      setTesterTogglingId(null);
+    }
+  }, [testerTogglingId, fetchUsers]);
 
   useEffect(() => { void fetchUsers(); }, [fetchUsers]);
   useEffect(() => { setPage(1); }, [activeTab, activityFilter, searchTerm, sortOption]);
@@ -985,8 +1048,8 @@ export default function AccountDatabaseManagement() {
         <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm font-medium text-slate-500">{sortedUsers.length} {activeTab === "members" ? "member" : "akun team"}</p><div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">{activeTab === "members" && <label className="flex items-center gap-2">Aktivitas <select value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as ActivityFilter)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-500"><option value="ALL">Semua Aktivitas</option><option value="ACTIVE">Aktif</option><option value="PASSIVE">Pasif</option><option value="INACTIVE">Tidak Aktif</option><option value="DORMANT">Dormant</option><option value="NEVER">Belum Transaksi</option></select></label>}<label className="flex items-center gap-2">Urutkan <select value={sortOption} onChange={(event) => setSortOption(event.target.value as SortOption)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-500">{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div></div>
 
         {loading ? <AccountSkeleton /> : error ? <ErrorState onRetry={fetchUsers} /> : <>
-          <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-250 text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-400"><tr><th className="px-5 py-4">Account</th><th className="px-5 py-4">Email</th>{activeTab === "members" ? <><th className="px-5 py-4">Member Type</th><th className="px-5 py-4">Bergabung</th><th className="px-5 py-4 text-center">Aktivitas</th><th className="px-5 py-4 text-right">Saldo</th></> : <><th className="px-5 py-4">Jabatan</th><th className="px-5 py-4">Role</th><th className="px-5 py-4">Bergabung</th></>}<th className="px-5 py-4 text-center">Action</th></tr></thead><tbody className="divide-y divide-slate-100">{paginatedUsers.map((user) => <DesktopRow key={user.id} user={user} member={activeTab === "members"} onDetail={setDetailUser} onMutation={setMutationUser} onAdjust={setAdjustmentUser} />)}</tbody></table></div>
-          <div className="space-y-3 p-4 md:hidden">{paginatedUsers.map((user) => <MobileCard key={user.id} user={user} member={activeTab === "members"} onDetail={setDetailUser} onMutation={setMutationUser} onAdjust={setAdjustmentUser} />)}</div>
+          <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-250 text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-400"><tr><th className="px-5 py-4">Account</th><th className="px-5 py-4">Email</th>{activeTab === "members" ? <><th className="px-5 py-4">Member Type</th><th className="px-5 py-4">Bergabung</th><th className="px-5 py-4 text-center">Aktivitas</th><th className="px-5 py-4 text-right">Saldo</th></> : <><th className="px-5 py-4">Jabatan</th><th className="px-5 py-4">Role</th><th className="px-5 py-4">Bergabung</th></>}<th className="px-5 py-4 text-center">Tester</th><th className="px-5 py-4 text-center">Action</th></tr></thead><tbody className="divide-y divide-slate-100">{paginatedUsers.map((user) => <DesktopRow key={user.id} user={user} member={activeTab === "members"} onDetail={setDetailUser} onMutation={setMutationUser} onAdjust={setAdjustmentUser} onToggleTester={handleToggleTester} togglingTester={testerTogglingId === user.id} />)}</tbody></table></div>
+          <div className="space-y-3 p-4 md:hidden">{paginatedUsers.map((user) => <MobileCard key={user.id} user={user} member={activeTab === "members"} onDetail={setDetailUser} onMutation={setMutationUser} onAdjust={setAdjustmentUser} onToggleTester={handleToggleTester} togglingTester={testerTogglingId === user.id} />)}</div>
           {sortedUsers.length === 0 && <EmptyState tab={activeTab} hasSearch={Boolean(searchTerm.trim())} />}
           {sortedUsers.length > 0 && <Pagination page={safePage} totalPages={totalPages} start={rangeStart} end={rangeEnd} total={sortedUsers.length} onPageChange={setPage} />}
         </>}
@@ -999,7 +1062,23 @@ export default function AccountDatabaseManagement() {
   );
 }
 
-function DesktopRow({ user, member, onDetail, onMutation, onAdjust }: { user: AccountUser; member: boolean; onDetail: (user: AccountUser) => void; onMutation: (user: AccountUser) => void; onAdjust: (user: AccountUser) => void }) {
+function DesktopRow({
+  user,
+  member,
+  onDetail,
+  onMutation,
+  onAdjust,
+  onToggleTester,
+  togglingTester,
+}: {
+  user: AccountUser;
+  member: boolean;
+  onDetail: (user: AccountUser) => void;
+  onMutation: (user: AccountUser) => void;
+  onAdjust: (user: AccountUser) => void;
+  onToggleTester: (user: AccountUser) => void;
+  togglingTester: boolean;
+}) {
   const identity = getIdentity(user);
   return (
     <tr className="transition hover:bg-slate-50/80">
@@ -1015,14 +1094,118 @@ function DesktopRow({ user, member, onDetail, onMutation, onAdjust }: { user: Ac
         <td className="px-5 py-4"><RoleBadge user={user} /></td>
         <td className="px-5 py-4 text-sm text-slate-500">{formatDate(user.created_at)}</td>
       </>}
+      <td className="px-5 py-4 text-center">
+        <button
+          type="button"
+          onClick={() => onToggleTester(user)}
+          disabled={togglingTester}
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+            user.is_tester
+              ? "bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300"
+              : "bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200"
+          } ${togglingTester ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          title={user.is_tester ? "Klik untuk menonaktifkan status Tester" : "Klik untuk jadikan Tester Sandbox"}
+        >
+          {togglingTester ? (
+            <Loader2 size={12} className="animate-spin text-slate-500" />
+          ) : (
+            <FlaskConical size={12} className={user.is_tester ? "text-amber-700" : "text-slate-400"} />
+          )}
+          <span>{user.is_tester ? "Tester" : "Non-Tester"}</span>
+        </button>
+      </td>
       <td className="px-5 py-4 text-center"><div className="flex justify-center gap-2"><button type="button" onClick={() => onDetail(user)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"><Eye size={15} /> Detail</button>{member && <><button type="button" onClick={() => onMutation(user)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-50"><Eye size={15} /> Mutasi Saldo</button><button type="button" onClick={() => onAdjust(user)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"><Wallet size={15} /> Adjust</button></>}</div></td>
     </tr>
   );
 }
 
-function MobileCard({ user, member, onDetail, onMutation, onAdjust }: { user: AccountUser; member: boolean; onDetail: (user: AccountUser) => void; onMutation: (user: AccountUser) => void; onAdjust: (user: AccountUser) => void }) {
+function MobileCard({
+  user,
+  member,
+  onDetail,
+  onMutation,
+  onAdjust,
+  onToggleTester,
+  togglingTester,
+}: {
+  user: AccountUser;
+  member: boolean;
+  onDetail: (user: AccountUser) => void;
+  onMutation: (user: AccountUser) => void;
+  onAdjust: (user: AccountUser) => void;
+  onToggleTester: (user: AccountUser) => void;
+  togglingTester: boolean;
+}) {
   const identity = getIdentity(user);
-  return <article className="rounded-2xl border border-slate-100 p-4 shadow-sm"><div className="flex gap-3"><AccountAvatar user={user} staff={!member} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-800">{user.full_name || "-"}</p><p className="mt-0.5 truncate text-xs text-slate-500" title={user.email || undefined}>{user.email || "-"}</p></div>{member ? <MemberTypeBadge user={user} /> : <RoleBadge user={user} />}</div><div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-xs"><div><p className="text-slate-400">{member ? "Member Type" : "Jabatan"}</p><p className="mt-1 font-semibold text-slate-700">{member ? (user.member_type?.toLowerCase() === "special" ? "Special" : "Regular") : identity.jabatan}</p></div>{member && <div><p className="text-slate-400">Saldo</p><p className="mt-1 font-bold text-emerald-600">{formatRupiah(user.balance)}</p></div>}<div><p className="text-slate-400">Bergabung</p><p className="mt-1 font-semibold text-slate-700">{formatDate(user.created_at)}</p></div>{member && <div><p className="text-slate-400">Aktivitas</p><div className="mt-1"><MemberActivityBadge user={user} /></div></div>}</div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => onDetail(user)} className="min-w-25 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700">Detail</button>{member && <><button type="button" onClick={() => onMutation(user)} className="min-w-30 flex-1 rounded-xl border border-blue-200 px-3 py-2.5 text-xs font-semibold text-blue-700">Mutasi Saldo</button><button type="button" onClick={() => onAdjust(user)} className="min-w-30 flex-1 rounded-xl bg-blue-600 px-2 py-2.5 text-xs font-semibold text-white">Adjust Saldo</button></>}</div></article>;
+  return (
+    <article className="rounded-2xl border border-slate-100 p-4 shadow-sm">
+      <div className="flex gap-3">
+        <AccountAvatar user={user} staff={!member} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-slate-800">{user.full_name || "-"}</p>
+          <p className="mt-0.5 truncate text-xs text-slate-500" title={user.email || undefined}>{user.email || "-"}</p>
+        </div>
+        {member ? <MemberTypeBadge user={user} /> : <RoleBadge user={user} />}
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-xs">
+        <div>
+          <p className="text-slate-400">{member ? "Member Type" : "Jabatan"}</p>
+          <p className="mt-1 font-semibold text-slate-700">{member ? (user.member_type?.toLowerCase() === "special" ? "Special" : "Regular") : identity.jabatan}</p>
+        </div>
+        {member && (
+          <div>
+            <p className="text-slate-400">Saldo</p>
+            <p className="mt-1 font-bold text-emerald-600">{formatRupiah(user.balance)}</p>
+          </div>
+        )}
+        <div>
+          <p className="text-slate-400">Bergabung</p>
+          <p className="mt-1 font-semibold text-slate-700">{formatDate(user.created_at)}</p>
+        </div>
+        {member && (
+          <div>
+            <p className="text-slate-400">Aktivitas</p>
+            <div className="mt-1"><MemberActivityBadge user={user} /></div>
+          </div>
+        )}
+        <div>
+          <p className="text-slate-400">Status Tester</p>
+          <button
+            type="button"
+            onClick={() => onToggleTester(user)}
+            disabled={togglingTester}
+            className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold transition ${
+              user.is_tester
+                ? "bg-amber-100 text-amber-800 border border-amber-300"
+                : "bg-slate-100 text-slate-500 border border-slate-200"
+            } ${togglingTester ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          >
+            {togglingTester ? (
+              <Loader2 size={10} className="animate-spin text-slate-500" />
+            ) : (
+              <FlaskConical size={10} className={user.is_tester ? "text-amber-700" : "text-slate-400"} />
+            )}
+            <span>{user.is_tester ? "Tester" : "Non-Tester"}</span>
+          </button>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button" onClick={() => onDetail(user)} className="min-w-25 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700">
+          Detail
+        </button>
+        {member && (
+          <>
+            <button type="button" onClick={() => onMutation(user)} className="min-w-30 flex-1 rounded-xl border border-blue-200 px-3 py-2.5 text-xs font-semibold text-blue-700">
+              Mutasi Saldo
+            </button>
+            <button type="button" onClick={() => onAdjust(user)} className="min-w-30 flex-1 rounded-xl bg-blue-600 px-2 py-2.5 text-xs font-semibold text-white">
+              Adjust Saldo
+            </button>
+          </>
+        )}
+      </div>
+    </article>
+  );
 }
 
 function AccountSkeleton() {

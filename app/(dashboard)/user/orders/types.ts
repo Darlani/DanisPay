@@ -36,6 +36,7 @@ export type Order = {
   paid_at?: string | null;
   processed_at?: string | null;
   completed_at?: string | null;
+  is_sandbox?: boolean | null;
 };
 
 export type StatusCounts = {

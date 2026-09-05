@@ -24,6 +24,7 @@ import {
 import { supabase } from "@/utils/supabaseClient";
 import LogoutDoorButton from "@/components/UI/logout-door-button";
 import ThemeToggle from "@/components/UI/theme-toggle";
+import SandboxSessionControl from "@/components/sandbox/SandboxSessionControl";
 
 type SidebarProps = {
   userName: string;
@@ -589,6 +590,11 @@ export default function UserSidebar({
                 </button>
               )}
 
+              {/* SANDBOX TESTER WIDGET */}
+              <div className="mb-2">
+                <SandboxSessionControl variant="sidebar" />
+              </div>
+
               {/* THEME TOGGLE */}
               <div className="mb-1.5 md:mb-2.5">
                 <ThemeToggle showLabel />
@@ -599,6 +605,10 @@ export default function UserSidebar({
             </>
           ) : (
             <div className="flex flex-col items-center gap-2">
+              <div className="mb-1">
+                <SandboxSessionControl variant="navbar" />
+              </div>
+
               {memberType !== "Special" && memberType !== "Gold" && (
                 <button
                   type="button"

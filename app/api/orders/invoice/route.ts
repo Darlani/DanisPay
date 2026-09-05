@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     // Gunakan Kunci Master untuk menembus RLS dan ambil data komplit
     const { data, error } = await supabaseAdmin
       .from("orders")
-      .select("order_id, status, payment_method, created_at, total_amount, sku, category, user_id, sn, qris_string, customer_no, item_label, user_contact, customer_name, desc, used_balance, stand_meter, segment_power, raw_tagihan, unique_code, product_name, price")
+      .select("order_id, status, payment_method, created_at, total_amount, sku, category, user_id, sn, qris_string, customer_no, item_label, user_contact, customer_name, desc, used_balance, stand_meter, segment_power, raw_tagihan, unique_code, product_name, price, is_sandbox")
       .eq("order_id", order_id)
       .maybeSingle();
 
@@ -21,7 +21,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true, data });
-  } catch (err: any) {
-    return NextResponse.json({ error: "Gagal memproses permintaan." }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Gagal memproses permintaan.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

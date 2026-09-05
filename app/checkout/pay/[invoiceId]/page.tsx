@@ -39,7 +39,32 @@ function InvoiceContent() {
   const [timeLeft, setTimeLeft] = useState(0); 
   const [paymentAccounts, setPaymentAccounts] = useState<any[]>([]);
   const [qrisString, setQrisString] = useState<string>("");
-  const [isTimeCalculated, setIsTimeCalculated] = useState(false);
+  const [isTimeCalculated, setIsTimeCalculated] = useState(false);
+  const [simulating, setSimulating] = useState(false);
+
+  const handleSimulatePayment = async () => {
+    if (simulating || !trx?.order_id) return;
+    setSimulating(true);
+    try {
+      const res = await fetch('/api/tester/simulate-pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: trx.order_id, auto_resolve: true })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Gagal melakukan simulasi bayar.");
+        return;
+      }
+      setDbStatus(data.status || "Berhasil");
+      setTrx((prev: Record<string, unknown> | null) => prev ? { ...prev, status: data.status || "Berhasil", sn: data.sn } : prev);
+    } catch (e) {
+      console.error("Simulate pay error:", e);
+      alert("Terjadi kesalahan saat simulasi pembayaran.");
+    } finally {
+      setSimulating(false);
+    }
+  };
 
   // --- FUNGSI SINKRONISASI CACHE GUEST LOKAL ---
   const updateGuestCacheStatus = (orderId: string, newStatus: string) => {
@@ -115,24 +140,29 @@ function InvoiceContent() {
 
           // PANGGIL API QRIS JIKA METODE PEMBAYARAN ADALAH QRIS DAN STATUS BENAR-BENAR PENDING
           if (orderData.payment_method?.toLowerCase().includes('qris') && orderData.status === 'Pending') {
-             try {
-                 const qrisRes = await fetch('/api/orders/qris', {
-                     method: 'POST',
-                     headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify({ orderId: orderData.order_id })
-                 });
-                 if (qrisRes.ok) {
-                     const qrisData = await qrisRes.json();
-                     if(qrisData.success) {
-                        setQrisString(qrisData.qrisString);
-                     }
-                 } else {
-                     const errData = await qrisRes.json();
-                     console.error("Gagal get QRIS:", errData.error);
-                 }
-             } catch (qrisErr) {
-                 console.error("Gagal fetch API QRIS:", qrisErr);
-             }
+            if (orderData.is_sandbox === true) {
+              // Sandbox Mock QRIS string (aman dari pemanggilan gateway pihak ketiga)
+              setQrisString(`https://dapay.id/sandbox-mock-qris?order_id=${encodeURIComponent(orderData.order_id)}&amount=${orderData.total_amount}`);
+            } else {
+              try {
+                const qrisRes = await fetch('/api/orders/qris', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ orderId: orderData.order_id })
+                });
+                if (qrisRes.ok) {
+                  const qrisData = await qrisRes.json();
+                  if (qrisData.success) {
+                    setQrisString(qrisData.qrisString);
+                  }
+                } else {
+                  const errData = await qrisRes.json();
+                  console.error("Gagal get QRIS:", errData.error);
+                }
+              } catch (qrisErr) {
+                console.error("Gagal fetch API QRIS:", qrisErr);
+              }
+            }
           }
 
           if (orderData.status === "Pending") {
@@ -320,6 +350,38 @@ fetchTransaction();
                   </div>
                   <p className="text-xs font-medium text-slate-400">ID: {trx.order_id}</p>
                 </div>
+
+                {trx.is_sandbox && (
+                  <div className="rounded-2xl border border-amber-300/80 bg-amber-50/90 p-3.5 text-left space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                        🧪 Sandbox Mode
+                      </span>
+                      <span className="text-[10px] font-semibold text-amber-600">Simulasi Pengujian</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-amber-700">
+                      Pesanan ini bertanda <strong>Sandbox</strong>. Anda tidak perlu mentransfer uang sungguhan.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={simulating}
+                      onClick={handleSimulatePayment}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-amber-700 active:scale-98 disabled:opacity-50 cursor-pointer"
+                    >
+                      {simulating ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          Memproses Simulasi...
+                        </>
+                      ) : (
+                        <>
+                          <Zap size={14} />
+                          Simulasi Bayar Instan
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
 
                 {!isTimeCalculated ? (
                   <div className="py-12 flex flex-col items-center justify-center space-y-3">

@@ -29,6 +29,7 @@ import { supabase } from "@/utils/supabaseClient";
 type OrderStatus = "Pending" | "Diproses" | "Berhasil" | "Gagal";
 type StatusFilter = "Semua" | OrderStatus;
 type DateFilter = "Semua" | "Hari Ini" | "7 Hari" | "30 Hari";
+type EnvironmentFilter = "Semua" | "Live" | "Sandbox";
 
 type OrderRow = {
   id: string;
@@ -53,6 +54,7 @@ type OrderRow = {
   discount?: number | null;
   unique_code?: number | null;
   notes?: string | null;
+  is_sandbox?: boolean | null;
 };
 
 const STATUSES: readonly OrderStatus[] = [
@@ -155,6 +157,7 @@ export default function OrdersView() {
 
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("Semua");
+  const [environment, setEnvironment] = useState<EnvironmentFilter>("Semua");
   const [date, setDate] = useState<DateFilter>("Semua");
   const [category, setCategory] = useState("Semua");
   const [payment, setPayment] = useState("Semua");
@@ -300,6 +303,12 @@ export default function OrdersView() {
               ? created >= now - 7 * 86400000
               : created >= now - 30 * 86400000));
 
+      const envOk =
+        environment === "Semua" ||
+        (environment === "Live"
+          ? !order.is_sandbox
+          : Boolean(order.is_sandbox));
+
       return (
         (!normalizedQuery ||
           haystack.includes(normalizedQuery)) &&
@@ -309,13 +318,15 @@ export default function OrdersView() {
         (category === "Semua" ||
           order.category === category) &&
         (payment === "Semua" ||
-          order.payment_method === payment)
+          order.payment_method === payment) &&
+        envOk
       );
     });
   }, [
     orders,
     query,
     status,
+    environment,
     date,
     category,
     payment,
@@ -326,6 +337,7 @@ export default function OrdersView() {
   }, [
     query,
     status,
+    environment,
     date,
     category,
     payment,
@@ -474,6 +486,7 @@ export default function OrdersView() {
   const reset = () => {
     setQuery("");
     setStatus("Semua");
+    setEnvironment("Semua");
     setDate("Semua");
     setCategory("Semua");
     setPayment("Semua");
@@ -482,6 +495,7 @@ export default function OrdersView() {
   const activeFilters =
     Boolean(query) ||
     status !== "Semua" ||
+    environment !== "Semua" ||
     date !== "Semua" ||
     category !== "Semua" ||
     payment !== "Semua";
@@ -614,7 +628,7 @@ export default function OrdersView() {
       {/* FILTER CONTAINER */}
       <section className="rounded-3xl border border-slate-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.045)]">
         <div className="px-4 py-4 sm:px-5 lg:px-6">
-          <div className="grid gap-4 xl:grid-cols-[minmax(260px,1.7fr)_180px_180px_190px_190px_auto]">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(220px,1.5fr)_150px_160px_150px_160px_160px_auto]">
             <FilterField label="Search">
               <div className="relative">
                 <Search
@@ -641,6 +655,34 @@ export default function OrdersView() {
                   setStatus(value as StatusFilter)
                 }
                 options={["Semua Status", ...STATUSES]}
+              />
+            </FilterField>
+
+            <FilterField label="Lingkungan">
+              <OutlineSelect
+                value={environment}
+                normalizedValue={
+                  environment === "Semua"
+                    ? "Semua Lingkungan"
+                    : environment === "Live"
+                      ? "Live (Bisnis)"
+                      : "Sandbox (Simulasi)"
+                }
+                label="Lingkungan"
+                onChange={(value) => {
+                  const next =
+                    value === "Semua Lingkungan" || value === "Semua"
+                      ? "Semua"
+                      : value.startsWith("Live")
+                        ? "Live"
+                        : "Sandbox";
+                  setEnvironment(next as EnvironmentFilter);
+                }}
+                options={[
+                  "Semua Lingkungan",
+                  "Live (Bisnis)",
+                  "Sandbox (Simulasi)",
+                ]}
               />
             </FilterField>
 
@@ -848,14 +890,22 @@ export default function OrdersView() {
 
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setSelected(order)}
-                              className="text-left text-sm font-semibold text-slate-900 hover:text-blue-600"
-                              title={`Buka detail ${fullOrderIdOf(order)}`}
-                            >
-                              {shortOrderIdOf(order)}
-                            </button>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => setSelected(order)}
+                                className="text-left text-sm font-semibold text-slate-900 hover:text-blue-600"
+                                title={`Buka detail ${fullOrderIdOf(order)}`}
+                              >
+                                {shortOrderIdOf(order)}
+                              </button>
+
+                              {order.is_sandbox && (
+                                <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-600 border border-amber-500/20">
+                                  Sandbox
+                                </span>
+                              )}
+                            </div>
 
                             <button
                               type="button"
@@ -1150,14 +1200,13 @@ function FilterField({
 }
 
 function OutlineSelect({
-  value,
   normalizedValue,
   onChange,
   options,
   label,
   icon,
 }: {
-  value: string;
+  value?: string;
   normalizedValue: string;
   onChange: (value: string) => void;
   options: readonly string[];
@@ -1200,7 +1249,8 @@ function OutlineSelect({
       option === "Semua Status" ||
       option === "Semua Periode" ||
       option === "Semua Kategori" ||
-      option === "Semua Metode"
+      option === "Semua Metode" ||
+      option === "Semua Lingkungan"
     ) {
       onChange("Semua");
     } else {
@@ -1510,9 +1560,16 @@ function Drawer({
                 Detail Order
               </p>
 
-              <h2 className="mt-0.5 break-all text-base font-bold leading-5 tracking-tight text-slate-950">
-                {fullOrderIdOf(activeOrder)}
-              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="mt-0.5 break-all text-base font-bold leading-5 tracking-tight text-slate-950">
+                  {fullOrderIdOf(activeOrder)}
+                </h2>
+                {activeOrder.is_sandbox && (
+                  <span className="inline-flex items-center rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-amber-600 border border-amber-500/20">
+                    Sandbox
+                  </span>
+                )}
+              </div>
 
               <p className="mt-0 text-[11px] text-slate-400">
                 {dateTime(activeOrder.created_at)}

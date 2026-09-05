@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { isPaymentAllowed } from "@/utils/LogicPembayaran";
 import { authenticateRequest } from "@/utils/serverAuth";
 import { supabaseAdmin } from "@/utils/supabaseAdmin";
+import { resolveOrderEnvironment } from "@/lib/auth/tester";
 
 type DatabaseProduct = {
   id?: string;
@@ -271,6 +272,9 @@ export async function POST(request: Request) {
       }
     }
 
+    const envRes = await resolveOrderEnvironment(request, authenticatedUserId);
+    const isSandbox = envRes.isSandbox;
+
     const orderId = `DANISH-${crypto.randomUUID().replace(/-/g, "").toUpperCase()}`;
     const orderPayload = {
       order_id: orderId,
@@ -299,6 +303,7 @@ export async function POST(request: Request) {
       segment_power: segmentPower,
       stand_meter: standMeter,
       desc: description,
+      is_sandbox: isSandbox,
     };
 
     const { data: createdOrder, error: rpcError } = await supabaseAdmin.rpc(

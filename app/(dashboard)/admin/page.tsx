@@ -45,6 +45,7 @@ import HistoryView from "./history/HistoryView";
 import SettingsView from "./settings/SettingsView";
 import PaymentManagement from "./payment/PaymentManagement";
 import ProvidersView from "./providers/ProvidersView";
+import SandboxTestCenterView from "./test-center/SandboxTestCenterView";
 
 type Order = {
   id: string;
@@ -743,6 +744,7 @@ function AdminDashboardContent() {
             {activeMenu === "History" && <HistoryView />}
             {activeMenu === "Payment" && <PaymentManagement />}
             {activeMenu === "Settings" && <SettingsView />}
+            {activeMenu === "TestCenter" && <SandboxTestCenterView />}
           </div>
         </main>
       </div>

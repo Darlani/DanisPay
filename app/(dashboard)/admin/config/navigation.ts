@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Calendar,
+  FlaskConical,
   Globe,
   Grid,
   History as HistoryIcon,
@@ -29,7 +30,8 @@ export type AdminTabId =
   | "Providers"
   | "Explore"
   | "History"
-  | "Settings";
+  | "Settings"
+  | "TestCenter";
 
 export interface AdminNavItem {
   id: AdminTabId;
@@ -58,6 +60,7 @@ export const ADMIN_TAB_SLUGS: Record<AdminTabId, string> = {
   Explore: "explore",
   History: "history",
   Settings: "settings",
+  TestCenter: "test-center",
 };
 
 export const VALID_ADMIN_TABS: Record<string, AdminTabId> = {
@@ -77,6 +80,8 @@ export const VALID_ADMIN_TABS: Record<string, AdminTabId> = {
   explore: "Explore",
   history: "History",
   settings: "Settings",
+  "test-center": "TestCenter",
+  testcenter: "TestCenter",
 };
 
 export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
@@ -192,6 +197,12 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: Settings,
         slug: "settings",
       },
+      {
+        id: "TestCenter",
+        label: "Test Center",
+        icon: FlaskConical,
+        slug: "test-center",
+      },
     ],
   },
 ];
@@ -285,5 +296,10 @@ export const ADMIN_PAGE_META: Record<AdminTabId, AdminPageMetaItem> = {
     title: "Store Settings",
     subtitle: "Konfigurasi toko, informasi kontak, running text, dan pengaturan umum sistem.",
     icon: Settings,
+  },
+  TestCenter: {
+    title: "Sandbox Test Center",
+    subtitle: "Konsol verifikasi QA interaktif, audit isolasi finansial, dan pengujian invariant status DaPay.",
+    icon: FlaskConical,
   },
 };

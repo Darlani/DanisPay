@@ -116,6 +116,14 @@ export async function authenticateRequest(
   }
 }
 
+interface CachedAdminAuth {
+  role: "admin" | "manager";
+  user: User;
+  expiresAt: number;
+}
+
+const adminAuthCache = new Map<string, CachedAdminAuth>();
+
 /**
  * Requires an authenticated user whose database role is `admin` or `manager`.
  * The role is looked up using the verified Supabase user's ID, never a value
@@ -124,6 +132,28 @@ export async function authenticateRequest(
 export async function requireAdminOrManager(
   request: Request,
 ): Promise<AdminAuthorizationResult> {
+  const token = getBearerToken(request);
+
+  if (token) {
+    const cached = adminAuthCache.get(token);
+    if (cached && cached.expiresAt > Date.now()) {
+      if (cached.role === "admin") {
+        return {
+          ok: true,
+          kind: "admin",
+          user: cached.user,
+          role: "admin",
+        };
+      }
+      return {
+        ok: true,
+        kind: "manager",
+        user: cached.user,
+        role: "manager",
+      };
+    }
+  }
+
   const authentication = await authenticateRequest(request);
 
   if (!authentication.ok) {
@@ -146,6 +176,14 @@ export async function requireAdminOrManager(
         status: 403,
         message: "Authenticated user does not have the required permission.",
       };
+    }
+
+    if (token) {
+      adminAuthCache.set(token, {
+        role,
+        user: authentication.user,
+        expiresAt: Date.now() + 60_000,
+      });
     }
 
     return {

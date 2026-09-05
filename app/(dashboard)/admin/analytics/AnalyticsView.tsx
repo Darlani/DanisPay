@@ -922,6 +922,7 @@ export default function AnalyticsView() {
       let currentOrdersQuery = supabase
         .from("orders")
         .select("created_at, status, price, buy_price, email, user_id, cashback, referral_commission, category")
+        .eq("is_sandbox", false)
         .order("created_at", { ascending: true });
       let currentWithdrawalsQuery = supabase
         .from("withdrawals")
@@ -938,7 +939,8 @@ export default function AnalyticsView() {
 
       let previousOrdersQuery = supabase
         .from("orders")
-        .select("created_at, status, price, buy_price, email, user_id, cashback, referral_commission, category");
+        .select("created_at, status, price, buy_price, email, user_id, cashback, referral_commission, category")
+        .eq("is_sandbox", false);
       let previousWithdrawalsQuery = supabase
         .from("withdrawals")
         .select("created_at, status, amount, admin_fee");
@@ -952,7 +954,8 @@ export default function AnalyticsView() {
 
       let benchmarkOrdersQuery = supabase
         .from("orders")
-        .select("created_at, status, price, buy_price, email, user_id, cashback, referral_commission, category");
+        .select("created_at, status, price, buy_price, email, user_id, cashback, referral_commission, category")
+        .eq("is_sandbox", false);
       let benchmarkWithdrawalsQuery = supabase
         .from("withdrawals")
         .select("created_at, status, amount, admin_fee");

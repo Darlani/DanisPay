@@ -97,6 +97,11 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
               <span className={`font-bold ${theme.color} flex items-center justify-end gap-1 text-[10px] sm:text-[13px]`}>
                 {copied ? <CheckCircle2 className="size-2.5 sm:size-3 text-emerald-500" /> : <Copy className="size-2.5 sm:size-3 text-slate-300 opacity-0 group-hover:opacity-100" />}
                 #{order.order_id}
+                {order.is_sandbox && (
+                  <span className="ml-1 rounded bg-amber-100 px-1 py-0.2 text-[8px] font-bold uppercase text-amber-700">
+                    Sandbox
+                  </span>
+                )}
               </span>
             </div>
             

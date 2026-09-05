@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { sandboxExecutionSimulator } from '@/lib/providers/sandbox/simulator';
+import { sandboxFinancialEngine } from '@/lib/providers/sandbox/financial';
+import { ensureSandboxWallet } from '@/lib/auth/tester';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,10 +26,10 @@ export async function POST(req: Request) {
 
     const { order_id, email } = await req.json();
 
-// 1. Ambil data Order (Hanya kolom yang diperlukan saja Bos! [cite: 2026-03-07])
+// 1. Ambil data Order (Termasuk is_sandbox untuk isolasi finansial)
     const [orderRes, profileRes] = await Promise.all([
       supabaseAdmin.from('orders')
-        .select('id, order_id, status, used_balance, user_id, category, price, buy_price, product_name, item_label, referred_by, cashback, raw_tagihan, product_type')
+        .select('id, order_id, status, used_balance, user_id, category, price, buy_price, product_name, item_label, referred_by, cashback, raw_tagihan, product_type, is_sandbox, sku, customer_no')
         .eq('order_id', order_id).single(),
       supabaseAdmin.from('profiles').select('id, balance, email, member_type, referred_by').eq('email', email).single()
     ]);
@@ -41,7 +44,48 @@ export async function POST(req: Request) {
       throw new Error('Order ini sudah diproses sebelumnya!');
     }
 
-    // 🔥 GEMBOK 2: CEK SALDO CUKUP ATAU NGGAK
+    const isSandboxOrder = Boolean((order as Record<string, unknown>).is_sandbox) || !isLive;
+
+    // =========================================================================
+    // 🧪 PERCABANGAN KHUSUS SANDBOX (ISOLASI FINANSIAL PENUH)
+    // =========================================================================
+    if (isSandboxOrder) {
+      console.log(`🧪 [COIN-SANDBOX] Memproses pembayaran koin sandbox untuk order #${order.order_id}...`);
+
+      // 1. Eksekusi pemotongan koin idempoten via SandboxFinancialEngine
+      const payRes = await sandboxFinancialEngine.executeCoinPayment(order.order_id);
+      if (!payRes.success && !payRes.alreadyPaid) {
+        return NextResponse.json({ error: payRes.message }, { status: 400 });
+      }
+
+      // 2. Update status order menjadi 'Diproses'
+      await supabaseAdmin
+        .from('orders')
+        .update({
+          status: 'Diproses',
+          is_sandbox: true,
+          provider_used: 'SANDBOX_SIMULATOR',
+          updated_at: new Date().toISOString()
+        })
+        .eq('order_id', order_id);
+
+      // 3. Teruskan ke Sandbox Execution Simulator (Non-blocking / Background Async Lifecycle)
+      void sandboxExecutionSimulator.dispatchSandboxOrder({
+        id: order.id,
+        order_id: order.order_id,
+        sku: order.sku,
+        customer_no: order.customer_no
+      });
+
+      console.log(`✅ [COIN-SANDBOX] Order #${order.order_id} sukses diproses via SandboxFinancialEngine. Saldo riil 100% aman.`);
+      return NextResponse.json({ success: true, is_sandbox: true });
+    }
+
+    // =========================================================================
+    // 🚀 ALUR PRODUKSI LIVE NORMAL (HANYA DIEKSEKUSI JIKA BUKAN SANDBOX)
+    // =========================================================================
+
+    // 🔥 GEMBOK 2: CEK SALDO CUKUP ATAU NGGAK (LIVE)
     if ((profile.balance || 0) < (order.used_balance || 0)) {
       throw new Error('Saldo Koin DaPay tidak mencukupi!');
     }

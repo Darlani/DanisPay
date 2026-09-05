@@ -44,6 +44,7 @@ interface OrderRecord {
   vendor_sku: string | null;
   sn: string | null;
   created_at: string;
+  is_sandbox?: boolean | null;
 }
 
 // 1. FUNGSI LAPOR TELEGRAM
@@ -88,7 +89,7 @@ export async function POST(req: Request) {
       .select('*')
       .single();
 
-    const isLiveMode = ((st as any)?.is_live_mode ?? (st as any)?.is_digiflazz_active) === true;
+    const isLiveMode = (st as { is_live_mode?: boolean } | null)?.is_live_mode === true;
 
     if (!isLiveMode) {
       return NextResponse.json(
@@ -102,7 +103,7 @@ export async function POST(req: Request) {
     let orderQuery = supabaseAdmin
       .from('orders')
       .select(
-        'id, order_id, api_ref_id, sku, customer_no, user_id, email, user_contact, payment_method, total_amount, status, category, product_name, price, used_balance, buy_price, provider_used, vendor_sku, sn, created_at'
+        'id, order_id, api_ref_id, sku, customer_no, user_id, email, user_contact, payment_method, total_amount, status, category, product_name, price, used_balance, buy_price, provider_used, vendor_sku, sn, created_at, is_sandbox'
       );
 
     if (isUUID) {
@@ -118,6 +119,14 @@ export async function POST(req: Request) {
     }
 
     const order = orderData as OrderRecord;
+
+    // --- 4.5 PROTEKSI ORDER SANDBOX (MUTLAK DILARANG CEK KE VENDOR RIIL) ---
+    if (order.is_sandbox === true) {
+      return NextResponse.json(
+        { error: 'Pesanan Sandbox: Dilarang memeriksa status ke vendor eksternal!' },
+        { status: 403 }
+      );
+    }
 
     // --- 5. PROTEKSI ORDER > 90 HARI ---
     const createdDate = new Date(order.created_at);

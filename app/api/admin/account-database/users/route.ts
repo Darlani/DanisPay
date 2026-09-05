@@ -6,7 +6,7 @@ import {
 import { requireAdminOrManager } from "@/utils/serverAuth";
 import { supabaseAdmin } from "@/utils/supabaseAdmin";
 
-const PROFILE_FIELDS = "id, full_name, email, role, member_type, balance, created_at";
+const PROFILE_FIELDS = "id, full_name, email, role, member_type, balance, created_at, is_tester";
 
 type ActivityRow = {
   user_id: string;

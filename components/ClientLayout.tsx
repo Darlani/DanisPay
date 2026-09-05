@@ -8,6 +8,7 @@ const Navbar = dynamic(() => import("./Navbar"), { ssr: false });
 const Footer = dynamic(() => import("./Footer"), { ssr: false });
 const BottomNav = dynamic(() => import("./BottomNav"), { ssr: false }); 
 const MaintenancePage = dynamic(() => import("./MaintenancePage"));
+const SandboxTopBanner = dynamic(() => import("./sandbox/SandboxTopBanner"), { ssr: false });
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -20,6 +21,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <>
+      <SandboxTopBanner />
       {!isDashboardPage && <Navbar />}
       
       {/* Tambahkan pb-20 di HP agar konten tidak ketutupan BottomNav */}

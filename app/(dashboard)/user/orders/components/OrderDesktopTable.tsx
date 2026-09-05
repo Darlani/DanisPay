@@ -120,10 +120,15 @@ export default function OrderDesktopTable({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex flex-col items-start justify-center">
-                    <div className="flex items-center gap-1 sm:gap-1.5">
+                    <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
                       <span className="text-[11.5px] sm:text-xs lg:text-[13px] font-bold text-slate-900 tracking-tight font-sans">
                         {displayOrderId(orderRef)}
                       </span>
+                      {order.is_sandbox && (
+                        <span className="inline-flex items-center rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-600 border border-amber-500/20">
+                          Sandbox
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleCopy(orderRef)}

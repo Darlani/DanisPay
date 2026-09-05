@@ -87,6 +87,11 @@ export default function OrderMobileCardList({
                   <span className="font-mono text-slate-500 font-bold">
                     {displayOrderId(orderRef)}
                   </span>
+                  {order.is_sandbox && (
+                    <span className="inline-flex items-center rounded bg-amber-500/10 px-1 py-0.2 text-[8.5px] font-bold uppercase tracking-wider text-amber-600 border border-amber-500/20">
+                      Sandbox
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={(e) => handleCopy(e, orderRef)}

@@ -118,6 +118,11 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
                   <Copy size={11} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                 )}
                 #{order.order_id}
+                {order.is_sandbox && (
+                  <span className="ml-1 rounded bg-amber-100 px-1 py-0.2 text-[8px] font-bold uppercase text-amber-700">
+                    Sandbox
+                  </span>
+                )}
               </span>
             </div>
             
