@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminOrManager } from "@/utils/serverAuth";
 import { supabaseAdmin } from "@/utils/supabaseAdmin";
 import {
   generateQris,
@@ -23,17 +24,7 @@ type HealthItem = {
   detail: string;
 };
 
-function isAuthorized(req: Request) {
-  const cookie =
-    req.headers.get("cookie") || "";
 
-  return (
-    cookie.includes("isAdmin=true") ||
-    cookie
-      .toLowerCase()
-      .includes("userrole=manager")
-  );
-}
 
 function configuredProvider(
   provider: QrisProvider,
@@ -69,7 +60,8 @@ function configuredProvider(
 }
 
 export async function GET(req: Request) {
-  if (!isAuthorized(req)) {
+  const auth = await requireAdminOrManager(req);
+  if (!auth.ok) {
     return NextResponse.json(
       {
         success: false,

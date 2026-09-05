@@ -52,3 +52,27 @@ supabase/.temp/
 # Repomix output
 repomix-output.xml
 repomix-output.txt
+
+# Git recovery files
+.git/index.backup
+.git/index.corrupt
+.git/index.corrupt.old
+
+# Antigravity / Codex / local scratch
+/scratch/
+/.agents/workflows/
+
+# Local scripts / experiments
+/scripts/
+
+# Internal DaPay documentation
+/AGENTS.md
+/CODE_REVIEW_CHECKLIST.md
+/CODEX_MASTER_PROMPT.md
+/DAPAY_ADMIN_R2_BLUEPRINT.md
+/DAPAY_ADMIN_UI_PROGRESS.md
+/DAPAY_MASTER_SYSTEM_v1.md
+/DAPAY_PROJECT_PROGRESS.md
+/DAPAY_STATUS_STANDARD_v1.md
+/DAPAY_TRANSACTION_LIFECYCLE_v2.md
+/DAPAY_WALLET_COINS_CONTRACT.md

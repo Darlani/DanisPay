@@ -25,6 +25,7 @@ interface WithdrawViewUserProps {
   initialCoinBalance?: number;
   initialWithdrawals?: Withdrawal[];
   isSidebarExpanded?: boolean;
+  onRefresh?: () => void | Promise<void>;
 }
 
 export default function WithdrawViewUser({
@@ -32,6 +33,7 @@ export default function WithdrawViewUser({
   initialCoinBalance = 0,
   initialWithdrawals = [],
   isSidebarExpanded = false,
+  onRefresh,
 }: WithdrawViewUserProps) {
   // SWR DATA HOOK
   const {
@@ -218,7 +220,11 @@ export default function WithdrawViewUser({
         onClose={() => setIsCreateOpen(false)}
         availableBalance={balance}
         onSuccess={() => {
-          void refetch(false);
+          if (onRefresh) {
+            void onRefresh();
+          } else {
+            void refetch(false);
+          }
           setToastMessage("Pengajuan tarik saldo berhasil dibuat!");
           setTimeout(() => setToastMessage(null), 3000);
         }}

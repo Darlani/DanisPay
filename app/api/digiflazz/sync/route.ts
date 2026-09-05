@@ -47,21 +47,30 @@ export async function GET(req: Request) {
     const apiKey = process.env.DIGIFLAZZ_API_KEY as string;
 
 // 1. AMBIL SETTINGS & MASTER DATA
-    const { data: settingsData } = await supabaseAdmin
-      .from('store_settings')
-      .select('margin_json, cashback_percent, balance_digiflazz, is_maintenance_digiflazz, admin_fee_pasca')
-      .limit(1)
-      .single();
+    const [{ data: settingsData }, { data: digiProvider }] = await Promise.all([
+      supabaseAdmin
+        .from('store_settings')
+        .select('margin_json, cashback_percent, balance_digiflazz, is_maintenance_digiflazz, admin_fee_pasca')
+        .limit(1)
+        .single(),
+      supabaseAdmin
+        .from('providers')
+        .select('is_enabled, is_catalog_enabled, is_maintenance')
+        .eq('code', 'DIGIFLAZZ')
+        .maybeSingle()
+    ]);
 
     const globalCashback = settingsData?.cashback_percent || 3;
 
-    if (settingsData?.is_maintenance_digiflazz) {
-      return NextResponse.json({ success: true, message: "MAINTENANCE AKTIF bos!" });
+    if (settingsData?.is_maintenance_digiflazz || digiProvider?.is_maintenance) {
+      return NextResponse.json({ success: true, message: "MAINTENANCE DIGIFLAZZ AKTIF bos!" });
     }
 
-    // --- RESET TABEL ITEMS AGAR ID MULAI DARI 1 ---
-    // Pastikan sudah menjalankan 'ALTER SEQUENCE items_id_seq RESTART WITH 1;' di SQL Editor
-    await supabaseAdmin.from('items').delete().neq('sku', 'KOSONGKAN_SEMUA_DATA');
+    if (digiProvider && (!digiProvider.is_enabled || !digiProvider.is_catalog_enabled)) {
+      return NextResponse.json({ success: true, message: "SINKRONISASI DIGIFLAZZ DINONAKTIFKAN DI REGISTRY!" });
+    }
+
+    // CATATAN: Pembersihan global items (delete all) TELAH DIHAPUS untuk isolasi multi-provider (P.3B)
 
     const { data: dbCategories } = await supabaseAdmin.from('categories').select('id, name');
 const categoryMap = new Map(dbCategories?.map((c: any) => [(c.name || "").toLowerCase().trim(), c.id]));
@@ -141,12 +150,26 @@ const categoryMap = new Map(dbCategories?.map((c: any) => [(c.name || "").toLowe
     const itemsData: any[] = [];
     const productGroups = new Map();
 
+    interface ExistingProduct {
+      id: string;
+      sku: string;
+      name: string;
+      brand_id: number;
+      cost: number;
+      lock_margin: boolean;
+      price: number;
+      margin_item: number;
+      discount: number;
+      cashback?: number;
+    }
+
     // SEKARANG KITA KENALAN PAKAI NAMA + BRAND_ID, TAPI TETAP BACKUP PAKAI SKU!
-    const { data: existingProducts } = await supabaseAdmin.from('product_automatic').select('sku, name, brand_id, lock_margin, price, margin_item, discount');
+    const { data: existingProducts } = await supabaseAdmin.from('product_automatic').select('id, sku, name, brand_id, cost, lock_margin, price, margin_item, discount');
     
     // Buat 2 jaring pengaman agar gembok tidak gampang lepas walau nama diedit di UI
-    const existingNameMap = new Map(existingProducts?.map((p: any) => [`${p.brand_id}-${p.name.toLowerCase().trim()}`, p]));
-    const existingSkuMap = new Map(existingProducts?.map((p: any) => [p.sku, p]));
+    const existingNameMap = new Map((existingProducts as ExistingProduct[] | null)?.map(p => [`${p.brand_id}-${p.name.toLowerCase().trim()}`, p]));
+    const existingSkuMap = new Map((existingProducts as ExistingProduct[] | null)?.map(p => [p.sku, p]));
+    const existingCostMap = new Map((existingProducts as ExistingProduct[] | null)?.map(p => [p.id, Number(p.cost) || 0]));
 
     digiItems.forEach((item: any) => {
       const isHealthy = item.buyer_product_status && item.seller_product_status;
@@ -232,7 +255,9 @@ const categoryMap = new Map(dbCategories?.map((c: any) => [(c.name || "").toLowe
         desc: fullDesc, // Informasi lengkap sesuai dari Digiflazz
         zona_type: zonaTag,
         is_active: true,
-        last_sync: syncTime
+        last_sync: syncTime,
+        provider: 'DIGIFLAZZ',
+        webProductName: webProductName
       });
 
 // --- 2. KELOMPOKKAN UNTUK TABEL PRODUCTS (Cari Modal Termahal) ---
@@ -279,13 +304,14 @@ Array.from(productGroups.values()).forEach((group: any) => {
 
       // 5. UPDATE MODAL SAJA (Pertahankan harga & margin lama agar tidak rusak sebelum di-Bulk Update)
       productsToUpsert.push({
+        id: existing?.id,
         sku: group.baseSku,
         name: group.webName, 
         brand: group.brand || "Umum", 
         sub_brand: group.subBrandSlug,
         brand_id: bInfo.id,
         category_id: finalCategoryId,
-        cost: group.maxModal, // <--- FOKUS UPDATE MODAL TERBARU
+        cost: Math.max(Number(existing?.cost || 0), Number(group.maxModal || 0)), // Pertahankan modal tertinggi cross-provider
         
         // --- PERTAHANKAN DATA LAMA ---
         price: existing?.price || 0,
@@ -306,37 +332,109 @@ Array.from(productGroups.values()).forEach((group: any) => {
     try {
         const chunkSize = 500; // Pecah pengiriman jadi 500 produk per kloter biar Supabase bernafas
 
-// Saring data duplikat dari Digiflazz sebelum masuk gudang agar aman 100%
-        const uniqueItemsData = Array.from(new Map(itemsData.map(item => [item.sku, item])).values());
-
-        // Chunking untuk tabel ITEMS
-        for (let i = 0; i < uniqueItemsData.length; i += chunkSize) {
-            const chunk = uniqueItemsData.slice(i, i + chunkSize);
-            const { error: errItems } = await supabaseAdmin.from('items').insert(chunk);
-            if (errItems) console.error("PERINGATAN GUDANG ITEMS:", errItems.message); // Tidak throw error agar etalase tetap update!
-        }
-
-// Chunking untuk tabel PRODUCTS dengan Audit Log [cite: 2026-03-06]
+        // Chunking untuk tabel PRODUCTS terlebih dahulu agar ID produk terbit
+        const upsertedProductMap = new Map<string, string>();
         for (let i = 0; i < productsToUpsert.length; i += chunkSize) {
             const chunk = productsToUpsert.slice(i, i + chunkSize);
             console.log(`📦 [SYNC] Mengirim Kloter ${i / chunkSize + 1}... (${i} / ${productsToUpsert.length} Produk)`);
-            
-            // JANGKARNYA PINDAH KE NAMA, BIAR ID UUID TIDAK BERUBAH-UBAH! [cite: 2026-03-13]
-      const { error: errProducts } = await supabaseAdmin.from('product_automatic').upsert(chunk, { onConflict: 'name' });
+
+            const { data: upserted, error: errProducts } = await supabaseAdmin
+              .from('product_automatic')
+              .upsert(chunk, { onConflict: 'name' })
+              .select('id, name, brand_id');
             if (errProducts) throw new Error("Gagal upsert Products: " + errProducts.message);
+            if (upserted) {
+              for (const p of upserted) {
+                upsertedProductMap.set(`${p.brand_id}-${(p.name || '').toLowerCase().trim()}`, p.id);
+              }
+            }
         }
 
-        // KEMBALIKAN BARIS INI: Membersihkan etalase dari produk yang sudah tutup/hilang di Digiflazz
-        const { error: errorDelete } = await supabaseAdmin.from('product_automatic')
-            .delete()
-            .eq('provider', 'DIGIFLAZZ')
-            .lt('updated_at', syncTime); 
+        // Saring data duplikat dari Digiflazz sebelum masuk gudang dan pasangkan product_automatic_id
+        const uniqueItemsData = Array.from(new Map(itemsData.map(item => [item.sku, item])).values()).map(item => {
+          const bInfo = brandIdMap.get(item.brand_slug);
+          const targetKey = `${bInfo?.id}-${item.webProductName.toLowerCase().trim()}`;
+          const targetId = upsertedProductMap.get(targetKey) || null;
+          return {
+            sku: item.sku,
+            brand_slug: item.brand_slug,
+            name: item.name,
+            modal: item.modal,
+            sub_brand_slug: item.sub_brand_slug,
+            desc: item.desc,
+            zona_type: item.zona_type,
+            is_active: item.is_active,
+            last_sync: item.last_sync,
+            provider: item.provider,
+            product_automatic_id: targetId
+          };
+        });
+
+        // 7. Provider-Scoped Upsert ke Tabel product_providers_items (UNIQUE: provider, sku)
+        for (let i = 0; i < uniqueItemsData.length; i += chunkSize) {
+            const chunk = uniqueItemsData.slice(i, i + chunkSize);
+            const { error: errItems } = await supabaseAdmin
+              .from('product_providers_items')
+              .upsert(chunk, { onConflict: 'provider,sku' });
+            if (errItems) console.error("PERINGATAN GUDANG ITEMS:", errItems.message);
+        }
+
+        // 8. Provider-Scoped Stale Deactivation (HANYA DIGIFLAZZ)
+        // Amunisi Digiflazz yang tidak hadir dalam feed sync kali ini dinonaktifkan
+        await supabaseAdmin
+          .from('product_providers_items')
+          .update({ is_active: false })
+          .eq('provider', 'DIGIFLAZZ')
+          .or(`last_sync.lt.${syncTime},last_sync.is.null`);
+
+        // 9. Rekonsiliasi Universal MAX-Cost Across All Active Mapped Items Across All Providers
+        const { data: allActiveMappedItems } = await supabaseAdmin
+          .from('product_providers_items')
+          .select('product_automatic_id, modal')
+          .eq('is_active', true)
+          .not('product_automatic_id', 'is', null);
+
+        if (allActiveMappedItems && allActiveMappedItems.length > 0) {
+          const universalMaxCostMap = new Map<string, number>();
+          for (const it of allActiveMappedItems) {
+            if (!it.product_automatic_id) continue;
+            const currentMax = universalMaxCostMap.get(it.product_automatic_id) || 0;
+            const m = Number(it.modal) || 0;
+            if (m > currentMax) universalMaxCostMap.set(it.product_automatic_id, m);
+          }
+
+          const costUpdates: { id: string; cost: number }[] = [];
+          for (const [prodId, correctCost] of universalMaxCostMap.entries()) {
+            const currentCost = existingCostMap.get(prodId);
+            if (currentCost !== correctCost) {
+              costUpdates.push({ id: prodId, cost: correctCost });
+            }
+          }
+
+          for (let i = 0; i < costUpdates.length; i += 200) {
+            const chunk = costUpdates.slice(i, i + 200);
+            await Promise.all(
+              chunk.map(u => supabaseAdmin.from('product_automatic').update({ cost: u.cost, updated_at: syncTime }).eq('id', u.id))
+            );
+          }
+        }
+
+        // 10. Perbarui Telemetri Provider Registry (DIGIFLAZZ Sukses)
+        await supabaseAdmin
+          .from('providers')
+          .update({
+            last_sync_at: syncTime,
+            last_sync_status: 'SUCCESS',
+            last_error: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('code', 'DIGIFLAZZ');
 
         // --- CATAT LOG AKTIVITAS MANUAL SYNC ---
         try {
           await supabaseAdmin.from('activity_logs').insert([{
             action: "MANUAL SYNC",
-            details: `Admin berhasil sinkronisasi ${productsToUpsert.length} produk dari Digiflazz via Dashboard.`,
+            details: `Admin berhasil sinkronisasi ${productsToUpsert.length} produk dari Digiflazz via Dashboard (Provider-Scoped).`,
             created_at: new Date().toISOString()
           }]);
         } catch (logErr) {
@@ -346,13 +444,31 @@ Array.from(productGroups.values()).forEach((group: any) => {
         return NextResponse.json({ 
                     success: true, 
                     updated: productsToUpsert.length,
-                    message: "MASTER SYNC: Etalase dibersihkan! Pra & Pasca siap jual." 
+                    message: "MASTER SYNC: Provider-Scoped Sync selesai! Pra & Pasca siap jual."
                 });
 
-    } catch (dbErr: any) {
-        return NextResponse.json({ success: false, error: dbErr.message }, { status: 500 });
+    } catch (dbErr: unknown) {
+        const dbErrorMessage = dbErr instanceof Error ? dbErr.message : 'Database error';
+        return NextResponse.json({ success: false, error: dbErrorMessage }, { status: 500 });
     }
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown sync error';
+
+    // Catat kegagalan ke telemetri public.providers tanpa merusak gudang items
+    try {
+      await supabaseAdmin
+        .from('providers')
+        .update({
+          last_sync_at: syncTime,
+          last_sync_status: 'FAILED',
+          last_error: errorMessage,
+          updated_at: new Date().toISOString()
+        })
+        .eq('code', 'DIGIFLAZZ');
+    } catch (telemetryErr) {
+      console.error("Gagal update telemetri providers:", telemetryErr);
+    }
+
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
 }

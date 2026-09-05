@@ -1,6 +1,7 @@
 import {
   NextResponse,
 } from "next/server";
+import { requireAdminOrManager } from "@/utils/serverAuth";
 
 import {
   createClient,
@@ -12,7 +13,11 @@ const supabase =
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireAdminOrManager(req);
+  if (!auth.ok) {
+    return NextResponse.json({ success: false, error: auth.message }, { status: auth.status });
+  }
   try {
     const {
       data,
@@ -73,6 +78,10 @@ export async function GET() {
 export async function PUT(
   request: Request
 ) {
+  const auth = await requireAdminOrManager(request);
+  if (!auth.ok) {
+    return NextResponse.json({ success: false, error: auth.message }, { status: auth.status });
+  }
   try {
 
     const body =

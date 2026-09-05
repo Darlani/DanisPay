@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -10,9 +10,13 @@ import {
 
 interface UseSettingsDataProps {
   initialProfile?: UserProfile | null;
+  onRefresh?: () => void | Promise<void>;
 }
 
-export function useSettingsData({ initialProfile }: UseSettingsDataProps = {}) {
+export function useSettingsData({
+  initialProfile,
+  onRefresh,
+}: UseSettingsDataProps = {}) {
   // SWR State: Instant Initial Render from initialProfile
   const [profile, setProfile] = useState<UserProfile>(() => {
     return initialProfile || {};
@@ -37,10 +41,7 @@ export function useSettingsData({ initialProfile }: UseSettingsDataProps = {}) {
     }, 3500);
   }, []);
 
-  // Track if initial revalidation has run
-  const hasRevalidatedRef = useRef(false);
-
-  // Silent Background Revalidation (SWR)
+  // Revalidation / Refresh (preserved for manual refresh / mutation)
   const revalidate = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) {
       setIsRefreshing(true);
@@ -105,13 +106,28 @@ export function useSettingsData({ initialProfile }: UseSettingsDataProps = {}) {
     }
   }, [showToast]);
 
-  // Trigger silent SWR revalidation once on mount
+  // Load notification preferences from client session on mount
   useEffect(() => {
-    if (!hasRevalidatedRef.current) {
-      hasRevalidatedRef.current = true;
-      void revalidate(false);
+    async function loadSessionNotifications() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const userMetaNotifications = session?.user?.user_metadata
+          ?.notifications as Partial<NotificationPreferences> | undefined;
+
+        if (userMetaNotifications) {
+          setNotifications((prev) => ({
+            ...prev,
+            ...userMetaNotifications,
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to load session notifications:", err);
+      }
     }
-  }, [revalidate]);
+    void loadSessionNotifications();
+  }, []);
 
   // Synchronize when initialProfile changes from parent
   useEffect(() => {
@@ -164,6 +180,9 @@ export function useSettingsData({ initialProfile }: UseSettingsDataProps = {}) {
         // Optimistically update local profile state
         setProfile((prev) => ({ ...prev, full_name: trimmed }));
         showToast("success", "Profil berhasil diperbarui!");
+        if (onRefresh) {
+          void onRefresh();
+        }
         return true;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Gagal memperbarui nama profil.";
@@ -171,7 +190,7 @@ export function useSettingsData({ initialProfile }: UseSettingsDataProps = {}) {
         return false;
       }
     },
-    [showToast]
+    [onRefresh, showToast]
   );
 
   // Update Password with Secure Cryptographic Re-Authentication

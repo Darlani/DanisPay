@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
+import { requireAdminOrManager } from "@/utils/serverAuth";
 import { supabaseAdmin } from "@/utils/supabaseAdmin";
 
-function isAuthorized(req: Request) {
-  const cookie = req.headers.get("cookie") || "";
 
-  return (
-    cookie.includes("isAdmin=true") ||
-    cookie.toLowerCase().includes("userrole=manager")
-  );
-}
 
 function toNullableNumber(value: unknown): number | null {
   if (value === "" || value === null || value === undefined) {
@@ -54,7 +48,8 @@ function parseDatabaseId(value: string | null) {
 
 // GET: Ambil semua data pembayaran
 export async function GET(req: Request) {
-  if (!isAuthorized(req)) {
+  const auth = await requireAdminOrManager(req);
+  if (!auth.ok) {
     return NextResponse.json(
       { error: "Akses ditolak." },
       { status: 403 }
@@ -88,7 +83,8 @@ export async function GET(req: Request) {
 
 // POST: Tambah metode pembayaran baru
 export async function POST(req: Request) {
-  if (!isAuthorized(req)) {
+  const auth = await requireAdminOrManager(req);
+  if (!auth.ok) {
     return NextResponse.json(
       { error: "Akses ditolak." },
       { status: 403 }
@@ -199,7 +195,8 @@ export async function POST(req: Request) {
 
 // PATCH: Update data pembayaran
 export async function PATCH(req: Request) {
-  if (!isAuthorized(req)) {
+  const auth = await requireAdminOrManager(req);
+  if (!auth.ok) {
     return NextResponse.json(
       { error: "Akses ditolak." },
       { status: 403 }
@@ -329,7 +326,8 @@ export async function PATCH(req: Request) {
 
 // DELETE: Hapus metode pembayaran
 export async function DELETE(req: Request) {
-  if (!isAuthorized(req)) {
+  const auth = await requireAdminOrManager(req);
+  if (!auth.ok) {
     return NextResponse.json(
       { error: "Akses ditolak." },
       { status: 403 }

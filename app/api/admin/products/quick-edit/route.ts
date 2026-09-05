@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
+import { requireAdminOrManager } from "@/utils/serverAuth";
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 export async function POST(req: Request) {
   try {
     // --- SATPAM TERPADU (Wajib Gembok!) ---
-    const cookieStore = req.headers.get('cookie') || "";
-    const isAuthorized = cookieStore.includes('isAdmin=true') || cookieStore.toLowerCase().includes('userrole=manager');
-
-    if (!isAuthorized) {
-      return NextResponse.json({ error: "Akses Ditolak! Lu bukan Admin/Manager Bos." }, { status: 403 });
+    const auth = await requireAdminOrManager(req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.message }, { status: auth.status });
     }
 
     const { id, field, value } = await req.json(); // globalCashback dari frontend diabaikan
@@ -38,8 +37,18 @@ export async function POST(req: Request) {
     let currentCost = Number(isSemiAuto ? (product.cost_numeric || 0) : (product.cost || 0));
     let currentDiscount = Number(product.discount || 0);
 
-    // 2. SET FIELD YANG DIEDIT BOS
-    if (field === 'lock_margin') {
+    // 2. SET FIELD YANG DIEDIT BOS (Validasi field ketat)
+    const allowedFields = ['is_active', 'lock_margin', 'discount', 'margin_item', 'promo_label', 'cashback'];
+    if (!allowedFields.includes(field)) {
+      return NextResponse.json({ success: false, error: `Field ${field} tidak didukung untuk quick-edit.` }, { status: 400 });
+    }
+
+    if (field === 'is_active') {
+      if (typeof value !== 'boolean') {
+        return NextResponse.json({ success: false, error: "Nilai is_active harus berupa boolean." }, { status: 400 });
+      }
+      updateData.is_active = value;
+    } else if (field === 'lock_margin') {
         updateData.lock_margin = value === true || value === 'true';
     } else if (field === 'discount') {
         updateData.discount = Number(value);

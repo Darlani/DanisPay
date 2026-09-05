@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   LayoutDashboard,
   Wallet,
@@ -49,19 +50,11 @@ const items: BottomNavItem[] = [
 
 type UserBottomNavProps = {
   active?: string;
-  onNavigate?: (menu: string) => void;
 };
 
 export default function UserBottomNav({
   active = "overview",
-  onNavigate,
 }: UserBottomNavProps) {
-  const handleNavigate = (
-    menu: string,
-  ) => {
-    onNavigate?.(menu);
-  };
-
   return (
     <nav
       className="fixed bottom-2.5 xs:bottom-3 left-2.5 xs:left-3 right-2.5 xs:right-3 z-50 flex rounded-2xl xs:rounded-3xl border border-slate-200/90 bg-white/95 p-1.5 xs:p-2 shadow-[0_12px_32px_rgba(15,23,42,0.14)] backdrop-blur-md md:hidden sm:left-4 sm:right-4"
@@ -73,12 +66,10 @@ export default function UserBottomNav({
           item.key === active;
 
         return (
-          <button
+          <Link
             key={item.key}
-            type="button"
-            onClick={() =>
-              handleNavigate(item.key)
-            }
+            href={item.key === "overview" ? "/user" : `/user?tab=${item.key}`}
+            scroll={false}
             aria-current={
               selected
                 ? "page"
@@ -110,7 +101,7 @@ export default function UserBottomNav({
             >
               {item.label}
             </span>
-          </button>
+          </Link>
         );
       })}
     </nav>

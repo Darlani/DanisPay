@@ -35,6 +35,7 @@ interface WalletViewUserProps {
   initialCoinBalance?: number | string | null;
   initialLogs?: BalanceLog[];
   isSidebarExpanded?: boolean;
+  onRefresh?: () => void | Promise<void>;
 }
 
 function computeEntriesFromLogs(rawLogs: BalanceLog[]): WalletEntry[] {
@@ -101,6 +102,7 @@ export default function WalletViewUser({
   initialCoinBalance = 0,
   initialLogs = [],
   isSidebarExpanded = false,
+  onRefresh,
 }: WalletViewUserProps) {
   // Local state override for manual refresh
   const [localLogs, setLocalLogs] = useState<BalanceLog[] | null>(null);
@@ -161,6 +163,27 @@ export default function WalletViewUser({
         setRefreshing(true);
       }
 
+      if (onRefresh) {
+        try {
+          await onRefresh();
+          setLocalLogs(null);
+          setLocalBalance(null);
+          setLocalCoinBalance(null);
+        } catch (error) {
+          console.error("WalletViewUser refresh error:", error);
+          if (isManual) {
+            showToast(
+              error instanceof Error
+                ? error.message
+                : "Terjadi kesalahan saat memuat data.",
+            );
+          }
+        } finally {
+          setRefreshing(false);
+        }
+        return;
+      }
+
       try {
         const {
           data: { session },
@@ -212,7 +235,7 @@ export default function WalletViewUser({
         setRefreshing(false);
       }
     },
-    [showToast],
+    [onRefresh, showToast],
   );
 
   // SWR: Only trigger background fetch if initial memory is empty (e.g. direct page refresh on wallet tab)

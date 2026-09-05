@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
+import { requireAdminOrManager } from "@/utils/serverAuth";
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 export async function POST(req: Request) {
   try {
     // --- SATPAM INTERNAL (WAJIB ADA!) ---
-    const cookieStore = req.headers.get('cookie') || "";
-    const isAuthorized = cookieStore.includes('isAdmin=true') || cookieStore.toLowerCase().includes('userrole=manager');
-
-    if (!isAuthorized) {
-      return NextResponse.json({ error: "Akses Ditolak! Lu bukan Admin/Manager Bos." }, { status: 403 });
+    const auth = await requireAdminOrManager(req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.message }, { status: auth.status });
     }
 
     // globalCashback dari frontend kita abaikan, ambil dari DB langsung

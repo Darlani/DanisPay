@@ -259,7 +259,6 @@ const handleCheckout = async (customPayload?: any) => {
       // 2. TANGKAP DATA TITIPAN DARI PASCABAYAR
       const activePrice = customPayload?.override_price !== undefined ? customPayload.override_price : totalPrice;
       const activePayment = customPayload?.override_payment || selectedPayment;
-      const activeCost = customPayload?.override_cost !== undefined ? customPayload.override_cost : (selectedItem?.cost || 0);
       const activeLabel = customPayload?.override_label || selectedItem?.label || "Tagihan Pascabayar";
       const activeSku = selectedItem?.sku || productData?.items?.[0]?.sku || "PASCABAYAR";
       
@@ -294,7 +293,6 @@ const handleCheckout = async (customPayload?: any) => {
           product_name: productData.name, 
           item_label: activeLabel,
           customer_no: combinedCustomerNo, 
-          buy_price: activeCost, 
           price: activePrice, 
           payment_method: paymentMethodName,
           user_contact: email || `GUEST-${browserData.deviceId.slice(0, 8)}`, 

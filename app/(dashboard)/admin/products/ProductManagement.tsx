@@ -1,10 +1,21 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
-import { 
-  Package, Plus, Search, Trash2, Edit3, Save, X, 
-  Layers, Loader2, TrendingUp, Zap, DollarSign, Activity, Lock, Unlock, CheckCircle2
+import {
+  Package, Plus, Search, Trash2, Edit3, Save, X,
+  Layers, Loader2, TrendingUp, Zap, DollarSign, Activity, Lock, Unlock, CheckCircle2,
+  Server
 } from "lucide-react";
+import ProductCardMobile, { ProductItem } from "./components/ProductCardMobile";
+
+interface ProviderRow {
+  code: string;
+  name: string;
+  is_enabled: boolean;
+  is_execution_enabled: boolean;
+  is_maintenance: boolean;
+}
 
 interface MarginConfig {
   label: string;
@@ -16,14 +27,92 @@ interface MarginConfig {
   maxDisc: number;
 }
 
+interface ReferenceCacheData {
+  categories: any[];
+  brandsList: any[];
+  providersList: ProviderRow[];
+  allStrategies: any;
+  globalCashback: number;
+}
+
+const DEFAULT_STRATEGIES: any = {
+  DEFAULT: [
+    { label: "< 10rb", minCost: 0, maxCost: 9999, min: 20, max: 30, minDisc: 2, maxDisc: 5 },
+    { label: "10rb-50rb", minCost: 10000, maxCost: 50000, min: 18, max: 23, minDisc: 3, maxDisc: 7 },
+    { label: "50rb-100rb", minCost: 50001, maxCost: 100000, min: 15, max: 20, minDisc: 5, maxDisc: 10 },
+    { label: "100rb-500rb", minCost: 100001, maxCost: 500000, min: 13, max: 17, minDisc: 5, maxDisc: 15 },
+    { label: "500rb-1jt", minCost: 500001, maxCost: 1000000, min: 10, max: 15, minDisc: 2, maxDisc: 8 },
+    { label: "> 1jt", minCost: 1000001, maxCost: 999999999, min: 9, max: 11, minDisc: 1, maxDisc: 5 },
+  ],
+  "DIGITAL SERVICES": [
+    { label: "SERVICE", minCost: 0, maxCost: 99999999, min: 10, max: 20, minDisc: 1, maxDisc: 5 },
+  ],
+  "E-WALLET & SALDO": [
+    { label: "KECIL", minCost: 0, maxCost: 9999, min: 25, max: 35, minDisc: 5, maxDisc: 10 },
+    { label: "MEDIUM", minCost: 10000, maxCost: 50000, min: 15, max: 25, minDisc: 5, maxDisc: 12 },
+    { label: "SULTAN", minCost: 50001, maxCost: 100000, min: 10, max: 18, minDisc: 3, maxDisc: 8 },
+    { label: "WHALE", minCost: 100001, maxCost: 500000, min: 8, max: 12, minDisc: 1, maxDisc: 5 },
+    { label: "PAUS", minCost: 500001, maxCost: 999999999, min: 9, max: 11, minDisc: 1, maxDisc: 5 },
+  ],
+  "ENTERTAINMENT & SUBSCRIPTION": [
+    { label: "STREAM/VOD", minCost: 0, maxCost: 100000, min: 15, max: 25, minDisc: 3, maxDisc: 7 },
+    { label: "EVENT/TIKET", minCost: 100001, maxCost: 99999999, min: 10, max: 15, minDisc: 1, maxDisc: 5 },
+  ],
+  GAME: [
+    { label: "KECIL", minCost: 0, maxCost: 9999, min: 25, max: 35, minDisc: 5, maxDisc: 10 },
+    { label: "MEDIUM", minCost: 10000, maxCost: 50000, min: 15, max: 25, minDisc: 5, maxDisc: 12 },
+    { label: "SULTAN", minCost: 50001, maxCost: 100000, min: 10, max: 18, minDisc: 3, maxDisc: 8 },
+    { label: "WHALE", minCost: 100001, maxCost: 500000, min: 8, max: 12, minDisc: 1, maxDisc: 5 },
+    { label: "PAUS", minCost: 500001, maxCost: 999999999, min: 9, max: 11, minDisc: 1, maxDisc: 5 },
+  ],
+  MARKETPLACE: [
+    { label: "GIFT CARD", minCost: 0, maxCost: 99999999, min: 3, max: 6, minDisc: 0, maxDisc: 1 },
+  ],
+  OTHER: [
+    { label: "LAINNYA", minCost: 0, maxCost: 99999999, min: 10, max: 15, minDisc: 0, maxDisc: 0 },
+  ],
+  "PRODUCTIVITY & SOFTWARE": [
+    { label: "TOOLS", minCost: 0, maxCost: 99999999, min: 15, max: 30, minDisc: 2, maxDisc: 8 },
+  ],
+  "PULSA & DATA SELULER": [
+    { label: "SANGAT KECIL", minCost: 0, maxCost: 9999, min: 20, max: 30, minDisc: 2, maxDisc: 5 },
+    { label: "KECIL", minCost: 10000, maxCost: 50000, min: 18, max: 23, minDisc: 3, maxDisc: 7 },
+    { label: "MEDIUM", minCost: 50001, maxCost: 100000, min: 15, max: 20, minDisc: 5, maxDisc: 10 },
+    { label: "BESAR", minCost: 100001, maxCost: 500000, min: 13, max: 17, minDisc: 5, maxDisc: 15 },
+    { label: "SANGAT BESAR", minCost: 500001, maxCost: 999999999, min: 10, max: 15, minDisc: 2, maxDisc: 8 },
+  ],
+  "SOCIAL & KONTEN": [
+    { label: "BOOSTING", minCost: 0, maxCost: 50000, min: 30, max: 60, minDisc: 5, maxDisc: 15 },
+    { label: "PREMIUM", minCost: 50001, maxCost: 99999999, min: 20, max: 35, minDisc: 5, maxDisc: 10 },
+  ],
+  "TAGIHAN PASCABAYAR": [
+    { label: "BILL", minCost: 0, maxCost: 99999999, min: 1, max: 2, minDisc: 0, maxDisc: 0 },
+  ],
+  "TAGIHAN PRABAYAR": [
+    { label: "TOKEN", minCost: 0, maxCost: 99999999, min: 1, max: 3, minDisc: 0, maxDisc: 0 },
+  ],
+  TRAVEL: [
+    { label: "TIKET", minCost: 0, maxCost: 99999999, min: 3, max: 7, minDisc: 0, maxDisc: 2 },
+  ],
+  "VOUCHER & GIFT CARD": [
+    { label: "DIGITAL", minCost: 0, maxCost: 99999999, min: 8, max: 15, minDisc: 1, maxDisc: 3 },
+  ]
+};
+
+// Module-level in-memory reference cache
+let moduleReferenceCache: ReferenceCacheData | null = null;
+let referenceInFlightPromise: Promise<void> | null = null;
+
 export default function ProductManagement() {
   const [products, setProducts] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [brandsList, setBrandsList] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>(() => moduleReferenceCache ? moduleReferenceCache.categories : []);
+  const [brandsList, setBrandsList] = useState<any[]>(() => moduleReferenceCache ? moduleReferenceCache.brandsList : []);
+  const [providersList, setProvidersList] = useState<ProviderRow[]>(() => moduleReferenceCache ? moduleReferenceCache.providersList : []);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeProvider, setActiveProvider] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [isBulking, setIsBulking] = useState(false);
   const [checkingSku, setCheckingSku] = useState(false);
@@ -33,268 +122,327 @@ export default function ProductManagement() {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [savingStrategy, setSavingStrategy] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'updated_at', direction: 'desc' });
+  const [page, setPage] = useState(0);
+  const [pageSize] = useState(50);
+  const [totalRows, setTotalRows] = useState(0);
+  const requestGen = useRef(0);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // In-flight request coalescing for product queries
+  const productInFlightRef = useRef<{ key: string; promise: Promise<void> } | null>(null);
+
+  const [potentialProfit, setPotentialProfit] = useState<{
+    totalModal: number;
+    totalOmzet: number;
+    totalProfit: number;
+    totalItems: number;
+  }>({ totalModal: 0, totalOmzet: 0, totalProfit: 0, totalItems: 0 });
+  const [profitLoading, setProfitLoading] = useState(true);
+  const [profitError, setProfitError] = useState<string | null>(null);
+  const profitGenRef = useRef(0);
 
   // --- STATE UTAMA ---
   const [formData, setFormData] = useState({
     name: "", brand_id: "", sku: "", price: "", cost: "", margin_item: "", category_id: "", stock: "999",
-    discount: "0", 
+    discount: "0",
     lock_margin: false,
     sub_brand: "",
-    provider: "DIGIFLAZZ"
+    provider: "DIGIFLAZZ",
+    is_active: true,
+    source_table: "product_automatic" as "product_automatic" | "product_semi_auto"
   });
+  const [togglingActiveId, setTogglingActiveId] = useState<string | null>(null);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-const [allStrategies, setAllStrategies] = useState<any>({
-    DEFAULT: [
-      { label: "< 10rb", minCost: 0, maxCost: 9999, min: 20, max: 30, minDisc: 2, maxDisc: 5 },
-      { label: "10rb-50rb", minCost: 10000, maxCost: 50000, min: 18, max: 23, minDisc: 3, maxDisc: 7 },
-      { label: "50rb-100rb", minCost: 50001, maxCost: 100000, min: 15, max: 20, minDisc: 5, maxDisc: 10 },
-      { label: "100rb-500rb", minCost: 100001, maxCost: 500000, min: 13, max: 17, minDisc: 5, maxDisc: 15 },
-      { label: "500rb-1jt", minCost: 500001, maxCost: 1000000, min: 10, max: 15, minDisc: 2, maxDisc: 8 },
-      { label: "> 1jt", minCost: 1000001, maxCost: 999999999, min: 9, max: 11, minDisc: 1, maxDisc: 5 },
-    ],
-    "DIGITAL SERVICES": [
-      { label: "SERVICE", minCost: 0, maxCost: 99999999, min: 10, max: 20, minDisc: 1, maxDisc: 5 },
-    ],
-    "E-WALLET & SALDO": [
-      { label: "KECIL", minCost: 0, maxCost: 9999, min: 25, max: 35, minDisc: 5, maxDisc: 10 },
-      { label: "MEDIUM", minCost: 10000, maxCost: 50000, min: 15, max: 25, minDisc: 5, maxDisc: 12 },
-      { label: "SULTAN", minCost: 50001, maxCost: 100000, min: 10, max: 18, minDisc: 3, maxDisc: 8 },
-      { label: "WHALE", minCost: 100001, maxCost: 500000, min: 8, max: 12, minDisc: 1, maxDisc: 5 },
-      { label: "PAUS", minCost: 500001, maxCost: 999999999, min: 9, max: 11, minDisc: 1, maxDisc: 5 },
-    ],
-    "ENTERTAINMENT & SUBSCRIPTION": [ 
-      { label: "STREAM/VOD", minCost: 0, maxCost: 100000, min: 15, max: 25, minDisc: 3, maxDisc: 7 },
-      { label: "EVENT/TIKET", minCost: 100001, maxCost: 99999999, min: 10, max: 15, minDisc: 1, maxDisc: 5 },
-    ],
-    GAME: [
-      { label: "KECIL", minCost: 0, maxCost: 9999, min: 25, max: 35, minDisc: 5, maxDisc: 10 },
-      { label: "MEDIUM", minCost: 10000, maxCost: 50000, min: 15, max: 25, minDisc: 5, maxDisc: 12 },
-      { label: "SULTAN", minCost: 50001, maxCost: 100000, min: 10, max: 18, minDisc: 3, maxDisc: 8 },
-      { label: "WHALE", minCost: 100001, maxCost: 500000, min: 8, max: 12, minDisc: 1, maxDisc: 5 },
-      { label: "PAUS", minCost: 500001, maxCost: 999999999, min: 9, max: 11, minDisc: 1, maxDisc: 5 },
-    ],
-    MARKETPLACE: [
-      { label: "GIFT CARD", minCost: 0, maxCost: 99999999, min: 3, max: 6, minDisc: 0, maxDisc: 1 },
-    ],
-    OTHER: [
-      { label: "LAINNYA", minCost: 0, maxCost: 99999999, min: 10, max: 15, minDisc: 0, maxDisc: 0 },
-    ],
-    "PRODUCTIVITY & SOFTWARE": [
-      { label: "TOOLS", minCost: 0, maxCost: 99999999, min: 15, max: 30, minDisc: 2, maxDisc: 8 },
-    ],
-    "PULSA & DATA SELULER": [
-      { label: "SANGAT KECIL", minCost: 0, maxCost: 9999, min: 20, max: 30, minDisc: 2, maxDisc: 5 },
-      { label: "KECIL", minCost: 10000, maxCost: 50000, min: 18, max: 23, minDisc: 3, maxDisc: 7 },
-      { label: "MEDIUM", minCost: 50001, maxCost: 100000, min: 15, max: 20, minDisc: 5, maxDisc: 10 },
-      { label: "BESAR", minCost: 100001, maxCost: 500000, min: 13, max: 17, minDisc: 5, maxDisc: 15 },
-      { label: "SANGAT BESAR", minCost: 500001, maxCost: 999999999, min: 10, max: 15, minDisc: 2, maxDisc: 8 },
-    ],
-    "SOCIAL & KONTEN": [
-      { label: "BOOSTING", minCost: 0, maxCost: 50000, min: 30, max: 60, minDisc: 5, maxDisc: 15 },
-      { label: "PREMIUM", minCost: 50001, maxCost: 99999999, min: 20, max: 35, minDisc: 5, maxDisc: 10 },
-    ],
-    "TAGIHAN PASCABAYAR": [
-      { label: "BILL", minCost: 0, maxCost: 99999999, min: 1, max: 2, minDisc: 0, maxDisc: 0 },
-    ],
-    "TAGIHAN PRABAYAR": [
-      { label: "TOKEN", minCost: 0, maxCost: 99999999, min: 1, max: 3, minDisc: 0, maxDisc: 0 },
-    ],
-    TRAVEL: [
-      { label: "TIKET", minCost: 0, maxCost: 99999999, min: 3, max: 7, minDisc: 0, maxDisc: 2 },
-    ],
-    "VOUCHER & GIFT CARD": [
-      { label: "DIGITAL", minCost: 0, maxCost: 99999999, min: 8, max: 15, minDisc: 1, maxDisc: 3 },
-    ]
-});
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]));
+  }, []);
+  const [allStrategies, setAllStrategies] = useState<any>(() => moduleReferenceCache ? moduleReferenceCache.allStrategies : DEFAULT_STRATEGIES);
 
   const [activeStrategyName, setActiveStrategyName] = useState("DEFAULT");
-  const [marginConfigs, setMarginConfigs] = useState(allStrategies.DEFAULT);
-  const [digiBalance, setDigiBalance] = useState<number | null>(null);
-  const [globalCashback, setGlobalCashback] = useState(3);
+  const [marginConfigs, setMarginConfigs] = useState<MarginConfig[]>(() => {
+    if (moduleReferenceCache?.allStrategies?.DEFAULT) {
+      return moduleReferenceCache.allStrategies.DEFAULT;
+    }
+    return DEFAULT_STRATEGIES.DEFAULT;
+  });
+  const [globalCashback, setGlobalCashback] = useState(() => moduleReferenceCache ? moduleReferenceCache.globalCashback : 3);
   const [quickEditing, setQuickEditing] = useState<{id: string, field: string} | null>(null);
   const [quickValue, setQuickValue] = useState<string | number>("");
-  const [logs, setLogs] = useState<any[]>([]);
   const [toastMsg, setToastMsg] = useState<string | null>(null); // State untuk Notifikasi Toast
+
+  const getAuthHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return {
+      'Content-Type': 'application/json',
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+    };
+  };
 
   useEffect(() => {
     if (allStrategies[activeStrategyName]) {
       setMarginConfigs(allStrategies[activeStrategyName]);
     } else {
-      setMarginConfigs(allStrategies.DEFAULT);
+      setMarginConfigs(allStrategies.DEFAULT || DEFAULT_STRATEGIES.DEFAULT);
       setActiveStrategyName("DEFAULT");
     }
   }, [activeStrategyName, allStrategies]);
 
   const getMarginRange = (cost: number) => {
     const config = marginConfigs.find((c: any) => cost >= c.minCost && cost <= c.maxCost);
-    return config 
-      ? { min: config.min, max: config.max, minDisc: config.minDisc || 0, maxDisc: config.maxDisc || 0 } 
+    return config
+      ? { min: config.min, max: config.max, minDisc: config.minDisc || 0, maxDisc: config.maxDisc || 0 }
       : { min: 10, max: 15, minDisc: 0, maxDisc: 0 };
   };
 
   const resetForm = () => {
     setIsEditing(null);
-    setFormData({ 
-      name: "", brand_id: "", sku: "", price: "", cost: "", margin_item: "", category_id: "", stock: "999", 
-      discount: "0", 
-      lock_margin: false, 
-      sub_brand: "", 
-      provider: "DIGIFLAZZ" 
+    setFormData({
+      name: "", brand_id: "", sku: "", price: "", cost: "", margin_item: "", category_id: "", stock: "999",
+      discount: "0",
+      lock_margin: false,
+      sub_brand: "",
+      provider: "DIGIFLAZZ",
+      is_active: true,
+      source_table: "product_automatic"
     });
   };
 
-  const fetchLogs = async () => {
-    const { data } = await supabase
-      .from('activity_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(5);
-    if (data) setLogs(data);
-  };
 
-async function fetchLiveBalance() {
-    try {
-      const res = await fetch('/api/digiflazz/balance'); 
-      const data = await res.json();
-      
-      if (data.success) {
-        // Langsung set ke state, gak perlu pusing update supabase di sini lagi bos!
-        setDigiBalance(data.balance); 
-      } else {
-        alert("CEK SALDO GAGAL: " + (data.message || data.error));
-      }
-    } catch (err) {
-      console.error("Gagal sinkron saldo:", err);
-      alert("Server API Balance tidak merespon!");
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearch, activeCategory, activeProvider, sortConfig]);
+
+  // Memoize financial computations for the current page products
+  const financialsMap = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof computeRawFinancials>>();
+    for (const item of products) {
+      map.set(item.id, computeRawFinancials(item, globalCashback));
     }
-  };
+    return map;
+  }, [products, globalCashback]);
 
-  async function fetchData() {
-    setLoading(true);
-    try {
-      // 1. Tarik dari 2 gudang dengan paksaan jalur relasi (Hint) [cite: 2026-03-07]
-const [autoRes, semiRes] = await Promise.all([
-        supabase.from('product_automatic')
-          .select('*, categories!product_automatic_category_id_fkey(name), brands!product_automatic_brand_id_fkey(name)')
-          .order('updated_at', { ascending: false })
-          .limit(6000), // Buka jadi 6000 agar semua produk Digiflazz (termasuk Pascabayar) ikut keangkut!
-        supabase.from('product_semi_auto')
-          .select('*, categories!product_semi_auto_category_id_fkey(name), brands!product_semi_auto_brand_id_fkey(name)')
-          .order('updated_at', { ascending: false })
-          .limit(3000) // Naikkan sedikit untuk jaga-jaga produk manual
-      ]);
+  function computeRawFinancials(item: ProductItem, cbPercent: number) {
+    const hargaJualAsli = Number(item.price) || 0;
+    const diskonPersen = Number(item.discount) || 0;
+    const nominalDiskon = Math.floor(hargaJualAsli * (diskonPersen / 100));
+    const hargaSetelahDiskon = hargaJualAsli - nominalDiskon;
+    const cbNominal = Number(item.cashback) || 0;
+    const profitKotor = hargaSetelahDiskon - (Number(item.cost) || 0);
 
-      // Munculkan error ke layar Bos biar kita tahu penyakitnya!
-      if (autoRes.error) alert("ERROR GUDANG AUTO: " + autoRes.error.message);
-      if (semiRes.error) alert("ERROR GUDANG MANUAL: " + semiRes.error.message);
-
-      // 2. Mapping Semi-Auto agar selaras dengan nama kolom tabel layar
-      const mappedSemi = (semiRes.data || []).map((item: any) => ({
-        ...item,
-        price: item.price_numeric, // Samakan nama variabelnya untuk frontend
-        cost: item.cost_numeric,
-        source_table: 'product_semi_auto' // Tanda pengenal gudang
-      }));
-
-      const mappedAuto = (autoRes.data || []).map((item: any) => ({
-        ...item,
-        source_table: 'product_automatic' // Tanda pengenal gudang
-      }));
-
-      // 3. Gabungkan dan urutkan
-      const combinedProducts = [...mappedAuto, ...mappedSemi].sort((a, b) => {
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-      });
-
-      setProducts(combinedProducts);
-
-    const { data: settingsData } = await supabase
-        .from('store_settings')
-        // Ambil kolom ini agar settingan "Iron Guard" & "Cashback" tetap sinkron [cite: 2026-03-07]
-        .select('margin_json, cashback_percent, balance_digiflazz')
-        .limit(1)
-        .single();
-
-      if (settingsData && settingsData.margin_json) {
-        setAllStrategies((prev: any) => ({
-          ...prev, 
-          ...settingsData.margin_json 
-        }));
-
-        const dbMargin = settingsData.margin_json[activeStrategyName];
-        const codeMargin = allStrategies[activeStrategyName];
-        setMarginConfigs(dbMargin || codeMargin || allStrategies.DEFAULT);
-        setGlobalCashback(settingsData.cashback_percent || 3);
-        setDigiBalance(settingsData.balance_digiflazz || 0); 
-      }
-
-      const { data: catData } = await supabase.from('categories').select('id, name').order('name');
-      setCategories(catData || []);
-
-      const { data: brandData } = await supabase
-        .from('brands')
-        // Tarik category_id sebagai foreign key bos
-        .select('id, name, category_id, slug') 
-        .order('name');
-      setBrandsList(brandData || []);
-
-    } catch (err: any) { 
-      console.error("❌ SUPABASE_FETCH_ERROR:", err.message);
-      if (err.message === "Failed to fetch") {
-        alert("KONEKSI KE DATABASE TERPUTUS!");
-      }
-    } finally { 
-      setLoading(false); 
+    let textShare = "";
+    if (diskonPersen > 0) {
+      textShare = "(PROMO)";
+    } else {
+      const cbNormal = Math.floor(hargaSetelahDiskon * (cbPercent / 100));
+      if (cbNominal < cbNormal && profitKotor > 0) textShare = `(Capped ${cbPercent * 10}%)`;
+      if (cbNominal > cbNormal) textShare = "(MANUAL)";
     }
+    const profitBersih = hargaSetelahDiskon - (Number(item.cost) || 0) - cbNominal;
+
+    return {
+      hargaJualAsli,
+      diskonPersen,
+      nominalDiskon,
+      hargaSetelahDiskon,
+      cbNominal,
+      profitBersih,
+      textShare,
+    };
   }
 
-  useEffect(() => { 
-    fetchData(); 
-    fetchLogs();
-  }, []);
-
-  const handleDigiflazzSync = async () => {
-    if (!confirm("AMBIL HARGA TERBARU DARI DIGIFLAZZ?")) return;
-    setSyncing(true);
-    try {
-      const res = await fetch('/api/digiflazz/sync'); 
-      const result = await res.json();
-      if (result.success) {
-        alert(`BOOM! ${result.message}\nTOTAL: ${result.updated} PRODUK BERHASIL DISINKRONKAN.`);
-        fetchData(); 
-        fetchLiveBalance(); 
-      } else {
-        throw new Error(result.error);
-      }
-    } catch (err: any) { 
-      alert("GAGAL SINKRON: " + err.message);
-    } finally { 
-      setSyncing(false); 
-    }
+  const computeProductFinancials = (item: ProductItem) => {
+    return financialsMap.get(item.id) || computeRawFinancials(item, globalCashback);
   };
 
-const handleQuickUpdate = async (id: string, field: string, value: any) => {
-    const finalValue = (field === 'promo_label' || field === 'lock_margin') ? value : Number(value);
-    try {
-      const res = await fetch('/api/admin/products/quick-edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, field, value: finalValue, globalCashback })
-      });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error);
-      setQuickEditing(null);
-      
+  async function fetchReferenceData(forceRefresh = false) {
+    if (!forceRefresh && moduleReferenceCache) {
+      return;
+    }
+
+    if (referenceInFlightPromise) {
+      return referenceInFlightPromise;
+    }
+
+    const task = (async () => {
+      try {
+        const [settingsRes, catRes, brandRes, provRes] = await Promise.all([
+          supabase.from('store_settings').select('margin_json, cashback_percent').limit(1).single(),
+          supabase.from('categories').select('id, name').order('name'),
+          supabase.from('brands').select('id, name, category_id, slug').order('name'),
+          supabase.from('providers').select('code, name, is_enabled, is_execution_enabled, is_maintenance').order('code')
+        ]);
+
+        if (settingsRes.error) throw settingsRes.error;
+        if (catRes.error) throw catRes.error;
+        if (brandRes.error) throw brandRes.error;
+        if (provRes.error) throw provRes.error;
+
+        let mergedStrategies = DEFAULT_STRATEGIES;
+        let activeMargin = DEFAULT_STRATEGIES.DEFAULT;
+        let cashback = 3;
+
+        if (settingsRes.data && settingsRes.data.margin_json) {
+          mergedStrategies = { ...DEFAULT_STRATEGIES, ...settingsRes.data.margin_json };
+          activeMargin = mergedStrategies[activeStrategyName] || mergedStrategies.DEFAULT || DEFAULT_STRATEGIES.DEFAULT;
+          cashback = settingsRes.data.cashback_percent || 3;
+        }
+
+        const categoriesData = catRes.data || [];
+        const brandsData = brandRes.data || [];
+        const providersData = provRes.data || [];
+
+        // Commit valid snapshot to module cache
+        moduleReferenceCache = {
+          categories: categoriesData,
+          brandsList: brandsData,
+          providersList: providersData,
+          allStrategies: mergedStrategies,
+          globalCashback: cashback,
+        };
+
+        setAllStrategies(mergedStrategies);
+        setMarginConfigs(activeMargin);
+        setGlobalCashback(cashback);
+        setCategories(categoriesData);
+        setBrandsList(brandsData);
+        setProvidersList(providersData);
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : "Terjadi kesalahan";
+        console.error("❌ REFERENCE_FETCH_ERROR:", errMsg);
+      } finally {
+        referenceInFlightPromise = null;
+      }
+    })();
+
+    referenceInFlightPromise = task;
+    return task;
+  }
+
+  async function fetchProducts() {
+    const coalescingKey = `${page}|${pageSize}|${debouncedSearch}|${activeCategory || ''}|${activeProvider || ''}|${sortConfig.key}|${sortConfig.direction}`;
+
+    if (productInFlightRef.current && productInFlightRef.current.key === coalescingKey) {
+      return productInFlightRef.current.promise;
+    }
+
+    setLoading(true);
+    requestGen.current += 1;
+    const reqId = requestGen.current;
+
+    const task = (async () => {
+      try {
+        let query = supabase.from('product_unified_view').select('*', { count: 'exact' });
+
+        if (debouncedSearch) {
+          if (debouncedSearch.toLowerCase() === "stok:kritis") {
+            query = query.lte('stock', 5);
+          } else {
+            // Normalize search term a bit to match client behavior or just ilike
+            const s = `%${debouncedSearch.replace(/[^a-zA-Z0-9 ]/g, "")}%`;
+            query = query.or(`name.ilike.${s},sku.ilike.${s},category_name.ilike.${s},brand_name.ilike.${s},provider.ilike.${s},sub_brand.ilike.${s}`);
+          }
+        }
+
+        if (activeCategory) {
+          query = query.eq('category_id', activeCategory);
+        }
+
+        if (activeProvider) {
+          query = query.eq('provider', activeProvider);
+        }
+
+        if (sortConfig.key === 'net') {
+          query = query.order('updated_at', { ascending: false, nullsFirst: false });
+        } else {
+          const orderCol = sortConfig.key === 'category' ? 'category_name' : sortConfig.key === 'brand' ? 'brand_name' : sortConfig.key;
+          query = query.order(orderCol, { ascending: sortConfig.direction === 'asc', nullsFirst: false });
+        }
+        query = query.order('id', { ascending: false });
+
+        const start = page * pageSize;
+        const end = start + pageSize - 1;
+        query = query.range(start, end);
+
+        const viewRes = await query;
+
+        if (viewRes.error) throw viewRes.error;
+
+        if (reqId === requestGen.current) {
+          setProducts(viewRes.data || []);
+          if (viewRes.count !== null) {
+            setTotalRows(viewRes.count);
+            const totalPages = Math.max(1, Math.ceil(viewRes.count / pageSize));
+            if (page >= totalPages && page > 0) {
+              setPage(totalPages - 1);
+            }
+          }
+        }
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : "Terjadi kesalahan";
+        console.error("❌ SUPABASE_FETCH_ERROR:", errMsg);
+        if (errMsg === "Failed to fetch") {
+          alert("KONEKSI KE DATABASE TERPUTUS!");
+        }
+      } finally {
+        if (reqId === requestGen.current) setLoading(false);
+        if (productInFlightRef.current?.key === coalescingKey) {
+          productInFlightRef.current = null;
+        }
+      }
+    })();
+
+    productInFlightRef.current = { key: coalescingKey, promise: task };
+    return task;
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    // Non-blocking reference data hydration
+    void fetchReferenceData(false);
+  }, []);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    void fetchProducts();
+  }, [page, debouncedSearch, activeCategory, activeProvider, sortConfig.key, sortConfig.direction]);
+
+  const handleFullSync = async () => {
+    // Invalidate module reference cache on manual sync
+    moduleReferenceCache = null;
+    await fetchReferenceData(true);
+    await fetchProducts();
+  };
+
+  const handleQuickUpdate = async (id: string, field: string, value: any) => {
+    const finalValue = (field === 'promo_label' || field === 'lock_margin') ? value : Number(value);
+    try {
+      const res = await fetch('/api/admin/products/quick-edit', {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({ id, field, value: finalValue, globalCashback })
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error);
+      setQuickEditing(null);
+
       // Update data di layar secara instan khusus untuk promo_label
       if (field === 'promo_label') {
-          handleLocalChange(id, 'promo_label', value);
+        handleLocalChange(id, 'promo_label', value);
       }
-      // fetchData() dihapus agar tidak reload
-    } catch (err: any) {
-      alert("GAGAL UPDATE: " + err.message);
-    }
-  };
+      // fetchProducts() dihapus agar tidak reload
+    } catch (err: any) {
+      alert("GAGAL UPDATE: " + err.message);
+    }
+  };
 
   const getUnitByBrand = (brandName: string) => {
     const name = brandName.toLowerCase();
@@ -309,7 +457,7 @@ const handleQuickUpdate = async (id: string, field: string, value: any) => {
     if (name.includes("token listrik")) return "kWh";
     const subBrands = ["netflix", "spotify", "vidio", "canva"];
     if (subBrands.some(b => name.includes(b))) return "Sub";
-    return "Unit"; 
+    return "Unit";
   };
 
   const saveGlobalSettings = async () => {
@@ -318,7 +466,7 @@ const handleQuickUpdate = async (id: string, field: string, value: any) => {
       const updatedStrategies = { ...allStrategies, [activeStrategyName]: marginConfigs };
       const res = await fetch('/api/admin/products/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           strategies: updatedStrategies,
           cashback: globalCashback
@@ -326,6 +474,7 @@ const handleQuickUpdate = async (id: string, field: string, value: any) => {
       });
       if (!res.ok) throw new Error("Gagal simpan setting");
       setAllStrategies(updatedStrategies);
+      await fetchReferenceData(true);
       alert(`STRATEGI ${activeStrategyName} BERHASIL DISIMPAN VIA SERVER!`);
     } catch (err: any) {
       alert("GAGAL SIMPAN: " + err.message);
@@ -340,13 +489,13 @@ const handleQuickUpdate = async (id: string, field: string, value: any) => {
     try {
       const res = await fetch('/api/admin/products/bulk', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ allStrategies: allStrategies, globalCashback: globalCashback })
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error);
       alert(`BERHASIL! ${result.updatedCount} PRODUK DI-UPDATE OLEH SERVER.`);
-      fetchData(); 
+      fetchProducts();
     } catch (err: any) {
       alert("ERROR: " + err.message);
     } finally {
@@ -365,20 +514,20 @@ const handleFlashSale = async () => {
     try {
       const res = await fetch('/api/admin/products/flash-sale', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         // KUNCI PERBAIKAN: Kirim allStrategies dan globalCashback secara utuh!
-        body: JSON.stringify({ 
-            selectedIds, 
-            launchOptions, 
-            promoLabel, 
-            allStrategies, 
-            globalCashback 
+        body: JSON.stringify({
+            selectedIds,
+            launchOptions,
+            promoLabel,
+            allStrategies,
+            globalCashback
         })
       });
       if (!res.ok) throw new Error("Gagal Flash Sale");
       alert(`BERHASIL! ${tasks.join(" & ")} SUDAH AKTIF VIA SERVER.`);
-      setSelectedIds([]); 
-      fetchData();
+      setSelectedIds([]);
+      fetchProducts();
     } catch (err: any) {
       alert("GAGAL: " + err.message);
     } finally {
@@ -393,17 +542,17 @@ const handleStopLock = async () => {
     try {
       const res = await fetch('/api/admin/products/toggle-lock', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ selectedIds, lockValue: false })
       });
       if (!res.ok) throw new Error("Gagal unlock via server");
       alert("SEMUA GEMBOK BERHASIL DIBUKA!");
       setSelectedIds([]);
-      fetchData();
-    } catch (err: any) { 
-      alert("GAGAL: " + err.message); 
-    } finally { 
-      setSyncing(false); 
+      fetchProducts();
+    } catch (err: any) {
+      alert("GAGAL: " + err.message);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -415,9 +564,9 @@ const handleStopFlashSale = async () => {
     // Kita lempar ke API khusus unpromo bos
     const res = await fetch('/api/admin/products/unpromo', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        selectedIds, 
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({
+        selectedIds,
         globalCashback // Kirim settingan cashback terbaru
       })
     });
@@ -427,9 +576,39 @@ const handleStopFlashSale = async () => {
 
     alert(`BOOM! PROMO MATI. ${result.updatedCount} PRODUK KEMBALI NORMAL.`);
     setSelectedIds([]);
-    fetchData();
+    fetchProducts();
   } catch (err: any) {
     alert("GAGAL: " + err.message);
+  } finally {
+    setSyncing(false);
+  }
+};
+
+const handleBulkToggleActive = async (targetStatus: boolean) => {
+  if (selectedIds.length === 0) return alert("PILIH PRODUK DULU!");
+  const actionLabel = targetStatus ? "MENGAKTIFKAN" : "MENONAKTIFKAN";
+  if (!confirm(`Yakin ingin ${actionLabel.toLowerCase()} ${selectedIds.length} produk terpilih?`)) return;
+  setSyncing(true);
+  try {
+    const res = await fetch('/api/admin/products/bulk-status', {
+      method: 'POST',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({
+        selectedIds,
+        is_active: targetStatus
+      })
+    });
+    const result = await res.json();
+    if (!res.ok || !result.success) {
+      throw new Error(result.error || `Gagal ${actionLabel.toLowerCase()} produk massal`);
+    }
+    setToastMsg(`BERHASIL ${actionLabel} ${result.updatedCount} PRODUK!`);
+    setTimeout(() => setToastMsg(null), 2500);
+    setSelectedIds([]);
+    fetchProducts();
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : "Terjadi kesalahan";
+    alert("GAGAL: " + errMsg);
   } finally {
     setSyncing(false);
   }
@@ -457,7 +636,7 @@ const handleStopFlashSale = async () => {
     try {
 // Tarik kolom sesuai kenyataan di database Bos [cite: 2026-03-07]
       const { data: itemData, error } = await supabase
-        .from('items')
+        .from('product_providers_items')
         .select('sku, name, modal, brand_slug, sub_brand_slug')
         .eq('sku', formData.sku)
         .single();
@@ -471,14 +650,14 @@ const handleStopFlashSale = async () => {
       const itemModal = Number(itemData.modal || 0);
 
       // logika pencarian brand lebih pintar
-      const foundBrand = brandsList.find(b => 
-          (b.slug && itemBrand.toLowerCase() === b.slug.toLowerCase()) || 
+      const foundBrand = brandsList.find(b =>
+          (b.slug && itemBrand.toLowerCase() === b.slug.toLowerCase()) ||
           (b.name && itemBrand.toLowerCase().includes(b.name.toLowerCase())) ||
           (b.name && b.name.toLowerCase().includes(itemBrand.toLowerCase()))
       );
 
       // logika pencarian kategori (Hanya andalkan relasi Brand karena kolom category di items sudah tidak ada) [cite: 2026-03-07]
-      const foundCategory = categories.find(c => 
+      const foundCategory = categories.find(c =>
           foundBrand && foundBrand.category_id === c.id
       );
 
@@ -487,22 +666,22 @@ const handleStopFlashSale = async () => {
       const autoMargin = range.min;
 
       const unit = foundBrand ? getUnitByBrand(foundBrand.name) : "";
-      let cleanName = itemName; 
-      
+      let cleanName = itemName;
+
       // potong satuan (seperti "diamonds", "uc") dari belakang nama jika ada
       if (unit && cleanName.toLowerCase().endsWith(unit.toLowerCase())) {
           cleanName = cleanName.replace(new RegExp(unit, 'gi'), '').trim();
       }
 
       setFormData(prev => ({
-        ...prev, 
-        name: cleanName, 
-        cost: String(fetchedModal), 
-        margin_item: String(autoMargin), 
+        ...prev,
+        name: cleanName,
+        cost: String(fetchedModal),
+        margin_item: String(autoMargin),
         brand_id: foundBrand ? String(foundBrand.id) : prev.brand_id,
         category_id: foundCategory ? String(foundCategory.id) : prev.category_id,
-        sub_brand: fetchedSubBrand, 
-        sku: itemData.sku, // buyer_sku_code sudah dihapus dari select 
+        sub_brand: fetchedSubBrand,
+        sku: itemData.sku, // buyer_sku_code sudah dihapus dari select
         lock_margin: false
       }));
 
@@ -512,8 +691,8 @@ const handleStopFlashSale = async () => {
         setActiveStrategyName(strategyName);
       }
       alert(`BOOM! DATA SKU "${itemData.sku}" DITEMUKAN & DISINKRONKAN.`);
-    } finally { 
-      setCheckingSku(false); 
+    } finally {
+      setCheckingSku(false);
     }
   };
 
@@ -528,20 +707,28 @@ const handleStopFlashSale = async () => {
         brand_id: Number(formData.brand_id),
         brand_name: selectedBrand ? selectedBrand.name : "",
         sku: formData.sku, sub_brand: formData.sub_brand, cost: Number(formData.cost),
-        margin_item: Number(formData.margin_item), discount: Number(formData.discount), 
+        margin_item: Number(formData.margin_item), discount: Number(formData.discount),
         category_id: formData.category_id || null, stock: Number(formData.stock),
-        lock_margin: formData.lock_margin, provider: formData.provider, globalCashback: globalCashback 
+        lock_margin: formData.lock_margin, provider: formData.provider, globalCashback: globalCashback,
+        is_active: formData.is_active,
+        source_table: formData.source_table
       };
 
       const res = await fetch('/api/admin/products/single', {
         method: isEditing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify(rawPayload)
       });
-      if (!res.ok) throw new Error("Gagal simpan ke server");
-      alert("BERHASIL SIMPAN!");
-      resetForm(); fetchData();
-    } catch (err: any) { alert(err.message); } finally { setSubmitting(false); }
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Gagal simpan ke server");
+      }
+      alert(isEditing ? "BERHASIL UPDATE PRODUK!" : "BERHASIL SIMPAN PRODUK BARU!");
+      resetForm(); fetchProducts();
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : "Terjadi kesalahan";
+      alert("GAGAL: " + errMsg);
+    } finally { setSubmitting(false); }
   };
 
   const handleEditClick = (item: any) => {
@@ -552,12 +739,18 @@ const handleStopFlashSale = async () => {
     if (unit && item.name.toLowerCase().endsWith(unit.toLowerCase())) {
         cleanName = item.name.replace(unit, '').trim();
     }
+    const detectedSource = (item.source_table === "product_semi_auto" || !isNaN(Number(item.id)))
+      ? "product_semi_auto"
+      : "product_automatic";
+
     setFormData({
         name: cleanName, brand_id: String(item.brand_id || ""), sku: item.sku || "",
-        sub_brand: item.sub_brand || "", price: String(item.price), cost: String(item.cost), 
-        margin_item: String(item.margin_item || "0"), discount: String(item.discount || "0"), 
+        sub_brand: item.sub_brand || "", price: String(item.price), cost: String(item.cost),
+        margin_item: String(item.margin_item || "0"), discount: String(item.discount || "0"),
         category_id: item.category_id || "", stock: String(item.stock),
-        lock_margin: item.lock_margin || false, provider: item.provider || "DIGIFLAZZ"
+        lock_margin: item.lock_margin || false, provider: item.provider || "DIGIFLAZZ",
+        is_active: item.is_active ?? true,
+        source_table: detectedSource
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -567,11 +760,11 @@ const handleDelete = async (id: string, name: string) => {
     try {
       const res = await fetch('/api/admin/products/delete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ selectedIds: [id] })
       });
       if (!res.ok) throw new Error("Gagal hapus via server");
-      fetchData();
+      fetchProducts();
     } catch (err: any) { alert(err.message); }
   };
 
@@ -580,45 +773,15 @@ const handleDelete = async (id: string, name: string) => {
     try {
       const res = await fetch('/api/admin/products/delete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ selectedIds })
       });
       if (!res.ok) throw new Error("Gagal hapus masal via server");
       setSelectedIds([]);
-      fetchData();
+      fetchProducts();
       alert("SEMUA PRODUK TERPILIH BERHASIL DIHAPUS!");
     } catch (err: any) { alert("GAGAL HAPUS MASAL: " + err.message); }
   };
-
-  const filteredProducts = useMemo(() => {
-    let result = products.filter(p => {
-        const matchCategory = activeCategory ? String(p.category_id) === activeCategory : true;
-        const normalize = (text: string) => text ? text.toString().toLowerCase().replace(/[^a-z0-9]/g, "") : "";
-        const s = normalize(searchTerm);
-        if (searchTerm.toLowerCase() === "stok:kritis") return matchCategory && p.stock <= 5;
-        const searchableContent = normalize(`${p.sku || ''} ${p.name || ''} ${p.brands?.name || ''} ${p.categories?.name || ''} ${p.provider || ''} ${p.sub_brand || ''}`);
-        return matchCategory && searchableContent.includes(s);
-    });
-
-    result.sort((a, b) => {
-        let valA = a[sortConfig.key];
-        let valB = b[sortConfig.key];
-        if (sortConfig.key === 'category') { valA = a.categories?.name; valB = b.categories?.name; }
-        if (sortConfig.key === 'brand') { valA = a.brands?.name; valB = b.brands?.name; }
-        if (sortConfig.key === 'net') {
-            const getNet = (item: any) => {
-                const hJual = item.price || 0;
-                const hSetelahDiskon = hJual - Math.floor(hJual * ((item.discount || 0) / 100));
-                return hSetelahDiskon - (item.cost || 0) - (item.cashback || 0);
-            };
-            valA = getNet(a);
-            valB = getNet(b);
-        }
-        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-        return 0;
-    });
-    return result;
-  }, [products, activeCategory, searchTerm, sortConfig]);
 
   const handleSort = (key: string) => {
     let direction = 'asc';
@@ -626,84 +789,130 @@ const handleDelete = async (id: string, name: string) => {
     setSortConfig({ key, direction });
   };
 
-  const handleSelectAllFiltered = (e: any) => {
+  const handleSelectAllFiltered = async (e: any) => {
     if (e.target.checked) {
-        const filteredIds = filteredProducts.map(p => p.id);
-        const newSelected = Array.from(new Set([...selectedIds, ...filteredIds]));
+      setSyncing(true);
+      try {
+        let query = supabase.from('product_unified_view').select('id');
+        if (debouncedSearch) {
+          if (debouncedSearch.toLowerCase() === "stok:kritis") {
+            query = query.lte('stock', 5);
+          } else {
+            const s = `%${debouncedSearch.replace(/[^a-zA-Z0-9 ]/g, "")}%`;
+            query = query.or(`name.ilike.${s},sku.ilike.${s},category_name.ilike.${s},brand_name.ilike.${s},provider.ilike.${s},sub_brand.ilike.${s}`);
+          }
+        }
+        if (activeCategory) {
+          query = query.eq('category_id', activeCategory);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        const allFilteredIds = data.map((r: any) => r.id);
+        const newSelected = Array.from(new Set([...selectedIds, ...allFilteredIds]));
         setSelectedIds(newSelected);
+      } catch (err: any) {
+        alert("Gagal Select All: " + err.message);
+      } finally {
+        setSyncing(false);
+      }
     } else {
-        const filteredIds = filteredProducts.map(p => p.id);
-        setSelectedIds(selectedIds.filter(id => !filteredIds.includes(id)));
+      setSelectedIds([]);
     }
   };
 
-  const potentialProfit = useMemo(() => {
-    return filteredProducts.reduce((acc, item) => {
-      const stock = Number(item.stock) || 0;
-      const modal = (Number(item.cost) || 0) * stock;
-      const hargaJualAsli = Number(item.price) || 0;
-      const diskonPersen = Number(item.discount) || 0;
-      const hargaSetelahDiskon = hargaJualAsli - Math.floor(hargaJualAsli * (diskonPersen / 100));
-      const omzetTotal = hargaSetelahDiskon * stock;
+  useEffect(() => {
+    let isMounted = true;
+    profitGenRef.current += 1;
+    const currentGen = profitGenRef.current;
+    setProfitLoading(true);
+    setProfitError(null);
 
-let cbPerItem = 0;
-      const profitKotor = hargaSetelahDiskon - (Number(item.cost) || 0);
+    const fetchProfit = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          if (isMounted) setProfitLoading(false);
+          return;
+        }
 
-      // Rumus murni sesuai database, tidak pakai random lagi
-      if (profitKotor <= 0) {
-        cbPerItem = 0;
-      } else {
-        const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100));
-        const plafonMaks = Math.floor(profitKotor * (globalCashback / 10));
-        cbPerItem = Math.min(cbNormal, plafonMaks);
+        const res = await fetch('/api/admin/products/potential-profit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            search: debouncedSearch || null,
+            categoryId: activeCategory || null,
+            globalCashback: globalCashback,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (isMounted && currentGen === profitGenRef.current) {
+          setPotentialProfit(data);
+          setProfitLoading(false);
+        }
+      } catch (err: unknown) {
+        if (isMounted && currentGen === profitGenRef.current) {
+          console.error("Gagal memuat agregat profit:", err);
+          setProfitError("Gagal memuat");
+          setProfitLoading(false);
+        }
       }
+    };
 
-      const totalProfitBersih = (hargaSetelahDiskon - (Number(item.cost) || 0) - cbPerItem) * stock;
-      return { totalOmzet: acc.totalOmzet + omzetTotal, totalModal: acc.totalModal + modal, totalProfit: acc.totalProfit + totalProfitBersih };
-    }, { totalOmzet: 0, totalModal: 0, totalProfit: 0 });
-  }, [filteredProducts, globalCashback]);
+    void fetchProfit();
 
-// 1. UPDATE UI SECARA INSTAN (Tanpa Loading)
+    return () => {
+      isMounted = false;
+    };
+  }, [debouncedSearch, activeCategory, globalCashback]);
+
+  // 1. UPDATE UI SECARA INSTAN (Tanpa Loading)
   const handleLocalChange = (id: string, field: string, value: any) => {
     // Catatan: Pastikan nilai kosong tetap kosong, tapi angka diproses sebagai Number agar tidak error kalkulasi
     const safeValue = value === "" ? "" : Number(value);
     setProducts(prev => prev.map(p => p.id === id ? { ...p, [field]: safeValue } : p));
   };
 
-// 2. SIMPAN KE DATABASE DI BELAKANG LAYAR (Silent Save)
-  const handleSilentSave = async (id: string, field: string, value: any) => {
-    const finalValue = (field === 'promo_label' || field === 'lock_margin') ? value : Number(value);
-    try {
-      const res = await fetch('/api/admin/products/quick-edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, field, value: finalValue, globalCashback })
-      });
-      
-      const data = await res.json();
+    // 2. SIMPAN KE DATABASE DI BELAKANG LAYAR (Silent Save)
+  const handleSilentSave = async (id: string, field: string, value: any) => {
+    try {
+      const res = await fetch('/api/admin/products/quick-edit', {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({ id, field, value: Number(value), globalCashback })
+      });
 
-// Jika backend sukses menghitung ulang anti-korupsi, langsung update UI-nya!
+      const data = await res.json();
+
+      // Jika backend sukses menghitung ulang anti-korupsi, langsung update UI-nya!
       if (data.success && data.updatedData) {
         setToastMsg("TERSIMPAN!");
         setTimeout(() => setToastMsg(null), 2500); // Hilang otomatis dalam 2.5 detik
 
         setProducts(prev => prev.map(p => {
-          if (p.id === id) {
-            return {
-              ...p,
-              ...(data.updatedData.margin_item !== undefined && { margin_item: data.updatedData.margin_item }),
-              ...(data.updatedData.discount !== undefined && { discount: data.updatedData.discount }),
-              ...(data.updatedData.cashback !== undefined && { cashback: data.updatedData.cashback }),
-              ...(data.updatedData.price !== undefined && { price: data.updatedData.price }),
-            };
-          }
-          return p;
-        }));
-      }
-    } catch (err: any) {
-      console.error("GAGAL UPDATE:", err.message);
-    }
-  };
+          if (p.id === id) {
+            return {
+              ...p,
+              price: data.updatedData.price !== undefined ? data.updatedData.price : p.price,
+              cashback: data.updatedData.cashback !== undefined ? data.updatedData.cashback : p.cashback,
+              discount: data.updatedData.discount !== undefined ? data.updatedData.discount : p.discount,
+              margin_item: data.updatedData.margin_item !== undefined ? data.updatedData.margin_item : p.margin_item
+            };
+          }
+          return p;
+        }));
+      }
+    } catch (err: any) {
+      console.error("GAGAL UPDATE:", err.message);
+    }
+  };
 
   // 3. TOGGLE LANGSUNG (Untuk Lock Margin / Promo)
   const handleToggleLock = async (id: string, currentValue: boolean) => {
@@ -712,45 +921,57 @@ let cbPerItem = 0;
     await handleSilentSave(id, 'lock_margin', newValue); // Database nyusul diam-diam
   };
 
+  // 4. TOGGLE STATUS AKTIF / NONAKTIF
+  const handleToggleActive = async (id: string, currentValue: boolean) => {
+    const newValue = !currentValue;
+    setTogglingActiveId(id);
+    try {
+      const res = await fetch('/api/admin/products/quick-edit', {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({ id, field: 'is_active', value: newValue })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Gagal mengubah status produk");
+      }
+      setToastMsg(newValue ? "PRODUK DIAKTIFKAN!" : "PRODUK DINONAKTIFKAN!");
+      setTimeout(() => setToastMsg(null), 2500);
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, is_active: newValue } : p));
+    } catch (err: any) {
+      alert("GAGAL UBAH STATUS: " + (err.message || "Terjadi kesalahan"));
+    } finally {
+      setTogglingActiveId(null);
+    }
+  };
+
   return (
-    <div className="animate-in fade-in duration-500 font-black italic uppercase text-slate-800 pb-10 px-4 max-w-7xl mx-auto md:px-8 overflow-x-hidden">
+    <div className="animate-in fade-in duration-500 font-black italic uppercase text-slate-800 pb-10 px-4 max-w-7xl mx-auto md:px-8 w-full min-w-0">
       {/* HEADER UTAMA */}
-      <div className="flex justify-between items-end mb-0 mt-4 border-b-2 border-slate-100 pb-3">
+      <div className="flex flex-col lg:flex-row justify-between lg:items-end mb-0 mt-4 border-b-2 border-slate-100 pb-3 gap-3">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl tracking-tighter flex items-center gap-2 font-black">
             <span className="bg-slate-900 text-white p-2 rounded-xl shadow-lg shadow-slate-200"><Package size={20} /></span>
             DANISPAY MANAGER
           </h2>
-          <div className="flex items-center gap-4 ml-1">
-            <div className="flex items-center gap-2">
-              <div className={`h-1.5 w-1.5 rounded-full ${digiBalance && digiBalance < 100000 ? "bg-rose-500 animate-ping" : "bg-emerald-500"}`}></div>
-              <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase flex items-center gap-1">
-                DIGI: 
-                <span className={`ml-1 ${digiBalance && digiBalance < 100000 ? "text-rose-500" : "text-slate-800"}`}>
-                  RP {digiBalance?.toLocaleString() || "0"}
-                </span>
-                <button onClick={fetchLiveBalance} className="hover:rotate-180 transition-all text-blue-500">
-                  <TrendingUp size={10} />
-                </button>
-              </span>
-            </div>
-            <div className="h-3 w-px bg-slate-200"></div>
-            <div className="flex items-center gap-2 opacity-50">
-              <div className="h-1.5 w-1.5 rounded-full bg-slate-300"></div>
-              <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase flex items-center gap-1">
-                UNI: <span className="ml-1 text-slate-400 italic">(SOON)</span><Lock size={10} className="text-slate-300" />
-              </span>
-            </div>
-          </div>
+          <p className="ml-1 text-[9px] font-bold text-slate-400 tracking-wider">
+            KATALOG & MANAJEMEN PRODUK
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button onClick={handleExportCSV} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black hover:bg-emerald-600 hover:text-white transition-all shadow-sm active:scale-95 group">
             <Layers size={16} className="text-emerald-600 group-hover:text-white" /> EXPORT
           </button>
-          <button onClick={handleDigiflazzSync} disabled={syncing} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-2xl text-[10px] font-black hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95 group">
-            {syncing ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} className="animate-pulse" />} GET DIGIFLAZZ
-          </button>
-          <button onClick={fetchData} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black hover:bg-slate-900 hover:text-white transition-all shadow-sm active:scale-95 group">
+          <Link
+            href="/admin?tab=providers"
+            title="Kelola operasional, saldo, dan sinkronisasi vendor di Provider Control Center"
+            aria-label="Buka Provider Control Center"
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-2xl text-[10px] font-black text-slate-700 hover:bg-slate-900 hover:text-white transition-all shadow-2xs active:scale-95 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <Server size={15} className="text-slate-600 group-hover:text-white" />
+            <span>PROVIDER OPS</span>
+          </Link>
+          <button onClick={handleFullSync} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black hover:bg-slate-900 hover:text-white transition-all shadow-sm active:scale-95 group">
             <TrendingUp size={16} className={loading ? "animate-spin" : "group-hover:rotate-12"} /> SYNC DATA
           </button>
         </div>
@@ -775,11 +996,23 @@ let cbPerItem = 0;
               <div className="flex items-center gap-2">
                 <div className="bg-rose-500/20 px-2 py-1.5 rounded-xl border border-rose-500/20 flex flex-col min-w-18.75">
                   <span className="text-[5px] text-rose-500 font-bold uppercase tracking-wider">MODAL</span>
-                  <span className="text-[8px] text-rose-400 font-black">RP {potentialProfit.totalModal.toLocaleString()}</span>
+                  {profitLoading ? (
+                    <span className="text-[8px] text-slate-400 font-bold animate-pulse">MEMUAT...</span>
+                  ) : profitError ? (
+                    <span className="text-[8px] text-rose-300 font-bold" title={profitError}>TIDAK TERSEDIA</span>
+                  ) : (
+                    <span className="text-[8px] text-rose-400 font-black">RP {potentialProfit.totalModal.toLocaleString()}</span>
+                  )}
                 </div>
                 <div className="bg-emerald-500/10 px-2 py-1.5 rounded-xl border border-emerald-500/20 flex flex-col min-w-18.75">
                   <span className="text-[5px] text-emerald-500 font-bold uppercase tracking-wider">EST. CUAN</span>
-                  <span className="text-[8px] text-emerald-400 font-black">RP {potentialProfit.totalProfit.toLocaleString()}</span>
+                  {profitLoading ? (
+                    <span className="text-[8px] text-slate-400 font-bold animate-pulse">MEMUAT...</span>
+                  ) : profitError ? (
+                    <span className="text-[8px] text-rose-300 font-bold" title={profitError}>TIDAK TERSEDIA</span>
+                  ) : (
+                    <span className="text-[8px] text-emerald-400 font-black">RP {potentialProfit.totalProfit.toLocaleString()}</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -789,12 +1022,12 @@ let cbPerItem = 0;
                 <div className="flex flex-col">
                   <span className="text-[6px] text-slate-500 font-bold uppercase">CASHBACK</span>
                   <div className="flex items-center gap-0.5">
-                    <input 
-                      type="number" 
-                      min="0" 
-                      max="3" 
-                      className="w-6 bg-transparent text-amber-400 text-[10px] font-black outline-none" 
-                      value={globalCashback} 
+                    <input
+                      type="number"
+                      min="0"
+                      max="3"
+                      className="w-6 bg-transparent text-amber-400 text-[10px] font-black outline-none"
+                      value={globalCashback}
                       onChange={(e) => {
                         let val = Number(e.target.value);
                         if (val > 3) val = 3; // Kunci batas maksimal 3% (Capped 30%)
@@ -808,7 +1041,7 @@ let cbPerItem = 0;
               </div>
               <div className="flex gap-1.5">
                 <button onClick={handleBulkPriceUpdate} disabled={isBulking || syncing} className="bg-emerald-600 hover:bg-emerald-500 text-white text-[8px] font-black px-3 py-2.5 rounded-xl flex items-center justify-center gap-1.5 border border-emerald-500/20 transition-all active:scale-95 shadow-lg shadow-emerald-900/20 shrink-0">
-                {isBulking ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />} 
+                {isBulking ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
                 <span>{isBulking ? "UPDATING..." : "BULK UPDATE"}</span>
               </button>
                 <button onClick={saveGlobalSettings} disabled={savingStrategy} className="bg-blue-600 hover:bg-blue-500 text-white text-[8px] font-black px-3 py-2.5 rounded-xl flex items-center justify-center gap-1.5 border border-blue-500/20 transition-all active:scale-95 shadow-lg shadow-blue-900/20 shrink-0">
@@ -860,15 +1093,24 @@ let cbPerItem = 0;
               <div className="flex flex-col gap-1">
                 <label className="text-[7px] text-blue-500 ml-1 font-bold italic uppercase tracking-widest">PROVIDER</label>
                 <select className="w-full bg-blue-50 border border-blue-100 p-2.5 rounded-xl text-[10px] font-black outline-none h-10 focus:border-blue-400 transition-all cursor-pointer shadow-sm" value={formData.provider || "DIGIFLAZZ"} onChange={e => setFormData({...formData, provider: e.target.value})}>
-                  <option value="DIGIFLAZZ">DIGIFLAZZ</option>
-                  <option value="UNIPLAY">UNIPLAY</option>
-                  <option value="MANUAL">MANUAL</option>
+                  {providersList.map((p) => {
+                    const isExecutable = p.is_enabled && p.is_execution_enabled && !p.is_maintenance;
+                    return (
+                      <option key={p.code} value={p.code}>
+                        {p.code} {isExecutable ? "" : "(STANDBY)"}
+                      </option>
+                    );
+                  })}
+                  {!providersList.some((p) => p.code === "DIGIFLAZZ") && (
+                    <option value="DIGIFLAZZ">DIGIFLAZZ</option>
+                  )}
+                  <option value="MANUAL">MANUAL (INTERNAL)</option>
                 </select>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-[7px] text-slate-400 ml-1 font-bold italic uppercase tracking-widest">KATEGORI</label>
               <select className="w-full bg-slate-50 border border-slate-100 p-2.5 rounded-xl text-[10px] font-black outline-none h-10 focus:border-blue-400 transition-all cursor-pointer shadow-sm" value={formData.category_id} onChange={(e) => {
-                const catId = e.target.value; 
+                const catId = e.target.value;
                 const selectedCat = categories.find(c => String(c.id) === String(catId));
                 // Ubah pencarian pakai category_id biar presisi 100%
                 const firstMatchBrand = brandsList.find(b => String(b.category_id) === String(catId));
@@ -884,10 +1126,10 @@ let cbPerItem = 0;
                 <select className="w-full bg-slate-50 border border-slate-100 p-2.5 rounded-xl text-[10px] font-black outline-none h-10 focus:border-blue-400 transition-all cursor-pointer shadow-sm" value={formData.brand_id} onChange={e => setFormData({...formData, brand_id: e.target.value})}>
                   <option value="">-- PILIH --</option>
                   {/* Tambahan aman: Pastikan data brand dan kategori di-lowercase dengan aman biar nggak error kalau ada yg null */}
-                  {brandsList.filter((b: any) => { 
-                      if (!formData.category_id) return true; 
+                  {brandsList.filter((b: any) => {
+                      if (!formData.category_id) return true;
                       // Langsung tembak pakai ID relasinya bos, nggak usah cocokin teks lagi
-                      return String(b.category_id) === String(formData.category_id); 
+                      return String(b.category_id) === String(formData.category_id);
                   }).map((b) => (
                       <option key={b.id} value={b.id}>{b.name.toUpperCase()}</option>
                   ))}
@@ -981,6 +1223,17 @@ let cbPerItem = 0;
                   Rp {(() => { const modal = Number(formData.cost) || 0; const margin = Number(formData.margin_item) || 0; const disc = Number(formData.discount) || 0; const hargaJual = Math.ceil((modal * (1 + margin / 100)) / 100) * 100; const hargaSetelahDiskon = hargaJual - Math.floor(hargaJual * (disc / 100)); const untungKotor = hargaSetelahDiskon - modal; const finalCB = Math.min(Math.floor(hargaSetelahDiskon * (globalCashback / 100)), Math.floor(untungKotor * (globalCashback / 10))); return (untungKotor - finalCB).toLocaleString(); })()}
                 </span>
               </div>
+              <label className="flex items-center gap-1.5 cursor-pointer bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 h-11 rounded-xl shadow-xs transition-colors" title="Status Publikasi Produk">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer"
+                />
+                <span className={`text-[8px] font-black uppercase tracking-wider ${formData.is_active ? "text-emerald-700" : "text-slate-400"}`}>
+                  {formData.is_active ? "AKTIF" : "NONAKTIF"}
+                </span>
+              </label>
               <button onClick={handleSubmit} disabled={submitting} className={`px-6 h-11 rounded-xl text-[9px] font-black text-white transition-all shadow-md flex items-center justify-center gap-2 ${isEditing ? "bg-amber-500 hover:bg-amber-600" : "bg-slate-900 hover:bg-blue-600 active:scale-95"}`}>
                 {submitting ? <Loader2 size={12} className="animate-spin"/> : <Save size={14}/>} {isEditing ? "UPDATE" : "SIMPAN"}
               </button>
@@ -995,7 +1248,7 @@ let cbPerItem = 0;
           <select className="w-full bg-white border border-slate-200 pl-9 pr-8 py-2.5 rounded-2xl outline-none text-[9px] font-black appearance-none cursor-pointer shadow-sm hover:border-slate-300 transition-all focus:border-blue-400" value={activeCategory || ""} onChange={(e) => {
               const catId = e.target.value || null;
               setActiveCategory(catId);
-              
+
               // Sinkronisasi otomatis ke Iron Guard Strategy
               if (catId) {
                 const selectedCat = categories.find(c => String(c.id) === String(catId));
@@ -1014,6 +1267,23 @@ let cbPerItem = 0;
           </select>
           <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[8px]">▼</div>
         </div>
+        <div className="relative w-full md:w-44 group">
+          <Server className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={12} />
+          <select
+            className="w-full bg-white border border-slate-200 pl-9 pr-8 py-2.5 rounded-2xl outline-none text-[9px] font-black appearance-none cursor-pointer shadow-sm hover:border-slate-300 transition-all focus:border-blue-400"
+            value={activeProvider || ""}
+            onChange={(e) => setActiveProvider(e.target.value || null)}
+          >
+            <option value="">SEMUA PROVIDER</option>
+            {providersList.map((p) => (
+              <option key={p.code} value={p.code}>
+                {p.name || p.code}
+              </option>
+            ))}
+            <option value="MANUAL">MANUAL</option>
+          </select>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[8px]">▼</div>
+        </div>
         <div className="relative flex-1 w-full group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={12} />
           <input type="text" placeholder="CARI NAMA PRODUK ATAU SKU..." className="w-full bg-white border border-slate-200 pl-9 pr-3 py-2.5 rounded-2xl outline-none text-[9px] font-black focus:border-blue-400 shadow-sm transition-all" value={searchTerm === "stok:kritis" ? "" : searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -1023,9 +1293,9 @@ let cbPerItem = 0;
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden w-full max-w-full min-w-0">
         {selectedIds.length > 0 && (
-          <div className="flex justify-between items-center bg-blue-50 border border-blue-200 p-3 mb-4 rounded-3xl animate-in slide-in-from-top duration-300 shadow-lg shadow-blue-100">
+          <div className="flex justify-between items-center bg-blue-50 border border-blue-200 p-3 mb-4 rounded-3xl animate-in slide-in-from-top duration-300 shadow-lg shadow-blue-100 overflow-x-auto max-w-full">
             <div className="flex items-center gap-3 ml-2">
               <div className="bg-blue-600 text-white p-2 rounded-xl"><Zap size={14} className="animate-pulse"/></div>
               <span className="text-[10px] font-black text-blue-900">{selectedIds.length} PRODUK TERPILIH</span>
@@ -1047,7 +1317,7 @@ let cbPerItem = 0;
                       <span className="text-[8px] font-black text-slate-500 group-hover:text-blue-600 flex items-center gap-1"><Lock size={8}/> LOCK</span>
                     </label>
                   </div>
-                  <button onClick={handleFlashSale} disabled={syncing} className={`px-5 py-2 text-[10px] font-black text-white transition-all active:scale-95 flex items-center gap-2 ${launchOptions.lock && !launchOptions.promo ? "bg-blue-600 hover:bg-blue-700" : "bg-orange-500 hover:bg-orange-600"}`}>
+                  <button onClick={handleFlashSale} disabled={syncing} className={`px-5 py-2 text-[10px] font-black text-white transition-all active:scale-95 flex items-center gap-2 ${launchOptions.lock && !launchOptions.promo ? "bg-blue-600 hover:bg-blue-700" : "bg-orange-500 hover:orange-600"}`}>
                     {syncing ? <Loader2 size={12} className="animate-spin"/> : <Zap size={12}/>} {syncing ? "RUNNING..." : "LAUNCH"}
                   </button>
                 </div>
@@ -1059,6 +1329,14 @@ let cbPerItem = 0;
                     <X size={12}/> UNPROMO
                   </button>
                 </div>
+                <div className="flex bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden ml-2">
+                  <button onClick={() => handleBulkToggleActive(true)} disabled={syncing} className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-black flex items-center gap-1 border-r border-slate-200 transition-all active:scale-95" title="Aktifkan semua produk terpilih">
+                    {syncing ? <Loader2 size={12} className="animate-spin"/> : <CheckCircle2 size={12}/>} AKTIFKAN
+                  </button>
+                  <button onClick={() => handleBulkToggleActive(false)} disabled={syncing} className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black flex items-center gap-1 transition-all active:scale-95" title="Nonaktifkan semua produk terpilih">
+                    {syncing ? <Loader2 size={12} className="animate-spin"/> : <X size={12}/>} NONAKTIFKAN
+                  </button>
+                </div>
               </div>
               <button onClick={handleBulkDelete} className="bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black px-5 py-2 rounded-2xl flex items-center gap-2 shadow-md shadow-rose-200 active:scale-95 transition-all">
                 <Trash2 size={12}/> HAPUS
@@ -1066,11 +1344,59 @@ let cbPerItem = 0;
             </div>
           </div>
         )}
-        <div className="overflow-x-auto">
+
+        <div className="flex justify-between items-center bg-slate-50 p-3 border-b border-slate-100">
+          <span className="text-[10px] font-black text-slate-500">TOTAL: {totalRows} PRODUK</span>
+          <div className="flex items-center gap-2">
+            <button disabled={page === 0 || loading} onClick={() => setPage(0)} className="px-2 py-1 bg-white border border-slate-200 rounded shadow-sm text-[10px] font-bold disabled:opacity-50">FIRST</button>
+            <button disabled={page === 0 || loading} onClick={() => setPage(page - 1)} className="px-2 py-1 bg-white border border-slate-200 rounded shadow-sm text-[10px] font-bold disabled:opacity-50">PREV</button>
+            <span className="text-[10px] font-black mx-2">PAGE {page + 1} OF {Math.max(1, Math.ceil(totalRows / pageSize))}</span>
+            <button disabled={(page + 1) * pageSize >= totalRows || loading} onClick={() => setPage(page + 1)} className="px-2 py-1 bg-white border border-slate-200 rounded shadow-sm text-[10px] font-bold disabled:opacity-50">NEXT</button>
+          </div>
+        </div>
+        {/* Mobile View: ProductCardMobile (<640px) */}
+        <div className="block sm:hidden divide-y divide-slate-100 p-3 space-y-3">
+          {loading ? (
+            <div className="p-8 text-center text-[10px] font-black animate-pulse text-slate-400">
+              SYNCHRONIZING DATABASE...
+            </div>
+          ) : products.length === 0 ? (
+            <div className="p-8 text-center text-[10px] font-black text-slate-400">
+              TIDAK ADA PRODUK DITEMUKAN
+            </div>
+          ) : (
+            products.map((item) => {
+              const financials = computeProductFinancials(item);
+              return (
+                <ProductCardMobile
+                  key={item.id}
+                  item={item}
+                  financials={financials}
+                  isSelected={selectedIdSet.has(item.id)}
+                  onToggleSelect={handleToggleSelect}
+                  onEdit={handleEditClick}
+                  onDelete={handleDelete}
+                  onToggleActive={handleToggleActive}
+                  onToggleLock={handleToggleLock}
+                  onQuickUpdate={handleQuickUpdate}
+                  quickEditing={quickEditing}
+                  quickValue={quickValue}
+                  setQuickEditing={setQuickEditing}
+                  setQuickValue={setQuickValue}
+                  isTogglingActive={togglingActiveId === item.id}
+                />
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop View: Existing 14-column Table (>=640px) */}
+        <div className="hidden sm:block w-full max-w-full min-w-0 overflow-x-auto">
+
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-900 text-white text-[7px] tracking-widest uppercase italic border-b border-slate-800">
-                <th className="px-3 py-3 border-r border-slate-700 text-center"><input type="checkbox" className="w-3 h-3 accent-rose-500 cursor-pointer" onChange={handleSelectAllFiltered} checked={filteredProducts.length > 0 && filteredProducts.every(p => selectedIds.includes(p.id))} /></th>
+                <th className="px-3 py-3 border-r border-slate-700 text-center"><input type="checkbox" className="w-3 h-3 accent-rose-500 cursor-pointer" onChange={handleSelectAllFiltered} checked={products.length > 0 && products.every(p => selectedIdSet.has(p.id))} /></th>
                 <th onClick={() => handleSort('provider')} className="px-3 py-3 border-r border-slate-700 text-center text-blue-400 cursor-pointer hover:bg-slate-800">PROVIDER {sortConfig.key === 'provider' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
                 <th onClick={() => handleSort('sku')} className="px-3 py-3 border-r border-slate-700 text-center cursor-pointer hover:bg-slate-800">SKU / PROMO {sortConfig.key === 'sku' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
                 <th onClick={() => handleSort('category')} className="px-3 py-3 border-r border-slate-700 text-center cursor-pointer hover:bg-slate-800">KAT / BRAND {sortConfig.key === 'category' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
@@ -1082,35 +1408,22 @@ let cbPerItem = 0;
                 <th onClick={() => handleSort('margin_item')} className="px-3 py-3 border-r border-slate-700 text-center text-emerald-400 cursor-pointer hover:bg-slate-800">MARGIN (%) {sortConfig.key === 'margin_item' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
                 <th onClick={() => handleSort('cashback')} className="px-3 py-3 border-r border-slate-700 text-center text-amber-500 cursor-pointer hover:bg-slate-800">CASHBACK {sortConfig.key === 'cashback' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
                 <th onClick={() => handleSort('net')} className="px-3 py-3 border-r border-slate-700 text-center text-blue-400 cursor-pointer hover:bg-slate-800">NET (SPL) {sortConfig.key === 'net' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
+                <th onClick={() => handleSort('is_active')} className="px-3 py-3 border-r border-slate-700 text-center cursor-pointer hover:bg-slate-800">STATUS {sortConfig.key === 'is_active' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
                 <th className="px-3 py-3 text-center">AKSI</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={13} className="p-5 text-center text-[8px] animate-pulse">SYNCHRONIZING DATABASE...</td></tr>
-              ) : 
-              filteredProducts.map((item) => {
-                const hargaJualAsli = item.price || 0;
-                const diskonPersen = item.discount || 0;
-                const nominalDiskon = Math.floor(hargaJualAsli * (diskonPersen / 100));
-                const hargaSetelahDiskon = hargaJualAsli - nominalDiskon;
-                const cbNominal = item.cashback || 0;
-                const profitKotor = hargaSetelahDiskon - item.cost;
-                
-                let textShare = "";
-                if (diskonPersen > 0) {
-                    textShare = "(PROMO)";
-                } else {
-                    const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100));
-                    if (cbNominal < cbNormal && profitKotor > 0) textShare = `(Capped ${globalCashback * 10}%)`;
-                    if (cbNominal > cbNormal) textShare = "(MANUAL)"; 
-                }
-                const profitBersih = hargaSetelahDiskon - item.cost - cbNominal;
+                <tr><td colSpan={14} className="p-5 text-center text-[8px] animate-pulse">SYNCHRONIZING DATABASE...</td></tr>
+              ) :
+              products.map((item) => {
+                const financials = computeProductFinancials(item);
+                const { hargaJualAsli, diskonPersen, nominalDiskon, hargaSetelahDiskon, cbNominal, profitBersih, textShare } = financials;
 
                 return (
-                  <tr key={item.id} className={`text-[9px] transition-colors ${item.stock <= 5 ? "bg-rose-50 hover:bg-rose-100/80" : "hover:bg-blue-50/50"}`}>
+                  <tr key={item.id} className={`text-[9px] transition-colors ${item.is_active === false ? "bg-slate-100/70 opacity-70 hover:opacity-100" : item.stock <= 5 ? "bg-rose-50 hover:bg-rose-100/80" : "hover:bg-blue-50/50"}`}>
                     <td className="px-3 py-1.5 border-r border-slate-50 text-center">
-                      <input type="checkbox" className="w-3 h-3 accent-rose-500 cursor-pointer" checked={selectedIds.includes(item.id)} onChange={() => { if (selectedIds.includes(item.id)) setSelectedIds(selectedIds.filter(id => id !== item.id)); else setSelectedIds([...selectedIds, item.id]); }} />
+                      <input type="checkbox" className="w-3 h-3 accent-rose-500 cursor-pointer" checked={selectedIdSet.has(item.id)} onChange={() => handleToggleSelect(item.id)} />
                     </td>
                     <td className="px-3 py-2 border-r border-slate-50 text-center">
                       <span className={`text-[8px] font-black px-2 py-1 rounded-lg italic ${item.provider === 'UNIPLAY' ? "bg-purple-100 text-purple-700 border border-purple-200" : "bg-blue-100 text-blue-700 border border-blue-200"}`}>{item.provider || "DIGIFLAZZ"}</span>
@@ -1141,8 +1454,8 @@ let cbPerItem = 0;
                     <td className="px-3 py-1.5 border-r border-slate-50 text-center text-rose-500 font-bold">Rp {item.cost?.toLocaleString()}</td>
                 <td className="px-3 py-2 border-r border-slate-50 text-center">
                   <div className="flex flex-col items-center justify-center">
-              <input 
-                type="number" 
+              <input
+                type="number"
                 // Catatan: Cek null dan 0 sekaligus agar React tidak komplain warning null
                 value={(item.discount === 0 || item.discount === null) ? "" : item.discount}
                 onChange={(e) => handleLocalChange(item.id, 'discount', e.target.value)}
@@ -1165,7 +1478,7 @@ let cbPerItem = 0;
                   <button onClick={() => handleToggleLock(item.id, item.lock_margin)} className="p-0.5 hover:bg-slate-200 rounded transition-all" title={item.lock_margin ? "Klik untuk UNLOCK" : "Klik untuk LOCK"}>
                     {item.lock_margin ? <Lock size={10} strokeWidth={3} className="text-amber-600" /> : <Unlock size={10} className="text-slate-300 hover:text-blue-500" />}
                   </button>
-              <input 
+              <input
                 type="number"
                 // Catatan: Saringan anti-null untuk kolom margin
                 value={(item.margin_item === 0 || item.margin_item === null) ? "" : item.margin_item}
@@ -1186,8 +1499,8 @@ let cbPerItem = 0;
                 <div className="flex flex-col items-center justify-center">
                   <div className="flex items-center justify-center gap-1">
                     <span className={`text-[8px] font-bold ${diskonPersen > 0 ? "text-blue-500" : "text-amber-600"}`}>Rp</span>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   // Catatan: Saringan anti-null untuk kolom cashback
                   value={(item.cashback === 0 || item.cashback === null) ? "" : item.cashback}
                   onChange={(e) => handleLocalChange(item.id, 'cashback', e.target.value)}
@@ -1209,6 +1522,29 @@ let cbPerItem = 0;
                         )}
                       </div>
                     </td>
+                    <td className="px-3 py-1.5 border-r border-slate-50 text-center">
+                      <button
+                        type="button"
+                        disabled={togglingActiveId === item.id}
+                        onClick={() => handleToggleActive(item.id, item.is_active ?? true)}
+                        className={`px-2 py-1 rounded-md text-[7px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs ${
+                          togglingActiveId === item.id
+                            ? "opacity-50 cursor-wait bg-slate-100 text-slate-400 border border-slate-200"
+                            : (item.is_active ?? true)
+                              ? "bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 active:scale-95"
+                              : "bg-slate-200 text-slate-600 border border-slate-300 hover:bg-slate-300 active:scale-95"
+                        }`}
+                        title={(item.is_active ?? true) ? "Klik untuk Nonaktifkan" : "Klik untuk Aktifkan"}
+                      >
+                        {togglingActiveId === item.id ? (
+                          <span className="flex items-center gap-1 justify-center"><Loader2 size={8} className="animate-spin" /> ...</span>
+                        ) : (item.is_active ?? true) ? (
+                          "AKTIF"
+                        ) : (
+                          "NONAKTIF"
+                        )}
+                      </button>
+                    </td>
                     <td className="px-3 py-1.5 text-center">
                       <div className="flex justify-center gap-1">
                         <button onClick={() => handleEditClick(item)} className="p-1 text-amber-500 hover:bg-amber-100 rounded-lg"><Edit3 size={12}/></button>
@@ -1220,7 +1556,7 @@ let cbPerItem = 0;
               })}
             </tbody>
           </table>
-        </div> 
+        </div>
       </div>
 
       {/* TOAST NOTIFIKASI SILENT SAVE */}
@@ -1230,5 +1566,5 @@ let cbPerItem = 0;
         </div>
       )}
     </div>
-  ); 
+  );
 }

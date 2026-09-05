@@ -24,6 +24,7 @@ interface AffiliateViewUserProps {
   initialReferrals?: Referral[];
   initialBalanceLogs?: BalanceLog[];
   isSidebarExpanded?: boolean;
+  onRefresh?: () => void | Promise<void>;
 }
 
 export default function AffiliateViewUser({
@@ -31,6 +32,7 @@ export default function AffiliateViewUser({
   initialReferrals = [],
   initialBalanceLogs = [],
   isSidebarExpanded = false,
+  onRefresh,
 }: AffiliateViewUserProps) {
   // SWR DATA HOOK
   const {
@@ -100,7 +102,13 @@ export default function AffiliateViewUser({
           </div>
           <button
             type="button"
-            onClick={() => void refetch(false)}
+            onClick={() => {
+              if (onRefresh) {
+                void onRefresh();
+              } else {
+                void refetch(false);
+              }
+            }}
             className="flex items-center gap-1 font-bold text-rose-800 underline hover:no-underline cursor-pointer"
           >
             <RotateCcw size={12} />

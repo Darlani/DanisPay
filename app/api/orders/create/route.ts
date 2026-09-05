@@ -12,6 +12,7 @@ type DatabaseProduct = {
   cost?: number | null;
   discount?: number | null;
   cashback?: number | null;
+  is_active?: boolean | null;
   categories?: { name?: string | null }[] | null;
 };
 
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
 
     const { data: semiAutoData } = await supabaseAdmin
       .from("product_semi_auto")
-      .select("id, sku, name, price_numeric, cost_numeric, discount, cashback, categories(name)")
+      .select("id, sku, name, price_numeric, cost_numeric, discount, cashback, is_active, categories(name)")
       .eq("sku", sku)
       .maybeSingle();
 
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
     } else {
       const { data: providerData } = await supabaseAdmin
         .from("product_automatic")
-        .select("sku, name, price, cost, discount, cashback, categories(name)")
+        .select("sku, name, price, cost, discount, cashback, is_active, categories(name)")
         .eq("sku", sku)
         .maybeSingle();
       dbProduct = providerData;
@@ -135,6 +136,42 @@ export async function POST(request: Request) {
 
     if (!dbProduct) {
       return NextResponse.json({ error: "Produk tidak ditemukan di rak database!" }, { status: 400 });
+    }
+
+    if (dbProduct.is_active !== true) {
+      return NextResponse.json(
+        { error: "Produk sedang tidak aktif atau tidak tersedia." },
+        { status: 400 },
+      );
+    }
+
+    // Server-side verification: Validasi kelayakan etalase & status brand aktif
+    const { data: unifiedProduct, error: unifiedErr } = await supabaseAdmin
+      .from("product_unified_view")
+      .select("id, is_active, is_storefront_eligible, brand_id")
+      .eq("sku", sku)
+      .maybeSingle();
+
+    if (unifiedErr || !unifiedProduct || !unifiedProduct.is_active || !unifiedProduct.is_storefront_eligible) {
+      return NextResponse.json(
+        { error: "Produk saat ini sedang tidak tersedia di etalase." },
+        { status: 400 },
+      );
+    }
+
+    if (unifiedProduct.brand_id) {
+      const { data: brandData } = await supabaseAdmin
+        .from("brands")
+        .select("active")
+        .eq("id", unifiedProduct.brand_id)
+        .maybeSingle();
+
+      if (brandData && brandData.active !== true) {
+        return NextResponse.json(
+          { error: "Kategori/Brand produk ini sedang tidak aktif." },
+          { status: 400 },
+        );
+      }
     }
 
     const category = dbProduct.categories?.[0]?.name?.toLowerCase() || "";

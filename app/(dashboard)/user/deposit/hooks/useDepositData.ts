@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import {
   Deposit,
@@ -45,9 +45,8 @@ export function useDepositData({
 
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isFirstMountRef = useRef(true);
 
-  // Revalidate data via SWR silent background fetch
+  // Revalidate data via SWR silent background fetch (preserved for manual refresh / mutation)
   const revalidate = useCallback(
     async (isManual = false) => {
       if (isManual) {
@@ -96,14 +95,6 @@ export function useDepositData({
     },
     [],
   );
-
-  // Background silent revalidation on mount
-  useEffect(() => {
-    if (isFirstMountRef.current) {
-      isFirstMountRef.current = false;
-      void revalidate(false);
-    }
-  }, [revalidate]);
 
   // Extract unique payment method options
   const paymentOptions = useMemo(() => {

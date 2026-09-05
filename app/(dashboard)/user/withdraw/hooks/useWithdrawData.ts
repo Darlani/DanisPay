@@ -25,13 +25,13 @@ export function useWithdrawData({
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>(initialWithdrawals);
   const [balance, setBalance] = useState<number>(initialBalance);
   const [coinBalance, setCoinBalance] = useState<number>(initialCoinBalance);
-  const [loading, setLoading] = useState<boolean>(initialWithdrawals.length === 0);
+  const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Synchronize when initial props change
   useEffect(() => {
-    if (initialWithdrawals && initialWithdrawals.length > 0) {
+    if (initialWithdrawals) {
       setWithdrawals(initialWithdrawals);
     }
   }, [initialWithdrawals]);
@@ -48,7 +48,7 @@ export function useWithdrawData({
     }
   }, [initialCoinBalance]);
 
-  // 2. SILENT BACKGROUND REFRESH (SWR)
+  // 2. REFRESH / REVALIDATION (preserved for manual refresh / mutation)
   const refetch = useCallback(async (silent = false) => {
     if (!silent) {
       setRefreshing(true);
@@ -72,11 +72,6 @@ export function useWithdrawData({
       setRefreshing(false);
     }
   }, []);
-
-  // Background revalidation on mount
-  useEffect(() => {
-    void refetch(initialWithdrawals.length > 0);
-  }, [refetch, initialWithdrawals.length]);
 
   // 3. STATUS COUNTS PER CATEGORY
   const statusCounts = useMemo<WithdrawalStatusCounts>(() => {

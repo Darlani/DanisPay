@@ -93,12 +93,15 @@ function computeInitialSummary(initialOrders?: Partial<Order>[]): OrdersSummary 
 interface OrdersViewUserProps {
   initialOrders?: Partial<Order>[];
   isSidebarExpanded?: boolean;
+  onRefresh?: () => void | Promise<void>;
 }
 
 export default function OrdersViewUser({
   initialOrders = [],
   isSidebarExpanded = false,
+  onRefresh,
 }: OrdersViewUserProps) {
+  void onRefresh;
   const hasInitialData = Boolean(initialOrders && initialOrders.length > 0);
 
   const [orders, setOrders] = useState<Order[]>(() =>

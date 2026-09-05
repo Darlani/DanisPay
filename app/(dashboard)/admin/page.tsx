@@ -1,33 +1,36 @@
 "use client";
 
-import Navbar from "@/components/Navbar";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity,
   AlertCircle,
-  CalendarDays,
+  Bell,
   Check,
   CheckCircle2,
-  ChevronRight,
   Clock,
   CreditCard,
+  LayoutDashboard,
   Loader2,
+  Menu,
   Package,
-  ShoppingBag,
-  BadgeCheck,
-  Banknote,
-  Gauge,
   RefreshCw,
   RotateCcw,
   Send,
-  ShieldCheck,
-  TrendingUp,
   User,
   Wallet,
   X,
 } from "lucide-react";
 import SidebarAdmin from "./SidebarAdmin";
+import {
+  type AdminTabId,
+  ADMIN_PAGE_META,
+  getAdminTabHref,
+  resolveAdminTab,
+} from "./config/navigation";
+import AdminSkeleton from "./shared/AdminSkeleton";
+import OverviewView from "./domains/overview/OverviewView";
 import { supabase } from "@/utils/supabaseClient";
 import AnalyticsView from "./analytics/AnalyticsView";
 import CategoryManagement from "./categories/CategoryManagement";
@@ -41,6 +44,7 @@ import ExploreView from "./explore/ExploreView";
 import HistoryView from "./history/HistoryView";
 import SettingsView from "./settings/SettingsView";
 import PaymentManagement from "./payment/PaymentManagement";
+import ProvidersView from "./providers/ProvidersView";
 
 type Order = {
   id: string;
@@ -152,37 +156,26 @@ const orderStatusDotClasses = (status: string | null | undefined) =>
         ? "bg-blue-500"
         : "bg-amber-500";
 
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-5 animate-pulse" aria-label="Memuat Dashboard">
-      <div className="h-28 rounded-3xl bg-slate-200/70" />
-      <div className="h-20 rounded-[20px] bg-slate-200/70" />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="h-36 rounded-[20px] bg-slate-200/70" />
-        ))}
-      </div>
-      <div className="grid gap-5 lg:grid-cols-12">
-        <div className="h-80 rounded-[22px] bg-slate-200/70 lg:col-span-8" />
-        <div className="h-80 rounded-[22px] bg-slate-200/70 lg:col-span-4" />
-      </div>
-      <div className="h-80 rounded-[22px] bg-slate-200/70" />
-    </div>
-  );
-}
-
-export default function AdminDashboard() {
+function AdminDashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawTab = searchParams.get("tab");
+  const activeMenu = resolveAdminTab(rawTab);
 
   const [orders, setOrders] = useState<Order[]>([]);
+  const [kpiOrders, setKpiOrders] = useState<
+    Pick<Order, "created_at" | "status" | "price">[] | null
+  >(null);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [weeklyOrders, setWeeklyOrders] = useState<
+    Pick<Order, "created_at" | "status" | "price">[] | null
+  >(null);
   const [loading, setLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [pendingDepositCount, setPendingDepositCount] = useState(0);
   const [pendingWithdrawCount, setPendingWithdrawCount] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [dateFilter, setDateFilter] = useState("all");
-  const [activeMenu, setActiveMenu] = useState("Dashboard");
   const [financeModal, setFinanceModal] = useState<AdminFinanceModalMode | null>(null);
   const [financeModalPendingOnly, setFinanceModalPendingOnly] = useState(false);
   const [attentionOrderMode, setAttentionOrderMode] = useState<
@@ -192,42 +185,142 @@ export default function AdminDashboard() {
   const [cooldown, setCooldown] = useState(0);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
+  const fetchOrdersIdRef = useRef(0);
+  const fetchDepositsIdRef = useRef(0);
+  const fetchWithdrawalsIdRef = useRef(0);
+
+  const handleSetActiveMenu = (menu: string) => {
+    const targetUrl = getAdminTabHref(menu as AdminTabId);
+    router.push(targetUrl, { scroll: false });
+  };
+
+  const fetchOrders = async (isManual = false) => {
+    const fetchId = ++fetchOrdersIdRef.current;
+    try {
+      // Compute 14-day chart window in browser local time — identical semantics
+      // to the orderTrend calculation in OverviewView.tsx
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dow = today.getDay();
+      const mondayOffset = dow === 0 ? -6 : 1 - dow;
+      const currentWeekStart = new Date(today);
+      currentWeekStart.setDate(today.getDate() + mondayOffset);
+      const previousWeekStart = new Date(currentWeekStart);
+      previousWeekStart.setDate(currentWeekStart.getDate() - 7);
+      const chartWindowEnd = new Date(); // current moment
+
+      const [
+        ordersResult,
+        kpiOrdersResult,
+        recentOrdersResult,
+        weeklyOrdersResult,
+      ] = await Promise.all([
+        supabase
+          .from("orders")
+          .select("*")
+          .in("status", ["Pending", "Diproses"])
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("orders")
+          .select("created_at, status, price")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("orders")
+          .select(
+            "id, order_id, product_name, item_label, email, user_contact, price, buy_price, cashback, referral_commission, voucher_amount, used_balance, total_amount, payment_method, status, created_at",
+          )
+          .order("created_at", { ascending: false })
+          .limit(6),
+        supabase
+          .from("orders")
+          .select("created_at, status, price")
+          .gte("created_at", previousWeekStart.toISOString())
+          .lte("created_at", chartWindowEnd.toISOString())
+          .order("created_at", { ascending: true }),
+      ]);
+
+      if (fetchId !== fetchOrdersIdRef.current) return;
+
+      if (
+        ordersResult.error ||
+        kpiOrdersResult.error ||
+        recentOrdersResult.error ||
+        weeklyOrdersResult.error
+      ) {
+        throw (
+          ordersResult.error ||
+          kpiOrdersResult.error ||
+          recentOrdersResult.error ||
+          weeklyOrdersResult.error
+        );
+      }
+
+      setOrders((ordersResult.data || []) as Order[]);
+      setKpiOrders(
+        (kpiOrdersResult.data || []) as Pick<
+          Order,
+          "created_at" | "status" | "price"
+        >[],
+      );
+      setRecentOrders((recentOrdersResult.data || []) as Order[]);
+      setWeeklyOrders(
+        (weeklyOrdersResult.data || []) as Pick<
+          Order,
+          "created_at" | "status" | "price"
+        >[],
+      );
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      if (isManual) throw error;
+    }
+  };
+
+  const fetchDeposits = async (isManual = false) => {
+    const fetchId = ++fetchDepositsIdRef.current;
+    try {
+      const { count, error } = await supabase
+        .from("deposits")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "Pending");
+
+      if (fetchId !== fetchDepositsIdRef.current) return;
+      if (error) throw error;
+
+      setPendingDepositCount(count || 0);
+    } catch (error) {
+      console.error("Error fetching deposits:", error);
+      if (isManual) throw error;
+    }
+  };
+
+  const fetchWithdrawals = async (isManual = false) => {
+    const fetchId = ++fetchWithdrawalsIdRef.current;
+    try {
+      const { count, error } = await supabase
+        .from("withdrawals")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "Pending");
+
+      if (fetchId !== fetchWithdrawalsIdRef.current) return;
+      if (error) throw error;
+
+      setPendingWithdrawCount(count || 0);
+    } catch (error) {
+      console.error("Error fetching withdrawals:", error);
+      if (isManual) throw error;
+    }
+  };
+
   const fetchData = async () => {
     setLoading(true);
     setDashboardError(null);
 
     try {
-      const [ordersResult, depositsResult, withdrawalsResult] =
-        await Promise.all([
-          supabase
-            .from("orders")
-            .select("*")
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("deposits")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "Pending"),
-          supabase
-            .from("withdrawals")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "Pending"),
-        ]);
-
-      if (
-        ordersResult.error ||
-        depositsResult.error ||
-        withdrawalsResult.error
-      ) {
-        throw (
-          ordersResult.error ||
-          depositsResult.error ||
-          withdrawalsResult.error
-        );
-      }
-
-      setOrders((ordersResult.data || []) as Order[]);
-      setPendingDepositCount(depositsResult.count || 0);
-      setPendingWithdrawCount(withdrawalsResult.count || 0);
+      await Promise.all([
+        fetchOrders(true),
+        fetchDeposits(true),
+        fetchWithdrawals(true),
+      ]);
       setHasLoadedOnce(true);
     } catch (error) {
       console.error("Error Fetching Dashboard:", error);
@@ -236,6 +329,16 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
+
+  const [adminProfile, setAdminProfile] = useState<{
+    name: string;
+    role: string;
+    avatarUrl?: string | null;
+  }>({
+    name: "Admin",
+    role: "Admin",
+    avatarUrl: null,
+  });
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -251,7 +354,7 @@ export default function AdminDashboard() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, full_name")
         .eq("id", user.id)
         .single();
 
@@ -259,7 +362,33 @@ export default function AdminDashboard() {
 
       if (userRole !== "admin" && userRole !== "manager") {
         router.push("/user");
+        return;
       }
+
+      const rawRole = (profile?.role || "").trim().toLowerCase();
+      const displayRole =
+        rawRole === "manager"
+          ? "Manager"
+          : rawRole === "lead admin" || rawRole === "lead_admin" || rawRole === "leadadmin"
+            ? "Lead Admin"
+            : "Admin";
+
+      const avatar =
+        (user.user_metadata?.avatar_url as string | undefined) ||
+        (user.user_metadata?.picture as string | undefined) ||
+        null;
+
+      const fullName =
+        profile?.full_name?.trim() ||
+        user.user_metadata?.full_name ||
+        user.email?.split("@")[0] ||
+        "Admin";
+
+      setAdminProfile({
+        name: fullName,
+        role: displayRole,
+        avatarUrl: avatar,
+      });
     };
 
     checkAdmin();
@@ -273,17 +402,17 @@ export default function AdminDashboard() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders" },
-        fetchData,
+        () => fetchOrders(false),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "deposits" },
-        fetchData,
+        () => fetchDeposits(false),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "withdrawals" },
-        fetchData,
+        () => fetchWithdrawals(false),
       )
       .subscribe();
 
@@ -303,449 +432,6 @@ export default function AdminDashboard() {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  const filteredOrders = useMemo(() => {
-    const now = new Date();
-
-    if (dateFilter === "today") {
-      return orders.filter(
-        (order) =>
-          new Date(order.created_at || "").toDateString() ===
-          now.toDateString(),
-      );
-    }
-
-    if (dateFilter === "week") {
-      const startOfCurrentWeek = new Date(now);
-      startOfCurrentWeek.setHours(0, 0, 0, 0);
-      const dayOfWeek = startOfCurrentWeek.getDay();
-      startOfCurrentWeek.setDate(
-        startOfCurrentWeek.getDate() + (dayOfWeek === 0 ? -6 : 1 - dayOfWeek),
-      );
-
-      return orders.filter((order) => {
-        const createdAt = new Date(order.created_at || "");
-        return createdAt >= startOfCurrentWeek && createdAt <= now;
-      });
-    }
-
-    return orders;
-  }, [dateFilter, orders]);
-
-  const dashboardKpis = useMemo(() => {
-    const successfulOrders = filteredOrders.filter((order) =>
-      isSuccessfulOrder(order.status),
-    );
-
-    const totalOrder = filteredOrders.length;
-
-    return {
-      totalOrder,
-      successfulOrder: successfulOrders.length,
-      omzetBerhasil: successfulOrders.reduce(
-        (sum, order) => sum + (Number(order.price) || 0),
-        0,
-      ),
-      successRate:
-        totalOrder === 0
-          ? 0
-          : Math.round((successfulOrders.length / totalOrder) * 100),
-    };
-  }, [filteredOrders]);
-
-  const pendingOrderCount = useMemo(
-    () => orders.filter((order) => order.status === "Pending").length,
-    [orders],
-  );
-
-  const onProcessOrderCount = useMemo(
-    () => orders.filter((order) => order.status === "Diproses").length,
-    [orders],
-  );
-
-  const totalAttentionCount =
-    pendingDepositCount +
-    pendingWithdrawCount +
-    pendingOrderCount +
-    onProcessOrderCount;
-
-  const attentionItems = [
-    {
-      key: "deposit",
-      label: "Deposit Pending",
-      count: pendingDepositCount,
-      description: "Menunggu verifikasi",
-      icon: <CreditCard size={18} />,
-      onClick: () => {
-        setFinanceModal("deposit");
-        setFinanceModalPendingOnly(true);
-      },
-    },
-    {
-      key: "withdraw",
-      label: "Withdraw Pending",
-      count: pendingWithdrawCount,
-      description: "Menunggu proses",
-      icon: <Wallet size={18} />,
-      onClick: () => {
-        setFinanceModal("withdraw");
-        setFinanceModalPendingOnly(true);
-      },
-    },
-    {
-      key: "orderPending",
-      label: "Order Pending",
-      count: pendingOrderCount,
-      description: "Perlu ditinjau",
-      icon: <Clock size={18} />,
-      onClick: () => setAttentionOrderMode("pending"),
-    },
-    {
-      key: "orderOnProcess",
-      label: "Order On Process",
-      count: onProcessOrderCount,
-      description: "Perlu dipantau",
-      icon: <Send size={18} />,
-      onClick: () => setAttentionOrderMode("onProcess"),
-    },
-  ].filter((item) => item.count > 0);
-
-  const recentOrders = useMemo(() => orders.slice(0, 6), [orders]);
-
-  const orderTrend = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Fixed calendar-week comparison: Monday -> Sunday.
-    // Each weekday compares this week against the same weekday last week.
-    // Future days in the current week remain null so they are not mistaken for 0 orders.
-    const dayOfWeek = today.getDay();
-    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-
-    const currentWeekStart = new Date(today);
-    currentWeekStart.setDate(today.getDate() + mondayOffset);
-
-    const previousWeekStart = new Date(currentWeekStart);
-    previousWeekStart.setDate(currentWeekStart.getDate() - 7);
-
-    const validOrders = orders
-      .map((order) => ({
-        order,
-        createdAt: new Date(order.created_at || ""),
-      }))
-      .filter(({ createdAt }) => !Number.isNaN(createdAt.getTime()));
-
-    const getOrdersForDate = (targetDate: Date) =>
-      validOrders
-        .filter(
-          ({ createdAt }) => createdAt.toDateString() === targetDate.toDateString(),
-        )
-        .map(({ order }) => order);
-
-    return Array.from({ length: 7 }, (_, index) => {
-      const currentDate = new Date(currentWeekStart);
-      currentDate.setDate(currentWeekStart.getDate() + index);
-
-      const previousDate = new Date(previousWeekStart);
-      previousDate.setDate(previousWeekStart.getDate() + index);
-
-      const isFuture = currentDate > today;
-      const currentOrders = isFuture ? [] : getOrdersForDate(currentDate);
-      const previousOrders = getOrdersForDate(previousDate);
-
-      const currentSuccessfulOrders = currentOrders.filter((order) =>
-        isSuccessfulOrder(order.status),
-      );
-      const previousSuccessfulOrders = previousOrders.filter((order) =>
-        isSuccessfulOrder(order.status),
-      );
-
-      const currentOmzet = currentSuccessfulOrders.reduce(
-        (sum, order) => sum + (Number(order.price) || 0),
-        0,
-      );
-      const previousOmzet = previousSuccessfulOrders.reduce(
-        (sum, order) => sum + (Number(order.price) || 0),
-        0,
-      );
-
-      return {
-        key: currentDate.toDateString(),
-        label: currentDate.toLocaleDateString("id-ID", { weekday: "short" }),
-        currentDateLabel: currentDate.toLocaleDateString("id-ID", {
-          day: "numeric",
-          month: "short",
-        }),
-        previousDateLabel: previousDate.toLocaleDateString("id-ID", {
-          day: "numeric",
-          month: "short",
-        }),
-        isFuture,
-        isToday: currentDate.getTime() === today.getTime(),
-        currentCount: isFuture ? null : currentOrders.length,
-        previousCount: previousOrders.length,
-        currentSuccessfulCount: currentSuccessfulOrders.length,
-        previousSuccessfulCount: previousSuccessfulOrders.length,
-        currentOmzet,
-        previousOmzet,
-      };
-    });
-  }, [orders]);
-
-  const { orderWeekLabel, previousOrderWeekLabel } = useMemo(() => {
-    const currentStart = new Date();
-    currentStart.setHours(0, 0, 0, 0);
-    const dayOfWeek = currentStart.getDay();
-    currentStart.setDate(
-      currentStart.getDate() + (dayOfWeek === 0 ? -6 : 1 - dayOfWeek),
-    );
-
-    const currentEnd = new Date(currentStart);
-    currentEnd.setDate(currentStart.getDate() + 6);
-
-    const previousStart = new Date(currentStart);
-    previousStart.setDate(currentStart.getDate() - 7);
-
-    const previousEnd = new Date(previousStart);
-    previousEnd.setDate(previousStart.getDate() + 6);
-
-    const formatWeekRange = (start: Date, end: Date) => {
-      const startLabel = start.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "short",
-      });
-      const endLabel = end.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-
-      return `${startLabel} – ${endLabel}`;
-    };
-
-    return {
-      orderWeekLabel: formatWeekRange(currentStart, currentEnd),
-      previousOrderWeekLabel: formatWeekRange(previousStart, previousEnd),
-    };
-  }, []);
-
-  const weeklyOrderTotal = useMemo(
-    () =>
-      orderTrend.reduce(
-        (sum, item) => sum + (item.currentCount ?? 0),
-        0,
-      ),
-    [orderTrend],
-  );
-
-  const previousComparableOrderTotal = useMemo(
-    () =>
-      orderTrend.reduce(
-        (sum, item) => sum + (item.isFuture ? 0 : item.previousCount),
-        0,
-      ),
-    [orderTrend],
-  );
-
-  const weeklyOrderDelta = weeklyOrderTotal - previousComparableOrderTotal;
-
-  const weeklyOrderDeltaPercent =
-    previousComparableOrderTotal === 0
-      ? null
-      : Math.round((weeklyOrderDelta / previousComparableOrderTotal) * 100);
-
-  const trendAxisMax = useMemo(() => {
-    const highestCount = Math.max(
-      ...orderTrend.flatMap((item) => [
-        item.currentCount ?? 0,
-        item.previousCount,
-      ]),
-      0,
-    );
-
-    return Math.max(3, Math.ceil(highestCount / 3) * 3);
-  }, [orderTrend]);
-
-  const trendAxisTicks = useMemo(
-    () => [
-      trendAxisMax,
-      (trendAxisMax / 3) * 2,
-      trendAxisMax / 3,
-      0,
-    ],
-    [trendAxisMax],
-  );
-
-  const kpiSparkline = useMemo(() => {
-    const validOrders = orders
-      .map((order) => ({
-        order,
-        createdAt: new Date(order.created_at || ""),
-      }))
-      .filter(({ createdAt }) => !Number.isNaN(createdAt.getTime()));
-
-    const summarizeBucket = (bucketOrders: Order[]) => {
-      const successfulOrders = bucketOrders.filter((order) =>
-        isSuccessfulOrder(order.status),
-      );
-      const totalOrder = bucketOrders.length;
-      const omzet = successfulOrders.reduce(
-        (sum, order) => sum + (Number(order.price) || 0),
-        0,
-      );
-
-      return {
-        totalOrder,
-        successfulOrder: successfulOrders.length,
-        omzet,
-        successRate:
-          totalOrder === 0
-            ? 0
-            : (successfulOrders.length / totalOrder) * 100,
-      };
-    };
-
-    if (dateFilter === "today") {
-      const now = new Date();
-      const startOfToday = new Date(now);
-      startOfToday.setHours(0, 0, 0, 0);
-
-      const currentHour = now.getHours();
-      const bucketSize = 3;
-      const bucketCount = Math.floor(currentHour / bucketSize) + 1;
-
-      const buckets = Array.from({ length: bucketCount }, (_, index) => {
-        const start = new Date(startOfToday);
-        start.setHours(index * bucketSize, 0, 0, 0);
-
-        const end = new Date(start);
-        end.setHours(start.getHours() + bucketSize, 0, 0, 0);
-
-        const bucketOrders = validOrders
-          .filter(
-            ({ createdAt }) =>
-              createdAt >= start &&
-              createdAt < end &&
-              createdAt <= now,
-          )
-          .map(({ order }) => order);
-
-        return summarizeBucket(bucketOrders);
-      });
-
-      return {
-        totalOrder: buckets.map((item) => item.totalOrder),
-        successfulOrder: buckets.map((item) => item.successfulOrder),
-        omzet: buckets.map((item) => item.omzet),
-        successRate: buckets.map((item) => item.successRate),
-        label: "Tren hari ini · per 3 jam",
-      };
-    }
-
-    if (dateFilter === "week") {
-      const currentTime = new Date();
-      const today = new Date(currentTime);
-      today.setHours(0, 0, 0, 0);
-      const dayOfWeek = today.getDay();
-      const currentWeekStart = new Date(today);
-      currentWeekStart.setDate(
-        today.getDate() + (dayOfWeek === 0 ? -6 : 1 - dayOfWeek),
-      );
-      const elapsedDays = dayOfWeek === 0 ? 7 : dayOfWeek;
-
-      const buckets = Array.from({ length: elapsedDays }, (_, index) => {
-        const start = new Date(currentWeekStart);
-        start.setDate(currentWeekStart.getDate() + index);
-        const end = new Date(start);
-        end.setDate(start.getDate() + 1);
-        const bucketEnd = end > currentTime ? currentTime : end;
-
-        const bucketOrders = validOrders
-          .filter(
-            ({ createdAt }) =>
-              createdAt >= start && createdAt < bucketEnd,
-          )
-          .map(({ order }) => order);
-        return summarizeBucket(bucketOrders);
-      });
-
-      return {
-        totalOrder: buckets.map((item) => item.totalOrder),
-        successfulOrder: buckets.map((item) => item.successfulOrder),
-        omzet: buckets.map((item) => item.omzet),
-        successRate: buckets.map((item) => item.successRate),
-        label: "Tren minggu ini ? harian",
-      };
-    }
-
-    if (validOrders.length === 0) {
-      return {
-        totalOrder: [0],
-        successfulOrder: [0],
-        omzet: [0],
-        successRate: [0],
-        label: "Tren semua data",
-      };
-    }
-
-    const earliest = validOrders.reduce(
-      (min, item) => (item.createdAt < min ? item.createdAt : min),
-      validOrders[0].createdAt,
-    );
-
-    const latest = validOrders.reduce(
-      (max, item) => (item.createdAt > max ? item.createdAt : max),
-      validOrders[0].createdAt,
-    );
-
-    const firstMonth = new Date(
-      earliest.getFullYear(),
-      earliest.getMonth(),
-      1,
-    );
-    const lastMonth = new Date(
-      latest.getFullYear(),
-      latest.getMonth(),
-      1,
-    );
-
-    const buckets: ReturnType<typeof summarizeBucket>[] = [];
-    const cursor = new Date(firstMonth);
-
-    while (cursor <= lastMonth) {
-      const start = new Date(cursor);
-      const end = new Date(
-        cursor.getFullYear(),
-        cursor.getMonth() + 1,
-        1,
-      );
-
-      const bucketOrders = validOrders
-        .filter(
-          ({ createdAt }) =>
-            createdAt >= start && createdAt < end,
-        )
-        .map(({ order }) => order);
-
-      buckets.push(summarizeBucket(bucketOrders));
-      cursor.setMonth(cursor.getMonth() + 1);
-    }
-
-    return {
-      totalOrder: buckets.map((item) => item.totalOrder),
-      successfulOrder: buckets.map((item) => item.successfulOrder),
-      omzet: buckets.map((item) => item.omzet),
-      successRate: buckets.map((item) => item.successRate),
-      label: "Tren semua data · bulanan",
-    };
-  }, [dateFilter, orders]);
-
-  const selectedPeriodLabel =
-    dateFilter === "all"
-      ? "Semua order"
-      : dateFilter === "today"
-        ? "Hari ini"
-        : "Minggu ini";
-
   const handleUpdateStatus = async (
     id: string,
     newStatus: OrderStatus,
@@ -764,6 +450,11 @@ export default function AdminDashboard() {
     }
 
     setOrders((previous) =>
+      previous.map((order) =>
+        order.id === id ? { ...order, status: newStatus } : order,
+      ),
+    );
+    setRecentOrders((previous) =>
       previous.map((order) =>
         order.id === id ? { ...order, status: newStatus } : order,
       ),
@@ -827,13 +518,27 @@ export default function AdminDashboard() {
     setIsCheckingStatus(true);
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        alert(
+          "Sesi admin tidak valid atau telah berakhir. Silakan login kembali.",
+        );
+        return;
+      }
+
       const response = await fetch("/api/digiflazz/check-status", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ order_id: orderId }),
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
       if (response.ok) {
         alert(
@@ -855,13 +560,20 @@ export default function AdminDashboard() {
     }
   };
 
+  const currentMeta = ADMIN_PAGE_META[activeMenu] || {
+    title: activeMenu,
+    subtitle: "Workspace administrasi sistem DaPay.",
+    icon: LayoutDashboard,
+  };
+  const TabIcon = currentMeta.icon;
+
   return (
     <div className="flex min-h-screen bg-[#f6f8fb] font-sans text-slate-600">
       <SidebarAdmin
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
         activeMenu={activeMenu}
-        setActiveMenu={setActiveMenu}
+        setActiveMenu={handleSetActiveMenu}
       />
 
       <div
@@ -869,10 +581,99 @@ export default function AdminDashboard() {
           isSidebarOpen ? "ml-0 md:ml-64" : "ml-0 md:ml-20"
         }`}
       >
-        <Navbar
-          isSidebarOpen={isSidebarOpen}
-          setIsSidebarOpen={setIsSidebarOpen}
-        />
+        {/* ================================================================ */}
+        {/* DYNAMIC WORKSPACE HEADER (SHELL-LEVEL IDENTITY)                  */}
+        {/* ================================================================ */}
+        <header className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-20">
+          <div className="mx-auto max-w-7xl px-4 py-2.5 sm:px-6 md:px-8 lg:px-10">
+            <div className="flex items-center justify-between gap-3">
+              {/* LEFT: Mobile Toggle + Workspace Icon + Title/Subtitle */}
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                {/* Mobile hamburger toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarOpen(true)}
+                  aria-label="Buka navigasi sidebar"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-2xs transition hover:bg-slate-50 md:hidden"
+                >
+                  <Menu size={18} strokeWidth={2} />
+                </button>
+
+                {/* Workspace Icon */}
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-xs sm:h-10 sm:w-10">
+                  <TabIcon size={18} className="sm:h-5 sm:w-5" strokeWidth={2} />
+                </div>
+
+                {/* Title & Subtitle */}
+                <div className="min-w-0 flex-1">
+                  <h1 className="truncate text-sm font-black tracking-tight text-slate-900 sm:text-base md:text-lg leading-tight">
+                    {currentMeta.title}
+                  </h1>
+                  <p className="truncate text-[11px] font-medium text-slate-400 sm:text-xs leading-tight mt-0.5">
+                    {currentMeta.subtitle}
+                  </p>
+                </div>
+              </div>
+
+              {/* RIGHT: Notification + User Identity (Avatar, Name, Role) */}
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                {/* Notification Bell */}
+                <Link
+                  href="/admin?tab=event"
+                  scroll={false}
+                  title="Event & Notifikasi Operasional"
+                  aria-label="Event & Notifikasi Operasional"
+                  className="relative flex h-8.5 w-8.5 sm:h-9 sm:w-9 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition hover:bg-slate-50 hover:text-blue-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95"
+                >
+                  <Bell size={15} className="text-slate-600" />
+                  <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 px-0.5 items-center justify-center rounded-full bg-blue-600 text-[8.5px] font-black text-white ring-2 ring-white shadow-2xs">
+                    •
+                  </span>
+                </Link>
+
+                {/* User Identity: Avatar + Name + Role */}
+                <Link
+                  href="/admin?tab=settings"
+                  scroll={false}
+                  title={`Profil: ${adminProfile.name} (${adminProfile.role})`}
+                  aria-label={`Profil Admin: ${adminProfile.name}`}
+                  className="group flex items-center gap-2 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2 sm:pr-3 shadow-2xs transition hover:border-slate-300 hover:bg-slate-50/90 active:scale-95 min-w-0"
+                >
+                  {/* Avatar */}
+                  <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-slate-900 via-blue-950 to-indigo-950 text-white font-black text-[11px] sm:text-xs shadow-xs ring-1 ring-white">
+                    {adminProfile.avatarUrl ? (
+                      <img
+                        src={adminProfile.avatarUrl}
+                        alt={adminProfile.name}
+                        className="h-full w-full object-cover rounded-full"
+                      />
+                    ) : (
+                      adminProfile.name.charAt(0).toUpperCase()
+                    )}
+                  </div>
+
+                  {/* Name & Role (hidden on mobile < 640px, visible sm+) */}
+                  <div className="hidden sm:block text-left min-w-0 max-w-28 md:max-w-36 lg:max-w-44">
+                    <p className="truncate text-xs font-bold text-slate-900 leading-none group-hover:text-blue-600 transition-colors">
+                      {adminProfile.name}
+                    </p>
+                    <span
+                      className={`inline-block mt-0.5 rounded-full px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider leading-tight ${
+                        adminProfile.role === "Manager"
+                          ? "bg-slate-100 text-slate-700"
+                          : adminProfile.role === "Lead Admin"
+                            ? "bg-indigo-50 text-indigo-700"
+                            : "bg-blue-50 text-blue-700"
+                      }`}
+                    >
+                      {adminProfile.role}
+                    </span>
+                  </div>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </header>
 
         <main className="flex-1 overflow-x-hidden p-4 md:p-6 lg:p-10">
           <div className="mx-auto max-w-7xl">
@@ -907,623 +708,24 @@ export default function AdminDashboard() {
             )}
 
             {activeMenu === "Dashboard" && (
-              <div className="space-y-5" aria-busy={loading}>
-                <header className="rounded-3xl border border-slate-200/80 bg-white px-5 py-5 shadow-[0_12px_32px_rgba(15,23,42,0.045)] md:px-6 md:py-6 lg:px-7">
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex min-w-0 items-start gap-4">
-                      <span className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-[#07152f] text-white shadow-[0_10px_24px_rgba(15,23,42,0.16)] sm:flex">
-                        <Activity size={26} />
-                      </span>
-
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2.5">
-                          <h1 className="text-2xl font-black tracking-[-0.035em] text-slate-950 md:text-[30px]">
-                            DASHBOARD
-                          </h1>
-                          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.09em] text-blue-600 ring-1 ring-blue-100">
-                            Command Center
-                          </span>
-                        </div>
-                        <p className="mt-1.5 max-w-2xl text-[13px] leading-5 text-slate-500">
-                          Ringkasan operasional DaPay, antrean yang perlu ditindak,
-                          dan aktivitas order terbaru dalam satu tampilan.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="inline-flex rounded-[14px] border border-slate-200 bg-slate-50 p-1">
-                        {["all", "today", "week"].map((filter) => (
-                          <button
-                            key={filter}
-                            type="button"
-                            onClick={() => setDateFilter(filter)}
-                            aria-pressed={dateFilter === filter}
-                            className={`rounded-[10px] px-3.5 py-2.5 text-[11px] font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 sm:py-2 ${
-                              dateFilter === filter
-                                ? "bg-[#07152f] text-white shadow-sm"
-                                : "text-slate-500 hover:bg-white hover:text-slate-900"
-                            }`}
-                          >
-                            {filter === "all"
-                              ? "Semua"
-                              : filter === "today"
-                                ? "Hari Ini"
-                                : "Minggu Ini"}
-                          </button>
-                        ))}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={fetchData}
-                        disabled={loading}
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-blue-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:w-10"
-                        aria-label="Muat ulang Dashboard"
-                        title="Muat ulang Dashboard"
-                      >
-                        <RefreshCw
-                          size={17}
-                          className={loading ? "animate-spin" : ""}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </header>
-
-                {loading && !hasLoadedOnce ? (
-                  <DashboardSkeleton />
-                ) : dashboardError ? (
-                  <section
-                    className="rounded-[22px] border border-rose-100 bg-white p-8 text-center shadow-[0_10px_28px_rgba(15,23,42,0.04)]"
-                    aria-live="polite"
-                  >
-                    <AlertCircle
-                      className="mx-auto text-rose-500"
-                      size={28}
-                    />
-                    <h2 className="mt-3 text-base font-bold text-slate-900">
-                      Dashboard belum dapat dimuat
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {dashboardError}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={fetchData}
-                      className="mt-5 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
-                    >
-                      Coba lagi
-                    </button>
-                  </section>
-                ) : (
-                  <>
-                    <section aria-labelledby="attention-heading">
-                      {totalAttentionCount === 0 ? (
-                        <div className="relative min-h-18 overflow-hidden rounded-[18px] border border-emerald-100 bg-linear-to-r from-emerald-50/80 via-white to-emerald-50/35 px-5 py-3.5 shadow-[0_7px_20px_rgba(15,23,42,0.025)] md:px-6">
-                          <div className="relative z-20 flex min-h-11 items-center gap-3.5 pr-0 sm:pr-60">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-200">
-                              <CheckCircle2 size={18} strokeWidth={2} />
-                            </span>
-                            <div>
-                              <h2
-                                id="attention-heading"
-                                className="text-[12px] font-bold text-emerald-800"
-                              >
-                                Operasional dalam kondisi baik
-                              </h2>
-                              <p className="mt-0.5 text-[10px] leading-4 text-slate-500">
-                                Tidak ada antrean yang memerlukan perhatian saat ini.
-                              </p>
-                            </div>
-                          </div>
-
-                          <div
-                            className="pointer-events-none absolute inset-y-0 right-3 hidden w-56 sm:block"
-                            aria-hidden="true"
-                          >
-                            <div className="absolute bottom-0 right-1 flex h-12 items-end gap-1 opacity-75">
-                              {[10, 18, 14, 26, 20, 34, 27, 44, 34, 52, 42].map(
-                                (height, index) => (
-                                  <span
-                                    key={index}
-                                    className="w-1.5 rounded-t-sm bg-blue-100"
-                                    style={{ height }}
-                                  />
-                                ),
-                              )}
-                            </div>
-
-                            <svg
-                              viewBox="0 0 210 64"
-                              className="absolute bottom-0 right-0 h-16 w-52.5 text-blue-100/80"
-                              fill="none"
-                            >
-                              <path
-                                d="M2 51 C23 49, 34 30, 53 34 C71 38, 83 22, 101 27 C123 34, 136 13, 155 20 C174 27, 188 16, 208 18"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              />
-                            </svg>
-
-                            <span className="absolute bottom-2 right-7 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100/85 text-emerald-600 shadow-[0_6px_16px_rgba(16,185,129,0.10)] ring-1 ring-emerald-200/80">
-                              <ShieldCheck size={30} strokeWidth={1.9} />
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="rounded-[20px] border border-amber-100 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.035)] md:p-5">
-                          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-                            <div>
-                              <h2
-                                id="attention-heading"
-                                className="text-[15px] font-bold text-slate-950"
-                              >
-                                Needs Attention
-                              </h2>
-                              <p className="mt-1 text-[10px] text-slate-500">
-                                {totalAttentionCount.toLocaleString("id-ID")} antrean
-                                memerlukan tindakan
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                            {attentionItems.map((item) => (
-                              <AttentionCard
-                                key={item.key}
-                                label={item.label}
-                                count={item.count}
-                                description={item.description}
-                                icon={item.icon}
-                                onClick={item.onClick}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </section>
-
-                    <section
-                      aria-labelledby="kpi-heading"
-                      className="rounded-[22px] border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)] md:p-6"
-                    >
-                      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-                        <div>
-                          <h2
-                            id="kpi-heading"
-                            className="text-[15px] font-bold text-slate-950"
-                          >
-                            Ringkasan KPI
-                          </h2>
-                          <p className="mt-1 text-[10px] text-slate-500">
-                            Metrik utama performa order
-                          </p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <KpiCard
-                          label="Total Order"
-                          value={dashboardKpis.totalOrder.toLocaleString("id-ID")}
-                          description={selectedPeriodLabel}
-                          icon={<ShoppingBag size={20} strokeWidth={1.9} />}
-                          tone="blue"
-                          trend={kpiSparkline.totalOrder}
-                          trendLabel={kpiSparkline.label}
-                        />
-                        <KpiCard
-                          label="Order Berhasil"
-                          value={dashboardKpis.successfulOrder.toLocaleString(
-                            "id-ID",
-                          )}
-                          description="Status Berhasil"
-                          icon={<BadgeCheck size={20} strokeWidth={1.9} />}
-                          tone="emerald"
-                          trend={kpiSparkline.successfulOrder}
-                          trendLabel={kpiSparkline.label}
-                        />
-                        <KpiCard
-                          label="Omzet Berhasil"
-                          value={formatRupiah(dashboardKpis.omzetBerhasil)}
-                          description="Nilai order berhasil"
-                          icon={<Banknote size={20} strokeWidth={1.9} />}
-                          tone="violet"
-                          trend={kpiSparkline.omzet}
-                          trendLabel={kpiSparkline.label}
-                        />
-                        <KpiCard
-                          label="Tingkat Keberhasilan"
-                          value={`${dashboardKpis.successRate}%`}
-                          description="Berhasil ÷ total order"
-                          icon={<Gauge size={20} strokeWidth={1.9} />}
-                          tone="amber"
-                          trend={kpiSparkline.successRate}
-                          trendLabel={kpiSparkline.label}
-                        />
-                      </div>
-                    </section>
-
-                    <div className="grid gap-5 lg:grid-cols-12">
-                      <section
-                        className="rounded-[22px] border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)] md:p-6 lg:col-span-8"
-                        aria-labelledby="trend-heading"
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <h2
-                              id="trend-heading"
-                              className="text-[15px] font-bold text-slate-950"
-                            >
-                              Aktivitas Order
-                            </h2>
-                            <p className="mt-1 text-[10px] text-slate-500">
-                              Perbandingan total order per hari: minggu ini vs minggu lalu
-                              (Senin - Minggu)
-                            </p>
-                          </div>
-
-                          <div className="inline-flex shrink-0 items-center gap-2.5 self-start rounded-2xl bg-blue-50/70 px-3 py-2 ring-1 ring-blue-100/80">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm ring-1 ring-blue-100">
-                              <CalendarDays size={15} />
-                            </span>
-                            <div>
-                              <p className="text-[10px] font-bold text-blue-700">
-                                Minggu Ini vs Minggu Lalu
-                              </p>
-                              <p className="mt-0.5 text-[9px] font-medium text-slate-500">
-                                {orderWeekLabel}
-                              </p>
-                              <p className="mt-0.5 text-[8px] font-medium text-slate-400">
-                                vs {previousOrderWeekLabel}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-5 flex gap-2.5 sm:gap-4">
-                          <div
-                            className="flex h-36 w-6 shrink-0 flex-col justify-between pb-px text-right text-[9px] font-medium tabular-nums text-slate-400"
-                            aria-hidden="true"
-                          >
-                            {trendAxisTicks.map((tick) => (
-                              <span key={tick}>{tick}</span>
-                            ))}
-                          </div>
-
-                          <div
-                            className="min-w-0 flex-1"
-                            aria-label={`Grafik perbandingan aktivitas order ${orderWeekLabel} dengan ${previousOrderWeekLabel}`}
-                          >
-                            <div className="relative h-36">
-                              <div className="pointer-events-none absolute inset-x-0 top-1 h-px border-t border-dashed border-slate-200" />
-                              <div className="pointer-events-none absolute inset-x-0 top-[33.333%] h-px border-t border-dashed border-slate-200" />
-                              <div className="pointer-events-none absolute inset-x-0 top-[66.666%] h-px border-t border-dashed border-slate-200" />
-                              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-slate-200" />
-
-                              <div className="relative z-10 flex h-full items-end gap-1.5 sm:gap-3">
-                                {orderTrend.map((item) => {
-                                  const previousHeight =
-                                    item.previousCount === 0
-                                      ? "2px"
-                                      : `${Math.max(
-                                          5,
-                                          (item.previousCount / trendAxisMax) * 100,
-                                        )}%`;
-
-                                  const currentHeight =
-                                    item.currentCount === null
-                                      ? "0px"
-                                      : item.currentCount === 0
-                                        ? "2px"
-                                        : `${Math.max(
-                                            5,
-                                            (item.currentCount / trendAxisMax) * 100,
-                                          )}%`;
-
-                                  const currentTooltip = item.isFuture
-                                    ? `Minggu ini (${item.currentDateLabel}): belum terjadi`
-                                    : `Minggu ini (${item.currentDateLabel}): ${item.currentCount} order, ${item.currentSuccessfulCount} berhasil, omzet ${formatRupiah(item.currentOmzet)}`;
-
-                                  const tooltip = `${item.label} · Minggu lalu (${item.previousDateLabel}): ${item.previousCount} order, ${item.previousSuccessfulCount} berhasil, omzet ${formatRupiah(item.previousOmzet)} · ${currentTooltip}`;
-
-                                  return (
-                                    <div
-                                      key={item.key}
-                                      className={`group relative flex h-full min-w-0 flex-1 items-end justify-center rounded-t-xl px-0.5 ${
-                                        item.isToday ? "bg-blue-50/45" : ""
-                                      }`}
-                                      title={tooltip}
-                                    >
-                                      <div className="flex h-full w-full items-end justify-center gap-1 sm:gap-1.5">
-                                        <div className="relative flex h-full w-[38%] max-w-8 items-end justify-center">
-                                          <div
-                                            className={`w-full rounded-t-md transition-all ${
-                                              item.previousCount > 0
-                                                ? "bg-slate-300 shadow-[0_4px_10px_rgba(100,116,139,0.12)] group-hover:bg-slate-400"
-                                                : "bg-slate-100"
-                                            }`}
-                                            style={{ height: previousHeight }}
-                                          />
-                                          <span
-                                            className="pointer-events-none absolute hidden text-[8px] font-semibold tabular-nums text-slate-500 sm:block"
-                                            style={{
-                                              bottom: `calc(${previousHeight} + 4px)`,
-                                            }}
-                                          >
-                                            {item.previousCount}
-                                          </span>
-                                        </div>
-
-                                        <div className="relative flex h-full w-[38%] max-w-8 items-end justify-center">
-                                          <div
-                                            className={`w-full rounded-t-md transition-all ${
-                                              item.isFuture
-                                                ? "bg-transparent"
-                                                : item.currentCount && item.currentCount > 0
-                                                  ? "bg-linear-to-t from-blue-600 to-blue-400 shadow-[0_5px_12px_rgba(37,99,235,0.16)] group-hover:from-blue-700 group-hover:to-blue-500"
-                                                  : "bg-blue-100"
-                                            }`}
-                                            style={{ height: currentHeight }}
-                                          />
-                                          <span
-                                            className="pointer-events-none absolute hidden text-[8px] font-bold tabular-nums text-blue-700 sm:block"
-                                            style={{
-                                              bottom:
-                                                item.currentCount === null
-                                                  ? "4px"
-                                                  : `calc(${currentHeight} + 4px)`,
-                                            }}
-                                          >
-                                            {item.currentCount === null
-                                              ? "—"
-                                              : item.currentCount}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-
-                            <div className="mt-2.5 flex gap-1.5 sm:gap-3">
-                              {orderTrend.map((item) => (
-                                <div
-                                  key={`${item.key}-label`}
-                                  className="min-w-0 flex-1 text-center"
-                                >
-                                  <p
-                                    className={`text-[9px] font-semibold ${
-                                      item.isToday
-                                        ? "text-blue-600"
-                                        : "text-slate-500"
-                                    }`}
-                                  >
-                                    {item.label}
-                                  </p>
-                                  <p className="mt-0.5 truncate text-[8px] text-blue-500">
-                                    {item.currentDateLabel}
-                                  </p>
-                                  <p className="mt-0.5 truncate text-[7px] text-slate-400">
-                                    vs {item.previousDateLabel}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[9px] font-medium text-slate-500">
-                          <span className="inline-flex items-center gap-1.5">
-                            <span className="h-2.5 w-2.5 rounded-[3px] bg-slate-300" />
-                            Minggu Lalu
-                          </span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <span className="h-2.5 w-2.5 rounded-[3px] bg-blue-500" />
-                            Minggu Ini
-                          </span>
-                        </div>
-
-                        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-3.5 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex items-center gap-5">
-                            <div className="flex items-center gap-2">
-                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 ring-1 ring-slate-200">
-                                <ShoppingBag size={13} />
-                              </span>
-                              <div>
-                                <p className="text-[12px] font-bold tabular-nums text-slate-900">
-                                  {previousComparableOrderTotal}
-                                </p>
-                                <p className="text-[8px] text-slate-400">
-                                  Minggu Lalu · hari sepadan
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="h-7 w-px bg-slate-200" />
-
-                            <div className="flex items-center gap-2">
-                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600 ring-1 ring-blue-100">
-                                <ShoppingBag size={13} />
-                              </span>
-                              <div>
-                                <p className="text-[12px] font-bold tabular-nums text-slate-900">
-                                  {weeklyOrderTotal}
-                                </p>
-                                <p className="text-[8px] text-slate-400">
-                                  Minggu Ini · s.d. hari ini
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col items-start gap-1 sm:items-end">
-                            <span
-                              className={`text-[9px] font-semibold ${
-                                weeklyOrderDelta > 0
-                                  ? "text-emerald-600"
-                                  : weeklyOrderDelta < 0
-                                    ? "text-rose-600"
-                                    : "text-slate-500"
-                              }`}
-                            >
-                              {weeklyOrderDeltaPercent === null
-                                ? `${weeklyOrderDelta >= 0 ? "+" : ""}${weeklyOrderDelta} order vs minggu lalu`
-                                : `${weeklyOrderDeltaPercent >= 0 ? "+" : ""}${weeklyOrderDeltaPercent}% vs minggu lalu`}
-                            </span>
-                            <span className="inline-flex items-center gap-1.5 text-[8px] font-medium text-slate-400">
-                              Pembanding memakai hari yang sama · hari mendatang: —
-                              <AlertCircle size={11} />
-                            </span>
-                          </div>
-                        </div>
-                      </section>
-
-                      <section
-                        className="rounded-[22px] border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)] md:p-6 lg:col-span-4"
-                        aria-labelledby="shortcut-heading"
-                      >
-                        <h2
-                          id="shortcut-heading"
-                          className="text-[15px] font-bold text-slate-950"
-                        >
-                          Akses Cepat
-                        </h2>
-                        <p className="mt-1 text-[10px] text-slate-500">
-                          Jalan pintas ke modul yang sering digunakan.
-                        </p>
-
-                        <div className="mt-4 space-y-2.5">
-                          <Shortcut
-                            label="Deposit"
-                            description="Kelola deposit member"
-                            icon={<CreditCard size={17} />}
-                            tone="blue"
-                            onClick={() => {
-                              setFinanceModal("deposit");
-                              setFinanceModalPendingOnly(false);
-                            }}
-                          />
-                          <Shortcut
-                            label="Withdraw"
-                            description="Kelola withdraw member"
-                            icon={<Wallet size={17} />}
-                            tone="amber"
-                            onClick={() => {
-                              setFinanceModal("withdraw");
-                              setFinanceModalPendingOnly(false);
-                            }}
-                          />
-                          <Shortcut
-                            label="Explore Produk"
-                            description="Jelajahi semua produk"
-                            icon={<Package size={17} />}
-                            tone="emerald"
-                            onClick={() => setActiveMenu("Explore")}
-                          />
-                          <Shortcut
-                            label="Analytics"
-                            description="Lihat laporan lengkap"
-                            icon={<TrendingUp size={17} />}
-                            tone="violet"
-                            onClick={() => setActiveMenu("Analytics")}
-                          />
-                        </div>
-                      </section>
-                    </div>
-
-                    <section
-                      id="recent-orders"
-                      className="overflow-hidden rounded-[22px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.04)]"
-                      aria-labelledby="recent-orders-heading"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 md:px-6">
-                        <div>
-                          <h2
-                            id="recent-orders-heading"
-                            className="text-[15px] font-bold text-slate-950"
-                          >
-                            Aktivitas Order Terbaru
-                          </h2>
-                          <p className="mt-1 text-[10px] text-slate-500">
-                            Transaksi terbaru yang masuk ke sistem DaPay.
-                          </p>
-                        </div>
-
-                        <span className="rounded-full bg-slate-50 px-2.5 py-1 text-[9px] font-medium text-slate-500">
-                          6 order terakhir
-                        </span>
-                      </div>
-
-                      {recentOrders.length === 0 ? (
-                        <div className="px-6 py-12 text-center">
-                          <Package
-                            className="mx-auto text-slate-300"
-                            size={26}
-                          />
-                          <p className="mt-3 text-sm font-medium text-slate-700">
-                            Belum ada order untuk ditampilkan.
-                          </p>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="hidden overflow-x-auto md:block">
-                            <table className="w-full min-w-225 table-fixed text-left">
-                              <colgroup>
-                                <col className="w-[13%]" />
-                                <col className="w-[23%]" />
-                                <col className="w-[18%]" />
-                                <col className="w-[13%]" />
-                                <col className="w-[12%]" />
-                                <col className="w-[14%]" />
-                                <col className="w-[7%]" />
-                              </colgroup>
-                              <thead className="bg-slate-50/80 text-[9px] font-bold uppercase tracking-[0.06em] text-slate-500">
-                                <tr>
-                                  <th className="px-5 py-3.5">Order</th>
-                                  <th className="px-5 py-3.5">Produk</th>
-                                  <th className="px-5 py-3.5">Pelanggan</th>
-                                  <th className="px-5 py-3.5 text-right">
-                                    Nominal
-                                  </th>
-                                  <th className="px-5 py-3.5 text-center">
-                                    Status
-                                  </th>
-                                  <th className="px-5 py-3.5 text-right">
-                                    Waktu
-                                  </th>
-                                  <th className="px-5 py-3.5 text-center">
-                                    Detail
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100">
-                                {recentOrders.map((order) => (
-                                  <RecentOrderRow
-                                    key={order.id}
-                                    order={order}
-                                    onClick={() => setSelectedOrder(order)}
-                                  />
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          <div className="divide-y divide-slate-100 md:hidden">
-                            {recentOrders.map((order) => (
-                              <RecentOrderMobileCard
-                                key={order.id}
-                                order={order}
-                                onClick={() => setSelectedOrder(order)}
-                              />
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </section>
-                  </>
-                )}
-              </div>
+              <OverviewView
+                orders={orders}
+                kpiOrders={kpiOrders}
+                recentOrders={recentOrders}
+                weeklyOrders={weeklyOrders}
+                loading={loading}
+                dashboardError={dashboardError}
+                pendingDepositCount={pendingDepositCount}
+                pendingWithdrawCount={pendingWithdrawCount}
+                hasLoadedOnce={hasLoadedOnce}
+                onRefresh={fetchData}
+                onSelectOrder={(order) => setSelectedOrder(order)}
+                onOpenFinanceModal={(mode, pendingOnly) => {
+                  setFinanceModal(mode);
+                  setFinanceModalPendingOnly(Boolean(pendingOnly));
+                }}
+                onOpenAttentionOrders={(mode) => setAttentionOrderMode(mode)}
+              />
             )}
 
             {activeMenu === "Analytics" && <AnalyticsView />}
@@ -1536,6 +738,7 @@ export default function AdminDashboard() {
             {activeMenu === "Orders" && <OrdersView />}
             {activeMenu === "Deposit" && <DepositView />}
             {activeMenu === "Withdrawal" && <WithdrawalView />}
+            {activeMenu === "Providers" && <ProvidersView />}
             {activeMenu === "Explore" && <ExploreView />}
             {activeMenu === "History" && <HistoryView />}
             {activeMenu === "Payment" && <PaymentManagement />}
@@ -1942,7 +1145,7 @@ function AdminDepositPanel({
           <p className="mt-1 text-[10px] text-slate-500">
             {pendingOnly
               ? `${pendingCount.toLocaleString("id-ID")} pending`
-              : `${pendingCount.toLocaleString("id-ID")} pending · ${deposits.length.toLocaleString("id-ID")} total data`}
+              : `${pendingCount.toLocaleString("id-ID")} pending Â· ${deposits.length.toLocaleString("id-ID")} total data`}
           </p>
         </div>
         <button
@@ -2292,7 +1495,7 @@ function AdminWithdrawPanel({
           <p className="mt-1 text-[10px] text-slate-500">
             {pendingOnly
               ? `${pendingCount.toLocaleString("id-ID")} pending`
-              : `${pendingCount.toLocaleString("id-ID")} pending · ${requests.length.toLocaleString("id-ID")} total data`}
+              : `${pendingCount.toLocaleString("id-ID")} pending Â· ${requests.length.toLocaleString("id-ID")} total data`}
           </p>
         </div>
         <button
@@ -2368,7 +1571,7 @@ function AdminWithdrawPanel({
                     <div className="min-w-0">
                       <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400">Tujuan</p>
                       <p className="mt-1 text-[11px] font-bold uppercase text-slate-900">{request.bank_name || "-"}</p>
-                      <p className="mt-0.5 truncate text-[9px] text-slate-500">{request.account_number || "-"}{request.account_name ? ` · ${request.account_name}` : ""}</p>
+                      <p className="mt-0.5 truncate text-[9px] text-slate-500">{request.account_number || "-"}{request.account_name ? ` Â· ${request.account_name}` : ""}</p>
                     </div>
 
                     {request.status === "Pending" && (
@@ -2461,7 +1664,7 @@ function AdminWithdrawPanel({
                       <td className="px-4 py-4 text-right text-[10px] font-black tabular-nums text-slate-900">Rp {formatTotalDeduction(request.amount, currentEditFee)}</td>
                       <td className="px-4 py-4">
                         <p className="truncate text-[10px] font-bold uppercase text-slate-900">{request.bank_name || "-"}</p>
-                        <p className="mt-1 truncate text-[8px] text-slate-400">{request.account_number || "-"}{request.account_name ? ` · ${request.account_name}` : ""}</p>
+                        <p className="mt-1 truncate text-[8px] text-slate-400">{request.account_number || "-"}{request.account_name ? ` Â· ${request.account_name}` : ""}</p>
                       </td>
                       <td className="px-4 py-4 text-center"><FinanceStatusBadge status={request.status} /></td>
                       <td className="px-4 py-4">
@@ -2535,346 +1738,6 @@ function PanelEmpty({ label }: { label: string }) {
     <div className="flex min-h-44 items-center justify-center px-5 py-10 text-[10px] font-semibold text-slate-400">
       {label}
     </div>
-  );
-}
-
-function AttentionCard({
-  label,
-  count,
-  description,
-  icon,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  description: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex w-full items-center gap-3 rounded-2xl border border-amber-100 bg-amber-50/50 p-3.5 text-left transition hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1"
-    >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-amber-600 shadow-sm ring-1 ring-amber-100">
-        {icon}
-      </span>
-
-      <span className="min-w-0 flex-1">
-        <span className="block text-[12px] font-bold text-slate-900">
-          {label}
-        </span>
-        <span className="mt-0.5 block text-[10px] text-slate-500">
-          {description}
-        </span>
-      </span>
-
-      <span className="flex items-center gap-2">
-        <span className="text-xl font-black tabular-nums tracking-tight text-slate-950">
-          {count}
-        </span>
-        <ChevronRight
-          size={15}
-          className="text-amber-500 transition-transform group-hover:translate-x-0.5"
-        />
-      </span>
-    </button>
-  );
-}
-
-function KpiCard({
-  label,
-  value,
-  description,
-  icon,
-  tone,
-  trend,
-  trendLabel,
-}: {
-  label: string;
-  value: string;
-  description: string;
-  icon: React.ReactNode;
-  tone: "blue" | "emerald" | "violet" | "amber";
-  trend: number[];
-  trendLabel: string;
-}) {
-  const tones = {
-    blue: {
-      iconShell: "bg-blue-50 text-blue-600 ring-blue-100",
-      line: "#2563eb",
-      fill: "#dbeafe",
-    },
-    emerald: {
-      iconShell: "bg-emerald-50 text-emerald-600 ring-emerald-100",
-      line: "#059669",
-      fill: "#d1fae5",
-    },
-    violet: {
-      iconShell: "bg-violet-50 text-violet-600 ring-violet-100",
-      line: "#7c3aed",
-      fill: "#ede9fe",
-    },
-    amber: {
-      iconShell: "bg-amber-50 text-orange-600 ring-amber-100",
-      line: "#ea580c",
-      fill: "#ffedd5",
-    },
-  };
-
-  const selected = tones[tone];
-
-  return (
-    <article
-      className="relative flex h-full flex-col overflow-hidden rounded-[18px] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_4px_16px_rgba(15,23,42,0.03)] transition-shadow hover:shadow-[0_8px_24px_rgba(15,23,42,0.05)]"
-    >
-      <div className="relative z-10 flex items-center justify-between gap-2">
-        <p className="truncate text-[9px] font-bold uppercase tracking-[0.07em] text-slate-500">
-          {label}
-        </p>
-        <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] ring-1 ${selected.iconShell}`}
-        >
-          {icon}
-        </span>
-      </div>
-
-      <p
-        title={value}
-        className="relative z-10 mt-3 whitespace-nowrap text-[19px] font-black tracking-[-0.035em] text-slate-950 md:text-[21px] xl:text-[22px]"
-      >
-        {value}
-      </p>
-      <p className="relative z-10 mt-1 truncate text-[10px] text-slate-500">
-        {description}
-      </p>
-
-      <div
-        className="pointer-events-none absolute bottom-0 right-0 z-0 h-16 w-2/5 opacity-70 sm:h-20 sm:w-1/2"
-        title={trendLabel}
-        aria-hidden="true"
-      >
-        <KpiSparkline
-          values={trend}
-          lineColor={selected.line}
-          fillColor={selected.fill}
-        />
-      </div>
-
-      <span className="sr-only">{trendLabel}</span>
-    </article>
-  );
-}
-
-function KpiSparkline({
-  values,
-  lineColor,
-  fillColor,
-}: {
-  values: number[];
-  lineColor: string;
-  fillColor: string;
-}) {
-  const width = 110;
-  const height = 58;
-  const paddingX = 4;
-  const paddingY = 6;
-
-  const safeValues =
-    values.length > 1
-      ? values
-      : values.length === 1
-        ? [values[0], values[0]]
-        : [0, 0];
-
-  const minValue = Math.min(...safeValues);
-  const maxValue = Math.max(...safeValues);
-  const spread = Math.max(maxValue - minValue, 1);
-
-  const points = safeValues.map((value, index) => {
-    const x =
-      paddingX +
-      (index / Math.max(safeValues.length - 1, 1)) *
-        (width - paddingX * 2);
-    const y =
-      height -
-      paddingY -
-      ((value - minValue) / spread) * (height - paddingY * 2);
-
-    return { x, y };
-  });
-
-  const smoothPath = points.reduce((path, point, index) => {
-    if (index === 0) {
-      return `M ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
-    }
-
-    const previous = points[index - 1];
-    const previousPrevious = points[index - 2] ?? previous;
-    const next = points[index + 1] ?? point;
-
-    const control1X = previous.x + (point.x - previousPrevious.x) / 6;
-    const control1Y = previous.y + (point.y - previousPrevious.y) / 6;
-    const control2X = point.x - (next.x - previous.x) / 6;
-    const control2Y = point.y - (next.y - previous.y) / 6;
-
-    return `${path} C ${control1X.toFixed(2)} ${control1Y.toFixed(2)}, ${control2X.toFixed(2)} ${control2Y.toFixed(2)}, ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
-  }, "");
-
-  const firstPoint = points[0];
-  const lastPoint = points[points.length - 1];
-  const areaPath = `${smoothPath} L ${lastPoint.x.toFixed(2)} ${(height - paddingY).toFixed(2)} L ${firstPoint.x.toFixed(2)} ${(height - paddingY).toFixed(2)} Z`;
-
-  const gradientId = `kpi-spark-${lineColor.replace(/[^a-zA-Z0-9]/g, "")}`;
-
-  return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="h-full w-full overflow-visible"
-      role="img"
-      aria-hidden="true"
-      preserveAspectRatio="none"
-    >
-      <defs>
-        <linearGradient
-          id={gradientId}
-          x1="0"
-          y1="0"
-          x2="0"
-          y2="1"
-        >
-          <stop offset="0%" stopColor={fillColor} stopOpacity="0.45" />
-          <stop offset="100%" stopColor={fillColor} stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
-
-      <path d={areaPath} fill={`url(#${gradientId})`} />
-      <path
-        d={smoothPath}
-        fill="none"
-        stroke={lineColor}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
-}
-
-function Shortcut({
-  label,
-  description,
-  icon,
-  tone,
-  onClick,
-}: {
-  label: string;
-  description: string;
-  icon: React.ReactNode;
-  tone: "blue" | "emerald" | "violet" | "amber";
-  onClick: () => void;
-}) {
-  const tones = {
-    blue: "bg-blue-50 text-blue-600 ring-blue-100",
-    emerald: "bg-emerald-50 text-emerald-600 ring-emerald-100",
-    violet: "bg-violet-50 text-violet-600 ring-violet-100",
-    amber: "bg-amber-50 text-amber-600 ring-amber-100",
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex w-full items-center gap-3 rounded-[14px] border border-slate-200 bg-white px-3 py-3 text-left transition-all hover:-translate-y-px hover:border-blue-200 hover:bg-slate-50/60 hover:shadow-[0_8px_20px_rgba(15,23,42,0.05)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1"
-    >
-      <span
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] ring-1 ${tones[tone]}`}
-      >
-        {icon}
-      </span>
-
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[12px] font-bold text-slate-950">
-          {label}
-        </span>
-        <span className="mt-0.5 block truncate text-[9px] text-slate-500">
-          {description}
-        </span>
-      </span>
-
-      <ChevronRight
-        size={15}
-        className="shrink-0 text-slate-400 transition-all group-hover:translate-x-0.5 group-hover:text-blue-600"
-      />
-    </button>
-  );
-}
-
-function RecentOrderRow({
-  order,
-  onClick,
-}: {
-  order: Order;
-  onClick: () => void;
-}) {
-  return (
-    <tr className="transition-colors hover:bg-slate-50/70">
-      <td className="px-5 py-4">
-        <span className="text-[11px] font-bold text-blue-600">
-          #{order.order_id?.slice(-8) || "-"}
-        </span>
-      </td>
-
-      <td className="px-5 py-4">
-        <p className="truncate text-[11px] font-bold text-slate-900">
-          {order.product_name || "-"}
-        </p>
-        <p className="mt-0.5 truncate text-[9px] text-slate-400">
-          {order.item_label || "-"}
-        </p>
-      </td>
-
-      <td className="px-5 py-4">
-        <p className="truncate text-[10px] text-slate-600">
-          {order.email || order.user_contact || "Guest"}
-        </p>
-      </td>
-
-      <td className="px-5 py-4 text-right text-[11px] font-bold tabular-nums text-slate-900">
-        {formatRupiah(order.price)}
-      </td>
-
-      <td className="px-5 py-4 text-center">
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-semibold ${orderStatusClasses(
-            order.status,
-          )}`}
-        >
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${orderStatusDotClasses(
-              order.status,
-            )}`}
-          />
-          {order.status || "Pending"}
-        </span>
-      </td>
-
-      <td className="px-5 py-4 text-right text-[9px] text-slate-400">
-        {formatOrderTime(order.created_at)}
-      </td>
-
-      <td className="px-5 py-4 text-center">
-        <button
-          type="button"
-          onClick={onClick}
-          className="text-[10px] font-bold text-blue-600 transition hover:text-blue-800 focus-visible:outline-none focus-visible:underline focus-visible:text-blue-800"
-        >
-          Lihat Detail
-        </button>
-      </td>
-    </tr>
   );
 }
 
@@ -2959,7 +1822,7 @@ function RecentOrderMobileCard({
             {order.product_name || "Produk tidak tersedia"}
           </p>
           <p className="mt-1 truncate text-[10px] text-slate-400">
-            #{order.order_id?.slice(-8) || "-"} ·{" "}
+            #{order.order_id?.slice(-8) || "-"} Â·{" "}
             {order.email || order.user_contact || "Guest"}
           </p>
         </div>
@@ -3276,5 +2139,13 @@ function ActionButton({
       {icon}
       {label}
     </button>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <Suspense fallback={<AdminSkeleton variant="dashboard" />}>
+      <AdminDashboardContent />
+    </Suspense>
   );
 }

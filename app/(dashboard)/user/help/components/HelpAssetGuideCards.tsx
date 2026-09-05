@@ -27,29 +27,30 @@ export default function HelpAssetGuideCards({
       <div className="grid grid-cols-2 gap-2 xs:gap-3 sm:gap-4">
         {/* 1. SALDO DAPAY CARD (ASET LIKUID) */}
         <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-[22px] border border-emerald-200/80 bg-linear-to-br from-white via-emerald-50/50 to-teal-100/30 p-2.5 xs:p-3.5 sm:p-5 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/70 transition-all duration-200 hover:shadow-xs">
+          {/* Badge Aset Likuid di Pojok Kanan Atas Container (Hidden on <640px Mobile, Visible on >=640px Tablet & Desktop) */}
+          <span className="hidden sm:inline-flex absolute sm:top-4 sm:right-4 items-center rounded-full border border-emerald-300 bg-emerald-100/90 px-2 py-0.5 text-[9.5px] sm:text-[10px] font-bold text-emerald-800 shadow-2xs">
+            Aset Likuid
+          </span>
+
           <div>
-            <div className="flex flex-col xs:flex-row items-start gap-2 xs:gap-3 sm:gap-3.5">
+            {/* Header: Icon + Title sejajar di dasar masing-masing icon */}
+            <div className="flex items-end gap-1.5 xs:gap-2.5 sm:gap-3 pr-0 sm:pr-20">
               {/* Glowing Ambient Avatar */}
-              <div className="relative flex h-8 w-8 xs:h-10 xs:w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-lg xs:rounded-xl sm:rounded-2xl border border-emerald-300/60 bg-linear-to-br from-emerald-500 to-teal-600 text-white shadow-[0_8px_20px_rgba(16,185,129,0.25)] ring-2 xs:ring-3 sm:ring-4 ring-emerald-100/80">
-                <Wallet size={16} strokeWidth={2.2} className="xs:hidden" />
-                <Wallet size={19} strokeWidth={2.2} className="hidden xs:block sm:hidden" />
-                <Wallet size={22} strokeWidth={2.2} className="hidden sm:block" />
+              <div className="relative flex h-7.5 w-7.5 xs:h-9 xs:w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl sm:rounded-2xl border border-emerald-300/60 bg-linear-to-br from-emerald-500 to-teal-600 text-white shadow-[0_6px_16px_rgba(16,185,129,0.25)] ring-2 xs:ring-3 sm:ring-4 ring-emerald-100/80">
+                <Wallet size={15} strokeWidth={2.2} className="xs:hidden" />
+                <Wallet size={18} strokeWidth={2.2} className="hidden xs:block sm:hidden" />
+                <Wallet size={21} strokeWidth={2.2} className="hidden sm:block" />
               </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 xs:gap-2 flex-wrap">
-                  <h3 className="text-xs xs:text-sm sm:text-base font-black tracking-tight text-slate-900">
-                    Saldo DaPay
-                  </h3>
-                  <span className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-100/80 px-1.5 xs:px-2 py-0.5 text-[8.5px] xs:text-[9.5px] sm:text-[10px] font-bold text-emerald-800">
-                    Aset Likuid
-                  </span>
-                </div>
-                <p className="mt-1 text-[10px] xs:text-[11.5px] sm:text-xs text-slate-600 leading-relaxed">
-                  Saldo utama yang dapat digunakan belanja dan dapat ditarik ke rekening / e-wallet.
-                </p>
-              </div>
+              <h3 className="pb-0.5 text-[11.5px] xs:text-sm sm:text-base font-black tracking-tight text-slate-900 leading-tight">
+                Saldo DaPay
+              </h3>
             </div>
+
+            {/* Description Text */}
+            <p className="mt-2 xs:mt-2.5 text-[10px] xs:text-[11.5px] sm:text-xs text-slate-600 leading-relaxed">
+              Saldo utama yang dapat digunakan belanja dan dapat ditarik ke rekening / e-wallet.
+            </p>
 
             {/* Checklist */}
             <div className="mt-2.5 xs:mt-3.5 space-y-1 xs:space-y-1.5 border-t border-emerald-100/80 pt-2 xs:pt-3">
@@ -73,33 +74,34 @@ export default function HelpAssetGuideCards({
 
         {/* 2. KOIN DAPAY CARD (ASET REWARD) */}
         <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-[22px] border border-purple-200/80 bg-linear-to-br from-white via-purple-50/50 to-violet-100/30 p-2.5 xs:p-3.5 sm:p-5 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/70 transition-all duration-200 hover:shadow-xs">
+          {/* Badge Aset Reward di Pojok Kanan Atas Container (Hidden on <640px Mobile, Visible on >=640px Tablet & Desktop) */}
+          <span className="hidden sm:inline-flex absolute sm:top-4 sm:right-4 items-center rounded-full border border-purple-300 bg-purple-100/90 px-2 py-0.5 text-[9.5px] sm:text-[10px] font-bold text-purple-800 shadow-2xs">
+            Aset Reward
+          </span>
+
           <div>
-            <div className="flex flex-col xs:flex-row items-start gap-2 xs:gap-3 sm:gap-3.5">
+            {/* Header: Icon + Title sejajar di dasar masing-masing icon */}
+            <div className="flex items-end gap-1.5 xs:gap-2.5 sm:gap-3 pr-0 sm:pr-20">
               {/* Glowing Ambient Avatar */}
-              <div className="relative flex h-8 w-8 xs:h-10 xs:w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-lg xs:rounded-xl sm:rounded-2xl border border-purple-300/60 bg-linear-to-br from-purple-500 to-indigo-600 text-white shadow-[0_8px_20px_rgba(168,85,247,0.25)] ring-2 xs:ring-3 sm:ring-4 ring-purple-100/80">
-                <Coins size={16} strokeWidth={2.2} className="xs:hidden" />
-                <Coins size={19} strokeWidth={2.2} className="hidden xs:block sm:hidden" />
-                <Coins size={22} strokeWidth={2.2} className="hidden sm:block" />
+              <div className="relative flex h-7.5 w-7.5 xs:h-9 xs:w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl sm:rounded-2xl border border-purple-300/60 bg-linear-to-br from-purple-500 to-indigo-600 text-white shadow-[0_6px_16px_rgba(168,85,247,0.25)] ring-2 xs:ring-3 sm:ring-4 ring-purple-100/80">
+                <Coins size={15} strokeWidth={2.2} className="xs:hidden" />
+                <Coins size={18} strokeWidth={2.2} className="hidden xs:block sm:hidden" />
+                <Coins size={21} strokeWidth={2.2} className="hidden sm:block" />
                 <span className="absolute -top-1 -right-1 text-amber-300 animate-pulse">
-                  <Sparkles size={10} className="xs:hidden" />
-                  <Sparkles size={12} className="hidden xs:block" />
+                  <Sparkles size={9} className="xs:hidden" />
+                  <Sparkles size={11} className="hidden xs:block" />
                 </span>
               </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 xs:gap-2 flex-wrap">
-                  <h3 className="text-xs xs:text-sm sm:text-base font-black tracking-tight text-slate-900">
-                    Koin DaPay
-                  </h3>
-                  <span className="inline-flex items-center rounded-full border border-purple-300 bg-purple-100/80 px-1.5 xs:px-2 py-0.5 text-[8.5px] xs:text-[9.5px] sm:text-[10px] font-bold text-purple-800">
-                    Aset Reward
-                  </span>
-                </div>
-                <p className="mt-1 text-[10px] xs:text-[11.5px] sm:text-xs text-slate-600 leading-relaxed">
-                  Koin reward/cashback dari transaksi untuk potongan belanja hemat di DaPay.
-                </p>
-              </div>
+              <h3 className="pb-0.5 text-[11.5px] xs:text-sm sm:text-base font-black tracking-tight text-slate-900 leading-tight">
+                Koin DaPay
+              </h3>
             </div>
+
+            {/* Description Text */}
+            <p className="mt-2 xs:mt-2.5 text-[10px] xs:text-[11.5px] sm:text-xs text-slate-600 leading-relaxed">
+              Koin reward/cashback dari transaksi untuk potongan belanja hemat di DaPay.
+            </p>
 
             {/* Checklist */}
             <div className="mt-2.5 xs:mt-3.5 space-y-1 xs:space-y-1.5 border-t border-purple-100/80 pt-2 xs:pt-3">

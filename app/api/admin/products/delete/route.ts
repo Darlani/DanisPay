@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
+import { requireAdminOrManager } from "@/utils/serverAuth";
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 export async function POST(req: Request) {
   try {
-    const cookieStore = req.headers.get('cookie') || "";
-    const isAuthorized = cookieStore.includes('isAdmin=true') || cookieStore.toLowerCase().includes('userrole=manager');
-
-    if (!isAuthorized) return NextResponse.json({ error: "Akses Ditolak!" }, { status: 403 });
+    const auth = await requireAdminOrManager(req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.message }, { status: auth.status });
+    }
 
     const { selectedIds } = await req.json();
     if (!selectedIds || selectedIds.length === 0) throw new Error("Pilih produk dulu!");

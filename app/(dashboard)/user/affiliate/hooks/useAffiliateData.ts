@@ -123,10 +123,18 @@ export function useAffiliateData({
     }
   }, []);
 
-  // Silent background revalidation on mount
+  // Synchronize when initial props change from Root
   useEffect(() => {
-    void refetch(false);
-  }, [refetch]);
+    if (initialProfile) setProfile(initialProfile);
+  }, [initialProfile]);
+
+  useEffect(() => {
+    if (initialReferrals) setReferrals(initialReferrals);
+  }, [initialReferrals]);
+
+  useEffect(() => {
+    if (initialBalanceLogs) setBalanceLogs(initialBalanceLogs);
+  }, [initialBalanceLogs]);
 
   return {
     profile,

@@ -13,6 +13,7 @@ interface SettingsViewUserProps {
   activeSection?: SettingsSection;
   onSectionChange?: (section: SettingsSection) => void;
   isSidebarExpanded?: boolean;
+  onRefresh?: () => void | Promise<void>;
 }
 
 export default function SettingsViewUser({
@@ -20,6 +21,7 @@ export default function SettingsViewUser({
   activeSection = "profile",
   onSectionChange,
   isSidebarExpanded,
+  onRefresh,
 }: SettingsViewUserProps) {
   void isSidebarExpanded;
   void onSectionChange;
@@ -37,7 +39,7 @@ export default function SettingsViewUser({
     saveProfile,
     updatePassword,
     saveNotificationPreference,
-  } = useSettingsData({ initialProfile });
+  } = useSettingsData({ initialProfile, onRefresh });
 
   return (
     <section className="w-full relative">

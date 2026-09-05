@@ -67,12 +67,12 @@ export async function POST(req: Request) {
 
       // 1. CARI SEMUA KANDIDAT SKU "CEK USERNAME"
       if (targetSkus.length > 0) {
-        const { data: mainItem } = await supabaseAdmin.from('items')
+        const { data: mainItem } = await supabaseAdmin.from('product_providers_items')
           .select('name, brand_slug').eq('sku', targetSkus[0]).maybeSingle();
           
         if (mainItem) {
           const exactName = mainItem.name.toLowerCase().trim();
-          const { data: candidates } = await supabaseAdmin.from('items')
+          const { data: candidates } = await supabaseAdmin.from('product_providers_items')
             .select('sku, modal, name').eq('brand_slug', mainItem.brand_slug)
             .eq('is_active', true).order('modal', { ascending: true });
           

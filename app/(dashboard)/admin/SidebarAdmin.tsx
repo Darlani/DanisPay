@@ -1,26 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import {
-  LayoutDashboard,
-  TrendingUp,
-  Grid,
-  Package,
-  Users,
   Calendar,
-  Globe,
-  History as HistoryIcon,
-  Settings,
   ChevronLeft,
-  Menu,
-  LogOut,
   FileText,
-  Landmark,
-  ShoppingBag,
-  Wallet,
+  LogOut,
+  Menu,
 } from "lucide-react";
+
+import {
+  ADMIN_NAV_GROUPS,
+  getAdminTabHref,
+} from "./config/navigation";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -29,48 +24,42 @@ interface SidebarProps {
   setActiveMenu: (val: string) => void;
 }
 
-type MenuItem = {
-  id: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-};
-
-type MenuGroup = {
-  label: string;
-  items: MenuItem[];
-};
-
 export default function SidebarAdmin({
   isOpen,
   setIsOpen,
   activeMenu,
   setActiveMenu,
 }: SidebarProps) {
+  void setActiveMenu;
   const [todayMemo, setTodayMemo] = useState(
     "Tidak ada event khusus hari ini.",
   );
   const [hasUrgentEvent, setHasUrgentEvent] = useState(false);
   const pathname = usePathname();
 
-  const fetchTodayEvent = async () => {
-    const today = new Date().toLocaleDateString("en-CA");
-
-    const { data } = await supabase
-      .from("admin_events")
-      .select("title, impact_level")
-      .eq("event_date", today)
-      .maybeSingle();
-
-    if (data) {
-      setTodayMemo(data.title);
-      setHasUrgentEvent(data.impact_level === "High");
-    } else {
-      setTodayMemo("Tidak ada event khusus hari ini!");
-      setHasUrgentEvent(false);
-    }
-  };
-
   useEffect(() => {
+    let isMounted = true;
+
+    const fetchTodayEvent = async () => {
+      const today = new Date().toLocaleDateString("en-CA");
+
+      const { data } = await supabase
+        .from("admin_events")
+        .select("title, impact_level")
+        .eq("event_date", today)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      if (data) {
+        setTodayMemo(data.title);
+        setHasUrgentEvent(data.impact_level === "High");
+      } else {
+        setTodayMemo("Tidak ada event khusus hari ini!");
+        setHasUrgentEvent(false);
+      }
+    };
+
     void fetchTodayEvent();
 
     const channel = supabase
@@ -89,6 +78,7 @@ export default function SidebarAdmin({
       .subscribe();
 
     return () => {
+      isMounted = false;
       supabase.removeChannel(channel);
     };
   }, [pathname]);
@@ -96,113 +86,6 @@ export default function SidebarAdmin({
   // ---------------------------------------------------------------------------
   // SIDEBAR INFORMATION ARCHITECTURE
   // ---------------------------------------------------------------------------
-
-  const menuGroups: MenuGroup[] = [
-    {
-      label: "Overview",
-      items: [
-        {
-          id: "Dashboard",
-          label: "Dashboard",
-          icon: LayoutDashboard,
-        },
-        {
-          id: "Analytics",
-          label: "Analytics",
-          icon: TrendingUp,
-        },
-      ],
-    },
-    {
-      label: "Inventory",
-      items: [
-        {
-          id: "Category",
-          label: "Category",
-          icon: Grid,
-        },
-        {
-          id: "Products",
-          label: "Products",
-          icon: Package,
-        },
-      ],
-    },
-    {
-      label: "Management",
-      items: [
-        {
-          id: "AccountDatabase",
-          label: "Account Database",
-          icon: Users,
-        },
-        {
-          id: "Event",
-          label: "Event",
-          icon: Calendar,
-        },
-        {
-          id: "Payment",
-          label: "Payment",
-          icon: Landmark,
-        },
-      ],
-    },
-    {
-      label: "Operations",
-      items: [
-        {
-          id: "Orders",
-          label: "Orders",
-          icon: ShoppingBag,
-        },
-        {
-          id: "Deposit",
-          label: "Deposit",
-          icon: Wallet,
-        },
-        {
-          id: "Withdrawal",
-          label: "Withdrawal",
-          icon: Landmark,
-        },
-      ],
-    },
-    {
-      label: "Data & Audit",
-      items: [
-        {
-          id: "Explore",
-          label: "Explore",
-          icon: Globe,
-        },
-        {
-          id: "History",
-          label: "History",
-          icon: HistoryIcon,
-        },
-      ],
-    },
-    {
-      label: "System",
-      items: [
-        {
-          id: "Settings",
-          label: "Settings",
-          icon: Settings,
-        },
-      ],
-    },
-  ];
-
-  const handleMenuClick = (menuId: string) => {
-    setActiveMenu(menuId);
-
-    // Mobile: close sidebar after choosing a menu.
-    if (window.innerWidth < 768) {
-      setIsOpen(false);
-    }
-  };
 
   const handleLogout = () => {
     localStorage.clear();
@@ -271,7 +154,7 @@ export default function SidebarAdmin({
           className="custom-scrollbar flex-1 overflow-y-auto px-3 py-4"
           aria-label="Admin navigation"
         >
-          {menuGroups.map((group) => (
+          {ADMIN_NAV_GROUPS.map((group) => (
             <section
               key={group.label}
               className="mb-5 last:mb-0"
@@ -290,14 +173,20 @@ export default function SidebarAdmin({
                 {group.items.map((item) => {
                   const isActive = activeMenu === item.id;
                   const Icon = item.icon;
+                  const targetHref = getAdminTabHref(item.id);
 
                   return (
-                    <button
+                    <Link
                       key={item.id}
-                      type="button"
-                      onClick={() => handleMenuClick(item.id)}
+                      href={targetHref}
+                      scroll={false}
                       aria-current={isActive ? "page" : undefined}
                       title={!isOpen ? item.label : undefined}
+                      onClick={() => {
+                        if (typeof window !== "undefined" && window.innerWidth < 768) {
+                          setIsOpen(false);
+                        }
+                      }}
                       className={`group flex w-full items-center rounded-xl p-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${
                         isOpen ? "gap-3.5" : "justify-center"
                       } ${
@@ -321,7 +210,7 @@ export default function SidebarAdmin({
                           {item.label}
                         </span>
                       )}
-                    </button>
+                    </Link>
                   );
                 })}
               </div>
@@ -350,7 +239,6 @@ export default function SidebarAdmin({
                 }).format(new Date())}
               </p>
             </div>
-
             {/* MEMO */}
             <div
               className={`rounded-xl border p-3 transition-colors ${

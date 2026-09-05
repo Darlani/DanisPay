@@ -29,6 +29,7 @@ interface DepositViewUserProps {
   initialCoinBalance?: number | string | null;
   initialDeposits?: Deposit[];
   isSidebarExpanded?: boolean;
+  onRefresh?: () => void | Promise<void>;
 }
 
 export default function DepositViewUser({
@@ -36,6 +37,7 @@ export default function DepositViewUser({
   initialCoinBalance = 0,
   initialDeposits = [],
   isSidebarExpanded = false,
+  onRefresh,
 }: DepositViewUserProps) {
   // 1. FILTERS HOOK
   const {
@@ -175,8 +177,12 @@ export default function DepositViewUser({
           }
         }
 
-        // Silent revalidation of list
-        void revalidate(false);
+        // Revalidate shared dashboard data via Root
+        if (onRefresh) {
+          void onRefresh();
+        } else {
+          void revalidate(false);
+        }
         showToast("Permintaan deposit berhasil dibuat!");
       } catch (err) {
         showToast(
@@ -188,7 +194,7 @@ export default function DepositViewUser({
         setIsSubmittingDeposit(false);
       }
     },
-    [revalidate, showToast],
+    [onRefresh, revalidate, showToast],
   );
 
   // 6. RESUME PAYMENT / INSTRUCTION FOR PENDING DEPOSIT
