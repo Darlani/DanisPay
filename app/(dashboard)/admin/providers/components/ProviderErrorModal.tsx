@@ -54,7 +54,7 @@ export default function ProviderErrorModal({
           <p className="text-[10px] font-bold uppercase tracking-wider text-rose-800">
             Pesan Kesalahan:
           </p>
-          <p className="mt-1 font-mono text-xs text-rose-900 break-words leading-relaxed whitespace-pre-wrap">
+          <p className="mt-1 font-mono text-xs text-rose-900 wrap-break-word leading-relaxed whitespace-pre-wrap">
             {error.error}
           </p>
         </div>
@@ -63,7 +63,7 @@ export default function ProviderErrorModal({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[40px] rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 cursor-pointer shadow-sm"
+            className="min-h-10 rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 cursor-pointer shadow-sm"
           >
             Tutup
           </button>

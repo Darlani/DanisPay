@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal EnableDelayedExpansion
 
 echo.
 echo ========================================
@@ -12,8 +12,7 @@ git status --short
 if errorlevel 1 (
     echo.
     echo [ERROR] Git repository tidak dapat dibaca.
-    echo [STOP] Periksa .git/index atau kondisi repository.
-    pause
+    echo [STOP] Periksa kondisi repository.
     exit /b 1
 )
 
@@ -24,7 +23,6 @@ if errorlevel 1 (
     echo.
     echo [ERROR] git add gagal.
     echo [STOP] Tidak melanjutkan commit atau push.
-    pause
     exit /b 1
 )
 
@@ -34,12 +32,19 @@ git diff --cached --quiet
 if not errorlevel 1 (
     echo [INFO] Tidak ada perubahan untuk di-commit.
 ) else (
-    git commit -m "update terbaru"
+    set "MSG="
+    set /p "MSG=Commit message: "
+
+    if not defined MSG (
+        echo [ERROR] Commit message tidak boleh kosong.
+        exit /b 1
+    )
+
+    git commit -m "!MSG!"
     if errorlevel 1 (
         echo.
         echo [ERROR] git commit gagal.
         echo [STOP] Tidak melanjutkan push.
-        pause
         exit /b 1
     )
 )
@@ -50,7 +55,6 @@ git push origin main
 if errorlevel 1 (
     echo.
     echo [ERROR] git push gagal.
-    pause
     exit /b 1
 )
 
@@ -61,5 +65,3 @@ echo ========================================
 echo.
 
 git status
-
-pause
