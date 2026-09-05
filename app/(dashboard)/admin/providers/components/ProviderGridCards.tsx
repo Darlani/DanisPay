@@ -131,7 +131,7 @@ export default function ProviderGridCards({
               </div>
 
               <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/70 bg-slate-50/60">
-                <span className="text-slate-700 font-medium">Tayang Etalase</span>
+                <span className="text-slate-700 font-medium">Live</span>
                 <ProviderToggle
                   checked={p.is_storefront_visible ?? true}
                   disabled={!p.is_enabled || isMutating}
@@ -146,7 +146,7 @@ export default function ProviderGridCards({
               </div>
 
               <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/70 bg-slate-50/60">
-                <span className="text-slate-700 font-medium">Tarik Katalog</span>
+                <span className="text-slate-700 font-medium">Auto Sync</span>
                 <ProviderToggle
                   checked={p.is_catalog_enabled}
                   disabled={catalogLocked || isMutating}
@@ -161,7 +161,7 @@ export default function ProviderGridCards({
               </div>
 
               <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/70 bg-slate-50/60">
-                <span className="text-slate-700 font-medium">Proses Auto</span>
+                <span className="text-slate-700 font-medium">Proses</span>
                 <ProviderToggle
                   checked={p.is_execution_enabled}
                   disabled={execLocked || isMutating}
@@ -192,7 +192,7 @@ export default function ProviderGridCards({
                   }
                 />
                 <span className="text-xs text-slate-500 font-medium">
-                  Maintenance
+                  Maint
                 </span>
               </div>
 

@@ -18,11 +18,11 @@ export async function POST(req: Request) {
         .select('id, order_id, status, sku, customer_no, category')
         .eq('order_id', order_id)
         .single(),
-      supabaseAdmin.from('store_settings').select('is_digiflazz_active').single()
+      supabaseAdmin.from('store_settings').select('*').single()
     ]);
 
     const order = orderRes.data;
-    const isLiveMode = settingsRes.data?.is_digiflazz_active === true;
+    const isLiveMode = ((settingsRes.data as any)?.is_live_mode ?? (settingsRes.data as any)?.is_digiflazz_active) === true;
 
     if (orderRes.error || !order) {
       return NextResponse.json({ error: "Pesanan tidak ditemukan!" }, { status: 404 });

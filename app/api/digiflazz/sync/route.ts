@@ -50,7 +50,7 @@ export async function GET(req: Request) {
     const [{ data: settingsData }, { data: digiProvider }] = await Promise.all([
       supabaseAdmin
         .from('store_settings')
-        .select('margin_json, cashback_percent, balance_digiflazz, is_maintenance_digiflazz, admin_fee_pasca')
+        .select('margin_json, cashback_percent, admin_fee_pasca')
         .limit(1)
         .single(),
       supabaseAdmin
@@ -62,7 +62,7 @@ export async function GET(req: Request) {
 
     const globalCashback = settingsData?.cashback_percent || 3;
 
-    if (settingsData?.is_maintenance_digiflazz || digiProvider?.is_maintenance) {
+    if (digiProvider?.is_maintenance) {
       return NextResponse.json({ success: true, message: "MAINTENANCE DIGIFLAZZ AKTIF bos!" });
     }
 

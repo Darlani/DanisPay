@@ -56,7 +56,8 @@ export default function InterfacePascabayar(props: any) {
   const step3Ref = useRef<HTMLDivElement>(null);
   const step4Ref = useRef<HTMLDivElement>(null);
 
-  const isBlocked = isMaintenanceDigiflazz && !isAdmin;
+  // Pascabayar is no longer blocked by single-provider setting; governed by product/provider matrix
+  const isBlocked = false;
 
   // --- KALKULASI HARGA & ADMIN ---
   // Gunakan Math.ceil atau pastikan Number benar-benar menangkap digit terakhir

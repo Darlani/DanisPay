@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from "@/utils/supabaseClient";
+import { supabaseAdmin } from "@/utils/supabaseAdmin";
 import { getSubBrandSlug } from '@/lib/constants/product-mappings';
 
 interface RouteContext {
@@ -26,9 +26,9 @@ export async function GET(_request: Request, context: RouteContext) {
 
     // 1. PARALEL TAHAP 1: Tarik Settings, Brand Aktif, dan Payment
     const [settingsRes, brandRes, payRes] = await Promise.all([
-      supabase.from('store_settings').select('is_maintenance, is_maintenance_digiflazz').single(),
-      supabase.from('brands').select('id, name, image_url, category, categories(name)').eq('slug', slug).eq('active', true).maybeSingle(),
-      supabase.from('payment_accounts').select('id, name, logo_url, is_maintenance, is_qr, start_hour, end_hour, min_price')
+      supabaseAdmin.from('store_settings').select('is_maintenance').single(),
+      supabaseAdmin.from('brands').select('id, name, image_url, category, categories(name)').eq('slug', slug).eq('active', true).maybeSingle(),
+      supabaseAdmin.from('payment_accounts').select('id, name, logo_url, is_maintenance, is_qr, start_hour, end_hour, min_price')
     ]);
 
     const brandData = brandRes.data;
@@ -39,7 +39,7 @@ export async function GET(_request: Request, context: RouteContext) {
     }
 
     // 2. TAHAP 2: Ambil Produk dari Unified Catalog View (Satu kueri terpadu dengan proyeksi aman)
-    const productsRes = await supabase
+    const productsRes = await supabaseAdmin
       .from('product_unified_view')
       .select('id, name, sku, price, discount, cashback, promo_label, sub_brand, is_active, stock')
       .eq('brand_id', brandData.id)
@@ -78,7 +78,6 @@ export async function GET(_request: Request, context: RouteContext) {
         name: brandData.name,
         category: catName.toLowerCase(),
         img: brandData.image_url || "/images/default-game.jpg",
-        is_maintenance_digiflazz: settingsRes.data?.is_maintenance_digiflazz || false,
         maintenance: settingsRes.data?.is_maintenance || false,
         items: mappedItems
       },

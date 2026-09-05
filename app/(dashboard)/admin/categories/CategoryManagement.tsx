@@ -102,50 +102,50 @@ export default function CategoryManagement() {
   );
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 font-black italic uppercase text-slate-800">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 font-sans text-slate-900">
       
       {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h2 className="text-3xl tracking-tighter flex items-center gap-3">
-            <span className="bg-slate-900 text-white p-2 rounded-lg"><LayoutGrid size={24} /></span>
-            KATEGORI MANAGER
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-3 text-slate-900">
+            <span className="bg-slate-900 text-white p-2 rounded-xl shadow-sm"><LayoutGrid size={22} /></span>
+            Kategori Manager
           </h2>
-          <p className="text-xs text-slate-400 normal-case font-medium italic mt-1 ml-12">
-            Database Live Mode: Connected to Supabase
+          <p className="text-xs text-slate-400 font-normal mt-1 ml-11">
+            Database Live Mode: Terhubung ke Supabase
           </p>
         </div>
         
         <div className="relative w-full md:w-64">
-           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-           <input 
-            type="text" 
-            placeholder="CARI KATEGORI..." 
-            className="w-full bg-white border border-slate-200 pl-10 pr-4 py-3 rounded-2xl outline-none focus:border-blue-500 text-[10px] tracking-widest font-black transition-all shadow-sm focus:shadow-md"
+           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+           <input
+            type="text"
+            placeholder="Cari kategori..."
+            className="w-full bg-white border border-slate-200 pl-9 pr-4 py-2.5 rounded-xl outline-none focus:border-blue-500 text-xs font-medium text-slate-800 placeholder:text-slate-400 transition-all shadow-2xs focus:shadow-xs"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
            />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
         
         {/* FORM INPUT */}
         <div className="lg:col-span-4 h-fit">
-          <div className="bg-white p-8 rounded-[40px] shadow-lg shadow-slate-200/50 border border-white relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
+          <div className="bg-white p-6 sm:p-7 rounded-3xl shadow-xs border border-slate-200/80 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50/70 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
             
-            <h4 className="relative z-10 text-slate-800 text-sm mb-6 tracking-widest flex items-center gap-2">
-              <Plus size={16} className="text-emerald-600"/> BUAT DATABASE BARU
+            <h4 className="relative z-10 text-slate-900 text-xs sm:text-sm font-bold tracking-tight flex items-center gap-2 mb-5">
+              <Plus size={16} className="text-emerald-600"/> Tambah Kategori Baru
             </h4>
             
             <div className="relative z-10 space-y-4">
               <div>
-                <label className="text-[9px] text-slate-400 ml-2 mb-1 block tracking-widest">NAMA LABEL</label>
-                <input 
-                  type="text" 
-                  placeholder="CONTOH: VOUCHER..." 
-                  className="w-full bg-slate-50 border border-slate-100 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 text-xs italic font-black transition-all"
+                <label className="text-[11px] font-semibold text-slate-600 ml-1 mb-1.5 block">Nama Kategori</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Voucher Game, Pulsa..."
+                  className="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 text-xs font-medium text-slate-800 placeholder:text-slate-400 transition-all"
                   value={newCat}
                   onChange={(e) => setNewCat(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
@@ -156,17 +156,17 @@ export default function CategoryManagement() {
               <button 
                 onClick={handleAdd}
                 disabled={submitting}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-2 text-xs shadow-xl shadow-slate-300 hover:shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 bg-slate-900 text-white rounded-xl hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-2 text-xs font-bold shadow-sm hover:shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {submitting ? <RefreshCw className="animate-spin" size={14}/> : <Tag size={14} />} 
-                {submitting ? "MENYIMPAN..." : "SIMPAN KE DATABASE"}
+                {submitting ? "Menyimpan..." : "Simpan Kategori"}
               </button>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-slate-50">
-                <p className="text-[9px] text-slate-400 normal-case leading-relaxed flex gap-2">
-                    <AlertCircle size={12} className="shrink-0 text-amber-500"/>
-                    <span>System akan otomatis membuat <b>slug</b> (url-friendly) dari nama kategori yang anda input.</span>
+            <div className="mt-5 pt-5 border-t border-slate-100">
+                <p className="text-[11px] text-slate-500 leading-relaxed flex gap-2">
+                    <AlertCircle size={14} className="shrink-0 text-amber-500 mt-0.5"/>
+                    <span>Sistem akan otomatis membuat <b>slug</b> (URL-friendly) dari nama kategori yang Anda input.</span>
                 </p>
             </div>
           </div>
@@ -174,43 +174,43 @@ export default function CategoryManagement() {
 
         {/* LIST TABLE */}
         <div className="lg:col-span-8">
-          <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden min-h-100">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
-              <span className="text-[10px] text-slate-500 tracking-[0.2em] font-bold">PUBLIC.CATEGORIES ({categories.length})</span>
-              <button onClick={fetchCategories} className="text-[9px] text-blue-600 hover:underline cursor-pointer flex items-center gap-1">
-                <RefreshCw size={10} className={loading ? "animate-spin" : ""}/> REFRESH DB
+          <div className="bg-white rounded-3xl shadow-xs border border-slate-200/80 overflow-hidden min-h-100">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <span className="text-[10px] sm:text-[11px] text-slate-500 font-bold uppercase tracking-wider">public.categories ({categories.length})</span>
+              <button onClick={fetchCategories} className="text-[10px] font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer flex items-center gap-1.5">
+                <RefreshCw size={11} className={loading ? "animate-spin" : ""}/> Refresh DB
               </button>
             </div>
             
             <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                <thead className="bg-white text-[9px] text-slate-400 tracking-widest">
+                <thead className="bg-slate-50/70 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     <tr>
-                    <th className="px-8 py-6 pl-10">NAMA & SLUG</th>
-                    <th className="px-8 py-6 text-right pr-10">ACTION</th>
+                    <th className="px-6 py-3 pl-8">Nama & Slug</th>
+                    <th className="px-6 py-3 text-right pr-8">Aksi</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-100">
                     {loading ? (
-                    <tr><td colSpan={2} className="p-10 text-center text-xs text-slate-300 animate-pulse">MENGHUBUNGKAN KE SUPABASE...</td></tr>
+                    <tr><td colSpan={2} className="p-10 text-center text-xs text-slate-400 font-medium animate-pulse">Menghubungkan ke database Supabase...</td></tr>
                     ) : filteredCategories.length > 0 ? (
                         filteredCategories.map((cat, i) => (
-                        <tr key={cat.id} className="hover:bg-blue-50/30 transition-colors group cursor-default">
-                            <td className="px-8 py-5 pl-10">
-                            <div className="flex items-center gap-4">
-                                <span className="text-slate-300 text-[9px] w-4">#{i+1}</span>
+                        <tr key={cat.id} className="hover:bg-slate-50/80 transition-colors group cursor-default">
+                            <td className="px-6 py-4 pl-8">
+                            <div className="flex items-center gap-3">
+                                <span className="text-slate-400 font-mono text-[10px] w-5">#{i+1}</span>
                                 <div className="flex flex-col">
-                                  <span className="bg-slate-100 w-fit text-slate-700 px-3 py-1 mb-1 rounded-lg text-[10px] font-black tracking-wide border border-slate-200 group-hover:bg-white group-hover:border-blue-200 group-hover:text-blue-600 transition-all shadow-sm">
+                                  <span className="bg-slate-100 w-fit text-slate-800 px-2.5 py-0.5 mb-1 rounded-lg text-xs font-bold tracking-normal border border-slate-200 group-hover:bg-white group-hover:border-blue-200 group-hover:text-blue-600 transition-all shadow-2xs">
                                   {cat.name}
                                   </span>
-                                  <span className="text-[9px] text-slate-400 lowercase font-medium italic">Slug: {cat.slug}</span>
+                                  <span className="text-[10px] text-slate-400 font-mono font-medium">slug: {cat.slug}</span>
                                 </div>
                             </div>
                             </td>
-                            <td className="px-8 py-5 text-right pr-10">
-                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0 duration-300">
-                                <button onClick={() => handleEdit(cat.id, cat.name)} className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-100 rounded-xl transition-all" title="Edit Nama"><Edit3 size={14}/></button>
-                                <button onClick={() => handleDelete(cat.id, cat.name)} className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all" title="Hapus Permanen"><Trash2 size={14}/></button>
+                            <td className="px-6 py-4 text-right pr-8">
+                            <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <button onClick={() => handleEdit(cat.id, cat.name)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer" title="Edit Nama"><Edit3 size={14}/></button>
+                                <button onClick={() => handleDelete(cat.id, cat.name)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer" title="Hapus Permanen"><Trash2 size={14}/></button>
                             </div>
                             </td>
                         </tr>
@@ -218,7 +218,7 @@ export default function CategoryManagement() {
                     ) : (
                         <tr>
                             <td colSpan={2} className="py-20 text-center">
-                                <p className="text-slate-300 text-xs">DATABASE KOSONG / TIDAK DITEMUKAN</p>
+                                <p className="text-slate-400 text-xs font-medium">Kategori tidak ditemukan</p>
                             </td>
                         </tr>
                     )}

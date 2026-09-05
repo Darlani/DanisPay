@@ -59,10 +59,12 @@ export async function GET(req: Request) {
     // 2. CEK SAKLAR SIMULASI UMUM
     const { data: st } = await supabaseAdmin
       .from('store_settings')
-      .select('is_digiflazz_active')
+      .select('*')
       .single();
 
-    if (!st?.is_digiflazz_active) {
+    const isLiveMode = ((st as any)?.is_live_mode ?? (st as any)?.is_digiflazz_active) === true;
+
+    if (!isLiveMode) {
       return NextResponse.json({ message: 'Mode Simulasi: Satpam Patroli Libur Bos!' });
     }
 

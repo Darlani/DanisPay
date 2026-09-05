@@ -58,7 +58,7 @@ export default function ProviderToggle({
           } transform rounded-full bg-white shadow-xs transition-transform duration-200 ease-in-out ${
             checked
               ? isSm
-                ? "translate-x-[18px]"
+                ? "translate-x-4.5"
                 : "translate-x-6"
               : isSm
               ? "translate-x-0.5"

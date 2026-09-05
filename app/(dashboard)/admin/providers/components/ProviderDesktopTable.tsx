@@ -1,11 +1,9 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React from "react";
 import {
   Clock,
   AlertCircle,
-  MoreVertical,
-  Layers,
   RefreshCw,
 } from "lucide-react";
 import {
@@ -35,6 +33,7 @@ interface ProviderDesktopTableProps {
   onRefreshBalance: (code: string) => Promise<void>;
   onSyncCatalog: (code: string) => Promise<void>;
   onSelectError: (err: SelectedError) => void;
+  isSandboxMode?: boolean;
 }
 
 export default function ProviderDesktopTable({
@@ -47,79 +46,64 @@ export default function ProviderDesktopTable({
   onRefreshBalance,
   onSyncCatalog,
   onSelectError,
+  isSandboxMode = false,
 }: ProviderDesktopTableProps) {
-  const [activeMenuCode, setActiveMenuCode] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  // Close active action dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setActiveMenuCode(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   return (
-    <div className="overflow-x-auto scrollbar-none sm:overflow-visible">
-      <table className="w-full text-left text-xs">
-        <thead className="border-b border-slate-100 bg-slate-50/70 text-[9.5px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-215 table-fixed text-left text-xs">
+        <colgroup>
+          <col className="w-[20%]" />
+          <col className="w-[10%]" />
+          <col className="w-[7%]" />
+          <col className="w-[7%]" />
+          <col className="w-[7%]" />
+          <col className="w-[7%]" />
+          <col className="w-[7%]" />
+          <col className="w-[7%]" />
+          <col className="w-[12%]" />
+          <col className="w-[16%]" />
+        </colgroup>
+        <thead className="border-b border-slate-100 bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
           <tr>
-            <th className="py-2.5 sm:py-3.5 pl-3 sm:pl-4 pr-1 sm:pr-2 lg:pr-3 font-bold">
+            <th className="py-2.5 sm:py-3.5 px-3 font-bold text-center">
               Provider
             </th>
-            <th className="px-2 lg:px-3 py-2.5 sm:py-3.5 font-bold text-center">
+            <th className="px-1 py-2.5 sm:py-3.5 font-bold text-center">
               Status
             </th>
-            <th className="px-2 lg:px-3 py-2.5 sm:py-3.5 font-bold text-center">
-              <span className="block text-slate-500">Koneksi</span>
-              <span className="text-[8.5px] text-slate-400 font-normal">
-                Provider
+            <th className="px-1 py-2.5 sm:py-3.5 font-bold text-center">
+              Koneksi
+            </th>
+            <th className="px-1 py-2.5 sm:py-3.5 font-bold text-center">
+              Live
+            </th>
+            <th className="px-1 py-2.5 sm:py-3.5 font-bold text-center">
+              Auto Sync
+            </th>
+            <th className="px-1 py-2.5 sm:py-3.5 font-bold text-center">
+              <span className="inline-flex items-center gap-1 justify-center">
+                Proses
+                {isSandboxMode && (
+                  <span
+                    className="rounded bg-amber-100 px-1 py-0.5 text-[8px] font-bold text-amber-800"
+                    title="Mode Sandbox Toko Aktif: Dispatch riil dilewati"
+                  >
+                    sim
+                  </span>
+                )}
               </span>
             </th>
-            <th className="px-2 lg:px-3 py-2.5 sm:py-3.5 font-bold text-center">
-              <span className="block text-slate-500">Tayang</span>
-              <span className="text-[8.5px] text-slate-400 font-normal">
-                Di Etalase
-              </span>
+            <th className="px-1 py-2.5 sm:py-3.5 font-bold text-center">
+              Maint
             </th>
-            <th className="px-2 lg:px-3 py-2.5 sm:py-3.5 font-bold text-center">
-              <span className="block text-slate-500">Sinkronisasi</span>
-              <span className="text-[8.5px] text-slate-400 font-normal">
-                Produk
-              </span>
+            <th className="px-1 py-2.5 sm:py-3.5 font-bold text-center">
+              Sync
             </th>
-            <th className="px-2 lg:px-3 py-2.5 sm:py-3.5 font-bold text-center">
-              <span className="block text-slate-500">Sinkron</span>
-              <span className="text-[8.5px] text-slate-400 font-normal">
-                Otomatis
-              </span>
+            <th className="px-2 py-2.5 sm:py-3.5 font-bold text-center">
+              Saldo
             </th>
-            <th className="px-2 lg:px-3 py-2.5 sm:py-3.5 font-bold text-center">
-              <span className="block text-slate-500">Proses</span>
-              <span className="text-[8.5px] text-slate-400 font-normal">
-                Otomatis
-              </span>
-            </th>
-            <th className="px-2 lg:px-3 py-2.5 sm:py-3.5 font-bold text-center">
-              <span className="block text-slate-500">Maintenance</span>
-            </th>
-            <th className="px-2 lg:px-3 py-2.5 sm:py-3.5 font-bold text-right">
-              <span className="block text-slate-500">Saldo</span>
-              <span className="text-[8.5px] text-slate-400 font-normal">
-                Operasional
-              </span>
-            </th>
-            <th className="px-2 lg:px-3 py-2.5 sm:py-3.5 font-bold text-center">
-              Health
-            </th>
-            <th className="px-2 lg:px-3 py-2.5 sm:py-3.5 font-bold">
-              Last Sync & Telemetri
-            </th>
-            <th className="py-2.5 sm:py-3.5 pl-1 sm:pl-2 pr-3 sm:pr-4 font-bold text-center">
-              Aksi
+            <th className="py-2.5 sm:py-3.5 px-3 font-bold text-center">
+              Last Sync
             </th>
           </tr>
         </thead>
@@ -153,41 +137,44 @@ export default function ProviderDesktopTable({
                 className="group transition hover:bg-slate-50/80"
               >
                 {/* 1. PROVIDER IDENTIFIER */}
-                <td className="whitespace-nowrap py-2.5 sm:py-3 pl-3 sm:pl-4 pr-1 sm:pr-2 lg:pr-3 align-middle">
+                <td className="whitespace-nowrap py-2.5 sm:py-3 pl-3 sm:pl-4 pr-2 align-middle">
                   <div className="flex items-center gap-2.5">
                     <ProviderAvatar
                       code={p.code}
                       meta={brandMeta}
                       size="sm"
                     />
-                    <div className="min-w-0">
-                      <div className="text-[11.5px] sm:text-xs font-bold text-slate-900 leading-tight">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11.5px] sm:text-xs font-bold text-slate-900 leading-tight truncate">
                         {p.name}
                       </div>
-                      <div className="text-[9.5px] sm:text-[10px] text-slate-400 truncate max-w-35 sm:max-w-45">
+                      <div className="text-[9.5px] sm:text-[10px] text-slate-400 truncate">
                         {brandMeta.subtitle}
                       </div>
                     </div>
                   </div>
                 </td>
 
-                {/* 2. STATUS (Ready / Standby) */}
-                <td className="whitespace-nowrap px-2 lg:px-3 py-2.5 sm:py-3 text-center align-middle">
-                  {p.is_configured ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[8.5px] sm:text-[9px] font-bold text-emerald-700 shadow-2xs">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Ready
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[8.5px] sm:text-[9px] font-bold text-amber-700 shadow-2xs">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                      Standby
-                    </span>
-                  )}
+                {/* 2. STATUS + HEALTH (GABUNGAN) */}
+                <td className="whitespace-nowrap px-1 py-2.5 sm:py-3 text-center align-middle">
+                  <div className="flex flex-col items-center justify-center gap-1">
+                    {p.is_configured ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[8.5px] sm:text-[9px] font-bold text-emerald-700 shadow-2xs">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Ready
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[8.5px] sm:text-[9px] font-bold text-amber-700 shadow-2xs">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                        Standby
+                      </span>
+                    )}
+                    <ProviderHealthBadge status={p.health_status} />
+                  </div>
                 </td>
 
-                {/* 3. KONEKSI PROVIDER (is_enabled) */}
-                <td className="whitespace-nowrap px-2 lg:px-3 py-2.5 sm:py-3 text-center align-middle">
+                {/* 3. KONEKSI (is_enabled) */}
+                <td className="whitespace-nowrap px-1 py-2.5 sm:py-3 text-center align-middle">
                   <ProviderToggle
                     size="sm"
                     checked={p.is_enabled}
@@ -199,13 +186,13 @@ export default function ProviderDesktopTable({
                   />
                 </td>
 
-                {/* 4. TAYANG DI ETALASE (is_storefront_visible) */}
-                <td className="whitespace-nowrap px-2 lg:px-3 py-2.5 sm:py-3 text-center align-middle">
+                {/* 4. LIVE (is_storefront_visible) */}
+                <td className="whitespace-nowrap px-1 py-2.5 sm:py-3 text-center align-middle">
                   <ProviderToggle
                     size="sm"
                     checked={p.is_storefront_visible ?? true}
                     disabled={!p.is_enabled || isMutating}
-                    ariaLabel={`Tayang di etalase ${p.name}`}
+                    ariaLabel={`Tayang etalase live ${p.name}`}
                     onClick={() =>
                       void onToggle(
                         p.code,
@@ -216,13 +203,13 @@ export default function ProviderDesktopTable({
                   />
                 </td>
 
-                {/* 5. SINKRONISASI PRODUK (is_catalog_enabled) */}
-                <td className="whitespace-nowrap px-2 lg:px-3 py-2.5 sm:py-3 text-center align-middle">
+                {/* 5. AUTO SYNC (is_catalog_enabled) */}
+                <td className="whitespace-nowrap px-1 py-2.5 sm:py-3 text-center align-middle">
                   <ProviderToggle
                     size="sm"
                     checked={p.is_catalog_enabled}
                     disabled={catalogLocked || isMutating}
-                    ariaLabel={`Sinkronisasi produk ${p.name}`}
+                    ariaLabel={`Auto sync katalog ${p.name}`}
                     onClick={() =>
                       void onToggle(
                         p.code,
@@ -233,19 +220,8 @@ export default function ProviderDesktopTable({
                   />
                 </td>
 
-                {/* 6. SINKRON OTOMATIS */}
-                <td className="whitespace-nowrap px-2 lg:px-3 py-2.5 sm:py-3 text-center align-middle">
-                  <ProviderToggle
-                    size="sm"
-                    checked={p.is_catalog_enabled && p.is_enabled}
-                    disabled={true}
-                    ariaLabel={`Sinkronisasi otomatis ${p.name}`}
-                    title="Sinkronisasi berkala sesuai jadwal otomatis vendor"
-                  />
-                </td>
-
-                {/* 7. PROSES OTOMATIS (is_execution_enabled) */}
-                <td className="whitespace-nowrap px-2 lg:px-3 py-2.5 sm:py-3 text-center align-middle">
+                {/* 6. PROSES (is_execution_enabled) */}
+                <td className="whitespace-nowrap px-1 py-2.5 sm:py-3 text-center align-middle">
                   <ProviderToggle
                     size="sm"
                     checked={p.is_execution_enabled}
@@ -261,8 +237,8 @@ export default function ProviderDesktopTable({
                   />
                 </td>
 
-                {/* 8. MAINTENANCE (is_maintenance) */}
-                <td className="whitespace-nowrap px-2 lg:px-3 py-2.5 sm:py-3 text-center align-middle">
+                {/* 7. MAINT (is_maintenance) */}
+                <td className="whitespace-nowrap px-1 py-2.5 sm:py-3 text-center align-middle">
                   <ProviderToggle
                     size="sm"
                     checked={p.is_maintenance}
@@ -279,8 +255,49 @@ export default function ProviderDesktopTable({
                   />
                 </td>
 
+                {/* 8. SYNC MANUAL (DI ANTARA MAINT DAN SALDO) */}
+                <td className="whitespace-nowrap px-1 py-2.5 sm:py-3 text-center align-middle">
+                  {hasCatalogSync ? (
+                    <button
+                      type="button"
+                      onClick={() => void onSyncCatalog(p.code)}
+                      disabled={syncLocked}
+                      title={
+                        !p.is_enabled
+                          ? "Aktifkan koneksi provider terlebih dahulu"
+                          : !p.is_catalog_enabled
+                          ? "Aktifkan Auto Sync terlebih dahulu"
+                          : p.is_maintenance
+                          ? "Provider sedang dalam mode maintenance"
+                          : isSyncingCatalog
+                          ? "Sedang menyinkronkan data katalog produk..."
+                          : `Tarik data katalog produk dari ${p.name}`
+                      }
+                      aria-label={`Sinkronisasi produk ${p.name}`}
+                      className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50/80 px-2.5 py-1 text-[10px] font-bold text-blue-700 shadow-2xs hover:bg-blue-100 hover:border-blue-300 transition active:scale-95 disabled:opacity-40 cursor-pointer"
+                    >
+                      <RefreshCw
+                        size={10}
+                        className={
+                          isSyncingCatalog
+                            ? "animate-spin text-blue-600"
+                            : "text-blue-600"
+                        }
+                      />
+                      <span>{isSyncingCatalog ? "Sync..." : "Sync"}</span>
+                    </button>
+                  ) : (
+                    <span
+                      className="text-[11px] text-slate-300 font-medium select-none"
+                      title="Provider ini tidak mendukung sinkronisasi katalog via API"
+                    >
+                      -
+                    </span>
+                  )}
+                </td>
+
                 {/* 9. SALDO OPERASIONAL */}
-                <td className="whitespace-nowrap px-2 lg:px-3 py-2.5 sm:py-3 text-right align-middle">
+                <td className="whitespace-nowrap px-2 py-2.5 sm:py-3 text-right align-middle">
                   <div className="inline-flex items-center justify-end gap-1.5">
                     <span className="font-mono text-[11.5px] sm:text-xs font-black text-slate-900 tracking-tight">
                       {formatRupiah(p.balance)}
@@ -309,25 +326,19 @@ export default function ProviderDesktopTable({
                   </div>
                 </td>
 
-                {/* 10. HEALTH */}
-                <td className="whitespace-nowrap px-2 lg:px-3 py-2.5 sm:py-3 text-center align-middle">
-                  <ProviderHealthBadge status={p.health_status} />
-                </td>
-
-                {/* 11. LAST SYNC & TELEMETRI */}
-                <td className="whitespace-nowrap px-2 lg:px-3 py-2.5 sm:py-3 text-left align-middle">
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={12} className="text-slate-400 shrink-0" />
-                    <div className="min-w-0">
+                {/* 10. LAST SYNC & TELEMETRI (RATA KANAN) */}
+                <td className="whitespace-nowrap py-2.5 sm:py-3 pl-1.5 pr-2.5 sm:pr-3 text-right align-middle">
+                  <div className="inline-flex items-center justify-end gap-1.5">
+                    <div className="min-w-0 text-right">
                       <div className="font-mono text-[10.5px] sm:text-[11px] font-semibold text-slate-700 leading-tight">
                         {p.last_sync_at ? formatDateTime(p.last_sync_at) : "-"}
                       </div>
-                      <div className="flex items-center gap-1 mt-0.5">
+                      <div className="flex items-center justify-end gap-1 mt-0.5">
                         {p.last_sync_status === "SUCCESS" ? (
                           <>
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                             <span className="text-[9px] text-emerald-700 font-semibold">
-                              Sukses (1.2s)
+                              Sukses
                             </span>
                           </>
                         ) : p.last_error ? (
@@ -341,7 +352,7 @@ export default function ProviderDesktopTable({
                                 time: p.last_sync_at,
                               })
                             }
-                            className="inline-flex items-center gap-1 text-[9px] text-rose-600 hover:text-rose-800 underline max-w-[120px] truncate cursor-pointer font-medium"
+                            className="inline-flex items-center justify-end gap-1 text-[9px] text-rose-600 hover:text-rose-800 underline max-w-32.5 truncate cursor-pointer font-medium"
                           >
                             <AlertCircle
                               size={9}
@@ -358,80 +369,7 @@ export default function ProviderDesktopTable({
                         )}
                       </div>
                     </div>
-                  </div>
-                </td>
-
-                {/* 12. AKSI MENU */}
-                <td className="whitespace-nowrap py-2.5 sm:py-3 pl-1 sm:pl-2 pr-3 sm:pr-4 text-center align-middle relative">
-                  <div className="relative inline-block text-left">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveMenuCode(
-                          activeMenuCode === p.code ? null : p.code
-                        );
-                      }}
-                      aria-label={`Opsi untuk ${p.name}`}
-                      className="inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 transition active:scale-95 cursor-pointer shadow-2xs"
-                    >
-                      <MoreVertical size={13} />
-                    </button>
-
-                    {/* ACTION DROPDOWN */}
-                    {activeMenuCode === p.code && (
-                      <div
-                        ref={menuRef}
-                        className="absolute right-0 top-9 z-30 w-44 rounded-2xl border border-slate-200 bg-white shadow-2xl p-1 text-xs text-slate-700 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveMenuCode(null);
-                            void onRefreshBalance(p.code);
-                          }}
-                          disabled={isRefreshingBalance || cooldownSec > 0}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 transition-colors disabled:opacity-40 cursor-pointer font-medium"
-                        >
-                          <RefreshCw size={13} className="text-blue-600" />
-                          <span>Periksa Saldo</span>
-                        </button>
-
-                        {hasCatalogSync && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveMenuCode(null);
-                              void onSyncCatalog(p.code);
-                            }}
-                            disabled={syncLocked}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 transition-colors disabled:opacity-40 cursor-pointer font-medium"
-                          >
-                            <Layers size={13} className="text-emerald-600" />
-                            <span>Sinkron Katalog</span>
-                          </button>
-                        )}
-
-                        {p.last_error && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveMenuCode(null);
-                              onSelectError({
-                                code: p.code,
-                                name: p.name,
-                                error: p.last_error || "Unknown error",
-                                time: p.last_sync_at,
-                              });
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left hover:bg-slate-100 text-rose-600 hover:text-rose-800 transition-colors cursor-pointer font-medium"
-                          >
-                            <AlertCircle size={13} />
-                            <span>Lihat Log Error</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <Clock size={12} className="text-slate-400 shrink-0" />
                   </div>
                 </td>
               </tr>

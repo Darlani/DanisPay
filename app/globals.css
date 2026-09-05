@@ -67,3 +67,44 @@ html, body {
   scrollbar-width: thin;
   scrollbar-color: rgba(59, 130, 246, 0.5) transparent;
 }
+
+/* ========================================================================== */
+/* KPI CARDS FLUID CONTAINER QUERY SYSTEM (DESKTOP / LAPTOP >= 1024px)        */
+/* Allows KPI cards to fluidly scale typography, icons, and padding when the  */
+/* Admin Sidebar toggles between Expand (narrow card) and Rail (wide card)   */
+/* ========================================================================== */
+.kpi-card {
+  container-type: inline-size;
+}
+
+@media (min-width: 1024px) {
+  .kpi-card {
+    padding: clamp(10px, calc(-1.4px + 7.14cqi), 20px) !important;
+  }
+  .kpi-head-row {
+    gap: clamp(7px, calc(-1px + 5cqi), 14px) !important;
+  }
+  .kpi-icon-box {
+    width: clamp(34px, calc(18px + 10cqi), 48px) !important;
+    height: clamp(34px, calc(18px + 10cqi), 48px) !important;
+  }
+  .kpi-icon-svg {
+    width: clamp(16px, calc(9.1px + 4.3cqi), 22px) !important;
+    height: clamp(16px, calc(9.1px + 4.3cqi), 22px) !important;
+  }
+  .kpi-title {
+    font-size: clamp(10px, calc(7.7px + 1.43cqi), 12px) !important;
+  }
+  .kpi-value {
+    font-size: clamp(13px, calc(6px + 4.64cqi), 20px) !important;
+  }
+  .kpi-badge {
+    font-size: clamp(8px, calc(5.7px + 1.43cqi), 10px) !important;
+  }
+  .kpi-subtitle {
+    font-size: clamp(8.5px, calc(5.6px + 1.8cqi), 11px) !important;
+  }
+  .kpi-progress-text {
+    font-size: clamp(9px, calc(6.6px + 1.8cqi), 12px) !important;
+  }
+}

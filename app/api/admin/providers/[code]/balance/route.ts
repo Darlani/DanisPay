@@ -171,35 +171,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       );
     }
 
-    // 10. DIGIFLAZZ Dual-Write for backward compatibility
-    if (resolvedCode === 'DIGIFLAZZ') {
-      try {
-        const storeId = process.env.STORE_ID;
-        if (storeId) {
-          await supabaseAdmin
-            .from('store_settings')
-            .update({ balance_digiflazz: balance })
-            .eq('id', storeId);
-        } else {
-          const { data: settingRow } = await supabaseAdmin
-            .from('store_settings')
-            .select('id')
-            .limit(1)
-            .maybeSingle();
-          if (settingRow?.id) {
-            await supabaseAdmin
-              .from('store_settings')
-              .update({ balance_digiflazz: balance })
-              .eq('id', settingRow.id);
-          }
-        }
-      } catch (compatErr) {
-        console.error('DIGIFLAZZ store_settings dual-write warning:', compatErr);
-        // Do not fail the request if canonical update succeeded
-      }
-    }
-
-    // 11. Return sanitized response
+    // 10. Return sanitized response
     return NextResponse.json({
       success: true,
       code: resolvedCode,

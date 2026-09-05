@@ -362,7 +362,7 @@ const handleCheckout = async (customPayload?: any) => {
     isModalOpen, setIsModalOpen, uniqueCode, totalPrice, formatRupiah, selectedPayment: selectedPayment, 
     handleCheckout, isPromoApplied, setIsPromoApplied, checkPromo, basePrice, estimasiCashback, isMounted, currentUser, memberType,
     additionalData, setAdditionalData, userCoins, useCoins, setUseCoins, usedCoinsAmount, 
-    isMaintenanceDigiflazz: productData?.is_maintenance_digiflazz || false, isAdmin, dbPayments, onPreCheckout: handlePreCheckout, isLoading: isLoading
+    isAdmin, dbPayments, onPreCheckout: handlePreCheckout, isLoading: isLoading
   };
 
   if (isFetchingDB && !productData) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;

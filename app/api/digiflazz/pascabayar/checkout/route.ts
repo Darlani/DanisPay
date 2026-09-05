@@ -23,7 +23,7 @@ export async function runCheckoutPascabayar(order_id: string) {
         .single(),
       supabaseAdmin
         .from('store_settings')
-        .select('is_digiflazz_active')
+        .select('*')
         .single(),
     ]);
 
@@ -36,7 +36,7 @@ export async function runCheckoutPascabayar(order_id: string) {
       return { error: 'Pesanan ini sudah sukses sebelumnya.' };
     }
 
-    const isLiveMode = settingsRes.data?.is_digiflazz_active === true;
+    const isLiveMode = ((settingsRes.data as any)?.is_live_mode ?? (settingsRes.data as any)?.is_digiflazz_active) === true;
 
     if (!isLiveMode) {
       // MODE SIMULASI

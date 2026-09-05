@@ -69,47 +69,47 @@ export default function HistoryView() {
   }, [viewMode, providerLogs, balanceLogs, adminLogs, activityLogs, searchTerm]);
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 font-black italic uppercase text-slate-800 pb-10 px-4">
+    <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans text-slate-900 space-y-6 pb-10">
       
       {/* --- HEADER & SEARCH --- */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-6 rounded-[35px] border border-slate-100 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
         <div>
-          <h2 className="text-2xl tracking-tighter flex items-center gap-3">
-            <div className="bg-slate-900 text-white p-2 rounded-xl shadow-lg">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-3 text-slate-900">
+            <div className="bg-slate-900 text-white p-2 rounded-xl shadow-sm">
               <ShieldAlert size={22}/>
             </div>
-            CENTRAL AUDIT HUB
+            Central Audit Hub
           </h2>
           
           <div className="flex gap-2 mt-4 flex-wrap">
             <button onClick={() => setViewMode('PROVIDER')} 
-              className={`text-[9px] tracking-widest px-5 py-2.5 rounded-2xl transition-all border flex items-center gap-2 ${viewMode === 'PROVIDER' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-white hover:border-slate-300'}`}>
-              <Zap size={12}/> MODAL PROVIDER
+              className={`text-xs font-bold px-4 py-2 rounded-xl transition-all border flex items-center gap-2 cursor-pointer ${viewMode === 'PROVIDER' ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-100' : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-white hover:border-slate-300'}`}>
+              <Zap size={12}/> Modal Provider
             </button>
             
             <button onClick={() => setViewMode('USER')} 
-              className={`text-[9px] tracking-widest px-5 py-2.5 rounded-2xl transition-all border flex items-center gap-2 ${viewMode === 'USER' ? 'bg-amber-600 text-white border-amber-600 shadow-lg shadow-amber-100' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-white hover:border-slate-300'}`}>
-              <User size={12}/> MUTASI USER
+              className={`text-xs font-bold px-4 py-2 rounded-xl transition-all border flex items-center gap-2 cursor-pointer ${viewMode === 'USER' ? 'bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-100' : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-white hover:border-slate-300'}`}>
+              <User size={12}/> Mutasi User
             </button>
 
             <button onClick={() => setViewMode('ADMIN')} 
-              className={`text-[9px] tracking-widest px-5 py-2.5 rounded-2xl transition-all border flex items-center gap-2 ${viewMode === 'ADMIN' ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-200' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-white hover:border-slate-300'}`}>
-              <Activity size={12}/> ADMIN LOGS
+              className={`text-xs font-bold px-4 py-2 rounded-xl transition-all border flex items-center gap-2 cursor-pointer ${viewMode === 'ADMIN' ? 'bg-slate-900 text-white border-slate-900 shadow-sm shadow-slate-200' : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-white hover:border-slate-300'}`}>
+              <Activity size={12}/> Admin Logs
             </button>
 
             <button onClick={() => setViewMode('SYSTEM')} 
-              className={`text-[9px] tracking-widest px-5 py-2.5 rounded-2xl transition-all border flex items-center gap-2 ${viewMode === 'SYSTEM' ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-white hover:border-slate-300'}`}>
-              <Layers size={12}/> IRON GUARD
+              className={`text-xs font-bold px-4 py-2 rounded-xl transition-all border flex items-center gap-2 cursor-pointer ${viewMode === 'SYSTEM' ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-white hover:border-slate-300'}`}>
+              <Layers size={12}/> Iron Guard
             </button>
           </div>
         </div>
 
         <div className="relative w-full md:w-80 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16} />
-          <input 
-            type="text" 
-            placeholder="CARI DATA AUDIT..." 
-            className="w-full bg-slate-50 border border-slate-100 pl-12 pr-4 py-3 rounded-2xl outline-none focus:bg-white focus:border-blue-500 text-[10px] font-black uppercase transition-all shadow-inner"
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={15} />
+          <input
+            type="text"
+            placeholder="Cari data audit..."
+            className="w-full bg-slate-50 border border-slate-200 pl-10 pr-4 py-2.5 rounded-xl outline-none focus:bg-white focus:border-blue-500 text-xs font-medium text-slate-800 placeholder:text-slate-400 transition-all shadow-2xs"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -117,31 +117,31 @@ export default function HistoryView() {
       </div>
 
       {/* --- TABEL AUDIT --- */}
-      <div className="bg-white rounded-[35px] shadow-2xl border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-xs border border-slate-200/80 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-900 text-white text-[8px] tracking-widest uppercase italic">
-                <th className="px-6 py-5 border-r border-slate-800"><div className="flex items-center gap-2"><Clock size={12}/> WAKTU & SUMBER</div></th>
+              <tr className="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider">
+                <th className="px-6 py-4 border-r border-slate-800/80"><div className="flex items-center gap-2"><Clock size={12}/> Waktu & Sumber</div></th>
                 {/* HEADER DINAMIS: SALDO vs AKSI */}
                 {(viewMode === 'PROVIDER' || viewMode === 'USER') ? (
                   <>
-                    <th className="px-6 py-5 border-r border-slate-800 text-center">SALDO AWAL</th>
-                    <th className="px-6 py-5 border-r border-slate-800 text-center">MUTASI</th>
-                    <th className="px-6 py-5 border-r border-slate-800 text-center">SALDO AKHIR</th>
+                    <th className="px-6 py-4 border-r border-slate-800/80 text-center">Saldo Awal</th>
+                    <th className="px-6 py-4 border-r border-slate-800/80 text-center">Mutasi</th>
+                    <th className="px-6 py-4 border-r border-slate-800/80 text-center">Saldo Akhir</th>
                   </>
                 ) : (
-                  <th className="px-6 py-5 border-r border-slate-800 text-center">AKSI SISTEM</th>
+                  <th className="px-6 py-4 border-r border-slate-800/80 text-center">Aksi Sistem</th>
                 )}
-                <th className="px-6 py-5">CATATAN AKTIVITAS</th>
+                <th className="px-6 py-4">Catatan Aktivitas</th>
               </tr>
             </thead>
             
-            <tbody className="divide-y divide-slate-100 text-[10px]">
+            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
               {loading ? (
-                <tr><td colSpan={5} className="p-24 text-center animate-pulse text-slate-300 font-black">SYNCHRONIZING AUDIT DATA...</td></tr>
+                <tr><td colSpan={5} className="p-20 text-center animate-pulse text-slate-400 font-medium text-xs">Sinkronisasi data audit...</td></tr>
               ) : filteredData.length === 0 ? (
-                <tr><td colSpan={5} className="p-20 text-center text-slate-400 italic font-bold">DATA TIDAK DITEMUKAN PADA DATABASE</td></tr>
+                <tr><td colSpan={5} className="p-20 text-center text-slate-400 font-medium text-xs">Data audit tidak ditemukan pada database</td></tr>
               ) : (
                 filteredData.map((log) => {
                   // LOGIKA MAPPING FALLBACK (Agar satu row bisa baca semua jenis tabel)
@@ -152,13 +152,13 @@ export default function HistoryView() {
 
                   return (
                     <tr key={log.id} className="hover:bg-slate-50/80 transition-colors group">
-                      <td className="px-6 py-4 border-r border-slate-50">
+                      <td className="px-6 py-4 border-r border-slate-100">
                         <div className="flex flex-col gap-1">
-                          <span className="text-slate-400 text-[8px] not-italic font-bold">
+                          <span className="font-mono text-[11px] text-slate-500 font-medium">
                             {new Date(log.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} WIB
                           </span>
-                        <span className={`flex items-center gap-1 font-black ${viewMode === 'PROVIDER' ? 'text-blue-600' : 'text-slate-700'}`}>
-                          {viewMode === 'PROVIDER' ? <Zap size={10}/> : <User size={10}/>}
+                        <span className={`flex items-center gap-1.5 font-bold text-xs ${viewMode === 'PROVIDER' ? 'text-blue-600' : 'text-slate-800'}`}>
+                          {viewMode === 'PROVIDER' ? <Zap size={11}/> : <User size={11}/>}
                           
                           {/* Tampilkan Nama Provider kalau di mode PROVIDER */}
                           {viewMode === 'PROVIDER' 
@@ -171,20 +171,20 @@ export default function HistoryView() {
 
                       {(viewMode === 'PROVIDER' || viewMode === 'USER') ? (
                         <>
-                          <td className="px-6 py-4 border-r border-slate-50 text-center text-slate-400 font-medium">RP {saldoAwal.toLocaleString()}</td>
-                          <td className="px-6 py-4 border-r border-slate-50 text-center">
-                            <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full font-black shadow-sm ${mutasi > 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                              {mutasi > 0 ? <ArrowUpRight size={10}/> : <ArrowDownLeft size={10}/>}
-                              RP {Math.abs(mutasi).toLocaleString()}
+                          <td className="px-6 py-4 border-r border-slate-100 text-center font-mono text-xs font-semibold text-slate-600">Rp {saldoAwal.toLocaleString('id-ID')}</td>
+                          <td className="px-6 py-4 border-r border-slate-100 text-center">
+                            <div className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-mono text-xs font-bold shadow-2xs ${mutasi > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                              {mutasi > 0 ? <ArrowUpRight size={11}/> : <ArrowDownLeft size={11}/>}
+                              Rp {Math.abs(mutasi).toLocaleString('id-ID')}
                             </div>
                           </td>
-                          <td className={`px-6 py-4 border-r border-slate-50 text-center font-black ${viewMode === 'PROVIDER' ? 'bg-blue-50/30 text-blue-700' : 'bg-amber-50/30 text-amber-700'}`}>
-                            RP {saldoAkhir.toLocaleString()}
+                          <td className={`px-6 py-4 border-r border-slate-100 text-center font-mono text-xs font-bold ${viewMode === 'PROVIDER' ? 'bg-blue-50/40 text-blue-700' : 'bg-amber-50/40 text-amber-700'}`}>
+                            Rp {saldoAkhir.toLocaleString('id-ID')}
                           </td>
                         </>
                       ) : (
-                        <td className="px-6 py-4 border-r border-slate-50 text-center">
-                          <span className={`px-4 py-1.5 rounded-xl text-[8px] font-black shadow-sm border ${
+                        <td className="px-6 py-4 border-r border-slate-100 text-center">
+                          <span className={`px-3 py-1 rounded-lg font-mono text-[10px] font-bold shadow-2xs border ${
                             log.action?.includes('FLASH') ? 'bg-amber-500 text-white border-amber-600' :
                             log.action?.includes('DELETE') ? 'bg-rose-600 text-white border-rose-700' :
                             'bg-slate-800 text-white border-slate-900'
@@ -194,7 +194,7 @@ export default function HistoryView() {
                         </td>
                       )}
 
-                      <td className="px-6 py-4 text-slate-500 normal-case italic font-medium leading-relaxed">
+                      <td className="px-6 py-4 text-slate-600 font-normal leading-relaxed text-xs">
                         {log.description || log.details || "Tidak ada rincian tambahan."}
                       </td>
                     </tr>

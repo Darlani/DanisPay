@@ -223,6 +223,7 @@ export async function PATCH(req: Request, { params }: PatchProviderParams) {
         is_catalog_enabled: updated.is_catalog_enabled,
         is_execution_enabled: updated.is_execution_enabled,
         is_maintenance: updated.is_maintenance,
+        is_storefront_visible: typeof updated.is_storefront_visible === 'boolean' ? updated.is_storefront_visible : true,
         health_status: updated.health_status,
         balance: Number(updated.balance) || 0,
         last_sync_at: updated.last_sync_at,

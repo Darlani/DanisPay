@@ -69,11 +69,15 @@ export async function GET(req: Request) {
     if (data.data) {
       const newBalance = data.data.deposit;
 
-      // --- 6. UPDATE DATABASE SUPABASE (Pakai ID dari .env) ---
+      // --- 6. UPDATE DATABASE SUPABASE (Tabel providers canonical) ---
       const { error: dbError } = await supabaseAdmin
-        .from('store_settings')
-        .update({ balance_digiflazz: newBalance })
-        .eq('id', storeId);
+        .from('providers')
+        .update({
+          balance: newBalance,
+          last_sync_at: new Date().toISOString(),
+          last_sync_status: 'SUCCESS'
+        })
+        .eq('code', 'DIGIFLAZZ');
 
       if (dbError) {
         console.error("❌ ERROR SUPABASE:", dbError.message);

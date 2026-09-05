@@ -13,6 +13,7 @@ interface ProviderRow {
   code: string;
   name: string;
   is_enabled: boolean;
+  is_storefront_visible: boolean;
   is_execution_enabled: boolean;
   is_maintenance: boolean;
 }
@@ -158,6 +159,9 @@ export default function ProductManagement() {
   const handleToggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]));
   }, []);
+  const providersMap = useMemo(() => {
+    return new Map<string, ProviderRow>(providersList.map((p) => [p.code.toUpperCase(), p]));
+  }, [providersList]);
   const [allStrategies, setAllStrategies] = useState<any>(() => moduleReferenceCache ? moduleReferenceCache.allStrategies : DEFAULT_STRATEGIES);
 
   const [activeStrategyName, setActiveStrategyName] = useState("DEFAULT");
@@ -278,7 +282,7 @@ export default function ProductManagement() {
           supabase.from('store_settings').select('margin_json, cashback_percent').limit(1).single(),
           supabase.from('categories').select('id, name').order('name'),
           supabase.from('brands').select('id, name, category_id, slug').order('name'),
-          supabase.from('providers').select('code, name, is_enabled, is_execution_enabled, is_maintenance').order('code')
+          supabase.from('providers').select('code, name, is_enabled, is_storefront_visible, is_execution_enabled, is_maintenance').order('code')
         ]);
 
         if (settingsRes.error) throw settingsRes.error;
@@ -946,33 +950,33 @@ const handleDelete = async (id: string, name: string) => {
   };
 
   return (
-    <div className="animate-in fade-in duration-500 font-black italic uppercase text-slate-800 pb-10 px-4 max-w-7xl mx-auto md:px-8 w-full min-w-0">
+    <div className="w-full min-w-0 pb-10 animate-in fade-in duration-500 font-sans text-slate-900">
       {/* HEADER UTAMA */}
       <div className="flex flex-col lg:flex-row justify-between lg:items-end mb-0 mt-4 border-b-2 border-slate-100 pb-3 gap-3">
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl tracking-tighter flex items-center gap-2 font-black">
-            <span className="bg-slate-900 text-white p-2 rounded-xl shadow-lg shadow-slate-200"><Package size={20} /></span>
-            DANISPAY MANAGER
+          <h2 className="text-2xl sm:text-3xl tracking-tight flex items-center gap-2 font-black text-slate-900">
+            <span className="bg-slate-900 text-white p-2 rounded-xl shadow-sm"><Package size={20} /></span>
+            DanisPay Manager
           </h2>
-          <p className="ml-1 text-[9px] font-bold text-slate-400 tracking-wider">
-            KATALOG & MANAJEMEN PRODUK
+          <p className="ml-1 text-xs font-normal text-slate-400">
+            Katalog & Manajemen Produk Terpadu
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={handleExportCSV} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black hover:bg-emerald-600 hover:text-white transition-all shadow-sm active:scale-95 group">
-            <Layers size={16} className="text-emerald-600 group-hover:text-white" /> EXPORT
+          <button onClick={handleExportCSV} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-600 hover:text-white transition-all shadow-2xs active:scale-95 group cursor-pointer">
+            <Layers size={15} className="text-emerald-600 group-hover:text-white" /> Export CSV
           </button>
           <Link
             href="/admin?tab=providers"
             title="Kelola operasional, saldo, dan sinkronisasi vendor di Provider Control Center"
             aria-label="Buka Provider Control Center"
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-2xl text-[10px] font-black text-slate-700 hover:bg-slate-900 hover:text-white transition-all shadow-2xs active:scale-95 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white transition-all shadow-2xs active:scale-95 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <Server size={15} className="text-slate-600 group-hover:text-white" />
-            <span>PROVIDER OPS</span>
+            <span>Provider Ops</span>
           </Link>
-          <button onClick={handleFullSync} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black hover:bg-slate-900 hover:text-white transition-all shadow-sm active:scale-95 group">
-            <TrendingUp size={16} className={loading ? "animate-spin" : "group-hover:rotate-12"} /> SYNC DATA
+          <button onClick={handleFullSync} disabled={loading} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white transition-all shadow-2xs active:scale-95 group cursor-pointer">
+            <TrendingUp size={15} className={loading ? "animate-spin" : "group-hover:rotate-12"} /> Sync Data
           </button>
         </div>
       </div>
@@ -985,8 +989,8 @@ const handleDelete = async (id: string, name: string) => {
               <div className="flex items-center gap-3">
                 <div className="bg-blue-600 p-2 rounded-xl text-white shadow-lg shrink-0"><TrendingUp size={18}/></div>
                 <div className="flex flex-col gap-1 min-w-17.5">
-                  <h3 className="text-white text-[10px] tracking-widest font-black italic uppercase leading-none">IRON GUARD</h3>
-                  <select className="bg-transparent text-blue-400 text-[8px] font-black outline-none cursor-pointer hover:text-white transition-all border-none p-0 uppercase" value={activeStrategyName} onChange={(e) => setActiveStrategyName(e.target.value)}>
+                  <h3 className="text-white text-xs tracking-wider font-bold uppercase leading-none">IRON GUARD</h3>
+                  <select className="bg-transparent text-blue-400 text-[8px] font-bold outline-none cursor-pointer hover:text-white transition-all border-none p-0 uppercase" value={activeStrategyName} onChange={(e) => setActiveStrategyName(e.target.value)}>
                     <option value="DEFAULT" className="bg-slate-900 text-white">PROFIL: DEFAULT</option>
                     {categories.map((cat: any) => (<option key={cat.id} value={cat.name.toUpperCase()} className="bg-slate-900 text-white">PROFIL: {cat.name.toUpperCase()}</option>))}
                   </select>
@@ -1055,8 +1059,8 @@ const handleDelete = async (id: string, name: string) => {
               <div key={idx} className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800 flex flex-col gap-3 group-hover:border-slate-700 transition-all hover:shadow-lg hover:shadow-blue-900/20 backdrop-blur-sm">
                 <div>
                   <div className="flex justify-between items-center mb-0.5">
-                    <span className="text-[9px] text-white font-black italic uppercase">{cfg.label}</span>
-                    <span className="text-[7px] text-emerald-400 font-bold uppercase">MARGIN</span>
+                    <span className="text-[10px] text-white font-bold uppercase">{cfg.label}</span>
+                    <span className="text-[8px] text-emerald-400 font-bold uppercase">MARGIN</span>
                   </div>
                   <div className="flex items-center gap-1 bg-slate-900/80 rounded-xl p-1 border border-slate-800 shadow-inner">
                     <input type="number" className="w-full bg-transparent text-white text-[10px] font-bold text-center outline-none" value={cfg.min} onChange={(e) => { const val = Number(e.target.value); const n = [...marginConfigs]; n[idx].min = val; setMarginConfigs(n); setAllStrategies((prev: any) => ({ ...prev, [activeStrategyName]: n })); }} />
@@ -1067,7 +1071,7 @@ const handleDelete = async (id: string, name: string) => {
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-0.5">
-                    <span className="text-[7px] text-slate-500 font-bold uppercase tracking-wider">RANDOM DISC</span>
+                    <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider">RANDOM DISC</span>
                     <span className={`text-[7px] px-1.5 py-0.5 rounded-md font-bold ${cfg.maxDisc > 0 ? "text-rose-400 bg-rose-500/10" : "text-slate-500 bg-slate-800"}`}>{cfg.maxDisc > 0 ? "ON" : "OFF"}</span>
                   </div>
                   <div className="flex items-center gap-1 rounded-xl p-1 border border-slate-800 bg-slate-900/80 shadow-inner">
@@ -1082,17 +1086,17 @@ const handleDelete = async (id: string, name: string) => {
           </div>
         </div>
 
-        <div className="p-6 pt-2">
-          <div className="flex items-center justify-between mb-1 px-2">
-            <span className="text-[10px] tracking-widest text-slate-400 font-black uppercase">{isEditing ? "SEDANG EDIT DATA" : "ENTRY PRODUK BARU"}</span>
-            {isEditing && <button onClick={resetForm} className="text-[8px] text-amber-600 underline font-black">BATAL EDIT</button>}
+        <div className="p-6 pt-3">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">{isEditing ? "Sedang Edit Data Produk" : "Entry Produk Baru"}</span>
+            {isEditing && <button onClick={resetForm} className="text-xs text-amber-600 hover:text-amber-700 underline font-bold cursor-pointer">Batal Edit</button>}
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3.5">
             <div className="grid grid-cols-4 gap-3 items-end">
               <div className="flex flex-col gap-1">
-                <label className="text-[7px] text-blue-500 ml-1 font-bold italic uppercase tracking-widest">PROVIDER</label>
-                <select className="w-full bg-blue-50 border border-blue-100 p-2.5 rounded-xl text-[10px] font-black outline-none h-10 focus:border-blue-400 transition-all cursor-pointer shadow-sm" value={formData.provider || "DIGIFLAZZ"} onChange={e => setFormData({...formData, provider: e.target.value})}>
+                <label className="text-[11px] text-blue-600 font-semibold ml-1 block">Provider</label>
+                <select className="w-full bg-blue-50/70 border border-blue-200/80 p-2.5 rounded-xl text-xs font-semibold text-slate-800 outline-none h-10 focus:border-blue-500 transition-all cursor-pointer shadow-2xs" value={formData.provider || "DIGIFLAZZ"} onChange={e => setFormData({...formData, provider: e.target.value})}>
                   {providersList.map((p) => {
                     const isExecutable = p.is_enabled && p.is_execution_enabled && !p.is_maintenance;
                     return (
@@ -1108,8 +1112,8 @@ const handleDelete = async (id: string, name: string) => {
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[7px] text-slate-400 ml-1 font-bold italic uppercase tracking-widest">KATEGORI</label>
-              <select className="w-full bg-slate-50 border border-slate-100 p-2.5 rounded-xl text-[10px] font-black outline-none h-10 focus:border-blue-400 transition-all cursor-pointer shadow-sm" value={formData.category_id} onChange={(e) => {
+                <label className="text-[11px] text-slate-600 font-semibold ml-1 block">Kategori</label>
+              <select className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-semibold text-slate-800 outline-none h-10 focus:border-blue-500 transition-all cursor-pointer shadow-2xs" value={formData.category_id} onChange={(e) => {
                 const catId = e.target.value;
                 const selectedCat = categories.find(c => String(c.id) === String(catId));
                 // Ubah pencarian pakai category_id biar presisi 100%
@@ -1118,12 +1122,12 @@ const handleDelete = async (id: string, name: string) => {
                 if (selectedCat) { let strategyName = selectedCat.name.toUpperCase(); if (strategyName === "STREAMING") strategyName = "ENTERTAINMENT"; setActiveStrategyName(strategyName); } else { setActiveStrategyName("DEFAULT"); }
               }}>
                   <option value="">-- PILIH --</option>
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name.toUpperCase()}</option>)}
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[7px] text-slate-400 ml-1 font-bold italic uppercase tracking-widest">BRAND</label>
-                <select className="w-full bg-slate-50 border border-slate-100 p-2.5 rounded-xl text-[10px] font-black outline-none h-10 focus:border-blue-400 transition-all cursor-pointer shadow-sm" value={formData.brand_id} onChange={e => setFormData({...formData, brand_id: e.target.value})}>
+                <label className="text-[11px] text-slate-600 font-semibold ml-1 block">Brand</label>
+                <select className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-semibold text-slate-800 outline-none h-10 focus:border-blue-500 transition-all cursor-pointer shadow-2xs" value={formData.brand_id} onChange={e => setFormData({...formData, brand_id: e.target.value})}>
                   <option value="">-- PILIH --</option>
                   {/* Tambahan aman: Pastikan data brand dan kategori di-lowercase dengan aman biar nggak error kalau ada yg null */}
                   {brandsList.filter((b: any) => {
@@ -1131,37 +1135,37 @@ const handleDelete = async (id: string, name: string) => {
                       // Langsung tembak pakai ID relasinya bos, nggak usah cocokin teks lagi
                       return String(b.category_id) === String(formData.category_id);
                   }).map((b) => (
-                      <option key={b.id} value={b.id}>{b.name.toUpperCase()}</option>
+                      <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[7px] text-rose-500 ml-1 font-bold italic uppercase tracking-widest">JUMLAH STOK</label>
-                <input type="number" className="w-full bg-white border-2 border-slate-900 p-2.5 rounded-xl text-[10px] font-black outline-none h-10 focus:ring-2 focus:ring-rose-500/20 shadow-sm" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} />
+                <label className="text-[11px] text-rose-600 font-semibold ml-1 block">Jumlah Stok</label>
+                <input type="number" className="w-full bg-white border border-slate-300 p-2.5 rounded-xl text-xs font-bold text-slate-900 outline-none h-10 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 shadow-2xs" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} />
               </div>
             </div>
 
-            <div className="flex flex-row gap-4 mt-2">
+            <div className="flex flex-row gap-4 mt-1">
               <div className="flex-3 flex flex-col gap-1">
-                <label className="text-[7px] text-slate-400 ml-1 font-bold italic uppercase tracking-widest">NAMA PRODUK / JUMLAH</label>
+                <label className="text-[11px] text-slate-600 font-semibold ml-1 block">Nama Produk / Jumlah</label>
                 <div className="flex gap-2 relative">
-                  <input type="text" placeholder="CONTOH: 50" className="flex-1 bg-slate-50 border border-slate-100 p-2.5 rounded-xl text-[10px] font-black outline-none h-10 focus:border-blue-400 transition-all z-10 shadow-sm" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-                  <div className="bg-slate-900 text-white text-[8px] px-4 flex items-center rounded-xl font-bold italic min-w-17.5 justify-center text-center leading-tight shadow-md shrink-0">
+                  <input type="text" placeholder="Contoh: 50 Diamonds, 10000 Pulsa..." className="flex-1 bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium text-slate-800 outline-none h-10 focus:border-blue-500 transition-all z-10 shadow-2xs" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                  <div className="bg-slate-900 text-white text-[10px] px-3.5 flex items-center rounded-xl font-bold min-w-17.5 justify-center text-center leading-tight shadow-sm shrink-0">
                     {(() => { const b = brandsList.find(brand => String(brand.id) === String(formData.brand_id)); const isNumber = /^\d+$/.test(formData.name); return (b && isNumber) ? getUnitByBrand(b.name) : (b ? "UNIT" : "SATUAN"); })()}
                   </div>
                 </div>
-                <div className="pl-1 h-3">
+                <div className="pl-1 h-3.5">
                   {formData.name && /^\d+$/.test(formData.name) && formData.brand_id && (
-                    <p className="text-[8px] text-emerald-600 font-bold italic animate-in fade-in">Akan disimpan sebagai: "{formData.name} {(() => { const b = brandsList.find(brand => String(brand.id) === String(formData.brand_id)); return b ? getUnitByBrand(b.name) : ""; })()}"</p>
+                    <p className="text-[10px] text-emerald-600 font-medium animate-in fade-in">Akan disimpan sebagai: &quot;{formData.name} {(() => { const b = brandsList.find(brand => String(brand.id) === String(formData.brand_id)); return b ? getUnitByBrand(b.name) : ""; })()}&quot;</p>
                   )}
                 </div>
               </div>
               <div className="flex-1 flex flex-col gap-1">
-                <label className="text-[7px] text-slate-400 ml-1 font-bold italic uppercase tracking-widest">KODE SKU</label>
+                <label className="text-[11px] text-slate-600 font-semibold ml-1 block">Kode SKU</label>
                 <div className="flex gap-1 h-10">
-                  <input type="text" placeholder="SKU..." className="flex-1 bg-slate-50 border border-slate-100 px-4 rounded-xl text-[10px] font-black outline-none text-blue-600 transition-all focus:border-blue-500 uppercase shadow-sm" value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} />
-                  <button type="button" onClick={handleCheckSKU} className="bg-blue-600 text-white px-3 rounded-xl hover:bg-blue-700 transition-all shadow-md flex items-center justify-center min-w-10">
-                    {checkingSku ? <Loader2 size={12} className="animate-spin"/> : <Zap size={12}/>}
+                  <input type="text" placeholder="SKU unik..." className="flex-1 bg-slate-50 border border-slate-200 px-3.5 rounded-xl text-xs font-mono font-bold text-blue-600 outline-none transition-all focus:border-blue-500 uppercase shadow-2xs" value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} />
+                  <button type="button" onClick={handleCheckSKU} className="bg-blue-600 text-white px-3 rounded-xl hover:bg-blue-700 transition-all shadow-sm flex items-center justify-center min-w-10 cursor-pointer">
+                    {checkingSku ? <Loader2 size={13} className="animate-spin"/> : <Zap size={13}/>}
                   </button>
                 </div>
               </div>
@@ -1169,35 +1173,35 @@ const handleDelete = async (id: string, name: string) => {
 
             <div className="flex flex-wrap items-end gap-2 mb-0.5">
               <div className="flex-[1.5] min-w-30 flex flex-col gap-0.5">
-                <label className="text-[7px] text-rose-400 ml-1 font-bold italic uppercase">MODAL (COST)</label>
-                <input type="number" className="w-full bg-rose-50 border border-rose-100 p-2 rounded-xl text-[10px] font-black outline-none h-9 text-rose-600 focus:border-rose-300" value={formData.cost} onChange={e => { const newCost = Number(e.target.value); const recommendedMargin = getMarginRange(newCost).min; setFormData({...formData, cost: e.target.value, margin_item: e.target.value ? String(recommendedMargin) : ""}); }} />
+                <label className="text-[10px] text-rose-600 font-semibold ml-1 block">Modal (Cost)</label>
+                <input type="number" className="w-full bg-rose-50/70 border border-rose-200 p-2 rounded-xl text-xs font-bold text-rose-700 outline-none h-9 focus:border-rose-400" value={formData.cost} onChange={e => { const newCost = Number(e.target.value); const recommendedMargin = getMarginRange(newCost).min; setFormData({...formData, cost: e.target.value, margin_item: e.target.value ? String(recommendedMargin) : ""}); }} />
               </div>
               <div className="flex-[0.7] min-w-16 flex flex-col gap-0.5">
-                <label className="text-[7px] text-orange-500 ml-1 font-bold italic uppercase">DISC (%)</label>
-                <input type="number" className="w-full bg-orange-50 border border-orange-100 p-2 rounded-xl text-[10px] font-black outline-none h-9 text-orange-600 focus:border-orange-300 transition-all" value={formData.discount} onChange={e => setFormData({...formData, discount: e.target.value})} />
+                <label className="text-[10px] text-orange-600 font-semibold ml-1 block">Disc (%)</label>
+                <input type="number" className="w-full bg-orange-50/70 border border-orange-200 p-2 rounded-xl text-xs font-bold text-orange-700 outline-none h-9 focus:border-orange-400 transition-all" value={formData.discount} onChange={e => setFormData({...formData, discount: e.target.value})} />
               </div>
               <div className="flex-[1.2] min-w-35 flex flex-col gap-0.5">
                 <div className="flex justify-between items-center px-1">
-                  <label className="text-[7px] text-emerald-500 font-bold italic uppercase">MARGIN (%)</label>
-                  <span className={`text-[5px] font-black uppercase px-1 rounded ${formData.lock_margin ? "bg-amber-100 text-amber-600" : "bg-blue-50 text-blue-400"}`}>{formData.lock_margin ? "LOCKED" : "AUTO"}</span>
+                  <label className="text-[10px] text-emerald-600 font-semibold block">Margin (%)</label>
+                  <span className={`text-[8px] font-bold uppercase px-1 rounded ${formData.lock_margin ? "bg-amber-100 text-amber-700" : "bg-blue-50 text-blue-600"}`}>{formData.lock_margin ? "LOCKED" : "AUTO"}</span>
                 </div>
                 <div className="flex gap-1 h-9">
-                  <button type="button" onClick={() => setFormData({ ...formData, lock_margin: !formData.lock_margin })} className={`w-8 rounded-xl flex items-center justify-center transition-all border ${formData.lock_margin ? "bg-amber-500 text-white border-amber-600 shadow-sm" : "bg-slate-100 text-slate-400 border-slate-200"}`}>
-                    {formData.lock_margin ? <Lock size={10} /> : <Unlock size={10} />}
+                  <button type="button" onClick={() => setFormData({ ...formData, lock_margin: !formData.lock_margin })} className={`w-8 rounded-xl flex items-center justify-center transition-all border cursor-pointer ${formData.lock_margin ? "bg-amber-500 text-white border-amber-600 shadow-2xs" : "bg-slate-100 text-slate-400 border-slate-200"}`}>
+                    {formData.lock_margin ? <Lock size={11} /> : <Unlock size={11} />}
                   </button>
                   <div className="relative flex-1">
-                    <input type="number" className={`w-full h-full p-2 pr-6 rounded-xl text-[10px] font-black outline-none border ${ (() => { const modal = Number(formData.cost) || 0; const margin = Number(formData.margin_item) || 0; const disc = Number(formData.discount) || 0; const range = getMarginRange(modal); if (formData.lock_margin) return "bg-amber-50 border-amber-300 text-amber-700 focus:border-amber-500"; const hargaJual = Math.ceil((modal * (1 + margin / 100)) / 100) * 100; const hargaSetelahDiskon = hargaJual - Math.floor(hargaJual * (disc / 100)); const untungKotor = hargaSetelahDiskon - modal; const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100)); const finalCB = Math.min(cbNormal, Math.max(0, Math.floor(untungKotor * (globalCashback / 10)))); const net = untungKotor - finalCB; return (!formData.lock_margin && (margin < range.min || net < 1000)) ? "bg-rose-50 border-rose-300 text-rose-600 animate-pulse" : "bg-emerald-50 border-emerald-100 text-emerald-600 focus:border-emerald-300"; })() }`} value={formData.margin_item} onChange={e => setFormData({...formData, margin_item: e.target.value})} />
-                    <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black ${formData.lock_margin ? "text-amber-600" : "text-emerald-600"}`}>%</span>
+                    <input type="number" className={`w-full h-full p-2 pr-6 rounded-xl text-xs font-bold outline-none border ${ (() => { const modal = Number(formData.cost) || 0; const margin = Number(formData.margin_item) || 0; const disc = Number(formData.discount) || 0; const range = getMarginRange(modal); if (formData.lock_margin) return "bg-amber-50 border-amber-300 text-amber-700 focus:border-amber-500"; const hargaJual = Math.ceil((modal * (1 + margin / 100)) / 100) * 100; const hargaSetelahDiskon = hargaJual - Math.floor(hargaJual * (disc / 100)); const untungKotor = hargaSetelahDiskon - modal; const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100)); const finalCB = Math.min(cbNormal, Math.max(0, Math.floor(untungKotor * (globalCashback / 10)))); const net = untungKotor - finalCB; return (!formData.lock_margin && (margin < range.min || net < 1000)) ? "bg-rose-50 border-rose-300 text-rose-600 animate-pulse" : "bg-emerald-50 border-emerald-200 text-emerald-700 focus:border-emerald-300"; })() }`} value={formData.margin_item} onChange={e => setFormData({...formData, margin_item: e.target.value})} />
+                    <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold ${formData.lock_margin ? "text-amber-600" : "text-emerald-600"}`}>%</span>
                   </div>
                 </div>
               </div>
               <div className="flex-1 min-w-32.5 flex flex-col gap-0.5">
-                <label className="text-[7px] text-amber-600 ml-1 font-bold italic uppercase">
-                  {(() => { const modal = Number(formData.cost) || 0; const margin = Number(formData.margin_item) || 0; const disc = Number(formData.discount) || 0; const hargaJual = Math.ceil((modal * (1 + margin / 100)) / 100) * 100; const hargaSetelahDiskon = hargaJual - Math.floor(hargaJual * (disc / 100)); const untungKotor = hargaSetelahDiskon - modal; const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100)); return (cbNormal > Math.floor(untungKotor * (globalCashback / 10))) ? `CB (CAPPED ${globalCashback * 10}%)` : `CASHBACK (${globalCashback}%)`; })()}
+                <label className="text-[10px] text-amber-600 font-semibold ml-1 block">
+                  {(() => { const modal = Number(formData.cost) || 0; const margin = Number(formData.margin_item) || 0; const disc = Number(formData.discount) || 0; const hargaJual = Math.ceil((modal * (1 + margin / 100)) / 100) * 100; const hargaSetelahDiskon = hargaJual - Math.floor(hargaJual * (disc / 100)); const untungKotor = hargaSetelahDiskon - modal; const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100)); return (cbNormal > Math.floor(untungKotor * (globalCashback / 10))) ? `CB (Capped ${globalCashback * 10}%)` : `Cashback (${globalCashback}%)`; })()}
                 </label>
                 <div className={`h-9 px-3 rounded-xl flex items-center justify-between border-l-4 transition-all ${ (() => { const modal = Number(formData.cost) || 0; const margin = Number(formData.margin_item) || 0; const disc = Number(formData.discount) || 0; const hargaJual = Math.ceil((modal * (1 + margin / 100)) / 100) * 100; const hargaSetelahDiskon = hargaJual - Math.floor(hargaJual * (disc / 100)); const untungKotor = hargaSetelahDiskon - modal; const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100)); const plafonMaks = Math.floor(untungKotor * (globalCashback / 10)); return (cbNormal > plafonMaks && untungKotor > 0) ? "bg-amber-100 border-amber-600" : "bg-amber-50 border-amber-200"; })() }`}>
-                  <span className="text-[9px] text-amber-700 font-black italic">
-                    -Rp {(() => { const modal = Number(formData.cost) || 0; const margin = Number(formData.margin_item) || 0; const disc = Number(formData.discount) || 0; const hargaJual = Math.ceil((modal * (1 + margin / 100)) / 100) * 100; const hargaSetelahDiskon = hargaJual - Math.floor(hargaJual * (disc / 100)); const untungKotor = hargaSetelahDiskon - modal; const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100)); const plafonMaks = Math.max(0, Math.floor(untungKotor * (globalCashback / 10))); return Math.min(cbNormal, plafonMaks).toLocaleString(); })()}
+                  <span className="font-mono text-xs font-bold text-amber-700">
+                    -Rp {(() => { const modal = Number(formData.cost) || 0; const margin = Number(formData.margin_item) || 0; const disc = Number(formData.discount) || 0; const hargaJual = Math.ceil((modal * (1 + margin / 100)) / 100) * 100; const hargaSetelahDiskon = hargaJual - Math.floor(hargaJual * (disc / 100)); const untungKotor = hargaSetelahDiskon - modal; const cbNormal = Math.floor(hargaSetelahDiskon * (globalCashback / 100)); const plafonMaks = Math.max(0, Math.floor(untungKotor * (globalCashback / 10))); return Math.min(cbNormal, plafonMaks).toLocaleString('id-ID'); })()}
                   </span>
                 </div>
               </div>
@@ -1205,22 +1209,22 @@ const handleDelete = async (id: string, name: string) => {
 
             <div className="flex items-center gap-2">
               <div className="flex-1 h-11 bg-slate-900 rounded-xl flex items-center justify-between px-4 border-l-4 border-blue-500 shadow-sm">
-                <span className="text-[7px] text-blue-400 font-black uppercase tracking-tighter">HARGA JUAL:</span>
-                <span className="text-xs text-white font-black">
+                <span className="text-[9px] text-blue-400 font-bold uppercase tracking-wider">HARGA JUAL:</span>
+                <span className="font-mono text-xs text-white font-bold">
                   Rp {(() => {
                     const modal = Number(formData.cost) || 0;
                     const margin = Number(formData.margin_item) || 0;
                     const disc = Number(formData.discount) || 0;
                     const hargaJualAsli = Math.ceil((modal * (1 + margin / 100)) / 100) * 100;
                     const hargaSetelahDiskon = hargaJualAsli - Math.floor(hargaJualAsli * (disc / 100));
-                    return hargaSetelahDiskon.toLocaleString();
+                    return hargaSetelahDiskon.toLocaleString('id-ID');
                   })()}
                 </span>
               </div>
               <div className={`flex-[1.2] h-11 rounded-xl flex items-center justify-between px-4 transition-all shadow-sm ${ (() => { const modal = Number(formData.cost) || 0; const margin = Number(formData.margin_item) || 0; const disc = Number(formData.discount) || 0; const range = getMarginRange(modal); const hargaJual = Math.ceil((modal * (1 + margin / 100)) / 100) * 100; const hargaSetelahDiskon = hargaJual - Math.floor(hargaJual * (disc / 100)); const untungKotor = hargaSetelahDiskon - modal; const finalCB = Math.min(Math.floor(hargaSetelahDiskon * (globalCashback / 100)), Math.floor(untungKotor * (globalCashback / 10))); const net = untungKotor - finalCB; return (net < 1000 || margin < range.min) ? "bg-rose-600" : "bg-emerald-500"; })() }`}>
-                <span className="text-[7px] text-white/80 font-black uppercase tracking-tighter italic">NET (SPL):</span>
-                <span className="text-xs text-white font-black">
-                  Rp {(() => { const modal = Number(formData.cost) || 0; const margin = Number(formData.margin_item) || 0; const disc = Number(formData.discount) || 0; const hargaJual = Math.ceil((modal * (1 + margin / 100)) / 100) * 100; const hargaSetelahDiskon = hargaJual - Math.floor(hargaJual * (disc / 100)); const untungKotor = hargaSetelahDiskon - modal; const finalCB = Math.min(Math.floor(hargaSetelahDiskon * (globalCashback / 100)), Math.floor(untungKotor * (globalCashback / 10))); return (untungKotor - finalCB).toLocaleString(); })()}
+                <span className="text-[9px] text-white/90 font-bold uppercase tracking-wider">NET (SPL):</span>
+                <span className="font-mono text-xs text-white font-bold">
+                  Rp {(() => { const modal = Number(formData.cost) || 0; const margin = Number(formData.margin_item) || 0; const disc = Number(formData.discount) || 0; const hargaJual = Math.ceil((modal * (1 + margin / 100)) / 100) * 100; const hargaSetelahDiskon = hargaJual - Math.floor(hargaJual * (disc / 100)); const untungKotor = hargaSetelahDiskon - modal; const finalCB = Math.min(Math.floor(hargaSetelahDiskon * (globalCashback / 100)), Math.floor(untungKotor * (globalCashback / 10))); return (untungKotor - finalCB).toLocaleString('id-ID'); })()}
                 </span>
               </div>
               <label className="flex items-center gap-1.5 cursor-pointer bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 h-11 rounded-xl shadow-xs transition-colors" title="Status Publikasi Produk">
@@ -1230,7 +1234,7 @@ const handleDelete = async (id: string, name: string) => {
                   onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                   className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer"
                 />
-                <span className={`text-[8px] font-black uppercase tracking-wider ${formData.is_active ? "text-emerald-700" : "text-slate-400"}`}>
+                <span className={`text-[9px] font-bold uppercase tracking-wider ${formData.is_active ? "text-emerald-700" : "text-slate-400"}`}>
                   {formData.is_active ? "AKTIF" : "NONAKTIF"}
                 </span>
               </label>
@@ -1395,7 +1399,7 @@ const handleDelete = async (id: string, name: string) => {
 
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-900 text-white text-[7px] tracking-widest uppercase italic border-b border-slate-800">
+              <tr className="bg-slate-900 text-white text-[9px] font-bold tracking-wider uppercase border-b border-slate-800">
                 <th className="px-3 py-3 border-r border-slate-700 text-center"><input type="checkbox" className="w-3 h-3 accent-rose-500 cursor-pointer" onChange={handleSelectAllFiltered} checked={products.length > 0 && products.every(p => selectedIdSet.has(p.id))} /></th>
                 <th onClick={() => handleSort('provider')} className="px-3 py-3 border-r border-slate-700 text-center text-blue-400 cursor-pointer hover:bg-slate-800">PROVIDER {sortConfig.key === 'provider' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
                 <th onClick={() => handleSort('sku')} className="px-3 py-3 border-r border-slate-700 text-center cursor-pointer hover:bg-slate-800">SKU / PROMO {sortConfig.key === 'sku' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
@@ -1414,7 +1418,7 @@ const handleDelete = async (id: string, name: string) => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={14} className="p-5 text-center text-[8px] animate-pulse">SYNCHRONIZING DATABASE...</td></tr>
+                <tr><td colSpan={14} className="p-5 text-center text-xs font-medium animate-pulse text-slate-500">SYNCHRONIZING DATABASE...</td></tr>
               ) :
               products.map((item) => {
                 const financials = computeProductFinancials(item);
@@ -1426,32 +1430,68 @@ const handleDelete = async (id: string, name: string) => {
                       <input type="checkbox" className="w-3 h-3 accent-rose-500 cursor-pointer" checked={selectedIdSet.has(item.id)} onChange={() => handleToggleSelect(item.id)} />
                     </td>
                     <td className="px-3 py-2 border-r border-slate-50 text-center">
-                      <span className={`text-[8px] font-black px-2 py-1 rounded-lg italic ${item.provider === 'UNIPLAY' ? "bg-purple-100 text-purple-700 border border-purple-200" : "bg-blue-100 text-blue-700 border border-blue-200"}`}>{item.provider || "DIGIFLAZZ"}</span>
+                      {(() => {
+                        const provCode = (item.provider || "DIGIFLAZZ").toUpperCase();
+                        const provInfo = providersMap.get(provCode);
+                        const isLive = provInfo ? (provInfo.is_enabled && provInfo.is_storefront_visible && !provInfo.is_maintenance) : false;
+                        const isMaint = provInfo?.is_maintenance;
+                        return (
+                          <div className="inline-flex items-center justify-center">
+                            <span
+                              className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-1 rounded-md tracking-wider border ${
+                                item.provider === 'UNIPLAY'
+                                  ? "bg-purple-100 text-purple-700 border-purple-200"
+                                  : item.provider === 'MANUAL'
+                                  ? "bg-slate-100 text-slate-700 border-slate-200"
+                                  : "bg-blue-100 text-blue-700 border-blue-200"
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                  isLive
+                                    ? "bg-emerald-500 shadow-xs shadow-emerald-400 animate-pulse"
+                                    : isMaint
+                                    ? "bg-amber-500"
+                                    : "bg-slate-400"
+                                }`}
+                                title={
+                                  isLive
+                                    ? "Provider LIVE di etalase"
+                                    : isMaint
+                                    ? "Provider Maintenance"
+                                    : "Provider Offline/Tidak Live di etalase"
+                                }
+                              />
+                              {item.provider || "DIGIFLAZZ"}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 py-2 border-r border-slate-50">
-                      <p className="font-bold text-blue-600 mb-1 uppercase">{item.sku || "-"}</p>
+                      <p className="font-mono font-bold text-blue-600 mb-1 uppercase">{item.sku || "-"}</p>
                       <div className="cursor-pointer group" onDoubleClick={() => { setQuickEditing({ id: item.id, field: 'promo_label' }); setQuickValue(item.promo_label || ""); }}>
                         {quickEditing?.id === item.id && quickEditing?.field === 'promo_label' ? (
-                          <input autoFocus className="bg-amber-500 text-white px-1 rounded outline-none w-full text-[8px] font-black italic" value={quickValue} onChange={e => setQuickValue(e.target.value)} onBlur={() => handleQuickUpdate(item.id, 'promo_label', quickValue)} onKeyDown={e => e.key === 'Enter' && handleQuickUpdate(item.id, 'promo_label', quickValue)} />
+                          <input autoFocus className="bg-amber-500 text-white px-1 rounded outline-none w-full text-[9px] font-bold" value={quickValue} onChange={e => setQuickValue(e.target.value)} onBlur={() => handleQuickUpdate(item.id, 'promo_label', quickValue)} onKeyDown={e => e.key === 'Enter' && handleQuickUpdate(item.id, 'promo_label', quickValue)} />
                         ) : (
-                          <span className={item.promo_label ? "bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded text-[6px] font-black uppercase" : "text-slate-300 italic text-[6px]"}>{item.promo_label || "No Label"}</span>
+                          <span className={item.promo_label ? "bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase" : "text-slate-400 font-medium text-[8px]"}>{item.promo_label || "No Label"}</span>
                         )}
                       </div>
                     </td>
                     <td className="px-3 py-2 border-r border-slate-50 text-center">
-                      <p className="font-black text-slate-800 uppercase">{item.categories?.name || "-"}</p>
-                      <p className="text-slate-400 text-[7px] uppercase italic">{item.brands?.name || "-"}</p>
+                      <p className="font-bold text-slate-800 uppercase">{item.categories?.name || "-"}</p>
+                      <p className="text-slate-400 text-[8px] uppercase font-medium">{item.brands?.name || "-"}</p>
                     </td>
                     <td className="px-3 py-2 border-r border-slate-50 text-center font-bold text-amber-600 uppercase text-[8px]">{item.sub_brand || "-"}</td>
                     <td className="px-4 py-2 border-r border-slate-50 text-center">
                       <div className="flex flex-col items-center gap-1.5">
-                        <span className="text-slate-800 font-black tracking-tight uppercase leading-none">{item.name}</span>
-                        <span className={`text-[7px] font-black px-3 py-1 rounded-full shadow-sm min-w-20 text-center ${item.stock <= 5 ? "bg-rose-600 text-white animate-bounce" : item.stock <= 10 ? "bg-rose-100 text-rose-600 animate-pulse" : "bg-emerald-100 text-emerald-600"}`}>
+                        <span className="text-slate-800 font-bold tracking-tight uppercase leading-none">{item.name}</span>
+                        <span className={`text-[8px] font-bold px-3 py-1 rounded-full shadow-2xs min-w-20 text-center ${item.stock <= 5 ? "bg-rose-600 text-white animate-bounce" : item.stock <= 10 ? "bg-rose-100 text-rose-600 animate-pulse" : "bg-emerald-100 text-emerald-600"}`}>
                           {item.stock <= 5 ? `⚠️ KRITIS: ${item.stock}` : `STOK: ${item.stock}`}
                         </span>
                       </div>
                     </td>
-                    <td className="px-3 py-1.5 border-r border-slate-50 text-center text-rose-500 font-bold">Rp {item.cost?.toLocaleString()}</td>
+                    <td className="px-3 py-1.5 border-r border-slate-50 text-center text-rose-500 font-mono font-bold">Rp {item.cost?.toLocaleString()}</td>
                 <td className="px-3 py-2 border-r border-slate-50 text-center">
                   <div className="flex flex-col items-center justify-center">
               <input
@@ -1463,16 +1503,16 @@ const handleDelete = async (id: string, name: string) => {
                 onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                 onFocus={(e) => e.target.select()}
                 placeholder="0"
-                className="w-10 bg-transparent text-rose-600 font-black text-center outline-none border-b border-transparent hover:border-rose-300 focus:border-rose-500 transition-all placeholder:text-rose-200"
+                className="w-10 bg-transparent text-rose-600 font-mono font-bold text-center outline-none border-b border-transparent hover:border-rose-300 focus:border-rose-500 transition-all placeholder:text-rose-200"
               />
-                    {item.discount > 0 && <span className="text-[6px] text-rose-400 font-medium italic mt-0.5">(Rp {nominalDiskon.toLocaleString()})</span>}
+                    {item.discount > 0 && <span className="text-[8px] text-rose-400 font-mono font-medium mt-0.5">(Rp {nominalDiskon.toLocaleString()})</span>}
                   </div>
                 </td>
-                    <td className="px-3 py-2 border-r border-slate-50 text-center font-black">
-                      {diskonPersen > 0 && <p className="text-[7px] text-slate-400 line-through">Rp {hargaJualAsli.toLocaleString()}</p>}
+                    <td className="px-3 py-2 border-r border-slate-50 text-center font-mono font-bold">
+                      {diskonPersen > 0 && <p className="text-[8px] text-slate-400 line-through">Rp {hargaJualAsli.toLocaleString()}</p>}
                       <p className={diskonPersen > 0 ? "text-emerald-600" : "text-slate-800"}>Rp {hargaSetelahDiskon.toLocaleString()}</p>
                     </td>
-            <td className={`px-3 py-1.5 border-r border-slate-50 text-center font-black transition-colors align-middle ${item.lock_margin ? "bg-amber-50 text-amber-600" : "hover:bg-emerald-50 text-emerald-600"}`}>
+            <td className={`px-3 py-1.5 border-r border-slate-50 text-center font-bold transition-colors align-middle ${item.lock_margin ? "bg-amber-50 text-amber-600" : "hover:bg-emerald-50 text-emerald-600"}`}>
               <div className="flex flex-col items-center justify-center gap-0.5">
                 <div className="flex items-center justify-center gap-1.5">
                   <button onClick={() => handleToggleLock(item.id, item.lock_margin)} className="p-0.5 hover:bg-slate-200 rounded transition-all" title={item.lock_margin ? "Klik untuk UNLOCK" : "Klik untuk LOCK"}>
@@ -1487,10 +1527,10 @@ const handleDelete = async (id: string, name: string) => {
                 onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                 onFocus={(e) => e.target.select()}
                 placeholder="0"
-                className="w-10 bg-transparent font-black text-center outline-none border-b border-transparent hover:border-emerald-300 focus:border-emerald-500 transition-all placeholder:text-emerald-200"
+                className="w-10 bg-transparent font-mono font-bold text-center outline-none border-b border-transparent hover:border-emerald-300 focus:border-emerald-500 transition-all placeholder:text-emerald-200"
               />
                 </div>
-                <span className={`text-[7px] block font-medium leading-none ${item.lock_margin ? "text-amber-500" : "text-slate-400"}`}>
+                <span className={`text-[8px] block font-mono font-medium leading-none ${item.lock_margin ? "text-amber-500" : "text-slate-400"}`}>
                   (Rp {(hargaJualAsli - item.cost).toLocaleString()})
                 </span>
               </div>
@@ -1498,7 +1538,7 @@ const handleDelete = async (id: string, name: string) => {
               <td className="px-3 py-1.5 border-r border-slate-50 text-center transition-all hover:bg-amber-50">
                 <div className="flex flex-col items-center justify-center">
                   <div className="flex items-center justify-center gap-1">
-                    <span className={`text-[8px] font-bold ${diskonPersen > 0 ? "text-blue-500" : "text-amber-600"}`}>Rp</span>
+                    <span className={`text-[8px] font-mono font-bold ${diskonPersen > 0 ? "text-blue-500" : "text-amber-600"}`}>Rp</span>
                 <input
                   type="number"
                   // Catatan: Saringan anti-null untuk kolom cashback
@@ -1508,42 +1548,61 @@ const handleDelete = async (id: string, name: string) => {
                   onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                   onFocus={(e) => e.target.select()}
                   placeholder="0"
-                  className={`w-12 bg-transparent font-bold italic text-center outline-none border-b border-transparent hover:border-amber-300 focus:border-amber-500 transition-all placeholder:text-amber-200/50 ${diskonPersen > 0 ? "text-blue-500" : "text-amber-600"}`}
+                  className={`w-12 bg-transparent font-mono font-bold text-center outline-none border-b border-transparent hover:border-amber-300 focus:border-amber-500 transition-all placeholder:text-amber-200/50 ${diskonPersen > 0 ? "text-blue-500" : "text-amber-600"}`}
                 />
                   </div>
-                  {textShare && <span className="text-[6px] text-slate-400 font-bold bg-slate-100 px-1 rounded mt-0.5">{textShare}</span>}
+                  {textShare && <span className="text-[7px] text-slate-400 font-medium bg-slate-100 px-1 rounded mt-0.5">{textShare}</span>}
                 </div>
               </td>
-                    <td className={`px-3 py-1.5 border-r border-slate-50 text-center font-black transition-all ${ (profitBersih < 1000 || cbNominal > profitBersih) ? "text-rose-600 animate-pulse bg-rose-50" : "text-blue-600 bg-blue-50/30" }`}>
+                    <td className={`px-3 py-1.5 border-r border-slate-50 text-center font-mono font-bold transition-all ${ (profitBersih < 1000 || cbNominal > profitBersih) ? "text-rose-600 animate-pulse bg-rose-50" : "text-blue-600 bg-blue-50/30" }`}>
                       <div className="flex flex-col items-center">
                         <span>Rp {profitBersih.toLocaleString()}</span>
                         {(profitBersih < 1000 || cbNominal > profitBersih) && (
-                          <span className="text-[6px] font-black uppercase tracking-tighter mt-0.5 px-1 rounded bg-rose-600 text-white">{cbNominal > profitBersih ? "CB BOCOR!" : "LOW PROFIT"}</span>
+                          <span className="text-[7px] font-bold uppercase tracking-tighter mt-0.5 px-1 rounded bg-rose-600 text-white">{cbNominal > profitBersih ? "CB BOCOR!" : "LOW PROFIT"}</span>
                         )}
                       </div>
                     </td>
                     <td className="px-3 py-1.5 border-r border-slate-50 text-center">
-                      <button
-                        type="button"
-                        disabled={togglingActiveId === item.id}
-                        onClick={() => handleToggleActive(item.id, item.is_active ?? true)}
-                        className={`px-2 py-1 rounded-md text-[7px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs ${
-                          togglingActiveId === item.id
-                            ? "opacity-50 cursor-wait bg-slate-100 text-slate-400 border border-slate-200"
-                            : (item.is_active ?? true)
-                              ? "bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 active:scale-95"
-                              : "bg-slate-200 text-slate-600 border border-slate-300 hover:bg-slate-300 active:scale-95"
-                        }`}
-                        title={(item.is_active ?? true) ? "Klik untuk Nonaktifkan" : "Klik untuk Aktifkan"}
-                      >
-                        {togglingActiveId === item.id ? (
-                          <span className="flex items-center gap-1 justify-center"><Loader2 size={8} className="animate-spin" /> ...</span>
-                        ) : (item.is_active ?? true) ? (
-                          "AKTIF"
+                      <div className="flex flex-col items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={togglingActiveId === item.id}
+                          onClick={() => handleToggleActive(item.id, item.is_active ?? true)}
+                          className={`px-2 py-1 rounded-md text-[7px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs ${
+                            togglingActiveId === item.id
+                              ? "opacity-50 cursor-wait bg-slate-100 text-slate-400 border border-slate-200"
+                              : (item.is_active ?? true)
+                                ? "bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 active:scale-95"
+                                : "bg-slate-200 text-slate-600 border border-slate-300 hover:bg-slate-300 active:scale-95"
+                          }`}
+                          title={(item.is_active ?? true) ? "Klik untuk Nonaktifkan" : "Klik untuk Aktifkan"}
+                        >
+                          {togglingActiveId === item.id ? (
+                            <span className="flex items-center gap-1 justify-center"><Loader2 size={8} className="animate-spin" /> ...</span>
+                          ) : (item.is_active ?? true) ? (
+                            "AKTIF"
+                          ) : (
+                            "NONAKTIF"
+                          )}
+                        </button>
+                        {(item.is_active ?? true) ? (
+                          item.is_storefront_eligible ? (
+                            <span className="inline-flex items-center gap-1 text-[6.5px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200/80 px-1 py-0.2 rounded leading-tight">
+                              <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                              TAYANG
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[6.5px] font-bold text-amber-600 bg-amber-50 border border-amber-200/80 px-1 py-0.2 rounded leading-tight" title="Produk aktif namun provider belum Live di etalase">
+                              <span className="w-1 h-1 rounded-full bg-amber-500" />
+                              OFFLINE
+                            </span>
+                          )
                         ) : (
-                          "NONAKTIF"
+                          <span className="text-[6.5px] font-medium text-slate-400 leading-tight">
+                            HIDDEN
+                          </span>
                         )}
-                      </button>
+                      </div>
                     </td>
                     <td className="px-3 py-1.5 text-center">
                       <div className="flex justify-center gap-1">

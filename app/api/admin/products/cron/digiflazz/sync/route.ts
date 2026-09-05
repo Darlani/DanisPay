@@ -52,19 +52,13 @@ export async function GET(req: Request) {
     const apiKey = process.env.DIGIFLAZZ_API_KEY as string;
 
     // 1. Verifikasi Maintenance & Status Operasional Provider
-    const [{ data: settingsData }, { data: digiProvider }] = await Promise.all([
-      supabaseAdmin
-        .from('store_settings')
-        .select('is_maintenance_digiflazz')
-        .single(),
-      supabaseAdmin
-        .from('providers')
-        .select('is_enabled, is_catalog_enabled, is_maintenance')
-        .eq('code', 'DIGIFLAZZ')
-        .maybeSingle()
-    ]);
+    const { data: digiProvider } = await supabaseAdmin
+      .from('providers')
+      .select('is_enabled, is_catalog_enabled, is_maintenance')
+      .eq('code', 'DIGIFLAZZ')
+      .maybeSingle();
 
-    if (settingsData?.is_maintenance_digiflazz || digiProvider?.is_maintenance) {
+    if (digiProvider?.is_maintenance) {
       return NextResponse.json({ success: true, message: "MAINTENANCE DIGIFLAZZ AKTIF!" });
     }
 

@@ -1,16 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
 import {
   Box,
   RefreshCw,
   List,
   LayoutGrid,
-  CheckCircle2,
   AlertCircle,
-  X,
   Server,
+  Activity,
 } from "lucide-react";
 import {
   ProviderData,
@@ -22,6 +22,8 @@ import ProviderKpiCards from "./components/ProviderKpiCards";
 import ProviderDesktopTable from "./components/ProviderDesktopTable";
 import ProviderGridCards from "./components/ProviderGridCards";
 import ProviderErrorModal from "./components/ProviderErrorModal";
+import ProviderActionToast from "./components/ProviderActionToast";
+import ProviderLegendCard from "./components/ProviderLegendCard";
 
 export type { ProviderData };
 
@@ -29,39 +31,43 @@ export type { ProviderData };
 let swrMemoryCache: ProviderData[] | null = null;
 
 export default function ProvidersView() {
-  // SWR: Instant-first initialization from memory cache or session storage
-  const [providers, setProviders] = useState<ProviderData[]>(() => {
-    if (swrMemoryCache && swrMemoryCache.length > 0) {
-      return swrMemoryCache;
-    }
-    if (typeof window !== "undefined") {
-      try {
-        const saved = sessionStorage.getItem("dapay_swr_providers");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            swrMemoryCache = parsed;
-            return parsed;
-          }
-        }
-      } catch {
-        // fallback to empty
-      }
-    }
-    return [];
-  });
-
-  const [loading, setLoading] = useState<boolean>(() => !swrMemoryCache);
+  const [providers, setProviders] = useState<ProviderData[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mutatingCode, setMutatingCode] = useState<string | null>(null);
   const [refreshingBalanceCode, setRefreshingBalanceCode] = useState<string | null>(null);
   const [syncingCatalogCode, setSyncingCatalogCode] = useState<string | null>(null);
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
-  const [currentTime, setCurrentTime] = useState<number>(() => Date.now());
+  const [currentTime, setCurrentTime] = useState<number>(0);
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [selectedError, setSelectedError] = useState<SelectedError | null>(null);
   const [actionNotice, setActionNotice] = useState<ActionNotice | null>(null);
+  const [isSandboxMode, setIsSandboxMode] = useState<boolean>(false);
+
+  // Safe client-side hydration: load SWR cache without triggering SSR mismatch
+  useEffect(() => {
+    setCurrentTime(Date.now());
+    let cached = swrMemoryCache;
+    if (!cached || cached.length === 0) {
+      try {
+        const saved = sessionStorage.getItem("dapay_swr_providers");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            cached = parsed;
+            swrMemoryCache = parsed;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (cached && cached.length > 0) {
+      setProviders(cached);
+      setLoading(false);
+    }
+  }, []);
 
   // Cooldown countdown tick
   useEffect(() => {
@@ -121,8 +127,9 @@ export default function ProvidersView() {
       }
 
       const data = await res.json();
-      if (data.providers) {
-        const sorted = (data.providers as ProviderData[]).sort((a, b) =>
+      const rawList = data.data || data.providers || (Array.isArray(data) ? data : null);
+      if (Array.isArray(rawList)) {
+        const sorted = (rawList as ProviderData[]).sort((a, b) =>
           a.name.localeCompare(b.name)
         );
         setProviders(sorted);
@@ -134,6 +141,21 @@ export default function ProvidersView() {
             // ignore storage full
           }
         }
+      }
+
+      // Check Master Store Operational Mode (Live vs Sandbox)
+      try {
+        const { data: storeSetting } = await supabase
+          .from("store_settings")
+          .select("*")
+          .limit(1)
+          .single();
+        if (storeSetting) {
+          const isLive = (storeSetting as any).is_live_mode ?? (storeSetting as any).is_digiflazz_active ?? true;
+          setIsSandboxMode(!isLive);
+        }
+      } catch {
+        // non-blocking
       }
     } catch (err: unknown) {
       const message =
@@ -316,34 +338,11 @@ export default function ProvidersView() {
 
   return (
     <div className="w-full space-y-4 font-sans text-slate-800 antialiased">
-      {/* ACTION NOTICE BANNER (SUCCESS / ERROR TOAST) */}
-      {actionNotice && (
-        <div
-          role="alert"
-          className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-xs sm:text-sm font-medium shadow-2xs animate-in fade-in slide-in-from-top-2 duration-200 ${
-            actionNotice.type === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-rose-200 bg-rose-50 text-rose-800"
-          }`}
-        >
-          <div className="flex items-center gap-2.5">
-            {actionNotice.type === "success" ? (
-              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-            ) : (
-              <AlertCircle size={16} className="text-rose-600 shrink-0" />
-            )}
-            <span>{actionNotice.message}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setActionNotice(null)}
-            className="text-slate-400 hover:text-slate-600 cursor-pointer"
-            aria-label="Tutup notifikasi"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
+      {/* FLOATING ACTION TOAST (ZERO LAYOUT SHIFT) */}
+      <ProviderActionToast
+        notice={actionNotice}
+        onDismiss={() => setActionNotice(null)}
+      />
 
       {/* ERROR ALERT BANNER */}
       {error && (
@@ -358,7 +357,7 @@ export default function ProvidersView() {
           <button
             type="button"
             onClick={() => void fetchProviders(true)}
-            className="min-h-[40px] rounded-xl bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-rose-500 cursor-pointer"
+            className="min-h-10 rounded-xl bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-rose-500 cursor-pointer"
           >
             Coba Lagi
           </button>
@@ -367,6 +366,31 @@ export default function ProvidersView() {
 
       {/* TOP 4 KPI CARDS (PROPORTION MATCHING WALLET KPI CARDS) */}
       <ProviderKpiCards providers={providers} />
+
+      {/* MASTER OPERATIONAL MODE BANNER (IF IN SANDBOX) */}
+      {isSandboxMode && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-xs text-amber-900 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 border border-amber-200 shadow-2xs">
+              <Activity size={14} />
+            </span>
+            <div>
+              <p className="font-bold text-amber-900">
+                Mode Simulasi (Sandbox) Toko Sedang Aktif
+              </p>
+              <p className="text-[11px] text-amber-700 font-medium">
+                Seluruh transaksi order diproses internal simulasi. Eksekusi riil ke API provider (&quot;Proses&quot;) dilewati tanpa memotong deposit vendor nyata.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/admin/settings"
+            className="shrink-0 inline-flex items-center gap-1 rounded-xl bg-amber-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-2xs hover:bg-amber-700 transition-colors cursor-pointer"
+          >
+            Pengaturan Toko &rarr;
+          </Link>
+        </div>
+      )}
 
       {/* MAIN CONTAINER: PROVIDER OPERATIONAL MATRIX */}
       <section className="overflow-hidden rounded-2xl md:rounded-3xl border border-slate-200/80 bg-white shadow-2xs">
@@ -377,9 +401,22 @@ export default function ProvidersView() {
               <Box size={15} />
             </span>
             <div className="min-w-0">
-              <h2 className="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">
-                Provider Operational Matrix
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">
+                  Provider Operational Matrix
+                </h2>
+                {isSandboxMode ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-bold text-amber-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                    Sandbox
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">
                 Menampilkan {providers.length} provider terdaftar
               </p>
@@ -460,6 +497,7 @@ export default function ProvidersView() {
             onRefreshBalance={handleRefreshBalance}
             onSyncCatalog={handleSyncCatalog}
             onSelectError={setSelectedError}
+            isSandboxMode={isSandboxMode}
           />
         ) : (
           <ProviderGridCards
@@ -474,6 +512,9 @@ export default function ProvidersView() {
           />
         )}
       </section>
+
+      {/* OPERATIONAL LEGEND & COLUMN GUIDE */}
+      <ProviderLegendCard />
 
       {/* ERROR TELEMETRY MODAL */}
       <ProviderErrorModal

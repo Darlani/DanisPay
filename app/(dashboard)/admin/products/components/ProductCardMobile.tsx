@@ -27,6 +27,7 @@ export interface ProductItem {
   is_active?: boolean | null;
   stock?: number | null;
   lock_margin?: boolean | null;
+  is_storefront_eligible?: boolean | null;
   categories?: { name?: string } | null;
   brands?: { name?: string } | null;
 }
@@ -101,7 +102,7 @@ function ProductCardMobile({
 
           {/* Provider Badge */}
           <span
-            className={`text-[8px] font-black px-2 py-1 rounded-lg italic border ${
+            className={`text-[9px] font-bold px-2 py-1 rounded-md border tracking-wider ${
               item.provider === "UNIPLAY"
                 ? "bg-purple-50 text-purple-700 border-purple-200"
                 : item.provider === "MANUAL"
@@ -136,28 +137,41 @@ function ProductCardMobile({
             {item.lock_margin ? <Lock size={15} strokeWidth={2.5} /> : <Unlock size={15} />}
           </button>
 
-          <button
-            type="button"
-            disabled={isTogglingActive}
-            onClick={() => onToggleActive(item.id, isActive)}
-            className={`min-h-11 px-3 flex items-center justify-center rounded-xl text-[8px] font-black tracking-wider uppercase transition-all cursor-pointer ${
-              isTogglingActive
-                ? "opacity-50 cursor-wait bg-slate-100 text-slate-400 border border-slate-200"
-                : isActive
-                ? "bg-emerald-100 text-emerald-800 border border-emerald-300 active:scale-95"
-                : "bg-slate-200 text-slate-600 border border-slate-300 active:scale-95"
-            }`}
-            aria-label={isActive ? "Nonaktifkan produk" : "Aktifkan produk"}
-            title={isActive ? "Klik untuk Nonaktifkan" : "Klik untuk Aktifkan"}
-          >
-            {isTogglingActive ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : isActive ? (
-              "AKTIF"
-            ) : (
-              "NONAKTIF"
-            )}
-          </button>
+          <div className="flex flex-col items-center gap-0.5">
+            <button
+              type="button"
+              disabled={isTogglingActive}
+              onClick={() => onToggleActive(item.id, isActive)}
+              className={`min-h-8 px-2.5 flex items-center justify-center rounded-xl text-[8px] font-black tracking-wider uppercase transition-all cursor-pointer ${
+                isTogglingActive
+                  ? "opacity-50 cursor-wait bg-slate-100 text-slate-400 border border-slate-200"
+                  : isActive
+                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300 active:scale-95"
+                  : "bg-slate-200 text-slate-600 border border-slate-300 active:scale-95"
+              }`}
+              aria-label={isActive ? "Nonaktifkan produk" : "Aktifkan produk"}
+              title={isActive ? "Klik untuk Nonaktifkan" : "Klik untuk Aktifkan"}
+            >
+              {isTogglingActive ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : isActive ? (
+                "AKTIF"
+              ) : (
+                "NONAKTIF"
+              )}
+            </button>
+            {isActive ? (
+              item.is_storefront_eligible ? (
+                <span className="text-[6.5px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200/80 px-1 py-0.2 rounded leading-tight">
+                  TAYANG
+                </span>
+              ) : (
+                <span className="text-[6.5px] font-bold text-amber-600 bg-amber-50 border border-amber-200/80 px-1 py-0.2 rounded leading-tight" title="Provider belum Live">
+                  OFFLINE
+                </span>
+              )
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -197,7 +211,7 @@ function ProductCardMobile({
             <div className="flex items-center gap-1">
               <input
                 autoFocus
-                className="bg-amber-500 text-white px-2 py-1 rounded text-[8px] font-black italic outline-none w-24 uppercase"
+                className="bg-amber-500 text-white px-2 py-1 rounded text-xs font-semibold outline-none w-24 uppercase"
                 value={quickValue}
                 onChange={(e) => setQuickValue(e.target.value)}
                 onKeyDown={(e) => {
@@ -234,7 +248,7 @@ function ProductCardMobile({
                   🏷️ {item.promo_label}
                 </span>
               ) : (
-                <span className="text-slate-400 italic bg-slate-100 border-slate-200 px-1.5 py-0.5 rounded">
+                <span className="text-slate-400 font-medium bg-slate-100 border-slate-200 px-1.5 py-0.5 rounded">
                   + Label Promo
                 </span>
               )}

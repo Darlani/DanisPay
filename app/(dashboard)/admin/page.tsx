@@ -584,8 +584,8 @@ function AdminDashboardContent() {
         {/* ================================================================ */}
         {/* DYNAMIC WORKSPACE HEADER (SHELL-LEVEL IDENTITY)                  */}
         {/* ================================================================ */}
-        <header className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-20">
-          <div className="mx-auto max-w-7xl px-4 py-2.5 sm:px-6 md:px-8 lg:px-10">
+        <header className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-20 px-4 md:px-6 lg:px-10">
+          <div className="mx-auto max-w-7xl py-2.5">
             <div className="flex items-center justify-between gap-3">
               {/* LEFT: Mobile Toggle + Workspace Icon + Title/Subtitle */}
               <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">

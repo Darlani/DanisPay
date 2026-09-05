@@ -1068,7 +1068,7 @@ export default function EventView() {
   ======================================================= */
 
   return (
-    <div className="min-h-screen bg-[#f7f8fc] p-3 text-slate-800 md:p-5 lg:p-6">
+    <div className="w-full space-y-6 pb-16 text-slate-900 font-sans">
       <datalist id="categoryOptions">
         <option value="all">💎 SEMUA PRODUK</option>
         {availableBrands.map((brand, index) => (
@@ -1318,7 +1318,7 @@ export default function EventView() {
               <X />
             </button>
 
-            <h3 className="mb-8 text-3xl font-black italic uppercase tracking-tighter text-slate-900">
+            <h3 className="mb-6 text-2xl font-black tracking-tight text-slate-900">
               Add Memo
             </h3>
 
@@ -1413,7 +1413,7 @@ export default function EventView() {
                 type="button"
                 onClick={handleSaveEvent}
                 disabled={savingEvent}
-                className="flex w-full items-center justify-center gap-2 rounded-[30px] bg-slate-900 py-5 font-black uppercase italic text-white transition-all hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 py-4 text-sm font-bold uppercase tracking-wider text-white transition-all hover:bg-indigo-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
               >
                 {savingEvent ? (
                   <>
@@ -1501,7 +1501,7 @@ export default function EventView() {
 
                     </div>
 
-                    <h4 className="mb-2 text-xl font-black uppercase italic text-slate-900">
+                    <h4 className="mb-1.5 text-lg font-bold text-slate-900">
                       {event.title}
                     </h4>
 
@@ -1547,7 +1547,7 @@ export default function EventView() {
 
             <div className="mb-8 flex items-center justify-between border-b pb-4">
 
-              <h3 className="text-3xl font-black italic uppercase tracking-tighter text-slate-900">
+              <h3 className="text-2xl font-black tracking-tight text-slate-900">
                 System Banners
               </h3>
 
@@ -1589,7 +1589,7 @@ export default function EventView() {
                           }
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-xs font-black uppercase italic text-slate-300">
+                        <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase tracking-wider text-slate-400">
                           Slot {index + 1} Empty
                         </div>
                       )}
@@ -1662,15 +1662,15 @@ export default function EventView() {
 
                   <div>
 
-                    <h4 className="text-2xl font-black italic uppercase tracking-tighter text-slate-900 md:text-3xl">
+                    <h4 className="text-2xl font-black tracking-tight text-slate-900">
                       Slot Configuration
                     </h4>
 
                     <p className="text-xs font-bold uppercase text-blue-600">
-                      Updating "
+                      Updating &quot;
                       {editingBanner.alt ||
                         "New Slot"}
-                      "
+                      &quot;
                     </p>
 
                   </div>
@@ -1709,9 +1709,8 @@ export default function EventView() {
                           alt="Preview"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-xs font-black uppercase italic text-slate-300">
-                          Click to Upload
-                          Image
+                        <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Click to Upload Image
                         </div>
                       )}
 
@@ -1992,7 +1991,7 @@ export default function EventView() {
                           Banner Visibility
                         </span>
 
-                        <span className="text-sm font-black uppercase italic">
+                        <span className="text-sm font-bold uppercase tracking-wide">
                           {editingBanner.is_active
                             ? "🟢 Link Aktif"
                             : "🟡 Link Mati (Hanya Tampilan)"}
@@ -2035,7 +2034,7 @@ export default function EventView() {
                         uploading ||
                         savingBanner
                       }
-                      className="flex items-center justify-center gap-2 rounded-[30px] bg-slate-900 py-6 font-black uppercase italic tracking-[0.2em] text-white shadow-xl transition-all hover:bg-blue-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 md:col-span-2"
+                      className="flex items-center justify-center gap-2 rounded-2xl bg-slate-900 py-4 text-sm font-bold uppercase tracking-wider text-white shadow-xl transition-all hover:bg-indigo-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 md:col-span-2 cursor-pointer"
                     >
                       {savingBanner ? (
                         <>
@@ -2088,7 +2087,7 @@ export default function EventView() {
 
             <div className="mb-8 flex flex-col gap-4 border-b pb-8 pr-12 md:flex-row md:items-center md:justify-between">
 
-              <h4 className="text-3xl font-black italic uppercase tracking-tighter text-slate-900">
+              <h4 className="text-2xl font-black tracking-tight text-slate-900">
                 Voucher Console
               </h4>
 
@@ -2204,7 +2203,7 @@ export default function EventView() {
                         "bg-emerald-50 border-emerald-200 shadow-lg shadow-emerald-100/50";
 
                       badge = (
-                        <div className="absolute left-0 top-0 z-10 rounded-br-2xl rounded-tl-[35px] bg-emerald-500 px-4 py-1.5 text-[9px] font-black uppercase italic tracking-tighter text-white">
+                        <div className="absolute left-0 top-0 z-10 rounded-br-2xl rounded-tl-[35px] bg-emerald-500 px-3.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white">
                           <CheckCircle2
                             size={10}
                             className="mr-1 inline"
@@ -2220,7 +2219,7 @@ export default function EventView() {
                         "bg-rose-50 border-rose-200 opacity-80";
 
                       badge = (
-                        <div className="absolute left-0 top-0 z-10 rounded-br-2xl rounded-tl-[35px] bg-rose-500 px-4 py-1.5 text-[9px] font-black uppercase italic tracking-tighter text-white">
+                        <div className="absolute left-0 top-0 z-10 rounded-br-2xl rounded-tl-[35px] bg-rose-500 px-3.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white">
                           <AlertCircle
                             size={10}
                             className="mr-1 inline"
@@ -2236,7 +2235,7 @@ export default function EventView() {
                         "bg-amber-50 border-amber-200";
 
                       badge = (
-                        <div className="absolute left-0 top-0 z-10 rounded-br-2xl rounded-tl-[35px] bg-amber-500 px-4 py-1.5 text-[9px] font-black uppercase italic tracking-tighter text-white">
+                        <div className="absolute left-0 top-0 z-10 rounded-br-2xl rounded-tl-[35px] bg-amber-500 px-3.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white">
                           <Clock
                             size={10}
                             className="mr-1 inline"
@@ -2252,7 +2251,7 @@ export default function EventView() {
                         "bg-slate-100 border-slate-300 grayscale";
 
                       badge = (
-                        <div className="absolute left-0 top-0 z-10 rounded-br-2xl rounded-tl-[35px] bg-slate-600 px-4 py-1.5 text-[9px] font-black uppercase italic tracking-tighter text-white">
+                        <div className="absolute left-0 top-0 z-10 rounded-br-2xl rounded-tl-[35px] bg-slate-600 px-3.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white">
                           <Ban
                             size={10}
                             className="mr-1 inline"
@@ -2268,7 +2267,7 @@ export default function EventView() {
                         "bg-slate-50 border-slate-200";
 
                       badge = (
-                        <div className="absolute left-0 top-0 z-10 rounded-br-2xl rounded-tl-[35px] bg-slate-500 px-4 py-1.5 text-[9px] font-black uppercase italic tracking-tighter text-white">
+                        <div className="absolute left-0 top-0 z-10 rounded-br-2xl rounded-tl-[35px] bg-slate-500 px-3.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white">
                           OFF
                         </div>
                       );
@@ -2615,7 +2614,7 @@ export default function EventView() {
               {selectedAlert.impact_level}
             </p>
 
-            <h3 className="mb-4 text-2xl font-black uppercase italic">
+            <h3 className="mb-3 text-xl font-black tracking-tight">
               {selectedAlert.title}
             </h3>
 
@@ -2641,7 +2640,7 @@ export default function EventView() {
               onClick={() =>
                 setSelectedAlert(null)
               }
-              className="w-full rounded-[25px] bg-white py-4 font-black uppercase italic text-slate-900 transition hover:bg-blue-50"
+              className="w-full rounded-2xl bg-white py-3.5 text-xs font-bold uppercase tracking-wider text-slate-900 transition hover:bg-slate-100 cursor-pointer"
             >
               Tutup
             </button>

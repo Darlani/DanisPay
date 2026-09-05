@@ -11,8 +11,10 @@ export async function POST(req: Request) {
     // --- 0. PROTEKSI MAINTENANCE & SAKLAR SIMULASI ---
     const { data: settings } = await supabaseAdmin
       .from('store_settings')
-      .select('is_maintenance, is_maintenance_digiflazz, is_digiflazz_active')
+      .select('*')
       .single();
+
+    const isLive = (settings as any)?.is_live_mode ?? settings?.is_digiflazz_active ?? false;
 
     // A. Cek Maintenance Global
     if (settings?.is_maintenance) {
@@ -181,7 +183,7 @@ export async function POST(req: Request) {
     const chatId = process.env.TELEGRAM_CHAT_ID;
 
     // 🤫 LOGIKA SENYAP FASE 1
-    if (!settings?.is_digiflazz_active || isManualProduct) {
+    if (!isLive || isManualProduct) {
       fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -190,7 +192,7 @@ export async function POST(req: Request) {
     }
 
 // 6. EKSEKUSI KE DIGIFLAZZ (HANYA JIKA LIVE AKTIF & BUKAN PRODUK MANUAL)
-    if (settings?.is_digiflazz_active && !isManualProduct) {
+    if (isLive && !isManualProduct) {
        console.log(`🚀 [FULL KOIN] Mode Live Aktif. Meneruskan Order #${order.order_id} ke Digiflazz...`);
        
        try {

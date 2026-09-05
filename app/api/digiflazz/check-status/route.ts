@@ -85,10 +85,12 @@ export async function POST(req: Request) {
     // --- 3. CEK SAKLAR SIMULASI ---
     const { data: st } = await supabaseAdmin
       .from('store_settings')
-      .select('is_digiflazz_active')
+      .select('*')
       .single();
 
-    if (!st?.is_digiflazz_active) {
+    const isLiveMode = ((st as any)?.is_live_mode ?? (st as any)?.is_digiflazz_active) === true;
+
+    if (!isLiveMode) {
       return NextResponse.json(
         { error: 'Mode Simulasi: Dilarang cek status ke vendor!' },
         { status: 403 }

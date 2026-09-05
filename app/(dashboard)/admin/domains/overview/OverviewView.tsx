@@ -172,14 +172,14 @@ export default function OverviewView({
     const loadCachedDigiBalance = async () => {
       try {
         const { data, error } = await supabase
-          .from("store_settings")
-          .select("balance_digiflazz")
-          .limit(1)
+          .from("providers")
+          .select("balance")
+          .eq("code", "DIGIFLAZZ")
           .maybeSingle();
 
         if (error) throw error;
-        if (isMounted && data && typeof data.balance_digiflazz === "number") {
-          setDigiBalance(data.balance_digiflazz);
+        if (isMounted && data && typeof data.balance === "number") {
+          setDigiBalance(data.balance);
         }
       } catch (err: unknown) {
         console.error("Gagal membaca saldo cached Digiflazz:", err);

@@ -47,7 +47,7 @@ interface InterfaceGameProps {
   useCoins: boolean;
   setUseCoins: (val: boolean) => void;
   usedCoinsAmount: number;
-  isMaintenanceDigiflazz: boolean;
+  isMaintenanceDigiflazz?: boolean;
   isAdmin: boolean;
   dbPayments: any[];
   uniqueCode: number;
@@ -365,9 +365,6 @@ export default function InterfaceGame(props: InterfaceGameProps) {
     if (!processedItems) return [];
     
     return processedItems.filter((item: any) => {
-      const providerName = String(item.provider || "").toUpperCase();
-      if (isMaintenanceDigiflazz && !isAdmin && providerName === 'DIGIFLAZZ') return false;
-
       // Filter khusus MLBB dan FF
       if (item.isAdvGame) {
         if (item.advRegion !== advRegion) return false;
@@ -380,7 +377,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
       if (availableSubBrands.length === 0) return true;
       return String(item.sub_brand).toLowerCase() === String(activeTab).toLowerCase();
     });
-  }, [processedItems, activeTab, availableSubBrands, isMaintenanceDigiflazz, isAdmin, advRegion, advCategory, advSubCategory]);
+  }, [processedItems, activeTab, availableSubBrands, advRegion, advCategory, advSubCategory]);
 
   const isMLBB = product.name.toLowerCase().includes('legends');
   

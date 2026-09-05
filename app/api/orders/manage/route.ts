@@ -112,7 +112,8 @@ return NextResponse.json(data || []);
 
 export async function PATCH(req: Request) {
   try {
-    const { data: settings } = await supabaseAdmin.from('store_settings').select('is_digiflazz_active').single();
+    const { data: settings } = await supabaseAdmin.from('store_settings').select('*').single();
+    const isLiveMode = ((settings as any)?.is_live_mode ?? (settings as any)?.is_digiflazz_active) === true;
 
     const cookieStore = req.headers.get('cookie');
     const isAdminCookie = cookieStore?.includes('isAdmin=true');
@@ -392,7 +393,7 @@ export async function PATCH(req: Request) {
     // =========================================================================
     // 🚀 EKSEKUSI NEMBAK KE DIGIFLAZZ (DIRECT LOGIC CALL - ANTI MACET)
     // =========================================================================
-    if (currentStatus === 'Diproses' && settings?.is_digiflazz_active) {
+    if (currentStatus === 'Diproses' && isLiveMode) {
        console.log(`🚀 [ADMIN ACTION] Menjalankan fungsi checkout internal untuk #${oldOrder.order_id}...`);
        
        try {

@@ -48,7 +48,7 @@ interface InterfacePulsaProps {
   useCoins: boolean;
   setUseCoins: (val: boolean) => void;
   usedCoinsAmount: number;
-  isMaintenanceDigiflazz: boolean;
+  isMaintenanceDigiflazz?: boolean;
   isAdmin: boolean;
   dbPayments: any[];
   uniqueCode: number;
@@ -178,11 +178,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
   const filteredItems = useMemo(() => {
     if (!product?.items) return [];
     const filtered = product.items.filter((item: any) => {
-      const matchTab = String(item.sub_brand).toLowerCase() === String(activeTab).toLowerCase();
-      if (isMaintenanceDigiflazz && !isAdmin) {
-        return matchTab && String(item.provider).toUpperCase() !== 'DIGIFLAZZ';
-      }
-      return matchTab;
+      return String(item.sub_brand).toLowerCase() === String(activeTab).toLowerCase();
     });
 
     return filtered.sort((a: any, b: any) => {
@@ -214,7 +210,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
       }
       return a.price - b.price;
     });
-  }, [product?.items, activeTab, mainCategory, isMaintenanceDigiflazz, isAdmin]);
+  }, [product?.items, activeTab, mainCategory, isAdmin]);
 
   const selectedItem = product?.items?.find((item: any) => String(item.id) === String(selectedItemId));
   const nominalHemat = (basePrice - totalPrice) - usedCoinsAmount;

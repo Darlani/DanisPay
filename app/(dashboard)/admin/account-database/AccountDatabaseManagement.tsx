@@ -971,7 +971,7 @@ export default function AccountDatabaseManagement() {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 pb-16 pt-4 text-slate-800">
+    <div className="w-full space-y-6 pb-16 pt-4 text-slate-800">
       <header className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-4"><div className="rounded-2xl bg-slate-900 p-3 text-white shadow-lg shadow-slate-900/15"><Users size={26} /></div><div><h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">ACCOUNT DATABASE</h1><p className="mt-1 text-sm text-slate-500">Kelola akun staff, member dan wallet DaPay dari satu pusat data.</p></div></div>
         <label className="relative w-full lg:max-w-md"><Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><input type="search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Cari nama atau email..." className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none shadow-sm transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100" /></label>
