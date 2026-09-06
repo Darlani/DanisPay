@@ -31,7 +31,7 @@ export default function SettingsView() {
     try {
       const { data: settingsData } = await supabase.from('store_settings').select('*').single();
       if (settingsData) {
-        const isLive = (settingsData as any).is_live_mode ?? (settingsData as any).is_digiflazz_active ?? true;
+        const isLive = (settingsData as { is_live_mode?: boolean | null }).is_live_mode ?? true;
         setConfig(prev => ({ ...prev, ...settingsData, is_live_mode: isLive }));
       }
 

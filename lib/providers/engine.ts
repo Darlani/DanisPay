@@ -254,7 +254,7 @@ export class ProviderExecutionEngine {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderIdentifier);
     const query = this.supabase
       .from('orders')
-      .select('id, order_id, sku, status, customer_no, category, price, buy_price, raw_tagihan, customer_name, segment_power, stand_meter, desc, api_ref_id, provider_used, updated_at, is_sandbox');
+      .select('id, order_id, sku, status, customer_no, category, price, buy_price, raw_tagihan, customer_name, segment_power, stand_meter, desc, api_ref_id, provider_used, updated_at');
 
     const { data: order, error: orderErr } = isUuid
       ? await query.eq('id', orderIdentifier).maybeSingle()
@@ -278,7 +278,7 @@ export class ProviderExecutionEngine {
       .maybeSingle();
 
     const isGlobalLive = storeSettings?.is_live_mode ?? true;
-    const isSandboxOrder = (order as any).is_sandbox === true || !isGlobalLive;
+    const isSandboxOrder = !isGlobalLive;
 
     if (isSandboxOrder) {
       const sandboxOutcome = await sandboxExecutionSimulator.dispatchSandboxOrder({

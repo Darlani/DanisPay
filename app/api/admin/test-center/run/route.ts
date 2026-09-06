@@ -114,25 +114,28 @@ export async function POST(request: Request) {
     // =========================================================================
     if (!targetId || targetId === "TC-1") {
       const startTime = Date.now();
-      const testOrderId = `TEST-PAY-${Date.now()}`;
+      const testTimestamp = Date.now();
+      const testOrderId = `TEST-PAY-${testTimestamp}`;
+      // Unique deterministic total_amount per run to prevent collision with partial unique index orders_one_pending_total_amount_idx
+      // while used_balance remains exactly 2500 so financial debit tested is strictly Rp2.500.
+      const uniqueTotalAmount = 25000000 + (testTimestamp % 1000000);
       const assertions: AssertionItem[] = [];
 
       const before = await captureSnapshot(user.id);
 
-      // Create test sandbox order
+      // Create test sandbox order in dedicated sandbox_orders table
       const { data: orderData, error: orderErr } = await supabaseAdmin
-        .from("orders")
+        .from("sandbox_orders")
         .insert({
           order_id: testOrderId,
           sku: "TEST-COINPAY",
           product_name: "QA Test Sandbox Coin Payment",
           item_label: "QA Nominal 2.500",
           price: 2500,
-          total_amount: 2500,
+          total_amount: uniqueTotalAmount,
           used_balance: 2500,
           payment_method: "Koin DaPay",
           status: "Pending",
-          is_sandbox: true,
           user_id: user.id,
           email: userEmail,
         })
@@ -233,89 +236,122 @@ export async function POST(request: Request) {
       const testOrderId = `TEST-REW-${Date.now()}`;
       const assertions: AssertionItem[] = [];
 
-      // Find a non-tester user to act as upline
+      // Find a non-tester user to act as upline with a valid referral_code
       const { data: nonTesterUpline } = await supabaseAdmin
         .from("profiles")
-        .select("id, email, is_tester, balance")
+        .select("id, email, is_tester, balance, referral_code")
         .eq("is_tester", false)
+        .not("referral_code", "is", null)
+        .neq("referral_code", "")
         .neq("id", user.id)
         .limit(1)
         .maybeSingle();
 
-      const buyerBefore = await captureSnapshot(user.id);
-      let uplineBefore: SnapshotData | null = null;
-      if (nonTesterUpline) {
-        uplineBefore = await captureSnapshot(nonTesterUpline.id);
-      }
-
-      // Create test order in 'Berhasil' state with cashback & upline
-      const { data: orderData, error: orderErr } = await supabaseAdmin
-        .from("orders")
-        .insert({
-          order_id: testOrderId,
-          sku: "TEST-REWARDS",
-          product_name: "QA Test Rewards & Protection",
-          item_label: "QA Nominal 10.000",
-          price: 10000,
-          buy_price: 8000,
-          total_amount: 10000,
-          status: "Berhasil",
-          is_sandbox: true,
-          user_id: user.id,
-          email: userEmail,
-          cashback: 500,
-          referred_by: nonTesterUpline?.id || null,
-        })
-        .select("id, order_id, status")
-        .single();
-
-      if (orderErr || !orderData) {
+      if (!nonTesterUpline || !nonTesterUpline.referral_code) {
         results.push({
           id: "TC-2",
           name: "Non-Tester Upline Protection & Rewards",
           category: "Rewards",
-          status: "FAIL",
+          status: "SKIPPED",
           durationMs: Date.now() - startTime,
           assertions: [{
-            name: "Create Test Order",
-            passed: false,
-            expected: "Order created successfully",
-            actual: orderErr?.message || "Null order data",
+            name: "Non-Tester Upline Availability",
+            passed: true,
+            expected: "Akun non-tester dengan referral_code valid",
+            actual: "Tidak ditemukan akun non-tester dengan referral_code valid (Skipped safely)",
           }],
-          evidence: { error: orderErr },
-          error: "Gagal membuat fixture pesanan uji untuk TC-2",
+          evidence: {
+            message: "Tidak tersedia akun non-tester dengan referral_code valid untuk pengujian komisi upline.",
+          },
         });
       } else {
-        const rewardsResult = await sandboxFinancialEngine.executeSuccessRewards(orderData.order_id);
-        const buyerAfter = await captureSnapshot(user.id);
-        const buyerDeltas = calculateDeltas(buyerBefore, buyerAfter);
+        const buyerBefore = await captureSnapshot(user.id);
+        const uplineBefore = await captureSnapshot(nonTesterUpline.id);
 
-        assertions.push({
-          name: "Rewards RPC Execution Success",
-          passed: rewardsResult.success === true,
-          expected: "true",
-          actual: String(rewardsResult.success),
-        });
-        assertions.push({
-          name: "Buyer Live Balance Zero-Bleed (Δ = 0)",
-          passed: buyerDeltas.deltaLiveBalance === 0,
-          expected: "0",
-          actual: String(buyerDeltas.deltaLiveBalance),
-        });
-        assertions.push({
-          name: "Buyer Live Ledger Zero-Bleed (Δ = 0)",
-          passed: buyerDeltas.deltaLiveLogs === 0,
-          expected: "0",
-          actual: String(buyerDeltas.deltaLiveLogs),
-        });
-        assertions.push({
-          name: "Buyer Sandbox Wallet Credited with Cashback",
-          passed: buyerDeltas.deltaSandboxBalance >= 500,
-          expected: ">= 500",
-          actual: String(buyerDeltas.deltaSandboxBalance),
-        });
+        const { data: buyerProfile } = await supabaseAdmin
+          .from("profiles")
+          .select("member_type")
+          .eq("id", user.id)
+          .maybeSingle();
 
-        if (nonTesterUpline && uplineBefore) {
+        const isSpecial = buyerProfile?.member_type?.toLowerCase() === "special";
+
+        // Create test order in 'Berhasil' state with cashback & valid upline referral_code in sandbox_orders
+        const { data: orderData, error: orderErr } = await supabaseAdmin
+          .from("sandbox_orders")
+          .insert({
+            order_id: testOrderId,
+            sku: "TEST-REWARDS",
+            product_name: "QA Test Rewards & Protection",
+            item_label: "QA Nominal 10.000",
+            price: 10000,
+            buy_price: 8000,
+            total_amount: 10000,
+            status: "Berhasil",
+            user_id: user.id,
+            email: userEmail,
+            cashback: isSpecial ? 500 : 0,
+            referred_by: nonTesterUpline.referral_code,
+          })
+          .select("id, order_id, status")
+          .single();
+
+        if (orderErr || !orderData) {
+          results.push({
+            id: "TC-2",
+            name: "Non-Tester Upline Protection & Rewards",
+            category: "Rewards",
+            status: "FAIL",
+            durationMs: Date.now() - startTime,
+            assertions: [{
+              name: "Create Test Order",
+              passed: false,
+              expected: "Order created successfully",
+              actual: orderErr?.message || "Null order data",
+            }],
+            evidence: { error: orderErr },
+            error: "Gagal membuat fixture pesanan uji untuk TC-2",
+          });
+        } else {
+          const rewardsResult = await sandboxFinancialEngine.executeSuccessRewards(orderData.order_id);
+          const buyerAfter = await captureSnapshot(user.id);
+          const buyerDeltas = calculateDeltas(buyerBefore, buyerAfter);
+
+          assertions.push({
+            name: "Rewards RPC Execution Success",
+            passed: rewardsResult.success === true,
+            expected: "true",
+            actual: String(rewardsResult.success),
+          });
+          assertions.push({
+            name: "Buyer Live Balance Zero-Bleed (Δ = 0)",
+            passed: buyerDeltas.deltaLiveBalance === 0,
+            expected: "0",
+            actual: String(buyerDeltas.deltaLiveBalance),
+          });
+          assertions.push({
+            name: "Buyer Live Ledger Zero-Bleed (Δ = 0)",
+            passed: buyerDeltas.deltaLiveLogs === 0,
+            expected: "0",
+            actual: String(buyerDeltas.deltaLiveLogs),
+          });
+
+          if (isSpecial) {
+            assertions.push({
+              name: "Buyer Sandbox Wallet Credited with Cashback (Special Member)",
+              passed: buyerDeltas.deltaSandboxBalance >= 500,
+              expected: ">= 500",
+              actual: String(buyerDeltas.deltaSandboxBalance),
+            });
+          } else {
+            assertions.push({
+              name: "Buyer Sandbox Wallet Zero-Cashback (Regular Member Protected)",
+              passed: buyerDeltas.deltaSandboxBalance === 0,
+              expected: "0",
+              actual: String(buyerDeltas.deltaSandboxBalance),
+            });
+          }
+
           const uplineAfter = await captureSnapshot(nonTesterUpline.id);
           const uplineDeltas = calculateDeltas(uplineBefore, uplineAfter);
 
@@ -337,26 +373,27 @@ export async function POST(request: Request) {
             expected: "0",
             actual: String(uplineDeltas.deltaLiveLogs),
           });
+
+          const allPassed = assertions.every((a) => a.passed);
+
+          results.push({
+            id: "TC-2",
+            name: "Non-Tester Upline Protection & Rewards",
+            category: "Rewards",
+            status: allPassed ? "PASS" : "FAIL",
+            durationMs: Date.now() - startTime,
+            beforeSnapshot: buyerBefore,
+            afterSnapshot: buyerAfter,
+            deltas: buyerDeltas,
+            assertions,
+            evidence: {
+              orderId: orderData.order_id,
+              uplineReferralCode: nonTesterUpline.referral_code,
+              uplineEmail: nonTesterUpline.email,
+              rewardsResult,
+            },
+          });
         }
-
-        const allPassed = assertions.every((a) => a.passed);
-
-        results.push({
-          id: "TC-2",
-          name: "Non-Tester Upline Protection & Rewards",
-          category: "Rewards",
-          status: allPassed ? "PASS" : "FAIL",
-          durationMs: Date.now() - startTime,
-          beforeSnapshot: buyerBefore,
-          afterSnapshot: buyerAfter,
-          deltas: buyerDeltas,
-          assertions,
-          evidence: {
-            orderId: orderData.order_id,
-            rewardsResult,
-            uplineTested: Boolean(nonTesterUpline),
-          },
-        });
       }
     }
 
@@ -369,10 +406,8 @@ export async function POST(request: Request) {
       const testOrderIdFailed = `TEST-REF-FAIL-${Date.now()}`;
       const assertions: AssertionItem[] = [];
 
-      const before = await captureSnapshot(user.id);
-
       // 3.1 Test Status Invariant: Attempt refund on 'Berhasil' order (Must FAIL)
-      await supabaseAdmin.from("orders").insert({
+      await supabaseAdmin.from("sandbox_orders").insert({
         order_id: testOrderIdSuccess,
         sku: "TEST-REFUND-INV",
         product_name: "QA Invariant Test",
@@ -380,7 +415,6 @@ export async function POST(request: Request) {
         total_amount: 1500,
         used_balance: 1500,
         status: "Berhasil",
-        is_sandbox: true,
         user_id: user.id,
         email: userEmail,
       });
@@ -393,74 +427,129 @@ export async function POST(request: Request) {
         actual: invRefundResult.message || "No message",
       });
 
-      // 3.2 Test Valid Refund: Order in 'Gagal' status (Must PASS)
-      await supabaseAdmin.from("orders").insert({
-        order_id: testOrderIdFailed,
-        sku: "TEST-REFUND-OK",
-        product_name: "QA Valid Refund Test",
-        price: 1500,
-        total_amount: 1500,
-        used_balance: 1500,
-        status: "Gagal",
-        is_sandbox: true,
-        user_id: user.id,
-        email: userEmail,
-      });
+      // 3.2 Test Valid Refund: Follow legitimate lifecycle:
+      // Pending → executeCoinPayment → Gagal → executeCoinRefund
 
-      const okRefundResult = await sandboxFinancialEngine.executeCoinRefund(testOrderIdFailed);
-      const after = await captureSnapshot(user.id);
-      const deltas = calculateDeltas(before, after);
+      // Step 1: Create order in Pending status with used_balance in sandbox_orders
+      const { data: orderFailedData, error: orderFailedErr } = await supabaseAdmin
+        .from("sandbox_orders")
+        .insert({
+          order_id: testOrderIdFailed,
+          sku: "TEST-REFUND-OK",
+          product_name: "QA Valid Refund Test",
+          price: 1500,
+          total_amount: 1500,
+          used_balance: 1500,
+          payment_method: "Koin DaPay",
+          status: "Pending",
+          user_id: user.id,
+          email: userEmail,
+        })
+        .select("id, order_id, used_balance, status")
+        .single();
 
-      assertions.push({
-        name: "Valid Refund Execution Success",
-        passed: okRefundResult.success === true,
-        expected: "true",
-        actual: String(okRefundResult.success),
-      });
-      assertions.push({
-        name: "Live Balance Zero-Bleed (Δ = 0)",
-        passed: deltas.deltaLiveBalance === 0,
-        expected: "0",
-        actual: String(deltas.deltaLiveBalance),
-      });
-      assertions.push({
-        name: "Live Ledger Zero-Bleed (Δ = 0)",
-        passed: deltas.deltaLiveLogs === 0,
-        expected: "0",
-        actual: String(deltas.deltaLiveLogs),
-      });
-      assertions.push({
-        name: "Sandbox Balance Refunded (+1500)",
-        passed: deltas.deltaSandboxBalance === 1500,
-        expected: "1500",
-        actual: String(deltas.deltaSandboxBalance),
-      });
-      assertions.push({
-        name: "Sandbox Refund Log Created",
-        passed: deltas.deltaSandboxLogs === 1,
-        expected: "1",
-        actual: String(deltas.deltaSandboxLogs),
-      });
+      if (orderFailedErr || !orderFailedData) {
+        assertions.push({
+          name: "Create Test Order for Refund",
+          passed: false,
+          expected: "Order created successfully in Pending status",
+          actual: orderFailedErr?.message || "Null order data",
+        });
 
-      const allPassed = assertions.every((a) => a.passed);
+        results.push({
+          id: "TC-3",
+          name: "Sandbox Coin Refund & Status Invariant",
+          category: "Refund",
+          status: "FAIL",
+          durationMs: Date.now() - startTime,
+          assertions,
+          evidence: { orderFailedErr },
+          error: "Gagal membuat fixture pesanan uji untuk TC-3",
+        });
+      } else {
+        // Step 2: Debit coin via payment RPC to produce legitimate Payment log
+        const prePayResult = await sandboxFinancialEngine.executeCoinPayment(orderFailedData.order_id);
+        assertions.push({
+          name: "Pre-Refund Coin Payment Execution",
+          passed: prePayResult.success === true && prePayResult.debitedAmount === 1500,
+          expected: "true (debited 1500)",
+          actual: `${prePayResult.success} (debited ${prePayResult.debitedAmount})`,
+        });
 
-      results.push({
-        id: "TC-3",
-        name: "Sandbox Coin Refund & Status Invariant",
-        category: "Refund",
-        status: allPassed ? "PASS" : "FAIL",
-        durationMs: Date.now() - startTime,
-        beforeSnapshot: before,
-        afterSnapshot: after,
-        deltas,
-        assertions,
-        evidence: {
-          testOrderIdSuccess,
-          testOrderIdFailed,
-          invRefundResult,
-          okRefundResult,
-        },
-      });
+        // Step 3: Transition order to 'Gagal' in sandbox_orders
+        await supabaseAdmin
+          .from("sandbox_orders")
+          .update({ status: "Gagal", updated_at: new Date().toISOString() })
+          .eq("id", orderFailedData.id);
+
+        // Step 4: Capture snapshot specifically before refund
+        const beforeRefund = await captureSnapshot(user.id);
+
+        // Step 5: Execute atomic coin refund
+        const okRefundResult = await sandboxFinancialEngine.executeCoinRefund(testOrderIdFailed);
+
+        // Step 6: Capture snapshot specifically after refund
+        const afterRefund = await captureSnapshot(user.id);
+        const deltas = calculateDeltas(beforeRefund, afterRefund);
+
+        assertions.push({
+          name: "Valid Refund Execution Success",
+          passed: okRefundResult.success === true && okRefundResult.refundedAmount === 1500,
+          expected: "true (refunded 1500)",
+          actual: `${okRefundResult.success} (refunded ${okRefundResult.refundedAmount})`,
+        });
+        assertions.push({
+          name: "Live Balance Zero-Bleed on Refund (Δ = 0)",
+          passed: deltas.deltaLiveBalance === 0,
+          expected: "0",
+          actual: String(deltas.deltaLiveBalance),
+        });
+        assertions.push({
+          name: "Live Coin Zero-Bleed on Refund (Δ = 0)",
+          passed: deltas.deltaLiveCoin === 0,
+          expected: "0",
+          actual: String(deltas.deltaLiveCoin),
+        });
+        assertions.push({
+          name: "Live Ledger Zero-Bleed on Refund (Δ = 0)",
+          passed: deltas.deltaLiveLogs === 0,
+          expected: "0",
+          actual: String(deltas.deltaLiveLogs),
+        });
+        assertions.push({
+          name: "Sandbox Balance Restored (+1500)",
+          passed: deltas.deltaSandboxBalance === 1500,
+          expected: "1500",
+          actual: String(deltas.deltaSandboxBalance),
+        });
+        assertions.push({
+          name: "Sandbox Refund Log Created (+1)",
+          passed: deltas.deltaSandboxLogs === 1,
+          expected: "1",
+          actual: String(deltas.deltaSandboxLogs),
+        });
+
+        const allPassed = assertions.every((a) => a.passed);
+
+        results.push({
+          id: "TC-3",
+          name: "Sandbox Coin Refund & Status Invariant",
+          category: "Refund",
+          status: allPassed ? "PASS" : "FAIL",
+          durationMs: Date.now() - startTime,
+          beforeSnapshot: beforeRefund,
+          afterSnapshot: afterRefund,
+          deltas,
+          assertions,
+          evidence: {
+            testOrderIdSuccess,
+            testOrderIdFailed,
+            invRefundResult,
+            prePayResult,
+            okRefundResult,
+          },
+        });
+      }
     }
 
     // =========================================================================
@@ -473,8 +562,7 @@ export async function POST(request: Request) {
       // Query 1 real live order (READ-ONLY)
       const { data: liveOrder } = await supabaseAdmin
         .from("orders")
-        .select("id, order_id, is_sandbox, status")
-        .eq("is_sandbox", false)
+        .select("id, order_id, status")
         .limit(1)
         .maybeSingle();
 
@@ -565,9 +653,9 @@ export async function POST(request: Request) {
       const startTime = Date.now();
       const assertions: AssertionItem[] = [];
 
-      // Insert real sandbox order in Diproses state for resolver test
+      // Insert real sandbox order in Diproses state for resolver test into sandbox_orders
       const { data: mockOrderSucc } = await supabaseAdmin
-        .from("orders")
+        .from("sandbox_orders")
         .insert({
           order_id: `TEST-SIM-RESOLVE-${Date.now()}`,
           sku: "TEST-SKU-SIM",
@@ -576,7 +664,6 @@ export async function POST(request: Request) {
           total_amount: 1000,
           customer_no: "081234567800",
           status: "Diproses",
-          is_sandbox: true,
           user_id: user.id,
           email: userEmail,
         })
@@ -607,9 +694,9 @@ export async function POST(request: Request) {
         actual: resolution.sn || "None",
       });
 
-      // Test failing deterministic customer number (suffix 99)
+      // Test failing deterministic customer number (suffix 99) in sandbox_orders
       const { data: mockOrderFail } = await supabaseAdmin
-        .from("orders")
+        .from("sandbox_orders")
         .insert({
           order_id: `TEST-SIM-FAIL-${Date.now()}`,
           sku: "TEST-SKU-SIM",
@@ -618,7 +705,6 @@ export async function POST(request: Request) {
           total_amount: 1000,
           customer_no: "081234567899",
           status: "Diproses",
-          is_sandbox: true,
           user_id: user.id,
           email: userEmail,
         })
@@ -667,9 +753,9 @@ export async function POST(request: Request) {
       const assertions: AssertionItem[] = [];
       const testOrderId = `TEST-INV-${Date.now()}`;
 
-      // Insert Pending sandbox order
+      // Insert Pending sandbox order into sandbox_orders
       const { data: testOrder } = await supabaseAdmin
-        .from("orders")
+        .from("sandbox_orders")
         .insert({
           order_id: testOrderId,
           sku: "TEST-INVOICE",
@@ -678,11 +764,10 @@ export async function POST(request: Request) {
           total_amount: 5000,
           payment_method: "QRIS",
           status: "Pending",
-          is_sandbox: true,
           user_id: user.id,
           email: userEmail,
         })
-        .select("id, order_id, is_sandbox, status")
+        .select("id, order_id, status")
         .single();
 
       // Dispatch via simulator
@@ -707,9 +792,9 @@ export async function POST(request: Request) {
           actual: dispatchResult.winningProvider,
         });
 
-        // Verify order status in database became 'Diproses'
+        // Verify order status in sandbox_orders became 'Diproses'
         const { data: updatedOrder } = await supabaseAdmin
-          .from("orders")
+          .from("sandbox_orders")
           .select("status, provider_used")
           .eq("id", testOrder.id)
           .single();

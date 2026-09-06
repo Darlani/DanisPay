@@ -63,11 +63,19 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const email = searchParams.get('email');
 
+    const db: any = supabaseAdmin;
+
     if (email) {
-      const userColumns = 'id, order_id, created_at, status, product_name, item_label, total_amount, payment_method, sn, is_sandbox';
-      const { data, error } = await supabaseAdmin.from('orders').select(userColumns).eq('email', email).order('created_at', { ascending: false });
-      if (error) throw error;
-      return NextResponse.json(data || []);
+      const userColumns = 'id, order_id, created_at, status, product_name, item_label, total_amount, payment_method, sn';
+      const [liveRes, sbRes] = await Promise.all([
+        db.from('orders').select(userColumns).eq('email', email).order('created_at', { ascending: false }),
+        db.from('sandbox_orders').select(userColumns).eq('email', email).order('created_at', { ascending: false })
+      ]);
+      if (liveRes.error) throw liveRes.error;
+      const liveList = (liveRes.data || []).map((o: any) => ({ ...o, is_sandbox: false }));
+      const sbList = (sbRes.data || []).map((o: any) => ({ ...o, is_sandbox: true }));
+      const combined = [...liveList, ...sbList].sort((a: any, b: any) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime());
+      return NextResponse.json(combined);
     }
 
     const authHeader = req.headers.get('Authorization');
@@ -95,30 +103,55 @@ export async function GET(req: Request) {
   'product_name, item_label, total_amount, price, buy_price, ' +
   'payment_method, user_contact, customer_name, customer_no, category, ' +
   'cashback, referral_commission, voucher_amount, discount, ' +
-  'unique_code, used_balance, product_type, notes, is_sandbox';
+  'unique_code, used_balance, product_type, notes';
+
+    const sbAdminColumns = adminColumns;
 
     const id = searchParams.get('id');
     if (id) {
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-      let singleQuery = supabaseAdmin.from('orders').select(adminColumns);
+      let singleQuery = db.from('orders').select(adminColumns);
       if (isUUID) {
         singleQuery = singleQuery.or(`id.eq.${id},order_id.eq.${id}`);
       } else {
         singleQuery = singleQuery.eq('order_id', id);
       }
-      const { data: singleData, error: singleError } = await singleQuery.maybeSingle();
+      let { data: singleData, error: singleError } = await singleQuery.maybeSingle();
+
+      if (singleData) {
+        singleData = { ...singleData, is_sandbox: false };
+      } else {
+        let sbSingleQuery = db.from('sandbox_orders').select(sbAdminColumns);
+        if (isUUID) {
+          sbSingleQuery = sbSingleQuery.or(`id.eq.${id},order_id.eq.${id}`);
+        } else {
+          sbSingleQuery = sbSingleQuery.eq('order_id', id);
+        }
+        const { data: sbSingleData, error: sbError } = await sbSingleQuery.maybeSingle();
+        if (sbSingleData) {
+          singleData = { ...sbSingleData, is_sandbox: true };
+          singleError = null;
+        } else if (sbError) {
+          singleError = sbError;
+        }
+      }
+
       if (singleError) throw singleError;
       return NextResponse.json(singleData);
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('orders')
-      .select(adminColumns)
-      .order('created_at', { ascending: false });
+    const [liveRes, sbRes] = await Promise.all([
+      db.from('orders').select(adminColumns).order('created_at', { ascending: false }),
+      db.from('sandbox_orders').select(sbAdminColumns).order('created_at', { ascending: false })
+    ]);
 
-    if (error) throw error;
+    if (liveRes.error) throw liveRes.error;
 
-    return NextResponse.json(data || []);
+    const liveData = (liveRes.data || []).map((o: any) => ({ ...o, is_sandbox: false }));
+    const sbData = (sbRes.data || []).map((o: any) => ({ ...o, is_sandbox: true }));
+    const combinedOrders = [...liveData, ...sbData].sort((a: any, b: any) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime());
+
+    return NextResponse.json(combinedOrders);
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -169,11 +202,27 @@ export async function PATCH(req: Request) {
 
     const currentStatus = requestedStatus;
 
-    const { data: oldOrder } = await supabaseAdmin
+    let isDedicatedSandbox = false;
+    let { data: oldOrder } = await supabaseAdmin
       .from('orders')
-      .select('id, status, order_id, product_name, item_label, user_id, used_balance, total_amount, unique_code, cashback, buy_price, referred_by, category, raw_tagihan, is_sandbox')
+      .select('id, status, order_id, product_name, item_label, user_id, used_balance, total_amount, unique_code, cashback, buy_price, referred_by, category, raw_tagihan')
       .eq('id', id)
-      .single();
+      .maybeSingle();
+
+    if (oldOrder) {
+      oldOrder = { ...(oldOrder as Record<string, unknown>), is_sandbox: false } as any;
+    } else {
+      const { data: sbOldOrder } = await supabaseAdmin
+        .from('sandbox_orders' as any)
+        .select('id, status, order_id, product_name, item_label, user_id, used_balance, total_amount, unique_code, cashback, buy_price, referred_by, category, raw_tagihan')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (sbOldOrder) {
+        oldOrder = { ...(sbOldOrder as Record<string, unknown>), is_sandbox: true } as any;
+        isDedicatedSandbox = true;
+      }
+    }
 
     if (!oldOrder) throw new Error("Order tidak ditemukan di Database.");
 
@@ -231,8 +280,9 @@ export async function PATCH(req: Request) {
       updatePayload.sn = `SIM-DANISH-${Math.floor(10000000 + Math.random() * 90000000)}`;
     }
 
-    const { data: updatedOrder, error: updateError } = await supabaseAdmin
-      .from('orders')
+    const targetTable: any = isDedicatedSandbox ? 'sandbox_orders' : 'orders';
+    const { data: updatedOrder, error: updateError } = await (supabaseAdmin as any)
+      .from(targetTable)
       .update(updatePayload)
       .eq('id', id)
       .eq('status', oldStatusRaw)
@@ -315,7 +365,6 @@ export async function PATCH(req: Request) {
            const { count } = await supabaseAdmin.from('orders')
              .select('*', { count: 'exact', head: true })
              .eq('user_id', oldOrder.user_id)
-             .eq('is_sandbox', false)
              .in('status', ['Berhasil', 'Diproses'])
              .neq('id', id);
 
@@ -492,8 +541,9 @@ export async function DELETE(req: Request) {
     const body = await req.json();
     const { id } = body;
     const { error } = await supabaseAdmin.from('orders').delete().eq('id', id);
+    const { error: sbError } = await supabaseAdmin.from('sandbox_orders' as any).delete().eq('id', id);
 
-    if (error) throw error;
+    if (error && sbError) throw error;
 
     console.log(`🗑️ Order ID ${id} berhasil dihapus.`);
     return NextResponse.json({ message: "Berhasil dihapus" });

@@ -62,14 +62,15 @@ function PendingPaymentBanner({ order, router, onResolved }: { order: any, route
   // 1. Logika Timer 2 Jam Mutlak
   useEffect(() => {
     if (!order?.created_at) return;
-    const safeDateString = order.created_at.endsWith('Z') ? order.created_at : `${order.created_at}Z`;
-    const expiryTime = new Date(safeDateString).getTime() + 7200000;
+    const rawTime = new Date(order.created_at).getTime();
+    const createdMs = isNaN(rawTime) ? new Date(`${order.created_at}Z`).getTime() : rawTime;
+    const expiryTime = (isNaN(createdMs) ? Date.now() : createdMs) + 7200000;
 
     const updateTimer = () => {
       const now = new Date().getTime();
       const distance = expiryTime - now;
 
-      if (distance <= 0) {
+      if (isNaN(distance) || distance <= 0) {
         setIsExpired(true);
         setTimeLeft("00:00:00");
         return;
@@ -255,39 +256,57 @@ export default function Home() {
         // 3. Logika Transaksi Terakhir (FILTER UNIK & LIMIT 4) [cite: 2026-02-11]
         const { data: { session } } = await supabase.auth.getSession();
 
-let ordersQuery = supabase
-          .from('orders')
-          // WAJIB ada order_id untuk routing ke halaman checkout!
-          .select('id, order_id, product_name, customer_no, status, created_at, payment_method, total_amount, category')
-          .order('created_at', { ascending: false })
-          .limit(20);
+        let isStaff = false;
+        if (session?.user?.id) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          if (profile?.role === 'admin' || profile?.role === 'manager') {
+            isStaff = true;
+          }
+        }
+
+        const ordersQuery = supabase
+          .from('orders')
+          .select('id, order_id, product_name, customer_no, status, created_at, payment_method, total_amount, category, sku')
+          .order('created_at', { ascending: false })
+          .limit(20);
 
         // FUNGSI BARU: Pisahkan pengecekan transaksi Pending dan Filter Unik
-        const processOrdersData = (ordersToProcess: any[]) => {
-          // 1. Cari transaksi yang masih pending
-          const pending = ordersToProcess.find((o: any) => o.status?.toLowerCase() === 'pending');
+        const processOrdersData = (ordersToProcess: any[], isUserStaff = false) => {
+          // Filter ketat: hilangkan seluruh order dummy test
+          const liveOrders = ordersToProcess.filter(
+            (o: any) => !o.sku?.startsWith('TEST-') && !o.order_id?.startsWith('TEST-')
+          );
 
-          // SINKRONISASI: Jika tidak ada transaksi pending, bersihkan state banner
-          if (pending) {
-            setPendingOrder(pending);
-          } else {
-            setPendingOrder(null);
-          }
+          // 1. Cari transaksi yang masih pending (Staff never sees consumer pending reminder)
+          const pending = !isUserStaff
+            ? liveOrders.find((o: any) => o.status?.toLowerCase() === 'pending')
+            : null;
 
-          // 2. Jalankan filter unik untuk slider "Beli ini lagi"
-          const unique = ordersToProcess.reduce((acc: any[], current: any) => {
-            const isExist = acc.find((item: any) => item.product_name === current.product_name);
-            if (!isExist && acc.length < 4) acc.push(current);
-            return acc;
-          }, []);
-          setRecentOrders(unique);
-        };
+          // SINKRONISASI: Jika tidak ada transaksi pending, bersihkan state banner
+          if (pending) {
+            setPendingOrder(pending);
+          } else {
+            setPendingOrder(null);
+          }
 
-        if (session?.user?.email) {
-          const { data: orders } = await ordersQuery.eq('email', session.user.email);
-          if (orders) processOrdersData(orders);
-        } else {
-          // GUEST LOGIC: Prioritas baca LocalStorage dulu biar ngebut <50ms!
+          // 2. Jalankan filter unik untuk slider "Beli ini lagi"
+          const unique = liveOrders.reduce((acc: any[], current: any) => {
+            const isExist = acc.find((item: any) => item.product_name === current.product_name);
+            if (!isExist && acc.length < 4) acc.push(current);
+            return acc;
+          }, []);
+          setRecentOrders(unique);
+        };
+
+        if (session?.user?.email) {
+          const { data: orders } = await ordersQuery.eq('email', session.user.email);
+          if (orders) processOrdersData(orders, isStaff);
+        } else {
+          // GUEST LOGIC: Prioritas baca LocalStorage dulu biar ngebut <50ms!
           const guestCache = localStorage.getItem('dapay_guest_history');
           let hasLocalData = false;
 

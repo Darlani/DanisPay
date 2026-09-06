@@ -1,6 +1,7 @@
 "use client";
 import { use, useState, useMemo, useEffect, Suspense } from "react"; 
 import { notFound, useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Loader2, ShieldAlert } from "lucide-react";
 import FingerprintJS from '@fingerprintjs/fingerprintjs'; 
 import { supabase } from "@/utils/supabaseClient";
@@ -58,6 +59,7 @@ function DetailContent({ slug }: { slug: string }) {
 
   // SECURITY: Pengecekan Admin via LocalStorage & Session
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -137,14 +139,17 @@ if (!productData && !isLoading) {
       }
 
       if (session?.user) {
-        supabase.from('profiles').select('member_type, balance, referred_by').eq('id', session.user.id).maybeSingle()
+        supabase.from('profiles').select('member_type, balance, referred_by, role').eq('id', session.user.id).maybeSingle()
           .then(async ({ data }) => {
             setMemberType(data?.member_type || null);
             setUserCoins(data?.balance || 0);
+            setUserRole(data?.role?.toLowerCase() || null);
             if (data?.referred_by) {
               setReferrer(data.referred_by); 
             }
           });
+      } else {
+        setUserRole(null);
       }
     });
     return () => subscription.unsubscribe();
@@ -251,7 +256,13 @@ try {
     }
   };
 
-const handleCheckout = async (customPayload?: any) => {
+  const isManagementUser = userRole === 'admin' || userRole === 'manager';
+
+  const handleCheckout = async (customPayload?: any) => {
+    if (isManagementUser) {
+      alert("Akses Ditolak: Akun Manajemen (Admin/Manager) tidak diperkenankan membuat transaksi pesanan konsumen (LIVE maupun Sandbox). Gunakan Sandbox Test Center untuk pengujian operasional.");
+      return;
+    }
     // 1. Hapus validasi !selectedItem karena pascabayar gak pake pilih item
     if (isLoading) return; 
     setIsLoading(true);
@@ -405,6 +416,27 @@ const renderInterface = () => {
 
   return (
     <div className="flex flex-col w-full bg-[#F8FAFC]">
+      {isManagementUser && (
+        <div className="mx-auto my-4 max-w-5xl w-full px-4 sm:px-6 lg:px-8">
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <ShieldAlert className="h-6 w-6 text-amber-600 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-sm">Mode Manajemen Terdeteksi ({userRole?.toUpperCase()})</p>
+                <p className="text-xs text-amber-800">
+                  Akun manajemen internal tidak diperkenankan melakukan checkout pesanan konsumen (LIVE maupun Sandbox). Gunakan Sandbox Test Center untuk pengujian order.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/admin?tab=test-center"
+              className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 whitespace-nowrap"
+            >
+              Buka Test Center
+            </Link>
+          </div>
+        </div>
+      )}
       {renderInterface()}
       {productData?.maintenance && (
         <div className="fixed bottom-24 right-6 z-9999 pointer-events-none">

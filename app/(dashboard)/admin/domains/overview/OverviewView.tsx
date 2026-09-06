@@ -57,6 +57,7 @@ export type Order = {
   voucher?: number | string | null;
   used_balance?: number | string | null;
   total_amount?: number | string | null;
+  is_sandbox?: boolean | null;
 };
 
 export interface OverviewViewProps {
@@ -274,12 +275,18 @@ export default function OverviewView({
   }, [filteredOrders]);
 
   const pendingOrderCount = useMemo(
-    () => orders.filter((order) => order.status === "Pending").length,
+    () =>
+      orders.filter(
+        (order) => order.status === "Pending",
+      ).length,
     [orders],
   );
 
   const onProcessOrderCount = useMemo(
-    () => orders.filter((order) => order.status === "Diproses").length,
+    () =>
+      orders.filter(
+        (order) => order.status === "Diproses",
+      ).length,
     [orders],
   );
 

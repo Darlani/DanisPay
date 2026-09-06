@@ -103,7 +103,7 @@ export async function POST(req: Request) {
     let orderQuery = supabaseAdmin
       .from('orders')
       .select(
-        'id, order_id, api_ref_id, sku, customer_no, user_id, email, user_contact, payment_method, total_amount, status, category, product_name, price, used_balance, buy_price, provider_used, vendor_sku, sn, created_at, is_sandbox'
+        'id, order_id, api_ref_id, sku, customer_no, user_id, email, user_contact, payment_method, total_amount, status, category, product_name, price, used_balance, buy_price, provider_used, vendor_sku, sn, created_at'
       );
 
     if (isUUID) {
@@ -115,18 +115,24 @@ export async function POST(req: Request) {
     const { data: orderData, error: fetchErr } = await orderQuery.maybeSingle();
 
     if (fetchErr || !orderData) {
+      // --- 4.5 PROTEKSI ORDER SANDBOX (MUTLAK DILARANG CEK KE VENDOR RIIL) ---
+      let sbQuery = supabaseAdmin.from('sandbox_orders').select('id');
+      if (isUUID) {
+        sbQuery = sbQuery.or(`id.eq.${orderIdInput},order_id.eq.${orderIdInput}`);
+      } else {
+        sbQuery = sbQuery.eq('order_id', orderIdInput);
+      }
+      const { data: sbOrder } = await sbQuery.maybeSingle();
+      if (sbOrder) {
+        return NextResponse.json(
+          { error: 'Pesanan Sandbox: Dilarang memeriksa status ke vendor eksternal!' },
+          { status: 403 }
+        );
+      }
       return NextResponse.json({ error: 'Order tidak ditemukan di DB' }, { status: 404 });
     }
 
     const order = orderData as OrderRecord;
-
-    // --- 4.5 PROTEKSI ORDER SANDBOX (MUTLAK DILARANG CEK KE VENDOR RIIL) ---
-    if (order.is_sandbox === true) {
-      return NextResponse.json(
-        { error: 'Pesanan Sandbox: Dilarang memeriksa status ke vendor eksternal!' },
-        { status: 403 }
-      );
-    }
 
     // --- 5. PROTEKSI ORDER > 90 HARI ---
     const createdDate = new Date(order.created_at);

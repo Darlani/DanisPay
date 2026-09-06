@@ -13,6 +13,7 @@ import {
   Loader2,
   Search,
   Shield,
+  UserCheck,
   Users,
   Wallet,
   X,
@@ -32,6 +33,8 @@ type AccountUser = {
   last_activity_at?: string | null;
   activity_status?: MemberActivityStatus;
   is_tester?: boolean | null;
+  tester_since?: string | null;
+  tester_updated_at?: string | null;
 };
 
 type AccountDatabaseResponse = {
@@ -84,7 +87,7 @@ type MutationSummary = {
   byType: Record<MutationSummaryCategory, MutationSummaryMetric>;
 };
 
-type AccountTab = "members" | "team";
+type AccountTab = "team" | "members" | "tester";
 type ActivityFilter = "ALL" | MemberActivityStatus;
 type SortOption =
   | "newest"
@@ -513,7 +516,6 @@ function AccountDetailModal({
             <div className="flex justify-between gap-6 py-3"><dt className="text-sm text-slate-500">Email</dt><dd className="max-w-[60%] truncate text-right text-sm font-semibold text-slate-800" title={user.email || undefined}>{user.email || "-"}</dd></div>
             <div className="flex justify-between gap-6 py-3"><dt className="text-sm text-slate-500">Jabatan</dt><dd className="text-right text-sm font-semibold text-slate-800">{identity.jabatan}</dd></div>
             <div className="flex justify-between gap-6 py-3"><dt className="text-sm text-slate-500">Role</dt><dd><RoleBadge user={user} /></dd></div>
-            <div className="flex justify-between gap-6 py-3"><dt className="text-sm text-slate-500">Status Tester</dt><dd className="text-right text-sm font-semibold">{user.is_tester ? <span className="font-bold text-amber-600">Tester Sandbox</span> : <span className="text-slate-400">Non-Tester</span>}</dd></div>
             <div className="flex justify-between gap-6 py-3"><dt className="text-sm text-slate-500">Bergabung</dt><dd className="text-right text-sm font-semibold text-slate-800">{formatDate(user.created_at)}</dd></div>
           </dl>
         ) : (
@@ -523,7 +525,21 @@ function AccountDetailModal({
               <DetailRow label="Email" title={user.email || undefined}>{user.email || "-"}</DetailRow>
               <DetailRow label="Role"><RoleBadge user={user} /></DetailRow>
               <DetailRow label="Member Type"><MemberTypeBadge user={user} /></DetailRow>
-              <DetailRow label="Status Tester">{user.is_tester ? <span className="font-bold text-amber-600">Tester Sandbox</span> : <span className="text-slate-400">Non-Tester</span>}</DetailRow>
+              <DetailRow label="Status Tester">
+                {user.is_tester ? (
+                  <span className="font-bold text-amber-600">Tester Aktif</span>
+                ) : user.tester_since ? (
+                  <span className="font-semibold text-slate-500">Tester Non-Aktif</span>
+                ) : (
+                  <span className="text-slate-400">Non-Tester (Member Riil)</span>
+                )}
+              </DetailRow>
+              {user.tester_since && (
+                <DetailRow label="Tester Sejak">{formatDateTime(user.tester_since)}</DetailRow>
+              )}
+              {user.tester_updated_at && (
+                <DetailRow label="Update Tester">{formatDateTime(user.tester_updated_at)}</DetailRow>
+              )}
               <DetailRow label="Bergabung">{formatDate(user.created_at)}</DetailRow>
             </DetailSection>
             <DetailSection title="Aktivitas Transaksi">
@@ -921,12 +937,18 @@ export default function AccountDatabaseManagement() {
     }
   }, []);
 
-  const handleToggleTester = useCallback(async (targetUser: AccountUser) => {
+  const handleToggleTester = useCallback(async (targetUser: AccountUser, explicitStatus?: boolean) => {
     if (testerTogglingId) return;
-    const newStatus = !targetUser.is_tester;
+    const newStatus = explicitStatus !== undefined ? explicitStatus : !targetUser.is_tester;
+    const nowIso = new Date().toISOString();
     setTesterTogglingId(targetUser.id);
     setUsers((prev) =>
-      prev.map((u) => (u.id === targetUser.id ? { ...u, is_tester: newStatus } : u))
+      prev.map((u) => (u.id === targetUser.id ? {
+        ...u,
+        is_tester: newStatus,
+        tester_since: newStatus ? (u.tester_since || nowIso) : u.tester_since,
+        tester_updated_at: nowIso,
+      } : u))
     );
 
     // Broadcast instantaneously (0ms) across all tabs in browser
@@ -982,11 +1004,47 @@ export default function AccountDatabaseManagement() {
   useEffect(() => { void fetchUsers(); }, [fetchUsers]);
   useEffect(() => { setPage(1); }, [activeTab, activityFilter, searchTerm, sortOption]);
 
-  const memberUsers = useMemo(() => users.filter((user) => !isStaff(user)), [users]);
+  const memberUsers = useMemo(() => users.filter((user) => !isStaff(user) && !user.is_tester), [users]);
   const teamUsers = useMemo(() => users.filter(isStaff), [users]);
+  const activeTesterUsers = useMemo(() => users.filter((user) => !isStaff(user) && Boolean(user.is_tester)), [users]);
+  const inactiveTesterUsers = useMemo(() => users.filter((user) => !isStaff(user) && !user.is_tester && Boolean(user.tester_since)), [users]);
   const currentUsers = activeTab === "members" ? memberUsers : teamUsers;
   const specialCount = useMemo(() => memberUsers.filter((user) => user.member_type?.toLowerCase() === "special").length, [memberUsers]);
   const regularCount = useMemo(() => memberUsers.length - specialCount, [memberUsers, specialCount]);
+
+  const filteredActiveTesters = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    return activeTesterUsers
+      .filter((user) => {
+        if (!normalizedSearch) return true;
+        return (
+          user.full_name?.toLowerCase().includes(normalizedSearch) ||
+          user.email?.toLowerCase().includes(normalizedSearch)
+        );
+      })
+      .sort((a, b) => {
+        const timeA = a.tester_updated_at ? new Date(a.tester_updated_at).getTime() : 0;
+        const timeB = b.tester_updated_at ? new Date(b.tester_updated_at).getTime() : 0;
+        return timeB - timeA;
+      });
+  }, [activeTesterUsers, searchTerm]);
+
+  const filteredInactiveTesters = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    return inactiveTesterUsers
+      .filter((user) => {
+        if (!normalizedSearch) return true;
+        return (
+          user.full_name?.toLowerCase().includes(normalizedSearch) ||
+          user.email?.toLowerCase().includes(normalizedSearch)
+        );
+      })
+      .sort((a, b) => {
+        const timeA = a.tester_updated_at ? new Date(a.tester_updated_at).getTime() : 0;
+        const timeB = b.tester_updated_at ? new Date(b.tester_updated_at).getTime() : 0;
+        return timeB - timeA;
+      });
+  }, [inactiveTesterUsers, searchTerm]);
 
   const sortedUsers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -1040,20 +1098,277 @@ export default function AccountDatabaseManagement() {
         <label className="relative w-full lg:max-w-md"><Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><input type="search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Cari nama atau email..." className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none shadow-sm transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100" /></label>
       </header>
 
-      <div className="inline-flex rounded-2xl bg-slate-100 p-1.5"><button type="button" onClick={() => { setActiveTab("team"); if (isMemberOnlySort(sortOption)) setSortOption("newest"); }} className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "team" ? "bg-blue-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-900"}`}>TEAM <span className={`ml-1.5 rounded-full px-2 py-0.5 text-xs ${activeTab === "team" ? "bg-white/15 text-white" : "bg-white text-slate-500"}`}>{teamUsers.length}</span></button><button type="button" onClick={() => setActiveTab("members")} className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "members" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-900"}`}>MEMBERS <span className={`ml-1.5 rounded-full px-2 py-0.5 text-xs ${activeTab === "members" ? "bg-white/15 text-white" : "bg-white text-slate-500"}`}>{memberUsers.length}</span></button></div>
+      <div className="inline-flex rounded-2xl bg-slate-100 p-1.5">
+        <button
+          type="button"
+          onClick={() => { setActiveTab("team"); if (isMemberOnlySort(sortOption)) setSortOption("newest"); }}
+          className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "team" ? "bg-blue-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+        >
+          TEAM <span className={`ml-1.5 rounded-full px-2 py-0.5 text-xs ${activeTab === "team" ? "bg-white/15 text-white" : "bg-white text-slate-500"}`}>{teamUsers.length}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("members")}
+          className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "members" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+        >
+          MEMBERS <span className={`ml-1.5 rounded-full px-2 py-0.5 text-xs ${activeTab === "members" ? "bg-white/15 text-white" : "bg-white text-slate-500"}`}>{memberUsers.length}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab("tester"); if (isMemberOnlySort(sortOption)) setSortOption("newest"); }}
+          className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "tester" ? "bg-amber-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+        >
+          TESTER <span className={`ml-1.5 rounded-full px-2 py-0.5 text-xs ${activeTab === "tester" ? "bg-white/15 text-white" : "bg-white text-slate-500"}`}>{activeTesterUsers.length + inactiveTesterUsers.length}</span>
+        </button>
+      </div>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4"><StatCard label="Total Akun" value={users.length} icon={<Users size={19} />} /><StatCard label="Team" value={teamUsers.length} icon={<BriefcaseBusiness size={19} />} accent="blue" /><StatCard label="Member Special" value={specialCount} icon={<Award size={19} />} accent="amber" /><StatCard label="Member Regular" value={regularCount} icon={<Wallet size={19} />} accent="emerald" /></section>
 
-      <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm font-medium text-slate-500">{sortedUsers.length} {activeTab === "members" ? "member" : "akun team"}</p><div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">{activeTab === "members" && <label className="flex items-center gap-2">Aktivitas <select value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as ActivityFilter)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-500"><option value="ALL">Semua Aktivitas</option><option value="ACTIVE">Aktif</option><option value="PASSIVE">Pasif</option><option value="INACTIVE">Tidak Aktif</option><option value="DORMANT">Dormant</option><option value="NEVER">Belum Transaksi</option></select></label>}<label className="flex items-center gap-2">Urutkan <select value={sortOption} onChange={(event) => setSortOption(event.target.value as SortOption)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-500">{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div></div>
+      {loading ? (
+        <AccountSkeleton />
+      ) : error ? (
+        <ErrorState onRetry={fetchUsers} />
+      ) : activeTab === "tester" ? (
+        <div className="space-y-6">
+          {/* Section 1: TESTER AKTIF */}
+          <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
+            <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="size-2.5 rounded-full bg-amber-500 ring-4 ring-amber-100" />
+                <h2 className="text-base font-bold text-slate-900">TESTER AKTIF</h2>
+                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                  {filteredActiveTesters.length}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">Member dengan akses Sandbox aktif, diisolasi dari transaksi live</p>
+            </div>
 
-        {loading ? <AccountSkeleton /> : error ? <ErrorState onRetry={fetchUsers} /> : <>
-          <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-250 text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-400"><tr><th className="px-5 py-4">Account</th><th className="px-5 py-4">Email</th>{activeTab === "members" ? <><th className="px-5 py-4">Member Type</th><th className="px-5 py-4">Bergabung</th><th className="px-5 py-4 text-center">Aktivitas</th><th className="px-5 py-4 text-right">Saldo</th></> : <><th className="px-5 py-4">Jabatan</th><th className="px-5 py-4">Role</th><th className="px-5 py-4">Bergabung</th></>}<th className="px-5 py-4 text-center">Tester</th><th className="px-5 py-4 text-center">Action</th></tr></thead><tbody className="divide-y divide-slate-100">{paginatedUsers.map((user) => <DesktopRow key={user.id} user={user} member={activeTab === "members"} onDetail={setDetailUser} onMutation={setMutationUser} onAdjust={setAdjustmentUser} onToggleTester={handleToggleTester} togglingTester={testerTogglingId === user.id} />)}</tbody></table></div>
-          <div className="space-y-3 p-4 md:hidden">{paginatedUsers.map((user) => <MobileCard key={user.id} user={user} member={activeTab === "members"} onDetail={setDetailUser} onMutation={setMutationUser} onAdjust={setAdjustmentUser} onToggleTester={handleToggleTester} togglingTester={testerTogglingId === user.id} />)}</div>
+            {filteredActiveTesters.length === 0 ? (
+              <div className="p-10 text-center text-sm text-slate-500">
+                {searchTerm.trim() ? "Tidak ada tester aktif yang cocok dengan pencarian." : "Tidak ada tester aktif saat ini."}
+              </div>
+            ) : (
+              <>
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full min-w-250 text-left">
+                    <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      <tr>
+                        <th className="px-5 py-4">Account</th>
+                        <th className="px-5 py-4">Email</th>
+                        <th className="px-5 py-4">Member Type</th>
+                        <th className="px-5 py-4">Tester Sejak</th>
+                        <th className="px-5 py-4">Update Terakhir</th>
+                        <th className="px-5 py-4 text-right">Saldo</th>
+                        <th className="px-5 py-4 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredActiveTesters.map((user) => (
+                        <TesterDesktopRow
+                          key={user.id}
+                          user={user}
+                          isActiveTester={true}
+                          onDetail={setDetailUser}
+                          onMutation={setMutationUser}
+                          onAdjust={setAdjustmentUser}
+                          onToggleTester={handleToggleTester}
+                          togglingTester={testerTogglingId === user.id}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="space-y-3 p-4 md:hidden">
+                  {filteredActiveTesters.map((user) => (
+                    <TesterMobileCard
+                      key={user.id}
+                      user={user}
+                      isActiveTester={true}
+                      onDetail={setDetailUser}
+                      onMutation={setMutationUser}
+                      onAdjust={setAdjustmentUser}
+                      onToggleTester={handleToggleTester}
+                      togglingTester={testerTogglingId === user.id}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* Section 2: TESTER NON-AKTIF */}
+          <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
+            <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="size-2.5 rounded-full bg-slate-400 ring-4 ring-slate-100" />
+                <h2 className="text-base font-bold text-slate-900">TESTER NON-AKTIF (Riwayat Tester)</h2>
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                  {filteredInactiveTesters.length}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">Member yang pernah menjadi tester dan telah dikembalikan ke member riil</p>
+            </div>
+
+            {filteredInactiveTesters.length === 0 ? (
+              <div className="p-10 text-center text-sm text-slate-500">
+                {searchTerm.trim() ? "Tidak ada riwayat tester yang cocok dengan pencarian." : "Belum ada riwayat tester non-aktif."}
+              </div>
+            ) : (
+              <>
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full min-w-250 text-left">
+                    <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      <tr>
+                        <th className="px-5 py-4">Account</th>
+                        <th className="px-5 py-4">Email</th>
+                        <th className="px-5 py-4">Member Type</th>
+                        <th className="px-5 py-4">Tester Sejak</th>
+                        <th className="px-5 py-4">Dinonaktifkan</th>
+                        <th className="px-5 py-4 text-right">Saldo</th>
+                        <th className="px-5 py-4 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredInactiveTesters.map((user) => (
+                        <TesterDesktopRow
+                          key={user.id}
+                          user={user}
+                          isActiveTester={false}
+                          onDetail={setDetailUser}
+                          onMutation={setMutationUser}
+                          onAdjust={setAdjustmentUser}
+                          onToggleTester={handleToggleTester}
+                          togglingTester={testerTogglingId === user.id}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="space-y-3 p-4 md:hidden">
+                  {filteredInactiveTesters.map((user) => (
+                    <TesterMobileCard
+                      key={user.id}
+                      user={user}
+                      isActiveTester={false}
+                      onDetail={setDetailUser}
+                      onMutation={setMutationUser}
+                      onAdjust={setAdjustmentUser}
+                      onToggleTester={handleToggleTester}
+                      togglingTester={testerTogglingId === user.id}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      ) : (
+        <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-slate-500">
+              {sortedUsers.length} {activeTab === "members" ? "member" : "akun team"}
+            </p>
+            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+              {activeTab === "members" && (
+                <label className="flex items-center gap-2">
+                  Aktivitas{" "}
+                  <select
+                    value={activityFilter}
+                    onChange={(event) => setActivityFilter(event.target.value as ActivityFilter)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-500"
+                  >
+                    <option value="ALL">Semua Aktivitas</option>
+                    <option value="ACTIVE">Aktif</option>
+                    <option value="PASSIVE">Pasif</option>
+                    <option value="INACTIVE">Tidak Aktif</option>
+                    <option value="DORMANT">Dormant</option>
+                    <option value="NEVER">Belum Transaksi</option>
+                  </select>
+                </label>
+              )}
+              <label className="flex items-center gap-2">
+                Urutkan{" "}
+                <select
+                  value={sortOption}
+                  onChange={(event) => setSortOption(event.target.value as SortOption)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-500"
+                >
+                  {sortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-250 text-left">
+              <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-5 py-4">Account</th>
+                  <th className="px-5 py-4">Email</th>
+                  {activeTab === "members" ? (
+                    <>
+                      <th className="px-5 py-4">Member Type</th>
+                      <th className="px-5 py-4">Bergabung</th>
+                      <th className="px-5 py-4 text-center">Aktivitas</th>
+                      <th className="px-5 py-4 text-right">Saldo</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-5 py-4">Jabatan</th>
+                      <th className="px-5 py-4">Role</th>
+                      <th className="px-5 py-4">Bergabung</th>
+                    </>
+                  )}
+                  <th className="px-5 py-4 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedUsers.map((user) => (
+                  <DesktopRow
+                    key={user.id}
+                    user={user}
+                    member={activeTab === "members"}
+                    onDetail={setDetailUser}
+                    onMutation={setMutationUser}
+                    onAdjust={setAdjustmentUser}
+                    onToggleTester={handleToggleTester}
+                    togglingTester={testerTogglingId === user.id}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="space-y-3 p-4 md:hidden">
+            {paginatedUsers.map((user) => (
+              <MobileCard
+                key={user.id}
+                user={user}
+                member={activeTab === "members"}
+                onDetail={setDetailUser}
+                onMutation={setMutationUser}
+                onAdjust={setAdjustmentUser}
+                onToggleTester={handleToggleTester}
+                togglingTester={testerTogglingId === user.id}
+              />
+            ))}
+          </div>
           {sortedUsers.length === 0 && <EmptyState tab={activeTab} hasSearch={Boolean(searchTerm.trim())} />}
-          {sortedUsers.length > 0 && <Pagination page={safePage} totalPages={totalPages} start={rangeStart} end={rangeEnd} total={sortedUsers.length} onPageChange={setPage} />}
-        </>}
-      </section>
+          {sortedUsers.length > 0 && (
+            <Pagination
+              page={safePage}
+              totalPages={totalPages}
+              start={rangeStart}
+              end={rangeEnd}
+              total={sortedUsers.length}
+              onPageChange={setPage}
+            />
+          )}
+        </section>
+      )}
 
       <AccountDetailModal user={detailUser} onClose={() => setDetailUser(null)} />
       <BalanceHistoryModal user={mutationUser} onClose={() => setMutationUser(null)} />
@@ -1076,7 +1391,7 @@ function DesktopRow({
   onDetail: (user: AccountUser) => void;
   onMutation: (user: AccountUser) => void;
   onAdjust: (user: AccountUser) => void;
-  onToggleTester: (user: AccountUser) => void;
+  onToggleTester: (user: AccountUser, nextStatus?: boolean) => void;
   togglingTester: boolean;
 }) {
   const identity = getIdentity(user);
@@ -1084,37 +1399,47 @@ function DesktopRow({
     <tr className="transition hover:bg-slate-50/80">
       <td className="px-5 py-4"><div className="flex items-center gap-3"><AccountAvatar user={user} staff={!member} /><div><p className="text-sm font-semibold text-slate-800">{user.full_name || "-"}</p><p className="mt-0.5 text-xs text-slate-400">{identity.jabatan}</p></div></div></td>
       <td className="max-w-55 truncate px-5 py-4 text-sm text-slate-500" title={user.email || undefined}>{user.email || "-"}</td>
-      {member ? <>
-        <td className="px-5 py-4"><MemberTypeBadge user={user} /></td>
-        <td className="px-5 py-4 text-sm text-slate-500">{formatDate(user.created_at)}</td>
-        <td className="px-5 py-4"><MemberActivityBadge user={user} centered /></td>
-        <td className="px-5 py-4 text-right text-sm font-bold text-emerald-600">{formatRupiah(user.balance)}</td>
-      </> : <>
-        <td className="px-5 py-4"><span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">{identity.role === "MANAGER" ? <BriefcaseBusiness size={15} className="text-slate-700" /> : <Shield size={15} className="text-blue-600" />}{identity.jabatan}</span></td>
-        <td className="px-5 py-4"><RoleBadge user={user} /></td>
-        <td className="px-5 py-4 text-sm text-slate-500">{formatDate(user.created_at)}</td>
-      </>}
+      {member ? (
+        <>
+          <td className="px-5 py-4"><MemberTypeBadge user={user} /></td>
+          <td className="px-5 py-4 text-sm text-slate-500">{formatDate(user.created_at)}</td>
+          <td className="px-5 py-4"><MemberActivityBadge user={user} centered /></td>
+          <td className="px-5 py-4 text-right text-sm font-bold text-emerald-600">{formatRupiah(user.balance)}</td>
+        </>
+      ) : (
+        <>
+          <td className="px-5 py-4"><span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">{identity.role === "MANAGER" ? <BriefcaseBusiness size={15} className="text-slate-700" /> : <Shield size={15} className="text-blue-600" />}{identity.jabatan}</span></td>
+          <td className="px-5 py-4"><RoleBadge user={user} /></td>
+          <td className="px-5 py-4 text-sm text-slate-500">{formatDate(user.created_at)}</td>
+        </>
+      )}
       <td className="px-5 py-4 text-center">
-        <button
-          type="button"
-          onClick={() => onToggleTester(user)}
-          disabled={togglingTester}
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-            user.is_tester
-              ? "bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300"
-              : "bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200"
-          } ${togglingTester ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-          title={user.is_tester ? "Klik untuk menonaktifkan status Tester" : "Klik untuk jadikan Tester Sandbox"}
-        >
-          {togglingTester ? (
-            <Loader2 size={12} className="animate-spin text-slate-500" />
-          ) : (
-            <FlaskConical size={12} className={user.is_tester ? "text-amber-700" : "text-slate-400"} />
+        <div className="flex justify-center gap-2">
+          <button type="button" onClick={() => onDetail(user)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">
+            <Eye size={15} /> Detail
+          </button>
+          {member && (
+            <>
+              <button type="button" onClick={() => onMutation(user)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-50">
+                <Eye size={15} /> Mutasi Saldo
+              </button>
+              <button type="button" onClick={() => onAdjust(user)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-blue-700">
+                <Wallet size={15} /> Adjust
+              </button>
+              <button
+                type="button"
+                onClick={() => onToggleTester(user, true)}
+                disabled={togglingTester}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
+                title="Pindahkan akun ini menjadi Tester Sandbox"
+              >
+                {togglingTester ? <Loader2 size={13} className="animate-spin" /> : <FlaskConical size={13} />}
+                Jadikan Tester
+              </button>
+            </>
           )}
-          <span>{user.is_tester ? "Tester" : "Non-Tester"}</span>
-        </button>
+        </div>
       </td>
-      <td className="px-5 py-4 text-center"><div className="flex justify-center gap-2"><button type="button" onClick={() => onDetail(user)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"><Eye size={15} /> Detail</button>{member && <><button type="button" onClick={() => onMutation(user)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-50"><Eye size={15} /> Mutasi Saldo</button><button type="button" onClick={() => onAdjust(user)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"><Wallet size={15} /> Adjust</button></>}</div></td>
     </tr>
   );
 }
@@ -1133,7 +1458,7 @@ function MobileCard({
   onDetail: (user: AccountUser) => void;
   onMutation: (user: AccountUser) => void;
   onAdjust: (user: AccountUser) => void;
-  onToggleTester: (user: AccountUser) => void;
+  onToggleTester: (user: AccountUser, nextStatus?: boolean) => void;
   togglingTester: boolean;
 }) {
   const identity = getIdentity(user);
@@ -1168,26 +1493,6 @@ function MobileCard({
             <div className="mt-1"><MemberActivityBadge user={user} /></div>
           </div>
         )}
-        <div>
-          <p className="text-slate-400">Status Tester</p>
-          <button
-            type="button"
-            onClick={() => onToggleTester(user)}
-            disabled={togglingTester}
-            className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold transition ${
-              user.is_tester
-                ? "bg-amber-100 text-amber-800 border border-amber-300"
-                : "bg-slate-100 text-slate-500 border border-slate-200"
-            } ${togglingTester ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-          >
-            {togglingTester ? (
-              <Loader2 size={10} className="animate-spin text-slate-500" />
-            ) : (
-              <FlaskConical size={10} className={user.is_tester ? "text-amber-700" : "text-slate-400"} />
-            )}
-            <span>{user.is_tester ? "Tester" : "Non-Tester"}</span>
-          </button>
-        </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" onClick={() => onDetail(user)} className="min-w-25 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700">
@@ -1201,7 +1506,189 @@ function MobileCard({
             <button type="button" onClick={() => onAdjust(user)} className="min-w-30 flex-1 rounded-xl bg-blue-600 px-2 py-2.5 text-xs font-semibold text-white">
               Adjust Saldo
             </button>
+            <button
+              type="button"
+              onClick={() => onToggleTester(user, true)}
+              disabled={togglingTester}
+              className="w-full rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800 disabled:opacity-50"
+            >
+              {togglingTester ? <Loader2 size={12} className="inline mr-1 animate-spin" /> : <FlaskConical size={12} className="inline mr-1" />}
+              Jadikan Tester
+            </button>
           </>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function TesterDesktopRow({
+  user,
+  isActiveTester,
+  onDetail,
+  onMutation,
+  onAdjust,
+  onToggleTester,
+  togglingTester,
+}: {
+  user: AccountUser;
+  isActiveTester: boolean;
+  onDetail: (user: AccountUser) => void;
+  onMutation: (user: AccountUser) => void;
+  onAdjust: (user: AccountUser) => void;
+  onToggleTester: (user: AccountUser, nextStatus?: boolean) => void;
+  togglingTester: boolean;
+}) {
+  const identity = getIdentity(user);
+  return (
+    <tr className="transition hover:bg-slate-50/80">
+      <td className="px-5 py-4">
+        <div className="flex items-center gap-3">
+          <AccountAvatar user={user} staff={false} />
+          <div>
+            <p className="text-sm font-semibold text-slate-800">{user.full_name || "-"}</p>
+            <p className="mt-0.5 text-xs text-slate-400">{identity.jabatan}</p>
+          </div>
+        </div>
+      </td>
+      <td className="max-w-55 truncate px-5 py-4 text-sm text-slate-500" title={user.email || undefined}>
+        {user.email || "-"}
+      </td>
+      <td className="px-5 py-4"><MemberTypeBadge user={user} /></td>
+      <td className="px-5 py-4 text-sm text-slate-500">
+        {user.tester_since ? formatDateTime(user.tester_since) : formatDate(user.created_at)}
+      </td>
+      <td className="px-5 py-4 text-sm text-slate-500">
+        {user.tester_updated_at ? formatDateTime(user.tester_updated_at) : "-"}
+      </td>
+      <td className="px-5 py-4 text-right text-sm font-bold text-emerald-600">{formatRupiah(user.balance)}</td>
+      <td className="px-5 py-4 text-center">
+        <div className="flex justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => onDetail(user)}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
+          >
+            <Eye size={15} /> Detail
+          </button>
+          <button
+            type="button"
+            onClick={() => onMutation(user)}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-50"
+          >
+            <Eye size={15} /> Mutasi Saldo
+          </button>
+          <button
+            type="button"
+            onClick={() => onAdjust(user)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
+          >
+            <Wallet size={15} /> Adjust
+          </button>
+          {isActiveTester ? (
+            <button
+              type="button"
+              onClick={() => onToggleTester(user, false)}
+              disabled={togglingTester}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-2 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-50"
+              title="Kembalikan akun ini menjadi Member Riil"
+            >
+              {togglingTester ? <Loader2 size={13} className="animate-spin" /> : <UserCheck size={13} />}
+              Jadikan Member Riil
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onToggleTester(user, true)}
+              disabled={togglingTester}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
+              title="Aktifkan kembali sebagai Tester Sandbox"
+            >
+              {togglingTester ? <Loader2 size={13} className="animate-spin" /> : <FlaskConical size={13} />}
+              Jadikan Tester
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function TesterMobileCard({
+  user,
+  isActiveTester,
+  onDetail,
+  onMutation,
+  onAdjust,
+  onToggleTester,
+  togglingTester,
+}: {
+  user: AccountUser;
+  isActiveTester: boolean;
+  onDetail: (user: AccountUser) => void;
+  onMutation: (user: AccountUser) => void;
+  onAdjust: (user: AccountUser) => void;
+  onToggleTester: (user: AccountUser, nextStatus?: boolean) => void;
+  togglingTester: boolean;
+}) {
+  return (
+    <article className="rounded-2xl border border-slate-100 p-4 shadow-sm">
+      <div className="flex gap-3">
+        <AccountAvatar user={user} staff={false} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-slate-800">{user.full_name || "-"}</p>
+          <p className="mt-0.5 truncate text-xs text-slate-500" title={user.email || undefined}>{user.email || "-"}</p>
+        </div>
+        <MemberTypeBadge user={user} />
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-xs">
+        <div>
+          <p className="text-slate-400">Tester Sejak</p>
+          <p className="mt-1 font-semibold text-slate-700">{user.tester_since ? formatDateTime(user.tester_since) : formatDate(user.created_at)}</p>
+        </div>
+        <div>
+          <p className="text-slate-400">{isActiveTester ? "Update Terakhir" : "Dinonaktifkan"}</p>
+          <p className="mt-1 font-semibold text-slate-700">{user.tester_updated_at ? formatDateTime(user.tester_updated_at) : "-"}</p>
+        </div>
+        <div>
+          <p className="text-slate-400">Saldo</p>
+          <p className="mt-1 font-bold text-emerald-600">{formatRupiah(user.balance)}</p>
+        </div>
+        <div>
+          <p className="text-slate-400">Status</p>
+          <p className={`mt-1 font-semibold ${isActiveTester ? "text-amber-600" : "text-slate-500"}`}>{isActiveTester ? "Tester Aktif" : "Tester Non-Aktif"}</p>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button" onClick={() => onDetail(user)} className="min-w-25 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700">
+          Detail
+        </button>
+        <button type="button" onClick={() => onMutation(user)} className="min-w-30 flex-1 rounded-xl border border-blue-200 px-3 py-2.5 text-xs font-semibold text-blue-700">
+          Mutasi Saldo
+        </button>
+        <button type="button" onClick={() => onAdjust(user)} className="min-w-30 flex-1 rounded-xl bg-blue-600 px-2 py-2.5 text-xs font-semibold text-white">
+          Adjust Saldo
+        </button>
+        {isActiveTester ? (
+          <button
+            type="button"
+            onClick={() => onToggleTester(user, false)}
+            disabled={togglingTester}
+            className="w-full rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-800 disabled:opacity-50"
+          >
+            {togglingTester ? <Loader2 size={12} className="inline mr-1 animate-spin" /> : <UserCheck size={12} className="inline mr-1" />}
+            Jadikan Member Riil
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onToggleTester(user, true)}
+            disabled={togglingTester}
+            className="w-full rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800 disabled:opacity-50"
+          >
+            {togglingTester ? <Loader2 size={12} className="inline mr-1 animate-spin" /> : <FlaskConical size={12} className="inline mr-1" />}
+            Jadikan Tester
+          </button>
         )}
       </div>
     </article>
@@ -1217,7 +1704,17 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 }
 
 function EmptyState({ tab, hasSearch }: { tab: AccountTab; hasSearch: boolean }) {
-  return <div className="p-12 text-center text-sm text-slate-500">{hasSearch ? "Tidak ada akun yang cocok dengan pencarian." : tab === "members" ? "Belum ada member yang dapat ditampilkan." : "Belum ada akun team yang dapat ditampilkan."}</div>;
+  return (
+    <div className="p-12 text-center text-sm text-slate-500">
+      {hasSearch
+        ? "Tidak ada akun yang cocok dengan pencarian."
+        : tab === "members"
+        ? "Belum ada member yang dapat ditampilkan."
+        : tab === "tester"
+        ? "Belum ada riwayat akun tester."
+        : "Belum ada akun team yang dapat ditampilkan."}
+    </div>
+  );
 }
 
 function Pagination({ page, totalPages, start, end, total, onPageChange }: { page: number; totalPages: number; start: number; end: number; total: number; onPageChange: (page: number) => void }) {

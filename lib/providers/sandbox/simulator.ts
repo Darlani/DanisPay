@@ -25,14 +25,13 @@ export class SandboxExecutionSimulator {
     console.log(`🧪 [SANDBOX-ENGINE] Dispatching order #${order.order_id} to Sandbox Simulator...`);
 
     const { error: updateErr } = await supabaseAdmin
-      .from('orders')
+      .from('sandbox_orders')
       .update({
         status: 'Diproses',
         provider_used: 'SANDBOX_SIMULATOR',
         updated_at: new Date().toISOString()
       })
-      .eq('id', order.id)
-      .eq('is_sandbox', true);
+      .eq('id', order.id);
 
     if (updateErr) {
       console.error(`❌ [SANDBOX-ENGINE] Failed to update order #${order.order_id}:`, updateErr.message);
@@ -59,7 +58,7 @@ export class SandboxExecutionSimulator {
    * Invoked by the primary asynchronous worker (Auto-Check Cron).
    * 
    * Idempotency & Concurrency:
-   * Uses atomic conditional update matching (status = 'Diproses' AND is_sandbox = true).
+   * Uses atomic conditional update matching (status = 'Diproses' on sandbox_orders).
    */
   async resolveSandboxOrder(order: {
     id: string;
@@ -79,7 +78,7 @@ export class SandboxExecutionSimulator {
 
     // 2. Atomic Conditional Update
     const { data: updated, error: updateErr } = await supabaseAdmin
-      .from('orders')
+      .from('sandbox_orders')
       .update({
         status: targetStatus,
         sn: simulatedSn,
@@ -87,7 +86,6 @@ export class SandboxExecutionSimulator {
       })
       .eq('id', order.id)
       .eq('status', 'Diproses')
-      .eq('is_sandbox', true)
       .select('id, status, sn')
       .maybeSingle();
 

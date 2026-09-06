@@ -16,7 +16,6 @@ import {
   ADMIN_NAV_GROUPS,
   getAdminTabHref,
 } from "./config/navigation";
-import SandboxSessionControl from "@/components/sandbox/SandboxSessionControl";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -240,8 +239,6 @@ export default function SidebarAdmin({
                 }).format(new Date())}
               </p>
             </div>
-            {/* SANDBOX TESTER WIDGET */}
-            <SandboxSessionControl variant="sidebar" />
 
             {/* MEMO */}
             <div
@@ -282,11 +279,6 @@ export default function SidebarAdmin({
           </div>
         )}
 
-        {!isOpen && (
-          <div className="flex justify-center p-2">
-            <SandboxSessionControl variant="navbar" />
-          </div>
-        )}
 
         {/* ----------------------------------------------------------------- */}
         {/* LOGOUT                                                            */}

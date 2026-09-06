@@ -212,6 +212,28 @@ fetchTransaction();
             }
           }
         )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'sandbox_orders',
+            filter: `order_id=eq.${invoiceId}`
+          },
+          (payload) => {
+            const newStatus = payload.new.status;
+            const newSn = payload.new.sn;
+
+            // Jika statusnya berubah dari yang di state
+            if (newStatus && newStatus !== dbStatus) {
+              setDbStatus(newStatus);
+              setTrx((prev: any) => {
+                if (!prev) return prev;
+                return { ...prev, status: newStatus, sn: newSn };
+              });
+            }
+          }
+        )
         .subscribe();
     }
 

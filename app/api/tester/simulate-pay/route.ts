@@ -13,11 +13,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Order ID wajib disertakan.' }, { status: 400 });
     }
 
-    // 1. Ambil data pesanan
+    // 1. Ambil data pesanan dari sandbox_orders
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderIdInput);
     let query = supabaseAdmin
-      .from('orders')
-      .select('id, order_id, status, is_sandbox, sku, customer_no, user_id, email, used_balance');
+      .from('sandbox_orders')
+      .select('id, order_id, status, sku, customer_no, user_id, email, used_balance');
 
     if (isUUID) {
       query = query.or(`id.eq.${orderIdInput},order_id.eq.${orderIdInput}`);
@@ -25,21 +25,35 @@ export async function POST(req: Request) {
       query = query.eq('order_id', orderIdInput);
     }
 
-    const { data: order, error: fetchErr } = await query.maybeSingle();
+    const { data: initialOrder, error: fetchErr } = await query.maybeSingle();
+    const order = initialOrder;
+
+    // Proteksi ketat: jika order ditemukan di tabel orders LIVE, tolak simulasi secara mutlak
+    if (!order) {
+      let liveQuery = supabaseAdmin
+        .from('orders')
+        .select('id, order_id');
+      if (isUUID) {
+        liveQuery = liveQuery.or(`id.eq.${orderIdInput},order_id.eq.${orderIdInput}`);
+      } else {
+        liveQuery = liveQuery.eq('order_id', orderIdInput);
+      }
+      const { data: liveOrder } = await liveQuery.maybeSingle();
+
+      if (liveOrder) {
+        // PROTEKSI MUTLAK: Order LIVE dilarang keras disimulasikan!
+        return NextResponse.json(
+          { error: 'Akses Ditolak: Pesanan ini adalah pesanan LIVE riil dan dilarang disimulasikan!' },
+          { status: 403 }
+        );
+      }
+    }
 
     if (fetchErr || !order) {
       return NextResponse.json({ error: 'Pesanan tidak ditemukan.' }, { status: 404 });
     }
 
-    // 2. PROTEKSI MUTLAK: Hanya pesanan Sandbox yang boleh disimulasikan
-    if (order.is_sandbox !== true) {
-      return NextResponse.json(
-        { error: 'Akses Ditolak: Pesanan ini adalah pesanan LIVE riil dan dilarang disimulasikan!' },
-        { status: 403 }
-      );
-    }
-
-    // 3. Status Guard: Hanya pesanan Pending yang boleh disimulasikan pembayarannya
+    // 2. Status Guard: Hanya pesanan Pending yang boleh disimulasikan pembayarannya
     if (order.status !== 'Pending') {
       return NextResponse.json(
         { error: `Pesanan sudah dalam status '${order.status}' dan tidak dapat disimulasikan bayar.` },

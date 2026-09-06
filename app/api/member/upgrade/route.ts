@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { isManagementRole } from '@/utils/serverAuth';
 
 // Gunakan Service Role Key biar bisa bypass RLS untuk proses krusial ini
 const supabaseAdmin = createClient(
@@ -41,11 +42,17 @@ export async function POST(req: Request) {
     // 2. Ambil data profil user (cek saldo & status)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('balance, member_type')
+      .select('balance, member_type, role')
       .eq('email', email)
       .single();
 
     if (profileError || !profile) throw new Error('User tidak ditemukan');
+    if (isManagementRole(profile.role)) {
+      return NextResponse.json(
+        { error: 'Akses Ditolak: Akun Manajemen tidak dapat melakukan upgrade member.' },
+        { status: 403 }
+      );
+    }
     if (profile.member_type === 'Special') {
         return NextResponse.json({ error: 'Anda sudah menjadi Special Member' }, { status: 400 });
     }

@@ -27,15 +27,62 @@ export async function PATCH(
     const body = await request.json();
     const newTesterStatus = Boolean(body.is_tester);
 
-    const { data: updatedProfile, error: updateErr } = await supabaseAdmin
+    let effectiveTargetProfile: { role?: string | null; is_tester?: boolean | null; tester_since?: string | null } | null = null;
+    const { data: targetProfile, error: targetErr } = await supabaseAdmin
       .from("profiles")
-      .update({ is_tester: newTesterStatus })
+      .select("role, is_tester, tester_since")
       .eq("id", userId)
-      .select("id, email, full_name, is_tester, role")
+      .maybeSingle();
+
+    if (targetErr || !targetProfile) {
+      const { data: fallbackTarget } = await supabaseAdmin
+        .from("profiles")
+        .select("role, is_tester")
+        .eq("id", userId)
+        .single();
+      effectiveTargetProfile = fallbackTarget;
+    } else {
+      effectiveTargetProfile = targetProfile;
+    }
+
+    if (newTesterStatus && (effectiveTargetProfile?.role === "admin" || effectiveTargetProfile?.role === "manager")) {
+      return NextResponse.json(
+        { error: "Akun Team (Admin/Manager) tidak dapat dijadikan Customer Tester. Tester persona hanya berlaku untuk Member." },
+        { status: 400 }
+      );
+    }
+
+    const nowIso = new Date().toISOString();
+    const updatePayload: Record<string, unknown> = {
+      is_tester: newTesterStatus,
+      tester_updated_at: nowIso,
+    };
+    if (newTesterStatus) {
+      updatePayload.tester_since = effectiveTargetProfile?.tester_since || nowIso;
+    }
+
+    let updatedProfile;
+    const { data: extProfile, error: extErr } = await supabaseAdmin
+      .from("profiles")
+      .update(updatePayload)
+      .eq("id", userId)
+      .select("id, email, full_name, is_tester, role, tester_since, tester_updated_at")
       .single();
 
-    if (updateErr) {
-      return NextResponse.json({ error: updateErr.message }, { status: 500 });
+    if (extErr) {
+      const { data: baseProfile, error: baseErr } = await supabaseAdmin
+        .from("profiles")
+        .update({ is_tester: newTesterStatus })
+        .eq("id", userId)
+        .select("id, email, full_name, is_tester, role")
+        .single();
+
+      if (baseErr) {
+        return NextResponse.json({ error: baseErr.message }, { status: 500 });
+      }
+      updatedProfile = baseProfile;
+    } else {
+      updatedProfile = extProfile;
     }
 
     // Inisialisasi dompet virtual jika belum ada (dijalankan di background agar respon cepat)

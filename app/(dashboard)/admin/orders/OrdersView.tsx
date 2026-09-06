@@ -232,6 +232,15 @@ export default function OrdersView() {
         },
         () => void fetchOrders(),
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sandbox_orders",
+        },
+        () => void fetchOrders(),
+      )
       .subscribe();
 
     return () => {

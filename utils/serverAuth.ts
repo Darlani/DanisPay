@@ -10,7 +10,18 @@ import { supabaseAdmin } from "@/utils/supabaseAdmin";
  * evidence.
  */
 
-export type AdminRole = "admin" | "manager";
+export const MANAGEMENT_ROLES = ["admin", "manager"] as const;
+export type AdminRole = (typeof MANAGEMENT_ROLES)[number];
+export type ManagementRole = AdminRole;
+
+/**
+ * Checks whether a role belongs to the Management Persona (admin or manager).
+ */
+export function isManagementRole(role: string | null | undefined): boolean {
+  if (!role) return false;
+  const normalized = role.trim().toLowerCase();
+  return (MANAGEMENT_ROLES as readonly string[]).includes(normalized);
+}
 
 export type UnauthorizedResult = {
   ok: false;

@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { isPaymentAllowed } from "@/utils/LogicPembayaran";
-import { authenticateRequest } from "@/utils/serverAuth";
+import { authenticateRequest, isManagementRole } from "@/utils/serverAuth";
 import { supabaseAdmin } from "@/utils/supabaseAdmin";
 import { resolveOrderEnvironment } from "@/lib/auth/tester";
 
@@ -108,6 +108,24 @@ export async function POST(request: Request) {
         );
       }
       authenticatedUserId = authentication.user.id;
+
+      // AUTHORITATIVE MANAGEMENT PERSONA BARRIER
+      // Admin and Manager are strictly Management & QA Persona, never Customer Shopping Persona.
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("role")
+        .eq("id", authenticatedUserId)
+        .maybeSingle();
+
+      if (isManagementRole(profile?.role)) {
+        return NextResponse.json(
+          {
+            error:
+              "Akses Ditolak: Akun Manajemen (Admin/Manager) tidak diperkenankan membuat transaksi pesanan konsumen (LIVE maupun Sandbox). Gunakan Sandbox Test Center untuk pengujian operasional.",
+          },
+          { status: 403 },
+        );
+      }
     }
 
     let dbProduct: DatabaseProduct | null = null;
@@ -303,7 +321,7 @@ export async function POST(request: Request) {
       segment_power: segmentPower,
       stand_meter: standMeter,
       desc: description,
-      is_sandbox: isSandbox,
+      ...(isSandbox ? { is_sandbox: true } : {}),
     };
 
     const { data: createdOrder, error: rpcError } = await supabaseAdmin.rpc(

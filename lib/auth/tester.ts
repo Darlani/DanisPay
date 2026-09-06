@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
+import { isManagementRole } from '@/utils/serverAuth';
 
 export const SANDBOX_SESSION_COOKIE = 'dapay_sandbox_session';
 
@@ -9,6 +10,7 @@ export interface OrderEnvironmentResolution {
     | 'AUTHORIZED_TESTER_SANDBOX'
     | 'LIVE_DEFAULT'
     | 'UNAUTHORIZED_FORCED_LIVE'
+    | 'MANAGEMENT_PERSONA_NON_CUSTOMER'
     | 'SYSTEM_FALLBACK_LIVE';
 }
 
@@ -16,7 +18,8 @@ export interface OrderEnvironmentResolution {
  * Resolves whether an incoming transaction order should be treated as LIVE or SANDBOX.
  * 
  * Rules:
- * 1. If global store_settings.is_live_mode is FALSE -> All orders are forced to SANDBOX.
+ * 0. Management Persona (Admin/Manager) NEVER enters customer Sandbox (reason: 'MANAGEMENT_PERSONA_NON_CUSTOMER').
+ * 1. If global store_settings.is_live_mode is FALSE -> All customer orders target SANDBOX.
  * 2. If store_settings.is_live_mode is TRUE:
  *    - Check for active sandbox session cookie ('dapay_sandbox_session' = 'active').
  *    - If no cookie -> LIVE.
@@ -30,7 +33,24 @@ export async function resolveOrderEnvironment(
   userId?: string | null
 ): Promise<OrderEnvironmentResolution> {
   try {
-    // 1. Check Global Store Mode
+    // 0. Management Persona Guard:
+    // Admin and Manager are strictly Management & QA persona, not Customer Shopping persona.
+    // They must never receive a customer Sandbox environment, even if the store is globally in sandbox.
+    let userProfile: { is_tester?: boolean | null; role?: string | null } | null = null;
+    if (userId) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('is_tester, role')
+        .eq('id', userId)
+        .maybeSingle();
+      userProfile = profile;
+
+      if (isManagementRole(profile?.role)) {
+        return { isSandbox: false, reason: 'MANAGEMENT_PERSONA_NON_CUSTOMER' };
+      }
+    }
+
+    // 1. Check Global Store Mode (canonical: store_settings.is_live_mode)
     const { data: storeSettings } = await supabaseAdmin
       .from('store_settings')
       .select('is_live_mode')
@@ -58,18 +78,12 @@ export async function resolveOrderEnvironment(
     }
 
     // 3. Cookie exists -> Verify user authority in database
-    if (!userId) {
+    if (!userId || !userProfile) {
       // Unauthenticated user attempting to claim sandbox session -> Rejected to LIVE
       return { isSandbox: false, reason: 'UNAUTHORIZED_FORCED_LIVE' };
     }
 
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('is_tester, role')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (profile?.is_tester === true) {
+    if (userProfile.is_tester === true) {
       return { isSandbox: true, reason: 'AUTHORIZED_TESTER_SANDBOX' };
     }
 

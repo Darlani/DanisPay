@@ -21,11 +21,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Strictly scoped: is_sandbox = true AND sku LIKE 'TEST-%'
+    // Clean from dedicated sandbox_orders table
     const { data: deletedOrders, error: delErr } = await supabaseAdmin
-      .from("orders")
+      .from("sandbox_orders")
       .delete()
-      .eq("is_sandbox", true)
       .like("sku", "TEST-%")
       .select("id, order_id, sku");
 

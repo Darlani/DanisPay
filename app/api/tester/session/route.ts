@@ -144,7 +144,11 @@ export async function GET(req: Request) {
         .maybeSingle()
     ]);
 
-    const isTester = profileRes.data?.is_tester === true;
+    const userRole = (profileRes.data?.role || '').trim().toLowerCase();
+    const isStaff = userRole === 'admin' || userRole === 'manager';
+    // STRICT PERSONA SEPARATION:
+    // Admin and Manager are strictly Management & QA persona, never Customer Shopping Persona.
+    const isTester = !isStaff && profileRes.data?.is_tester === true;
     let sandboxBalance = Number(walletRes.data?.balance || 0);
 
     if (isTester && !walletRes.data) {
@@ -168,7 +172,7 @@ export async function GET(req: Request) {
 /**
  * POST /api/tester/session
  * Explicitly Opt-In: Enables Sandbox Session for 1 hour.
- * Protected: Requires profiles.is_tester === true.
+ * Protected: Requires profiles.is_tester === true and role !== admin/manager.
  */
 export async function POST(req: Request) {
   try {
@@ -179,9 +183,17 @@ export async function POST(req: Request) {
 
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('is_tester')
+      .select('is_tester, role')
       .eq('id', user.id)
       .maybeSingle();
+
+    const role = (profile?.role || '').trim().toLowerCase();
+    if (role === 'admin' || role === 'manager') {
+      return NextResponse.json(
+        { error: 'Akses Ditolak: Akun Admin/Manager tidak diperkenankan mengaktifkan sesi belanja tester konsumen. Gunakan Sandbox Test Center untuk pengujian.' },
+        { status: 403 }
+      );
+    }
 
     if (profile?.is_tester !== true) {
       return NextResponse.json(

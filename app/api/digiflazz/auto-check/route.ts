@@ -26,7 +26,6 @@ interface OrderRow {
   provider_used: string | null;
   vendor_sku: string | null;
   sn?: string | null;
-  is_sandbox?: boolean | null;
   updated_at?: string | null;
 }
 
@@ -71,7 +70,7 @@ export async function GET(req: Request) {
     const { data: pendingOrdersData, error: fetchErr } = await supabaseAdmin
       .from('orders')
       .select(
-        'id, order_id, api_ref_id, sku, customer_no, user_id, email, user_contact, payment_method, total_amount, status, category, product_name, price, used_balance, buy_price, provider_used, vendor_sku, sn, is_sandbox, updated_at'
+        'id, order_id, api_ref_id, sku, customer_no, user_id, email, user_contact, payment_method, total_amount, status, category, product_name, price, used_balance, buy_price, provider_used, vendor_sku, sn, updated_at'
       )
       .eq('status', 'Diproses')
       .eq('product_type', 'provider')
@@ -91,7 +90,7 @@ export async function GET(req: Request) {
     for (const order of pendingOrders) {
       try {
         // --- 0. ISOLASI SANDBOX ASYNCHRONOUS RESOLVER (OPTION 1) ---
-        const isSandboxOrder = order.is_sandbox === true || !isLiveMode;
+        const isSandboxOrder = !isLiveMode;
         if (isSandboxOrder) {
           // Periksa jeda waktu: minimal 3 detik sejak updated_at agar realistis
           const orderUpdatedAt = order.updated_at ? new Date(order.updated_at).getTime() : 0;

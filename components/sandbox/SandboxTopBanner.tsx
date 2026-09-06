@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { FlaskConical, RotateCcw, Power, Loader2 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
 import {
@@ -11,6 +12,7 @@ import {
 } from "./SandboxSessionControl";
 
 export default function SandboxTopBanner() {
+  const pathname = usePathname();
   const [mounted, setMounted] = useState<boolean>(false);
   const [isActive, setIsActive] = useState<boolean>(false);
   const [sandboxBalance, setSandboxBalance] = useState<number>(0);
@@ -159,7 +161,7 @@ export default function SandboxTopBanner() {
     }
   };
 
-  if (!mounted || !isActive) return null;
+  if (!mounted || !isActive || pathname?.startsWith("/admin")) return null;
 
   return (
     <div className="bg-linear-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-xs font-semibold px-4 py-2 shadow-md sticky top-0 z-9999 flex flex-wrap items-center justify-between gap-3 border-b border-amber-400/40 animate-in slide-in-from-top duration-300">

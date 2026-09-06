@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     ]);
 
     const order = orderRes.data;
-    const isLiveMode = ((settingsRes.data as any)?.is_live_mode ?? (settingsRes.data as any)?.is_digiflazz_active) === true;
+    const isLiveMode = (settingsRes.data as { is_live_mode?: boolean | null } | null)?.is_live_mode === true;
 
     if (orderRes.error || !order) {
       return NextResponse.json({ error: "Pesanan tidak ditemukan!" }, { status: 404 });

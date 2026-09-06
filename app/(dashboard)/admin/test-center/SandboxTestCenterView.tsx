@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   FlaskConical,
   Play,
@@ -131,6 +131,24 @@ export default function SandboxTestCenterView() {
   const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadRole() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .maybeSingle();
+        if (profile?.role) {
+          setUserRole(profile.role);
+        }
+      }
+    }
+    void loadRole();
+  }, []);
 
   const toggleEvidence = (id: string) => {
     setExpandedEvidence((prev) => {
@@ -389,20 +407,32 @@ export default function SandboxTestCenterView() {
               <span>Export Report</span>
             </button>
 
-            <button
-              type="button"
-              disabled={isCleaning}
-              onClick={handleCleanup}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
-              title="Hapus order dummy uji bertanda TEST-*"
-            >
-              {isCleaning ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
+            {userRole === "manager" ? (
+              <button
+                type="button"
+                disabled
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm font-medium text-slate-400 cursor-not-allowed opacity-60"
+                title="Khusus Super Admin: Manager tidak memiliki akses membersihkan fixture uji"
+              >
                 <Trash2 size={15} />
-              )}
-              <span>Bersihkan Fixture</span>
-            </button>
+                <span>Bersihkan Fixture</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={isCleaning}
+                onClick={handleCleanup}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:opacity-50 cursor-pointer"
+                title="Hapus order dummy uji bertanda TEST-*"
+              >
+                {isCleaning ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Trash2 size={15} />
+                )}
+                <span>Bersihkan Fixture</span>
+              </button>
+            )}
           </div>
         </div>
 

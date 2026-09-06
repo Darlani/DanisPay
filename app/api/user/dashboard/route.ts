@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       supabaseAdmin.from("deposits").select("id, status, payment_method, payment_channel, created_at, amount, unique_code, total_amount").or(`user_id.eq.${userId},user_email.eq."${email}"`).order("created_at", { ascending: false }),
       supabaseAdmin.from("withdrawals").select("id, status, amount, held_amount, admin_fee, bank_name, account_number, account_name, created_at").eq("user_email", email).order("created_at", { ascending: false }),
       supabaseAdmin.from("balance_logs").select("id, user_id, user_email, type, amount, description, initial_balance, final_balance, created_at").or(`user_id.eq.${userId},user_email.eq."${email}"`).order("created_at", { ascending: false }),
-      supabaseAdmin.from("orders").select("id, order_id, api_ref_id, sku, product_name, item_label, customer_no, customer_name, price, total_amount, discount, voucher_code, voucher_amount, payment_method, sn, category, status, used_balance, created_at, updated_at, is_sandbox").eq("user_id", userId).order("created_at", { ascending: false }),
+      supabaseAdmin.from("orders").select("id, order_id, api_ref_id, sku, product_name, item_label, customer_no, customer_name, price, total_amount, discount, voucher_code, voucher_amount, payment_method, sn, category, status, used_balance, created_at, updated_at").eq("user_id", userId).order("created_at", { ascending: false }),
       profile.referral_code
         ? supabaseAdmin.from("profiles").select("id, full_name, email, created_at").eq("referred_by", profile.referral_code).order("created_at", { ascending: false })
         : Promise.resolve({ data: [] })

@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
+  FlaskConical,
   LayoutDashboard,
   Loader2,
   Menu,
@@ -65,6 +66,7 @@ type Order = {
   voucher?: number | string | null;
   used_balance?: number | string | null;
   total_amount?: number | string | null;
+  is_sandbox?: boolean | null;
 };
 
 type OrderStatus = "Pending" | "Diproses" | "Berhasil" | "Gagal";
@@ -880,7 +882,10 @@ function OrderAttentionModal({
   const title = isPending ? "Order Pending" : "Order On Process";
   const statusFilter = isPending ? "Pending" : "Diproses";
   const filteredOrders = useMemo(
-    () => orders.filter((order) => order.status === statusFilter),
+    () =>
+      orders.filter(
+        (order) => order.status === statusFilter,
+      ),
     [orders, statusFilter],
   );
 
@@ -1923,9 +1928,17 @@ function OrderDetailModal({
       <div className="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
         <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-100 bg-white/95 px-4 py-3.5 backdrop-blur sm:px-6 sm:py-5">
           <div className="min-w-0">
-            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-blue-600">
-              Detail Order
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-blue-600">
+                Detail Order
+              </p>
+              {order.is_sandbox && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 border border-amber-500/30">
+                  <FlaskConical size={11} />
+                  SANDBOX
+                </span>
+              )}
+            </div>
             <h2 className="mt-1 break-all text-lg font-black tracking-[-0.025em] text-slate-950 sm:text-xl">
               #{order.order_id || "-"}
             </h2>
@@ -2045,27 +2058,34 @@ function OrderDetailModal({
             </div>
           )}
 
-          {(order.status === "Diproses" || order.status === "Pending") && (
-            <button
-              type="button"
-              onClick={() => onCheckStatus(order.order_id)}
-              disabled={isCheckingStatus || cooldown > 0}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:text-slate-400 sm:py-3"
-            >
-              {isCheckingStatus ? (
-                <Loader2 className="animate-spin" size={17} />
-              ) : cooldown > 0 ? (
-                <Clock size={17} />
-              ) : (
-                <RotateCcw size={17} />
-              )}
+          {order.is_sandbox ? (
+            <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs font-semibold text-amber-700 sm:py-3">
+              <FlaskConical size={16} className="text-amber-600" />
+              <span>Pesanan Sandbox (Simulator Internal)</span>
+            </div>
+          ) : (
+            (order.status === "Diproses" || order.status === "Pending") && (
+              <button
+                type="button"
+                onClick={() => onCheckStatus(order.order_id)}
+                disabled={isCheckingStatus || cooldown > 0}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:text-slate-400 sm:py-3"
+              >
+                {isCheckingStatus ? (
+                  <Loader2 className="animate-spin" size={17} />
+                ) : cooldown > 0 ? (
+                  <Clock size={17} />
+                ) : (
+                  <RotateCcw size={17} />
+                )}
 
-              {isCheckingStatus
-                ? "Memeriksa supplier..."
-                : cooldown > 0
-                  ? `Coba lagi dalam ${cooldown} dtk`
-                  : "Cek status supplier"}
-            </button>
+                {isCheckingStatus
+                  ? "Memeriksa supplier..."
+                  : cooldown > 0
+                    ? `Coba lagi dalam ${cooldown} dtk`
+                    : "Cek status supplier"}
+              </button>
+            )
           )}
         </div>
       </div>

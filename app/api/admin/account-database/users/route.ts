@@ -6,7 +6,8 @@ import {
 import { requireAdminOrManager } from "@/utils/serverAuth";
 import { supabaseAdmin } from "@/utils/supabaseAdmin";
 
-const PROFILE_FIELDS = "id, full_name, email, role, member_type, balance, created_at, is_tester";
+const EXTENDED_PROFILE_FIELDS = "id, full_name, email, role, member_type, balance, created_at, is_tester, tester_since, tester_updated_at";
+const BASE_PROFILE_FIELDS = "id, full_name, email, role, member_type, balance, created_at, is_tester";
 
 type ActivityRow = {
   user_id: string;
@@ -29,16 +30,27 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { data, error } = await supabaseAdmin
+    let data;
+    const { data: extendedData, error: extendedError } = await supabaseAdmin
       .from("profiles")
-      .select(PROFILE_FIELDS)
+      .select(EXTENDED_PROFILE_FIELDS)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      return NextResponse.json(
-        { error: "Gagal memuat database akun." },
-        { status: 500 },
-      );
+    if (extendedError) {
+      const { data: baseData, error: baseError } = await supabaseAdmin
+        .from("profiles")
+        .select(BASE_PROFILE_FIELDS)
+        .order("created_at", { ascending: false });
+
+      if (baseError) {
+        return NextResponse.json(
+          { error: "Gagal memuat database akun." },
+          { status: 500 },
+        );
+      }
+      data = baseData;
+    } else {
+      data = extendedData;
     }
 
     const visibleUsers = (data ?? []).filter((profile) => {

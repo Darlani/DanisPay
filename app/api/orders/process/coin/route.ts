@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { sandboxExecutionSimulator } from '@/lib/providers/sandbox/simulator';
 import { sandboxFinancialEngine } from '@/lib/providers/sandbox/financial';
-import { ensureSandboxWallet } from '@/lib/auth/tester';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,7 +16,7 @@ export async function POST(req: Request) {
       .select('*')
       .single();
 
-    const isLive = (settings as any)?.is_live_mode ?? settings?.is_digiflazz_active ?? false;
+    const isLive = (settings as { is_live_mode?: boolean | null } | null)?.is_live_mode ?? false;
 
     // A. Cek Maintenance Global
     if (settings?.is_maintenance) {
@@ -26,15 +25,51 @@ export async function POST(req: Request) {
 
     const { order_id, email } = await req.json();
 
-// 1. Ambil data Order (Termasuk is_sandbox untuk isolasi finansial)
+// 1. Ambil data Order (Termasuk deteksi sandbox untuk isolasi finansial)
     const [orderRes, profileRes] = await Promise.all([
       supabaseAdmin.from('orders')
-        .select('id, order_id, status, used_balance, user_id, category, price, buy_price, product_name, item_label, referred_by, cashback, raw_tagihan, product_type, is_sandbox, sku, customer_no')
-        .eq('order_id', order_id).single(),
+        .select('id, order_id, status, used_balance, user_id, category, price, buy_price, product_name, item_label, referred_by, cashback, raw_tagihan, product_type, sku, customer_no')
+        .eq('order_id', order_id).maybeSingle(),
       supabaseAdmin.from('profiles').select('id, balance, email, member_type, referred_by').eq('email', email).single()
     ]);
 
-    const order = orderRes.data;
+interface ProcessOrderData {
+  id: string;
+  order_id: string;
+  status: string;
+  used_balance: number;
+  user_id: string;
+  category: string;
+  price: number;
+  buy_price: number;
+  product_name: string;
+  item_label: string;
+  referred_by: string | null;
+  cashback: number;
+  raw_tagihan: number;
+  product_type: string;
+  sku: string;
+  customer_no: string;
+  is_sandbox?: boolean;
+}
+
+    let order: ProcessOrderData | null = orderRes.data as unknown as ProcessOrderData | null;
+    let isDedicatedSandboxTable = false;
+
+    if (!order) {
+      // Periksa tabel sandbox_orders
+      const { data: sbOrder } = await supabaseAdmin
+        .from('sandbox_orders')
+        .select('id, order_id, status, used_balance, user_id, category, price, buy_price, product_name, item_label, referred_by, cashback, raw_tagihan, product_type, sku, customer_no')
+        .eq('order_id', order_id)
+        .maybeSingle();
+
+      if (sbOrder) {
+        order = { ...(sbOrder as unknown as ProcessOrderData), is_sandbox: true };
+        isDedicatedSandboxTable = true;
+      }
+    }
+
     const profile = profileRes.data;
 
     if (!order || !profile) throw new Error('Data tidak ditemukan');
@@ -44,7 +79,7 @@ export async function POST(req: Request) {
       throw new Error('Order ini sudah diproses sebelumnya!');
     }
 
-    const isSandboxOrder = Boolean((order as Record<string, unknown>).is_sandbox) || !isLive;
+    const isSandboxOrder = Boolean(order.is_sandbox) || !isLive;
 
     // =========================================================================
     // 🧪 PERCABANGAN KHUSUS SANDBOX (ISOLASI FINANSIAL PENUH)
@@ -59,15 +94,25 @@ export async function POST(req: Request) {
       }
 
       // 2. Update status order menjadi 'Diproses'
-      await supabaseAdmin
-        .from('orders')
-        .update({
-          status: 'Diproses',
-          is_sandbox: true,
-          provider_used: 'SANDBOX_SIMULATOR',
-          updated_at: new Date().toISOString()
-        })
-        .eq('order_id', order_id);
+      if (isDedicatedSandboxTable) {
+        await supabaseAdmin
+          .from('sandbox_orders')
+          .update({
+            status: 'Diproses',
+            provider_used: 'SANDBOX_SIMULATOR',
+            updated_at: new Date().toISOString()
+          })
+          .eq('order_id', order_id);
+      } else {
+        await supabaseAdmin
+          .from('orders')
+          .update({
+            status: 'Diproses',
+            provider_used: 'SANDBOX_SIMULATOR',
+            updated_at: new Date().toISOString()
+          })
+          .eq('order_id', order_id);
+      }
 
       // 3. Teruskan ke Sandbox Execution Simulator (Non-blocking / Background Async Lifecycle)
       void sandboxExecutionSimulator.dispatchSandboxOrder({

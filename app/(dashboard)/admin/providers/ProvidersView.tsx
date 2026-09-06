@@ -151,7 +151,7 @@ export default function ProvidersView() {
           .limit(1)
           .single();
         if (storeSetting) {
-          const isLive = (storeSetting as any).is_live_mode ?? (storeSetting as any).is_digiflazz_active ?? true;
+          const isLive = (storeSetting as { is_live_mode?: boolean | null }).is_live_mode ?? true;
           setIsSandboxMode(!isLive);
         }
       } catch {
@@ -384,7 +384,7 @@ export default function ProvidersView() {
             </div>
           </div>
           <Link
-            href="/admin/settings"
+            href="/admin?tab=settings"
             className="shrink-0 inline-flex items-center gap-1 rounded-xl bg-amber-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-2xs hover:bg-amber-700 transition-colors cursor-pointer"
           >
             Pengaturan Toko &rarr;

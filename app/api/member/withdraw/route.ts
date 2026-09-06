@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateRequest } from "@/utils/serverAuth";
+import { authenticateRequest, isManagementRole } from "@/utils/serverAuth";
 import { supabaseAdmin } from "@/utils/supabaseAdmin";
 
 const SIGNED_INTEGER_PATTERN = /^(?:0|[1-9][0-9]*)$/;
@@ -53,6 +53,19 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: authentication.message },
       { status: authentication.status },
+    );
+  }
+
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("role")
+    .eq("id", authentication.user.id)
+    .maybeSingle();
+
+  if (isManagementRole(profile?.role)) {
+    return NextResponse.json(
+      { error: "Akses Ditolak: Fitur penarikan saldo hanya untuk akun Member." },
+      { status: 403 },
     );
   }
 

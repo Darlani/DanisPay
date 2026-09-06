@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isDepositPaymentAvailableNow } from "@/lib/deposits/payment-availability";
-import { authenticateRequest } from "@/utils/serverAuth";
+import { authenticateRequest, isManagementRole } from "@/utils/serverAuth";
 import { supabaseAdmin } from "@/utils/supabaseAdmin";
 
 const POSITIVE_INTEGER_PATTERN = /^(?:[1-9][0-9]*)$/;
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   try {
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .select("email")
+      .select("email, role")
       .eq("id", authentication.user.id)
       .maybeSingle();
 
@@ -82,6 +82,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Profil pengguna tidak ditemukan." },
         { status: 404 },
+      );
+    }
+
+    if (isManagementRole(profile.role)) {
+      return NextResponse.json(
+        { error: "Akses Ditolak: Fitur deposit saldo hanya untuk akun Member." },
+        { status: 403 },
       );
     }
 

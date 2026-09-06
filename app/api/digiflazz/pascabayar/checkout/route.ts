@@ -36,7 +36,7 @@ export async function runCheckoutPascabayar(order_id: string) {
       return { error: 'Pesanan ini sudah sukses sebelumnya.' };
     }
 
-    const isLiveMode = ((settingsRes.data as any)?.is_live_mode ?? (settingsRes.data as any)?.is_digiflazz_active) === true;
+    const isLiveMode = (settingsRes.data as { is_live_mode?: boolean | null } | null)?.is_live_mode === true;
 
     if (!isLiveMode) {
       // MODE SIMULASI
