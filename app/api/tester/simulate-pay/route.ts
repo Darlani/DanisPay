@@ -1,44 +1,17 @@
 import { NextResponse } from 'next/server';
-import { authenticateRequest } from '@/utils/serverAuth';
+import { requireSandboxCustomerAccess } from '@/lib/auth/tester';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 import { sandboxExecutionSimulator } from '@/lib/providers/sandbox/simulator';
 
 export const dynamic = 'force-dynamic';
 
-async function getAuthenticatedUser(req: Request) {
-  const authentication = await authenticateRequest(req);
-  if (authentication.ok) return authentication.user;
-
-  const cookieStore = req.headers.get('cookie') || '';
-  const accessTokenMatch = cookieStore.match(/sb-access-token=([^;]+)/i);
-  const token = accessTokenMatch?.[1] ? decodeURIComponent(accessTokenMatch[1]).trim() : '';
-  if (!token) return null;
-
-  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-  return error || !user ? null : user;
-}
-
 export async function POST(req: Request) {
   try {
-    const user = await getAuthenticatedUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Autentikasi diperlukan.' }, { status: 401 });
+    const authorization = await requireSandboxCustomerAccess(req);
+    if (!authorization.ok) {
+      return NextResponse.json({ error: 'Akses Sandbox tidak aktif.' }, { status: authorization.status });
     }
-
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('role, is_tester')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      return NextResponse.json({ error: 'Tidak dapat memverifikasi akses tester.' }, { status: 503 });
-    }
-
-    const role = profile?.role?.trim().toLowerCase();
-    if (role !== 'member' || profile?.is_tester !== true) {
-      return NextResponse.json({ error: 'Akses ditolak.' }, { status: 403 });
-    }
+    const user = { id: authorization.userId };
 
     const body = await req.json().catch(() => ({}));
     const orderIdInput = typeof body.order_id === 'string' ? body.order_id.trim() : '';

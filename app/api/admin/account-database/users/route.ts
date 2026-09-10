@@ -7,7 +7,7 @@ import { requireAdminOrManager } from "@/utils/serverAuth";
 import { supabaseAdmin } from "@/utils/supabaseAdmin";
 
 const EXTENDED_PROFILE_FIELDS = "id, full_name, email, role, member_type, balance, created_at, is_tester, tester_since, tester_updated_at";
-const BASE_PROFILE_FIELDS = "id, full_name, email, role, member_type, balance, created_at, is_tester";
+const BASE_PROFILE_FIELDS = "id, full_name, email, role, member_type, balance, created_at, is_tester, tester_since, tester_updated_at";
 
 type ActivityRow = {
   user_id: string;
@@ -115,10 +115,33 @@ export async function GET(request: Request) {
       }
     }
 
+    const sandboxAccessByUserId = new Map<string, string>();
+    if (visibleUsers.length > 0) {
+      const { data: sandboxAccess, error: sandboxAccessError } = await supabaseAdmin
+        .from("sandbox_access")
+        .select("user_id, state")
+        .in("user_id", visibleUsers.map((profile) => profile.id));
+
+      if (sandboxAccessError) {
+        return NextResponse.json(
+          { error: "Gagal memuat status Sandbox." },
+          { status: 500 },
+        );
+      }
+
+      for (const access of sandboxAccess ?? []) {
+        sandboxAccessByUserId.set(access.user_id, access.state);
+      }
+    }
+
     const users = visibleUsers.map((profile) => {
       const activity = activityByMemberId.get(profile.id);
+      const user = {
+        ...profile,
+        sandbox_access_state: sandboxAccessByUserId.get(profile.id) ?? null,
+      };
 
-      return activity ? { ...profile, ...activity } : profile;
+      return activity ? { ...user, ...activity } : user;
     });
 
     return NextResponse.json({ users });

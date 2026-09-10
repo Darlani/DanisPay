@@ -4,12 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { FlaskConical, RotateCcw, Power, Loader2 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
-import {
-  getCachedSandboxSession,
-  setCachedSandboxSession,
-  fetchTesterSessionDeduplicated,
-  broadcastSandboxSync,
-} from "./SandboxSessionControl";
+import { fetchTesterSessionDeduplicated } from "./SandboxSessionControl";
 
 export default function SandboxTopBanner() {
   const pathname = usePathname();
@@ -21,84 +16,26 @@ export default function SandboxTopBanner() {
   const checkSession = useCallback(async (force = false) => {
     const data = await fetchTesterSessionDeduplicated(force);
     if (data) {
-      setIsActive(Boolean(data.isSandboxActive));
+      setIsActive(data.sandboxAccessState === "ACTIVE" && data.isSandboxActive);
       setSandboxBalance(Number(data.sandboxBalance || 0));
     }
   }, []);
 
   useEffect(() => {
     setMounted(true);
-    const cached = getCachedSandboxSession();
-    if (cached) {
-      setIsActive(Boolean(cached.isSandboxActive));
-      setSandboxBalance(Number(cached.sandboxBalance || 0));
-    }
     void checkSession(true);
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       void checkSession(true);
     });
-
-    // 1. Cross-tab instant synchronization via BroadcastChannel (0ms)
-    let bc: BroadcastChannel | null = null;
-    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
-      bc = new BroadcastChannel("dapay_tester_sync");
-      bc.onmessage = (event) => {
-        const msg = event.data as { isTester?: boolean; isSandboxActive?: boolean; sandboxBalance?: number };
-        if (!msg) return;
-        if (msg.isTester === false || msg.isSandboxActive === false) {
-          setIsActive(false);
-        } else if (msg.isSandboxActive === true) {
-          setIsActive(true);
-        }
-        if (typeof msg.sandboxBalance === "number") {
-          setSandboxBalance(msg.sandboxBalance);
-        }
-      };
-    }
-
-    // 2. Cross-tab instant synchronization via StorageEvent fallback (0ms)
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === "dapay_tester_realtime_event" && e.newValue) {
-        try {
-          const msg = JSON.parse(e.newValue) as { isTester?: boolean; isSandboxActive?: boolean; sandboxBalance?: number };
-          if (msg.isTester === false || msg.isSandboxActive === false) {
-            setIsActive(false);
-          } else if (msg.isSandboxActive === true) {
-            setIsActive(true);
-          }
-          if (typeof msg.sandboxBalance === "number") {
-            setSandboxBalance(msg.sandboxBalance);
-          }
-        } catch {
-          // ignore
-        }
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-
-    // 3. Intra-window sync event (reads cache directly without network roundtrip)
-    const handleUpdate = (e?: Event) => {
-      const custom = e as CustomEvent<{ isTester?: boolean; isSandboxActive?: boolean; sandboxBalance?: number }>;
-      if (custom?.detail?.isTester === false || custom?.detail?.isSandboxActive === false) {
-        setIsActive(false);
-        return;
-      }
-      const fresh = getCachedSandboxSession();
-      if (fresh) {
-        setIsActive(Boolean(fresh.isTester && fresh.isSandboxActive));
-        setSandboxBalance(Number(fresh.sandboxBalance || 0));
-      }
-    };
-    window.addEventListener("sandboxSessionChanged", handleUpdate);
-
+    const refreshFromServer = () => { void checkSession(true); };
+    window.addEventListener("storage", refreshFromServer);
+    window.addEventListener("sandboxSessionChanged", refreshFromServer);
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("sandboxSessionChanged", handleUpdate);
-      if (bc) bc.close();
+      window.removeEventListener("storage", refreshFromServer);
+      window.removeEventListener("sandboxSessionChanged", refreshFromServer);
     };
   }, [checkSession]);
-
   const handleDeactivate = async () => {
     setIsLoading(true);
     try {
@@ -111,12 +48,6 @@ export default function SandboxTopBanner() {
       const res = await fetch("/api/tester/session", { method: "DELETE", headers });
       if (res.ok) {
         setIsActive(false);
-        const current = getCachedSandboxSession();
-        const next = current ? { ...current, isSandboxActive: false } : null;
-        if (next) {
-          setCachedSandboxSession(next);
-          broadcastSandboxSync(next);
-        }
         window.dispatchEvent(new Event("sandboxSessionChanged"));
       }
     } catch {
@@ -145,12 +76,6 @@ export default function SandboxTopBanner() {
         const data = await res.json();
         const newBalance = data.balance || 1000000;
         setSandboxBalance(newBalance);
-        const current = getCachedSandboxSession();
-        const next = current ? { ...current, sandboxBalance: newBalance } : null;
-        if (next) {
-          setCachedSandboxSession(next);
-          broadcastSandboxSync(next);
-        }
         window.dispatchEvent(new Event("sandboxSessionChanged"));
         alert("Saldo koin virtual tester berhasil direset!");
       }

@@ -18,6 +18,8 @@ export interface SandboxSessionData {
   authenticated: boolean;
   userId?: string | null;
   isTester: boolean;
+  sandboxAccessState: 'ACTIVE' | 'LOCKED' | 'REVOKED' | null;
+  sandboxReactivationState?: 'PENDING' | null;
   isSandboxActive: boolean;
   sandboxBalance: number;
 }
@@ -130,147 +132,34 @@ export default function SandboxSessionControl({
   useEffect(() => {
     setMounted(true);
     const cached = getCachedSandboxSession();
-    if (cached) {
-      setData(cached);
-    }
+    if (cached) setData(cached);
     void fetchSession(true);
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       void fetchSession(true);
     });
-
-    // 1. Cross-tab instant synchronization via BroadcastChannel (0ms)
-    let bc: BroadcastChannel | null = null;
-    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
-      bc = new BroadcastChannel("dapay_tester_sync");
-      bc.onmessage = (event) => {
-        const msg = event.data as { userId?: string; isTester?: boolean; isSandboxActive?: boolean; sandboxBalance?: number };
-        if (!msg || typeof msg.isTester !== "boolean") return;
-        const newIsTester = msg.isTester;
-        setData((prev) => {
-          if (prev && msg.userId && prev.userId && msg.userId !== prev.userId) return prev;
-          const next: SandboxSessionData = {
-            authenticated: true,
-            userId: msg.userId ?? prev?.userId ?? null,
-            isTester: newIsTester,
-            isSandboxActive: newIsTester
-              ? (typeof msg.isSandboxActive === "boolean" ? msg.isSandboxActive : (prev?.isSandboxActive ?? false))
-              : false,
-            sandboxBalance: typeof msg.sandboxBalance === "number" ? msg.sandboxBalance : (prev?.sandboxBalance ?? 0),
-          };
-          setCachedSandboxSession(next);
-          return next;
-        });
-        window.dispatchEvent(new CustomEvent("sandboxSessionChanged", { detail: msg }));
-      };
-    }
-
-    // 2. Cross-tab instant synchronization via StorageEvent fallback (0ms)
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === "dapay_tester_realtime_event" && e.newValue) {
-        try {
-          const msg = JSON.parse(e.newValue) as { userId?: string; isTester?: boolean; isSandboxActive?: boolean; sandboxBalance?: number };
-          if (!msg || typeof msg.isTester !== "boolean") return;
-          const newIsTester = msg.isTester;
-          setData((prev) => {
-            if (prev && msg.userId && prev.userId && msg.userId !== prev.userId) return prev;
-            const next: SandboxSessionData = {
-              authenticated: true,
-              userId: msg.userId ?? prev?.userId ?? null,
-              isTester: newIsTester,
-              isSandboxActive: newIsTester
-                ? (typeof msg.isSandboxActive === "boolean" ? msg.isSandboxActive : (prev?.isSandboxActive ?? false))
-                : false,
-              sandboxBalance: typeof msg.sandboxBalance === "number" ? msg.sandboxBalance : (prev?.sandboxBalance ?? 0),
-            };
-            setCachedSandboxSession(next);
-            return next;
-          });
-          window.dispatchEvent(new CustomEvent("sandboxSessionChanged", { detail: msg }));
-        } catch {
-          // ignore
-        }
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-
-    // 3. Intra-window sync event (from sibling components in the same tab)
-    const handleSync = (e?: Event) => {
-      const custom = e as CustomEvent<{ userId?: string; isTester?: boolean; isSandboxActive?: boolean; sandboxBalance?: number }>;
-      const detail = custom?.detail;
-      if (detail && typeof detail.isTester === "boolean") {
-        const newIsTester = detail.isTester;
-        setData((prev) => {
-          if (prev && detail.userId && prev.userId && detail.userId !== prev.userId) return prev;
-          const next: SandboxSessionData = {
-            authenticated: true,
-            userId: detail.userId ?? prev?.userId ?? null,
-            isTester: newIsTester,
-            isSandboxActive: newIsTester
-              ? (typeof detail.isSandboxActive === "boolean" ? detail.isSandboxActive : (prev?.isSandboxActive ?? false))
-              : false,
-            sandboxBalance: typeof detail.sandboxBalance === "number" ? detail.sandboxBalance : (prev?.sandboxBalance ?? 0),
-          };
-          setCachedSandboxSession(next);
-          return next;
-        });
-        return;
-      }
-      const fresh = getCachedSandboxSession();
-      if (fresh) {
-        setData(fresh);
-      }
-    };
-    window.addEventListener("sandboxSessionChanged", handleSync);
-
+    const refresh = () => { void fetchSession(true); };
+    window.addEventListener('storage', refresh);
+    window.addEventListener('sandboxSessionChanged', refresh);
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("sandboxSessionChanged", handleSync);
-      if (bc) bc.close();
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('sandboxSessionChanged', refresh);
     };
   }, [fetchSession]);
-
-  // 4. Remote cross-device Realtime Websocket via Supabase Postgres Changes
   useEffect(() => {
     if (!data?.userId) return;
-    const currentUserId = data.userId;
-
     const channel = supabase
-      .channel(`rt-profile-tester-${currentUserId}`)
+      .channel(`rt-sandbox-access-${data.userId}`)
       .on(
         "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${currentUserId}`,
-        },
-        (payload) => {
-          const newRow = payload.new as { is_tester?: boolean };
-          if (typeof newRow.is_tester === "boolean") {
-            const isTester = newRow.is_tester;
-            setData((prev) => {
-              if (!prev) return null;
-              const next: SandboxSessionData = {
-                ...prev,
-                isTester,
-                isSandboxActive: isTester ? prev.isSandboxActive : false,
-              };
-              setCachedSandboxSession(next);
-              return next;
-            });
-            window.dispatchEvent(new CustomEvent("sandboxSessionChanged", { detail: { isTester, isSandboxActive: false } }));
-          }
-        }
+        { event: "*", schema: "public", table: "sandbox_access", filter: `user_id=eq.${data.userId}` },
+        () => { void fetchSession(true); },
       )
       .subscribe();
 
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [data?.userId]);
-
-  if (!mounted || !data?.isTester) {
+    return () => { void supabase.removeChannel(channel); };
+  }, [data?.userId, fetchSession]);
+  if (!mounted || data?.sandboxAccessState !== 'ACTIVE') {
     return null;
   }
 
@@ -292,7 +181,8 @@ export default function SandboxSessionControl({
       const updated = await res.json();
       const nextData: SandboxSessionData = {
         authenticated: true,
-        isTester: true,
+        isTester: data.isTester,
+        sandboxAccessState: 'ACTIVE',
         isSandboxActive: true,
         sandboxBalance: updated.sandboxBalance ?? data.sandboxBalance,
       };

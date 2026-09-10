@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
+import { getSandboxAccessState } from '@/lib/auth/tester';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,9 +65,10 @@ export async function POST(req: Request) {
       .eq('id', user.id)
       .maybeSingle();
 
-    if (profile?.is_tester !== true && profile?.role !== 'admin' && profile?.role !== 'manager') {
+    const isManagementReset = profile?.role === 'admin' || profile?.role === 'manager';
+    if (!isManagementReset && await getSandboxAccessState(user.id) !== 'ACTIVE') {
       return NextResponse.json(
-        { error: 'Akses Ditolak: Hanya tester resmi yang dapat mereset dompet sandbox.' },
+        { error: 'Akses Ditolak: Sandbox tidak aktif.' },
         { status: 403 }
       );
     }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
-import { ensureSandboxWallet } from '@/lib/auth/tester';
+import { ensureSandboxWallet, getSandboxAccessState } from '@/lib/auth/tester';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +48,7 @@ async function getAuthenticatedUser(req: Request) {
 /**
  * GET /api/tester/wallet
  * Returns current sandbox wallet balance and latest mutation history from sandbox_balance_logs.
- * Restricted to Authorized Testers (profiles.is_tester = true or admin).
+ * Restricted to customers with active sandbox_access.
  */
 export async function GET(req: Request) {
   try {
@@ -57,15 +57,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Autentikasi diperlukan.' }, { status: 401 });
     }
 
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('id, is_tester, role')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (profile?.is_tester !== true && profile?.role !== 'admin' && profile?.role !== 'manager') {
+    if (await getSandboxAccessState(user.id) !== 'ACTIVE') {
       return NextResponse.json(
-        { error: 'Akses Ditolak: Fitur ini hanya untuk Authorized Tester.' },
+        { error: 'Akses Ditolak: Sandbox tidak aktif.' },
         { status: 403 }
       );
     }

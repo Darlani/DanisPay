@@ -32,13 +32,7 @@ import WalletDesktopTable from "./components/WalletDesktopTable";
 import WalletMobileCardList from "./components/WalletMobileCardList";
 import WalletDetailModal from "./components/WalletDetailModal";
 import WalletPagination from "./components/WalletPagination";
-import {
-  getCachedSandboxSession,
-  setCachedSandboxSession,
-  fetchTesterSessionDeduplicated,
-  broadcastSandboxSync,
-  SandboxSessionData,
-} from "@/components/sandbox/SandboxSessionControl";
+import { fetchTesterSessionDeduplicated } from "@/components/sandbox/SandboxSessionControl";
 
 interface WalletViewUserProps {
   initialBalance?: number | string | null;
@@ -129,7 +123,7 @@ export default function WalletViewUser({
   // ================================================================== //
   // 🧪 DUAL-PERSONA SANDBOX VIRTUAL WALLET INTEGRATION                 //
   // ================================================================== //
-  const [isTester, setIsTester] = useState<boolean>(false);
+  const [sandboxAccessState, setSandboxAccessState] = useState<"ACTIVE" | "LOCKED" | "REVOKED" | null>(null);
   const [walletMode, setWalletMode] = useState<"live" | "sandbox">("live");
   const [sandboxBalance, setSandboxBalance] = useState<number>(1000000);
   const [sandboxLogs, setSandboxLogs] = useState<BalanceLog[]>([]);
@@ -273,106 +267,24 @@ export default function WalletViewUser({
   // 🧪 SANDBOX SESSION LISTENER & SYNCHRONIZATION                      //
   // ================================================================== //
   useEffect(() => {
-    // 1. Instant check from cache
-    const cached = getCachedSandboxSession();
-    if (cached) {
-      setIsTester(cached.isTester);
-      setSandboxBalance(cached.sandboxBalance || 1000000);
-      if (cached.isTester && cached.isSandboxActive) {
-        setWalletMode("sandbox");
-      } else {
+    const refreshSandboxSession = async () => {
+      const data = await fetchTesterSessionDeduplicated(true);
+      if (!data) return;
+      setSandboxAccessState(data.sandboxAccessState);
+      setSandboxBalance(data.sandboxBalance || 1000000);
+      if (data.sandboxAccessState !== "ACTIVE" || !data.isSandboxActive) {
         setWalletMode("live");
       }
-    }
-
-    // 2. Authoritative check on mount (force=true) to prevent stale cache
-    fetchTesterSessionDeduplicated(true).then((data) => {
-      if (data) {
-        setIsTester(data.isTester);
-        setSandboxBalance(data.sandboxBalance || 1000000);
-        if (data.isTester && data.isSandboxActive && !cached) {
-          setWalletMode("sandbox");
-        } else if (!data.isTester) {
-          setWalletMode("live");
-          setCachedSandboxSession(null);
-        }
-      }
-    });
-
-    // 3. Listen to local & broadcast events
-    const handleSync = (e: Event) => {
-      const customEvent = e as CustomEvent<Partial<SandboxSessionData>>;
-      const detail = customEvent.detail;
-      if (detail && typeof detail.isTester === "boolean") {
-        setIsTester(detail.isTester);
-        if (!detail.isTester) {
-          setWalletMode("live");
-          setCachedSandboxSession(null);
-        }
-        if (typeof detail.sandboxBalance === "number") {
-          setSandboxBalance(detail.sandboxBalance);
-        }
-      } else {
-        const fresh = getCachedSandboxSession();
-        if (fresh) {
-          setIsTester(fresh.isTester);
-          if (!fresh.isTester) setWalletMode("live");
-        }
-      }
     };
 
-    window.addEventListener("sandboxSessionChanged", handleSync);
-
-    // 4. Cross-tab storage listener (e.g. manager changes in another tab)
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === "dapay_tester_realtime_event" && e.newValue) {
-        try {
-          const msg = JSON.parse(e.newValue);
-          if (typeof msg.isTester === "boolean") {
-            setIsTester(msg.isTester);
-            if (!msg.isTester) {
-              setWalletMode("live");
-              setCachedSandboxSession(null);
-            }
-          }
-          if (typeof msg.sandboxBalance === "number") {
-            setSandboxBalance(msg.sandboxBalance);
-          }
-        } catch {}
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-
-    let bc: BroadcastChannel | null = null;
-    if ("BroadcastChannel" in window) {
-      try {
-        bc = new BroadcastChannel("dapay_tester_sync");
-        bc.onmessage = (ev) => {
-          if (ev.data) {
-            if (typeof ev.data.isTester === "boolean") {
-              setIsTester(ev.data.isTester);
-              if (!ev.data.isTester) {
-                setWalletMode("live");
-                setCachedSandboxSession(null);
-              }
-            }
-            if (typeof ev.data.sandboxBalance === "number") {
-              setSandboxBalance(ev.data.sandboxBalance);
-            }
-          }
-        };
-      } catch {
-        // ignore
-      }
-    }
-
+    void refreshSandboxSession();
+    window.addEventListener("sandboxSessionChanged", refreshSandboxSession);
+    window.addEventListener("storage", refreshSandboxSession);
     return () => {
-      window.removeEventListener("sandboxSessionChanged", handleSync);
-      window.removeEventListener("storage", handleStorage);
-      if (bc) bc.close();
+      window.removeEventListener("sandboxSessionChanged", refreshSandboxSession);
+      window.removeEventListener("storage", refreshSandboxSession);
     };
   }, []);
-
   // Fetch sandbox wallet data from /api/tester/wallet
   const fetchSandboxWallet = useCallback(async (showToastNotice = false) => {
     if (isFetchingSandboxRef.current) return;
@@ -388,21 +300,8 @@ export default function WalletViewUser({
 
       // Handle 403 / 401: status revoked by manager or expired
       if (res.status === 403 || res.status === 401) {
-        setIsTester(false);
+        setSandboxAccessState(null);
         setWalletMode("live");
-        setCachedSandboxSession(null);
-        if (typeof window !== "undefined") {
-          try {
-            sessionStorage.removeItem("dapay_tester_session_cache");
-            localStorage.removeItem("dapay_tester_realtime_event");
-          } catch {}
-          window.dispatchEvent(
-            new CustomEvent("sandboxSessionChanged", {
-              detail: { isTester: false, isSandboxActive: false }
-            })
-          );
-        }
-        broadcastSandboxSync({ isTester: false, isSandboxActive: false });
         return;
       }
 
@@ -432,19 +331,19 @@ export default function WalletViewUser({
     }
   }, [showToast]);
 
-  // Fallback guard: If isTester is revoked, immediately force walletMode back to live
+  // Fallback guard: If Sandbox access is not active, force walletMode back to live
   useEffect(() => {
-    if (!isTester && walletMode === "sandbox") {
+    if (sandboxAccessState !== "ACTIVE" && walletMode === "sandbox") {
       setWalletMode("live");
     }
-  }, [isTester, walletMode]);
+  }, [sandboxAccessState, walletMode]);
 
   // Trigger fetch sandbox wallet only when entering sandbox mode and authorized
   useEffect(() => {
-    if (walletMode === "sandbox" && isTester) {
+    if (walletMode === "sandbox" && sandboxAccessState === "ACTIVE") {
       void fetchSandboxWallet();
     }
-  }, [walletMode, isTester, fetchSandboxWallet]);
+  }, [walletMode, sandboxAccessState, fetchSandboxWallet]);
 
   // Reset sandbox wallet handler
   const handleResetSandbox = useCallback(async () => {
@@ -680,7 +579,7 @@ export default function WalletViewUser({
       {/* ============================================================ */}
       {/* 0. DUAL-PERSONA MODE SWITCHER TABS (AUTHORIZED TESTERS ONLY) */}
       {/* ============================================================ */}
-      {isTester && (
+      {sandboxAccessState === "ACTIVE" && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-slate-200/90 bg-slate-50/80 p-1.5 xs:p-2 backdrop-blur-md shadow-2xs">
           <div className="flex items-center gap-1.5 p-0.5 bg-slate-200/60 rounded-xl">
             <button

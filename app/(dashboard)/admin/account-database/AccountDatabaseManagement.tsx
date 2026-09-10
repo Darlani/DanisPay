@@ -9,11 +9,9 @@ import {
   Eye,
   FileSpreadsheet,
   FileText,
-  FlaskConical,
   Loader2,
   Search,
   Shield,
-  UserCheck,
   Users,
   Wallet,
   X,
@@ -35,7 +33,81 @@ type AccountUser = {
   is_tester?: boolean | null;
   tester_since?: string | null;
   tester_updated_at?: string | null;
+  sandbox_access_state?: SandboxState | null;
 };
+
+type SandboxState = "ACTIVE" | "LOCKED" | "REVOKED";
+
+type ReactivationRequest = {
+  id: string;
+  user_id: string;
+  requested_at: string;
+  user: { id: string; full_name: string | null; email: string | null };
+};
+
+function sandboxStateLabel(state: SandboxState | null | undefined) {
+  return state ?? "NONE";
+}
+
+function sandboxStateDescription(state: SandboxState | null | undefined) {
+  switch (state) {
+    case "ACTIVE": return "Saat ini berwenang";
+    case "LOCKED": return "Akses sementara dikunci";
+    case "REVOKED": return "Akses dicabut";
+    default: return "Belum akses Sandbox";
+  }
+}
+
+function sandboxStateStyle(state: SandboxState | null | undefined) {
+  switch (state) {
+    case "ACTIVE": return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "LOCKED": return "border-amber-200 bg-amber-50 text-amber-700";
+    case "REVOKED": return "border-rose-200 bg-rose-50 text-rose-700";
+    default: return "border-slate-200 bg-slate-50 text-slate-500";
+  }
+}
+
+function SandboxAccessControl({ user, busy, onChange }: { user: AccountUser; busy: boolean; onChange: (userId: string, state: SandboxState) => void }) {
+  const state = user.sandbox_access_state ?? null;
+  const options: { value: SandboxState; label: string }[] = state === "ACTIVE"
+    ? [{ value: "LOCKED", label: "LOCKED — Kunci" }, { value: "REVOKED", label: "REVOKED — Cabut Akses" }]
+    : state === "LOCKED" || state === "REVOKED"
+    ? [{ value: "ACTIVE", label: state === "REVOKED" ? "ACTIVE — Aktifkan Kembali" : "ACTIVE — Aktifkan" }]
+    : [{ value: "ACTIVE", label: "ACTIVE — Berikan Akses" }];
+  const handleChange = (nextState: SandboxState) => {
+    const name = user.full_name || user.email || "Member ini";
+    const messages: Record<SandboxState, string> = {
+      ACTIVE: `Berikan akses Sandbox?\n\n${name} akan mendapatkan akses ke lingkungan Sandbox.`,
+      LOCKED: `Kunci akses Sandbox?\n\n${name} tidak dapat menggunakan Sandbox sampai diaktifkan kembali.`,
+      REVOKED: `Cabut akses Sandbox?\n\n${name} tidak lagi dapat menggunakan Sandbox.`,
+    };
+    if (window.confirm(messages[nextState])) onChange(user.id, nextState);
+  };
+  return <div className="flex flex-col gap-1.5">
+    <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-semibold ${sandboxStateStyle(state)}`}>{sandboxStateLabel(state)}</span>
+    <span className="text-xs text-slate-500">{sandboxStateDescription(state)}</span>
+    <label className="sr-only" htmlFor={`sandbox-action-${user.id}`}>Aksi Sandbox untuk {user.full_name || user.email || user.id}</label>
+    <select id={`sandbox-action-${user.id}`} value="" onChange={(event) => { if (event.target.value) handleChange(event.target.value as SandboxState); }} disabled={busy} className="max-w-56 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50">
+      <option value="">Pilih aksi Sandbox</option>
+      {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
+    {busy && <Loader2 size={14} className="animate-spin text-blue-600" />}
+  </div>;
+}
+
+function formatReactivationTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Tanggal tidak tersedia" : new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function SandboxNeedsAttention({ requests, busyRequestId, rejectionReasons, onReasonChange, onDecision }: { requests: ReactivationRequest[]; busyRequestId: string | null; rejectionReasons: Record<string, string>; onReasonChange: (requestId: string, reason: string) => void; onDecision: (request: ReactivationRequest, decision: "APPROVED" | "REJECTED") => void }) {
+  if (requests.length === 0) return null;
+  return <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
+    <div className="flex items-center gap-2"><Shield size={16} className="text-amber-700" /><h2 className="text-sm font-bold text-slate-900">NEEDS ATTENTION</h2><span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">{requests.length}</span></div>
+    <p className="mt-1 text-sm font-semibold text-amber-900">Sandbox Reactivation — {requests.length} pending</p>
+    <div className="mt-3 space-y-2">{requests.map((request) => { const busy = busyRequestId === request.id; return <div key={request.id} className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-white p-3 lg:flex-row lg:items-center lg:justify-between"><div><p className="font-semibold text-slate-800">{request.user.full_name || "Member"}</p><p className="text-xs text-slate-500">{request.user.email || request.user_id}</p><p className="mt-1 text-xs text-slate-400">Diajukan {formatReactivationTime(request.requested_at)}</p></div><div className="flex flex-col gap-2 sm:flex-row sm:items-center"><label className="sr-only" htmlFor={`reactivation-reason-${request.id}`}>Alasan penolakan</label><input id={`reactivation-reason-${request.id}`} value={rejectionReasons[request.id] || ""} onChange={(event) => onReasonChange(request.id, event.target.value)} placeholder="Alasan jika ditolak" disabled={busy} className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:opacity-50" /><button type="button" onClick={() => onDecision(request, "REJECTED")} disabled={busy} className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50">Tolak</button><button type="button" onClick={() => onDecision(request, "APPROVED")} disabled={busy} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Setujui</button></div></div>; })}</div>
+  </section>;
+}
 
 type AccountDatabaseResponse = {
   users?: AccountUser[];
@@ -527,12 +599,17 @@ function AccountDetailModal({
               <DetailRow label="Member Type"><MemberTypeBadge user={user} /></DetailRow>
               <DetailRow label="Status Tester">
                 {user.is_tester ? (
-                  <span className="font-bold text-amber-600">Tester Aktif</span>
+                  <span className="font-bold text-amber-600">Tester</span>
                 ) : user.tester_since ? (
-                  <span className="font-semibold text-slate-500">Tester Non-Aktif</span>
+                  <span className="font-semibold text-slate-500">Riwayat Tester</span>
                 ) : (
-                  <span className="text-slate-400">Non-Tester (Member Riil)</span>
+                  <span className="text-slate-400">Bukan Tester</span>
                 )}
+              </DetailRow>
+              <DetailRow label="Sandbox Access">
+                <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${sandboxStateStyle(user.sandbox_access_state)}`}>
+                  {sandboxStateLabel(user.sandbox_access_state)}
+                </span>
               </DetailRow>
               {user.tester_since && (
                 <DetailRow label="Tester Sejak">{formatDateTime(user.tester_since)}</DetailRow>
@@ -915,99 +992,118 @@ export default function AccountDatabaseManagement() {
   const [detailUser, setDetailUser] = useState<AccountUser | null>(null);
   const [mutationUser, setMutationUser] = useState<AccountUser | null>(null);
   const [adjustmentUser, setAdjustmentUser] = useState<AccountUser | null>(null);
-  const [testerTogglingId, setTesterTogglingId] = useState<string | null>(null);
+  const [sandboxAccessBusyId, setSandboxAccessBusyId] = useState<string | null>(null);
+  const [reactivationRequests, setReactivationRequests] = useState<ReactivationRequest[]>([]);
+  const [reactivationBusyId, setReactivationBusyId] = useState<string | null>(null);
+  const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
+  const [attentionError, setAttentionError] = useState<string | null>(null);
+  const [attentionNotice, setAttentionNotice] = useState<string | null>(null);
+  const usersRequestController = useRef<AbortController | null>(null);
+  const reactivationRequestController = useRef<AbortController | null>(null);
 
   const fetchUsers = useCallback(async () => {
+    usersRequestController.current?.abort();
+    const controller = new AbortController();
+    usersRequestController.current = controller;
     setLoading(true);
     setError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Sesi admin tidak tersedia. Silakan login kembali.");
-
-      const response = await fetch("/api/admin/account-database/users", { headers: { Authorization: `Bearer ${session.access_token}` } });
+      const response = await fetch("/api/admin/account-database/users", { headers: { Authorization: "Bearer " + session.access_token }, signal: controller.signal });
       const result = (await response.json().catch(() => ({}))) as AccountDatabaseResponse;
       if (!response.ok) throw new Error(result.error || "Gagal memuat database akun.");
-
       setUsers(Array.isArray(result.users) ? result.users : []);
     } catch (fetchError: unknown) {
+      if ((fetchError as { name?: string })?.name === "AbortError") return;
       setUsers([]);
       setError(fetchError instanceof Error ? fetchError.message : "Gagal memuat database akun.");
     } finally {
-      setLoading(false);
+      if (usersRequestController.current === controller) {
+        usersRequestController.current = null;
+        setLoading(false);
+      }
     }
   }, []);
 
-  const handleToggleTester = useCallback(async (targetUser: AccountUser, explicitStatus?: boolean) => {
-    if (testerTogglingId) return;
-    const newStatus = explicitStatus !== undefined ? explicitStatus : !targetUser.is_tester;
-    const nowIso = new Date().toISOString();
-    setTesterTogglingId(targetUser.id);
-    setUsers((prev) =>
-      prev.map((u) => (u.id === targetUser.id ? {
-        ...u,
-        is_tester: newStatus,
-        tester_since: newStatus ? (u.tester_since || nowIso) : u.tester_since,
-        tester_updated_at: nowIso,
-      } : u))
-    );
-
-    // Broadcast instantaneously (0ms) across all tabs in browser
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(
-          "dapay_tester_realtime_event",
-          JSON.stringify({ userId: targetUser.id, isTester: newStatus, ts: Date.now() })
-        );
-        if ("BroadcastChannel" in window) {
-          const bc = new BroadcastChannel("dapay_tester_sync");
-          bc.postMessage({ userId: targetUser.id, isTester: newStatus });
-          bc.close();
-        }
-        window.dispatchEvent(
-          new CustomEvent("sandboxSessionChanged", {
-            detail: { userId: targetUser.id, isTester: newStatus }
-          })
-        );
-      } catch {
-        // ignore
-      }
-    }
-
+  const fetchReactivationRequests = useCallback(async () => {
+    reactivationRequestController.current?.abort();
+    const controller = new AbortController();
+    reactivationRequestController.current = controller;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Sesi admin tidak tersedia.");
-
-      const res = await fetch(`/api/admin/members/${targetUser.id}/tester`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ is_tester: newStatus }),
-      });
-      if (res.ok) {
-        window.dispatchEvent(
-          new CustomEvent("sandboxSessionChanged", {
-            detail: { userId: targetUser.id, isTester: newStatus }
-          })
-        );
-      } else {
-        await fetchUsers();
-      }
-    } catch {
-      await fetchUsers();
+      const response = await fetch("/api/admin/sandbox/reactivation", { cache: "no-store", headers: { Authorization: "Bearer " + session.access_token }, signal: controller.signal });
+      const result = (await response.json().catch(() => ({}))) as { requests?: ReactivationRequest[]; error?: string };
+      if (!response.ok) throw new Error(result.error || "Gagal memuat permintaan reaktivasi Sandbox.");
+      setReactivationRequests(Array.isArray(result.requests) ? result.requests : []);
+      setAttentionError(null);
+    } catch (fetchError) {
+      if ((fetchError as { name?: string })?.name === "AbortError") return;
+      setAttentionError(fetchError instanceof Error ? fetchError.message : "Gagal memuat permintaan reaktivasi Sandbox.");
     } finally {
-      setTesterTogglingId(null);
+      if (reactivationRequestController.current === controller) reactivationRequestController.current = null;
     }
-  }, [testerTogglingId, fetchUsers]);
+  }, []);
 
-  useEffect(() => { void fetchUsers(); }, [fetchUsers]);
+  const handleSandboxAccessChange = useCallback(async (userId: string, state: SandboxState) => {
+    if (sandboxAccessBusyId) return;
+    setSandboxAccessBusyId(userId);
+    setAttentionError(null);
+    setAttentionNotice(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Sesi admin tidak tersedia.");
+      const response = await fetch("/api/admin/sandbox/access", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify({ targetUserId: userId, state }) });
+      if (!response.ok) throw new Error("Status Sandbox tidak dapat diperbarui.");
+      await Promise.all([fetchUsers(), fetchReactivationRequests()]);
+      setAttentionNotice("Status Sandbox berhasil diperbarui.");
+      window.setTimeout(() => setAttentionNotice(null), 3500);
+    } catch (actionError) {
+      setAttentionError(actionError instanceof Error ? actionError.message : "Status Sandbox tidak dapat diperbarui.");
+    } finally {
+      setSandboxAccessBusyId(null);
+    }
+  }, [fetchReactivationRequests, fetchUsers, sandboxAccessBusyId]);
+
+  const handleReactivationDecision = useCallback(async (request: ReactivationRequest, decision: "APPROVED" | "REJECTED") => {
+    const rejectionReason = rejectionReasons[request.id]?.trim() || "";
+    if (decision === "REJECTED" && !rejectionReason) {
+      setAttentionError("Alasan penolakan wajib diisi.");
+      return;
+    }
+    if (reactivationBusyId) return;
+    setReactivationBusyId(request.id);
+    setAttentionError(null);
+    setAttentionNotice(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Sesi admin tidak tersedia.");
+      const response = await fetch("/api/admin/sandbox/reactivation", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify({ requestId: request.id, decision, rejectionReason: decision === "REJECTED" ? rejectionReason : null }) });
+      if (!response.ok) throw new Error("Permintaan reaktivasi tidak dapat diproses.");
+      await Promise.all([fetchReactivationRequests(), fetchUsers()]);
+      setRejectionReasons((current) => { const next = { ...current }; delete next[request.id]; return next; });
+      setAttentionNotice("Permintaan reaktivasi berhasil diproses.");
+      window.setTimeout(() => setAttentionNotice(null), 3500);
+    } catch (actionError) {
+      setAttentionError(actionError instanceof Error ? actionError.message : "Permintaan reaktivasi tidak dapat diproses.");
+    } finally {
+      setReactivationBusyId(null);
+    }
+  }, [fetchReactivationRequests, fetchUsers, reactivationBusyId, rejectionReasons]);
+
+  useEffect(() => { void fetchUsers(); void fetchReactivationRequests(); }, [fetchUsers, fetchReactivationRequests]);
+  useEffect(() => () => {
+    usersRequestController.current?.abort();
+    reactivationRequestController.current?.abort();
+  }, []);
+
   useEffect(() => { setPage(1); }, [activeTab, activityFilter, searchTerm, sortOption]);
 
-  const memberUsers = useMemo(() => users.filter((user) => !isStaff(user) && !user.is_tester), [users]);
+  const memberUsers = useMemo(() => users.filter((user) => !isStaff(user) && user.sandbox_access_state !== "ACTIVE"), [users]);
   const teamUsers = useMemo(() => users.filter(isStaff), [users]);
-  const activeTesterUsers = useMemo(() => users.filter((user) => !isStaff(user) && Boolean(user.is_tester)), [users]);
-  const inactiveTesterUsers = useMemo(() => users.filter((user) => !isStaff(user) && !user.is_tester && Boolean(user.tester_since)), [users]);
+  const activeTesterUsers = useMemo(() => users.filter((user) => !isStaff(user) && user.sandbox_access_state === "ACTIVE"), [users]);
+  const testerHistoryUsers = useMemo(() => users.filter((user) => !isStaff(user) && (Boolean(user.is_tester) || Boolean(user.tester_since))), [users]);
   const currentUsers = activeTab === "members" ? memberUsers : teamUsers;
   const specialCount = useMemo(() => memberUsers.filter((user) => user.member_type?.toLowerCase() === "special").length, [memberUsers]);
   const regularCount = useMemo(() => memberUsers.length - specialCount, [memberUsers, specialCount]);
@@ -1029,9 +1125,9 @@ export default function AccountDatabaseManagement() {
       });
   }, [activeTesterUsers, searchTerm]);
 
-  const filteredInactiveTesters = useMemo(() => {
+  const filteredTesterHistory = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
-    return inactiveTesterUsers
+    return testerHistoryUsers
       .filter((user) => {
         if (!normalizedSearch) return true;
         return (
@@ -1044,7 +1140,7 @@ export default function AccountDatabaseManagement() {
         const timeB = b.tester_updated_at ? new Date(b.tester_updated_at).getTime() : 0;
         return timeB - timeA;
       });
-  }, [inactiveTesterUsers, searchTerm]);
+  }, [testerHistoryUsers, searchTerm]);
 
   const sortedUsers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -1118,9 +1214,12 @@ export default function AccountDatabaseManagement() {
           onClick={() => { setActiveTab("tester"); if (isMemberOnlySort(sortOption)) setSortOption("newest"); }}
           className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "tester" ? "bg-amber-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
         >
-          TESTER <span className={`ml-1.5 rounded-full px-2 py-0.5 text-xs ${activeTab === "tester" ? "bg-white/15 text-white" : "bg-white text-slate-500"}`}>{activeTesterUsers.length + inactiveTesterUsers.length}</span>
+          TESTER <span className={`ml-1.5 rounded-full px-2 py-0.5 text-xs ${activeTab === "tester" ? "bg-white/15 text-white" : "bg-white text-slate-500"}`}>{activeTesterUsers.length}</span>
         </button>
       </div>
+
+      <SandboxNeedsAttention requests={reactivationRequests} busyRequestId={reactivationBusyId} rejectionReasons={rejectionReasons} onReasonChange={(requestId, reason) => setRejectionReasons((current) => ({ ...current, [requestId]: reason }))} onDecision={handleReactivationDecision} />
+      {(attentionError || attentionNotice) && <p role={attentionError ? "alert" : "status"} className={`rounded-xl px-3 py-2 text-sm ${attentionError ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>{attentionError || attentionNotice}</p>}
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4"><StatCard label="Total Akun" value={users.length} icon={<Users size={19} />} /><StatCard label="Team" value={teamUsers.length} icon={<BriefcaseBusiness size={19} />} accent="blue" /><StatCard label="Member Special" value={specialCount} icon={<Award size={19} />} accent="amber" /><StatCard label="Member Regular" value={regularCount} icon={<Wallet size={19} />} accent="emerald" /></section>
 
@@ -1167,12 +1266,11 @@ export default function AccountDatabaseManagement() {
                         <TesterDesktopRow
                           key={user.id}
                           user={user}
-                          isActiveTester={true}
                           onDetail={setDetailUser}
                           onMutation={setMutationUser}
                           onAdjust={setAdjustmentUser}
-                          onToggleTester={handleToggleTester}
-                          togglingTester={testerTogglingId === user.id}
+                          onSandboxAccessChange={handleSandboxAccessChange}
+                          sandboxAccessBusy={sandboxAccessBusyId === user.id}
                         />
                       ))}
                     </tbody>
@@ -1187,8 +1285,8 @@ export default function AccountDatabaseManagement() {
                       onDetail={setDetailUser}
                       onMutation={setMutationUser}
                       onAdjust={setAdjustmentUser}
-                      onToggleTester={handleToggleTester}
-                      togglingTester={testerTogglingId === user.id}
+                      onSandboxAccessChange={handleSandboxAccessChange}
+                          sandboxAccessBusy={sandboxAccessBusyId === user.id}
                     />
                   ))}
                 </div>
@@ -1196,22 +1294,22 @@ export default function AccountDatabaseManagement() {
             )}
           </section>
 
-          {/* Section 2: TESTER NON-AKTIF */}
+          {/* Section 2: RIWAYAT TESTER */}
           <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
             <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2.5">
                 <span className="size-2.5 rounded-full bg-slate-400 ring-4 ring-slate-100" />
-                <h2 className="text-base font-bold text-slate-900">TESTER NON-AKTIF (Riwayat Tester)</h2>
+                <h2 className="text-base font-bold text-slate-900">RIWAYAT TESTER</h2>
                 <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
-                  {filteredInactiveTesters.length}
+                  {filteredTesterHistory.length}
                 </span>
               </div>
-              <p className="text-xs text-slate-500">Member yang pernah menjadi tester dan telah dikembalikan ke member riil</p>
+              <p className="text-xs text-slate-500">Member yang memiliki status atau riwayat Tester</p>
             </div>
 
-            {filteredInactiveTesters.length === 0 ? (
+            {filteredTesterHistory.length === 0 ? (
               <div className="p-10 text-center text-sm text-slate-500">
-                {searchTerm.trim() ? "Tidak ada riwayat tester yang cocok dengan pencarian." : "Belum ada riwayat tester non-aktif."}
+                {searchTerm.trim() ? "Tidak ada riwayat tester yang cocok dengan pencarian." : "Belum ada riwayat Tester."}
               </div>
             ) : (
               <>
@@ -1229,23 +1327,22 @@ export default function AccountDatabaseManagement() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {filteredInactiveTesters.map((user) => (
+                      {filteredTesterHistory.map((user) => (
                         <TesterDesktopRow
                           key={user.id}
                           user={user}
-                          isActiveTester={false}
                           onDetail={setDetailUser}
                           onMutation={setMutationUser}
                           onAdjust={setAdjustmentUser}
-                          onToggleTester={handleToggleTester}
-                          togglingTester={testerTogglingId === user.id}
+                          onSandboxAccessChange={handleSandboxAccessChange}
+                          sandboxAccessBusy={sandboxAccessBusyId === user.id}
                         />
                       ))}
                     </tbody>
                   </table>
                 </div>
                 <div className="space-y-3 p-4 md:hidden">
-                  {filteredInactiveTesters.map((user) => (
+                  {filteredTesterHistory.map((user) => (
                     <TesterMobileCard
                       key={user.id}
                       user={user}
@@ -1253,8 +1350,8 @@ export default function AccountDatabaseManagement() {
                       onDetail={setDetailUser}
                       onMutation={setMutationUser}
                       onAdjust={setAdjustmentUser}
-                      onToggleTester={handleToggleTester}
-                      togglingTester={testerTogglingId === user.id}
+                      onSandboxAccessChange={handleSandboxAccessChange}
+                          sandboxAccessBusy={sandboxAccessBusyId === user.id}
                     />
                   ))}
                 </div>
@@ -1335,8 +1432,8 @@ export default function AccountDatabaseManagement() {
                     onDetail={setDetailUser}
                     onMutation={setMutationUser}
                     onAdjust={setAdjustmentUser}
-                    onToggleTester={handleToggleTester}
-                    togglingTester={testerTogglingId === user.id}
+                    onSandboxAccessChange={handleSandboxAccessChange}
+                          sandboxAccessBusy={sandboxAccessBusyId === user.id}
                   />
                 ))}
               </tbody>
@@ -1351,8 +1448,8 @@ export default function AccountDatabaseManagement() {
                 onDetail={setDetailUser}
                 onMutation={setMutationUser}
                 onAdjust={setAdjustmentUser}
-                onToggleTester={handleToggleTester}
-                togglingTester={testerTogglingId === user.id}
+                onSandboxAccessChange={handleSandboxAccessChange}
+                          sandboxAccessBusy={sandboxAccessBusyId === user.id}
               />
             ))}
           </div>
@@ -1383,16 +1480,16 @@ function DesktopRow({
   onDetail,
   onMutation,
   onAdjust,
-  onToggleTester,
-  togglingTester,
+  onSandboxAccessChange,
+  sandboxAccessBusy,
 }: {
   user: AccountUser;
   member: boolean;
   onDetail: (user: AccountUser) => void;
   onMutation: (user: AccountUser) => void;
   onAdjust: (user: AccountUser) => void;
-  onToggleTester: (user: AccountUser, nextStatus?: boolean) => void;
-  togglingTester: boolean;
+  onSandboxAccessChange: (userId: string, state: SandboxState) => void;
+  sandboxAccessBusy: boolean;
 }) {
   const identity = getIdentity(user);
   return (
@@ -1405,6 +1502,7 @@ function DesktopRow({
           <td className="px-5 py-4 text-sm text-slate-500">{formatDate(user.created_at)}</td>
           <td className="px-5 py-4"><MemberActivityBadge user={user} centered /></td>
           <td className="px-5 py-4 text-right text-sm font-bold text-emerald-600">{formatRupiah(user.balance)}</td>
+          <td className="px-5 py-4"><SandboxAccessControl user={user} busy={sandboxAccessBusy} onChange={onSandboxAccessChange} /></td>
         </>
       ) : (
         <>
@@ -1413,33 +1511,7 @@ function DesktopRow({
           <td className="px-5 py-4 text-sm text-slate-500">{formatDate(user.created_at)}</td>
         </>
       )}
-      <td className="px-5 py-4 text-center">
-        <div className="flex justify-center gap-2">
-          <button type="button" onClick={() => onDetail(user)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">
-            <Eye size={15} /> Detail
-          </button>
-          {member && (
-            <>
-              <button type="button" onClick={() => onMutation(user)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-50">
-                <Eye size={15} /> Mutasi Saldo
-              </button>
-              <button type="button" onClick={() => onAdjust(user)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-blue-700">
-                <Wallet size={15} /> Adjust
-              </button>
-              <button
-                type="button"
-                onClick={() => onToggleTester(user, true)}
-                disabled={togglingTester}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
-                title="Pindahkan akun ini menjadi Tester Sandbox"
-              >
-                {togglingTester ? <Loader2 size={13} className="animate-spin" /> : <FlaskConical size={13} />}
-                Jadikan Tester
-              </button>
-            </>
-          )}
-        </div>
-      </td>
+      <td className="px-5 py-4 text-center"><div className="flex justify-center gap-2"><button type="button" onClick={() => onDetail(user)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"><Eye size={15} /> Detail</button>{member && <><button type="button" onClick={() => onMutation(user)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-50"><Eye size={15} /> Mutasi Saldo</button><button type="button" onClick={() => onAdjust(user)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"><Wallet size={15} /> Adjust</button></>}</div></td>
     </tr>
   );
 }
@@ -1450,168 +1522,57 @@ function MobileCard({
   onDetail,
   onMutation,
   onAdjust,
-  onToggleTester,
-  togglingTester,
+  onSandboxAccessChange,
+  sandboxAccessBusy,
 }: {
   user: AccountUser;
   member: boolean;
   onDetail: (user: AccountUser) => void;
   onMutation: (user: AccountUser) => void;
   onAdjust: (user: AccountUser) => void;
-  onToggleTester: (user: AccountUser, nextStatus?: boolean) => void;
-  togglingTester: boolean;
+  onSandboxAccessChange: (userId: string, state: SandboxState) => void;
+  sandboxAccessBusy: boolean;
 }) {
   const identity = getIdentity(user);
-  return (
-    <article className="rounded-2xl border border-slate-100 p-4 shadow-sm">
-      <div className="flex gap-3">
-        <AccountAvatar user={user} staff={!member} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-slate-800">{user.full_name || "-"}</p>
-          <p className="mt-0.5 truncate text-xs text-slate-500" title={user.email || undefined}>{user.email || "-"}</p>
-        </div>
-        {member ? <MemberTypeBadge user={user} /> : <RoleBadge user={user} />}
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-xs">
-        <div>
-          <p className="text-slate-400">{member ? "Member Type" : "Jabatan"}</p>
-          <p className="mt-1 font-semibold text-slate-700">{member ? (user.member_type?.toLowerCase() === "special" ? "Special" : "Regular") : identity.jabatan}</p>
-        </div>
-        {member && (
-          <div>
-            <p className="text-slate-400">Saldo</p>
-            <p className="mt-1 font-bold text-emerald-600">{formatRupiah(user.balance)}</p>
-          </div>
-        )}
-        <div>
-          <p className="text-slate-400">Bergabung</p>
-          <p className="mt-1 font-semibold text-slate-700">{formatDate(user.created_at)}</p>
-        </div>
-        {member && (
-          <div>
-            <p className="text-slate-400">Aktivitas</p>
-            <div className="mt-1"><MemberActivityBadge user={user} /></div>
-          </div>
-        )}
-      </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" onClick={() => onDetail(user)} className="min-w-25 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700">
-          Detail
-        </button>
-        {member && (
-          <>
-            <button type="button" onClick={() => onMutation(user)} className="min-w-30 flex-1 rounded-xl border border-blue-200 px-3 py-2.5 text-xs font-semibold text-blue-700">
-              Mutasi Saldo
-            </button>
-            <button type="button" onClick={() => onAdjust(user)} className="min-w-30 flex-1 rounded-xl bg-blue-600 px-2 py-2.5 text-xs font-semibold text-white">
-              Adjust Saldo
-            </button>
-            <button
-              type="button"
-              onClick={() => onToggleTester(user, true)}
-              disabled={togglingTester}
-              className="w-full rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800 disabled:opacity-50"
-            >
-              {togglingTester ? <Loader2 size={12} className="inline mr-1 animate-spin" /> : <FlaskConical size={12} className="inline mr-1" />}
-              Jadikan Tester
-            </button>
-          </>
-        )}
-      </div>
-    </article>
-  );
+  return <article className="rounded-2xl border border-slate-100 p-4 shadow-sm">
+    <div className="flex gap-3"><AccountAvatar user={user} staff={!member} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-800">{user.full_name || "-"}</p><p className="mt-0.5 truncate text-xs text-slate-500" title={user.email || undefined}>{user.email || "-"}</p></div>{member ? <MemberTypeBadge user={user} /> : <RoleBadge user={user} />}</div>
+    <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-xs">
+      <div><p className="text-slate-400">{member ? "Member Type" : "Jabatan"}</p><p className="mt-1 font-semibold text-slate-700">{member ? (user.member_type?.toLowerCase() === "special" ? "Special" : "Regular") : identity.jabatan}</p></div>
+      {member && <div><p className="text-slate-400">Saldo</p><p className="mt-1 font-bold text-emerald-600">{formatRupiah(user.balance)}</p></div>}
+      <div><p className="text-slate-400">Bergabung</p><p className="mt-1 font-semibold text-slate-700">{formatDate(user.created_at)}</p></div>
+      {member && <div><p className="text-slate-400">Aktivitas</p><div className="mt-1"><MemberActivityBadge user={user} /></div></div>}
+      {member && <div className="col-span-2 border-t border-slate-100 pt-3"><SandboxAccessControl user={user} busy={sandboxAccessBusy} onChange={onSandboxAccessChange} /></div>}
+    </div>
+    <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => onDetail(user)} className="min-w-25 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700">Detail</button>{member && <><button type="button" onClick={() => onMutation(user)} className="min-w-30 flex-1 rounded-xl border border-blue-200 px-3 py-2.5 text-xs font-semibold text-blue-700">Mutasi Saldo</button><button type="button" onClick={() => onAdjust(user)} className="min-w-30 flex-1 rounded-xl bg-blue-600 px-2 py-2.5 text-xs font-semibold text-white">Adjust Saldo</button></>}</div>
+  </article>;
 }
 
 function TesterDesktopRow({
   user,
-  isActiveTester,
   onDetail,
   onMutation,
   onAdjust,
-  onToggleTester,
-  togglingTester,
+  onSandboxAccessChange,
+  sandboxAccessBusy,
 }: {
   user: AccountUser;
-  isActiveTester: boolean;
   onDetail: (user: AccountUser) => void;
   onMutation: (user: AccountUser) => void;
   onAdjust: (user: AccountUser) => void;
-  onToggleTester: (user: AccountUser, nextStatus?: boolean) => void;
-  togglingTester: boolean;
+  onSandboxAccessChange: (userId: string, state: SandboxState) => void;
+  sandboxAccessBusy: boolean;
 }) {
   const identity = getIdentity(user);
-  return (
-    <tr className="transition hover:bg-slate-50/80">
-      <td className="px-5 py-4">
-        <div className="flex items-center gap-3">
-          <AccountAvatar user={user} staff={false} />
-          <div>
-            <p className="text-sm font-semibold text-slate-800">{user.full_name || "-"}</p>
-            <p className="mt-0.5 text-xs text-slate-400">{identity.jabatan}</p>
-          </div>
-        </div>
-      </td>
-      <td className="max-w-55 truncate px-5 py-4 text-sm text-slate-500" title={user.email || undefined}>
-        {user.email || "-"}
-      </td>
-      <td className="px-5 py-4"><MemberTypeBadge user={user} /></td>
-      <td className="px-5 py-4 text-sm text-slate-500">
-        {user.tester_since ? formatDateTime(user.tester_since) : formatDate(user.created_at)}
-      </td>
-      <td className="px-5 py-4 text-sm text-slate-500">
-        {user.tester_updated_at ? formatDateTime(user.tester_updated_at) : "-"}
-      </td>
-      <td className="px-5 py-4 text-right text-sm font-bold text-emerald-600">{formatRupiah(user.balance)}</td>
-      <td className="px-5 py-4 text-center">
-        <div className="flex justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => onDetail(user)}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
-          >
-            <Eye size={15} /> Detail
-          </button>
-          <button
-            type="button"
-            onClick={() => onMutation(user)}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-50"
-          >
-            <Eye size={15} /> Mutasi Saldo
-          </button>
-          <button
-            type="button"
-            onClick={() => onAdjust(user)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
-          >
-            <Wallet size={15} /> Adjust
-          </button>
-          {isActiveTester ? (
-            <button
-              type="button"
-              onClick={() => onToggleTester(user, false)}
-              disabled={togglingTester}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-2 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-50"
-              title="Kembalikan akun ini menjadi Member Riil"
-            >
-              {togglingTester ? <Loader2 size={13} className="animate-spin" /> : <UserCheck size={13} />}
-              Jadikan Member Riil
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onToggleTester(user, true)}
-              disabled={togglingTester}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
-              title="Aktifkan kembali sebagai Tester Sandbox"
-            >
-              {togglingTester ? <Loader2 size={13} className="animate-spin" /> : <FlaskConical size={13} />}
-              Jadikan Tester
-            </button>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
+  return <tr className="transition hover:bg-slate-50/80">
+    <td className="px-5 py-4"><div className="flex items-center gap-3"><AccountAvatar user={user} staff={false} /><div><p className="text-sm font-semibold text-slate-800">{user.full_name || "-"}</p><p className="mt-0.5 text-xs text-slate-400">{identity.jabatan}</p></div></div></td>
+    <td className="max-w-55 truncate px-5 py-4 text-sm text-slate-500" title={user.email || undefined}>{user.email || "-"}</td>
+    <td className="px-5 py-4"><MemberTypeBadge user={user} /></td>
+    <td className="px-5 py-4 text-sm text-slate-500">{user.tester_since ? formatDateTime(user.tester_since) : formatDate(user.created_at)}</td>
+    <td className="px-5 py-4 text-sm text-slate-500">{user.tester_updated_at ? formatDateTime(user.tester_updated_at) : "-"}</td>
+    <td className="px-5 py-4"><SandboxAccessControl user={user} busy={sandboxAccessBusy} onChange={onSandboxAccessChange} /></td>
+    <td className="px-5 py-4 text-right text-sm font-bold text-emerald-600">{formatRupiah(user.balance)}</td>
+    <td className="px-5 py-4 text-center"><div className="flex justify-center gap-2"><button type="button" onClick={() => onDetail(user)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"><Eye size={15} /> Detail</button><button type="button" onClick={() => onMutation(user)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-50"><Eye size={15} /> Mutasi Saldo</button><button type="button" onClick={() => onAdjust(user)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"><Wallet size={15} /> Adjust</button></div></td>
+  </tr>;
 }
 
 function TesterMobileCard({
@@ -1620,79 +1581,22 @@ function TesterMobileCard({
   onDetail,
   onMutation,
   onAdjust,
-  onToggleTester,
-  togglingTester,
+  onSandboxAccessChange,
+  sandboxAccessBusy,
 }: {
   user: AccountUser;
   isActiveTester: boolean;
   onDetail: (user: AccountUser) => void;
   onMutation: (user: AccountUser) => void;
   onAdjust: (user: AccountUser) => void;
-  onToggleTester: (user: AccountUser, nextStatus?: boolean) => void;
-  togglingTester: boolean;
+  onSandboxAccessChange: (userId: string, state: SandboxState) => void;
+  sandboxAccessBusy: boolean;
 }) {
-  return (
-    <article className="rounded-2xl border border-slate-100 p-4 shadow-sm">
-      <div className="flex gap-3">
-        <AccountAvatar user={user} staff={false} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-slate-800">{user.full_name || "-"}</p>
-          <p className="mt-0.5 truncate text-xs text-slate-500" title={user.email || undefined}>{user.email || "-"}</p>
-        </div>
-        <MemberTypeBadge user={user} />
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-xs">
-        <div>
-          <p className="text-slate-400">Tester Sejak</p>
-          <p className="mt-1 font-semibold text-slate-700">{user.tester_since ? formatDateTime(user.tester_since) : formatDate(user.created_at)}</p>
-        </div>
-        <div>
-          <p className="text-slate-400">{isActiveTester ? "Update Terakhir" : "Dinonaktifkan"}</p>
-          <p className="mt-1 font-semibold text-slate-700">{user.tester_updated_at ? formatDateTime(user.tester_updated_at) : "-"}</p>
-        </div>
-        <div>
-          <p className="text-slate-400">Saldo</p>
-          <p className="mt-1 font-bold text-emerald-600">{formatRupiah(user.balance)}</p>
-        </div>
-        <div>
-          <p className="text-slate-400">Status</p>
-          <p className={`mt-1 font-semibold ${isActiveTester ? "text-amber-600" : "text-slate-500"}`}>{isActiveTester ? "Tester Aktif" : "Tester Non-Aktif"}</p>
-        </div>
-      </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" onClick={() => onDetail(user)} className="min-w-25 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700">
-          Detail
-        </button>
-        <button type="button" onClick={() => onMutation(user)} className="min-w-30 flex-1 rounded-xl border border-blue-200 px-3 py-2.5 text-xs font-semibold text-blue-700">
-          Mutasi Saldo
-        </button>
-        <button type="button" onClick={() => onAdjust(user)} className="min-w-30 flex-1 rounded-xl bg-blue-600 px-2 py-2.5 text-xs font-semibold text-white">
-          Adjust Saldo
-        </button>
-        {isActiveTester ? (
-          <button
-            type="button"
-            onClick={() => onToggleTester(user, false)}
-            disabled={togglingTester}
-            className="w-full rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-800 disabled:opacity-50"
-          >
-            {togglingTester ? <Loader2 size={12} className="inline mr-1 animate-spin" /> : <UserCheck size={12} className="inline mr-1" />}
-            Jadikan Member Riil
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onToggleTester(user, true)}
-            disabled={togglingTester}
-            className="w-full rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800 disabled:opacity-50"
-          >
-            {togglingTester ? <Loader2 size={12} className="inline mr-1 animate-spin" /> : <FlaskConical size={12} className="inline mr-1" />}
-            Jadikan Tester
-          </button>
-        )}
-      </div>
-    </article>
-  );
+  return <article className="rounded-2xl border border-slate-100 p-4 shadow-sm">
+    <div className="flex gap-3"><AccountAvatar user={user} staff={false} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-800">{user.full_name || "-"}</p><p className="mt-0.5 truncate text-xs text-slate-500" title={user.email || undefined}>{user.email || "-"}</p></div><MemberTypeBadge user={user} /></div>
+    <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-xs"><div><p className="text-slate-400">Tester Sejak</p><p className="mt-1 font-semibold text-slate-700">{user.tester_since ? formatDateTime(user.tester_since) : formatDate(user.created_at)}</p></div><div><p className="text-slate-400">{isActiveTester ? "Update Terakhir" : "Dinonaktifkan"}</p><p className="mt-1 font-semibold text-slate-700">{user.tester_updated_at ? formatDateTime(user.tester_updated_at) : "-"}</p></div><div><p className="text-slate-400">Saldo</p><p className="mt-1 font-bold text-emerald-600">{formatRupiah(user.balance)}</p></div><div><p className="text-slate-400">Status Tester</p><p className={`mt-1 font-semibold ${isActiveTester ? "text-amber-600" : "text-slate-500"}`}>{isActiveTester ? "Tester Aktif" : "Riwayat Tester"}</p></div><div className="col-span-2 border-t border-slate-100 pt-3"><SandboxAccessControl user={user} busy={sandboxAccessBusy} onChange={onSandboxAccessChange} /></div></div>
+    <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => onDetail(user)} className="min-w-25 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700">Detail</button><button type="button" onClick={() => onMutation(user)} className="min-w-30 flex-1 rounded-xl border border-blue-200 px-3 py-2.5 text-xs font-semibold text-blue-700">Mutasi Saldo</button><button type="button" onClick={() => onAdjust(user)} className="min-w-30 flex-1 rounded-xl bg-blue-600 px-2 py-2.5 text-xs font-semibold text-white">Adjust Saldo</button></div>
+  </article>;
 }
 
 function AccountSkeleton() {

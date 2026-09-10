@@ -53,8 +53,7 @@ async function getAuthenticatedUser(req: Request): Promise<{ id: string; email?:
 
 /**
  * GET /api/tester/session
- * Returns current tester status, sandbox session status, and sandbox wallet balance.
- * Direct DB query in parallel ensures 100% accurate, real-time tester authorization.
+ * Returns current tester history, Sandbox access state, session state, and balance.
  */
 export async function GET(req: Request) {
   try {
@@ -66,126 +65,69 @@ export async function GET(req: Request) {
     );
     const user = await getAuthenticatedUser(req);
     if (!user) {
-      if (hasAuthCredential) {
-        return NextResponse.json({ error: 'Autentikasi tidak valid.' }, { status: 401 });
-      }
-      return NextResponse.json({ 
-        authenticated: false, 
-        isTester: false, 
-        isSandboxActive: false,
-        sandboxBalance: 0 
-      });
+      if (hasAuthCredential) return NextResponse.json({ error: 'Autentikasi tidak valid.' }, { status: 401 });
+      return NextResponse.json({ authenticated: false, isTester: false, sandboxAccessState: null, isSandboxActive: false, sandboxBalance: 0 });
     }
 
-    const hasSandboxCookie = cookieHeader
-      .split(';')
-      .some(c => c.trim().startsWith(`${SANDBOX_SESSION_COOKIE}=active`));
-
-    // Parallel direct DB query: zero stale cache risk
-    const [profileRes, walletRes] = await Promise.all([
-      supabaseAdmin
-        .from('profiles')
-        .select('is_tester, role')
-        .eq('id', user.id)
-        .maybeSingle(),
-      supabaseAdmin
-        .from('sandbox_wallets')
-        .select('balance')
-        .eq('user_id', user.id)
-        .maybeSingle()
+    const hasSandboxCookie = cookieHeader.split(';').some((cookie) => cookie.trim().startsWith(`${SANDBOX_SESSION_COOKIE}=active`));
+    const [profileRes, accessRes, walletRes, requestRes] = await Promise.all([
+      supabaseAdmin.from('profiles').select('is_tester, role').eq('id', user.id).maybeSingle(),
+      supabaseAdmin.from('sandbox_access').select('state').eq('user_id', user.id).maybeSingle(),
+      supabaseAdmin.from('sandbox_wallets').select('balance').eq('user_id', user.id).maybeSingle(),
+      supabaseAdmin.from('sandbox_reactivation_requests').select('state').eq('user_id', user.id).eq('state', 'PENDING').maybeSingle(),
     ]);
+    if (profileRes.error || accessRes.error || walletRes.error || requestRes.error) return NextResponse.json({ error: 'Tidak dapat memverifikasi status Sandbox.' }, { status: 503 });
 
-    if (profileRes.error || walletRes.error) {
-      return NextResponse.json({ error: 'Tidak dapat memverifikasi status Sandbox.' }, { status: 503 });
-    }
-
-    const userRole = (profileRes.data?.role || '').trim().toLowerCase();
-    const isStaff = userRole === 'admin' || userRole === 'manager';
-    // STRICT PERSONA SEPARATION:
-    // Admin and Manager are strictly Management & QA persona, never Customer Shopping Persona.
-    const isTester = !isStaff && profileRes.data?.is_tester === true;
-    let sandboxBalance = Number(walletRes.data?.balance || 0);
-
-    if (isTester && !walletRes.data) {
-      const walletEnsured = await ensureSandboxWallet(user.id);
-      sandboxBalance = walletEnsured.balance;
-    }
+    const role = (profileRes.data?.role || '').trim().toLowerCase();
+    const isStaff = role === 'admin' || role === 'manager';
+    const accessState = isStaff ? null : (accessRes.data?.state ?? null);
+    const hasActiveAccess = accessState === 'ACTIVE';
+    let sandboxBalance = hasActiveAccess ? Number(walletRes.data?.balance || 0) : 0;
+    if (hasActiveAccess && !walletRes.data) sandboxBalance = (await ensureSandboxWallet(user.id)).balance;
 
     return NextResponse.json({
       authenticated: true,
       userId: user.id,
-      isTester,
-      isSandboxActive: isTester && hasSandboxCookie,
-      sandboxBalance
+      isTester: !isStaff && profileRes.data?.is_tester === true,
+      sandboxAccessState: accessState,
+      sandboxReactivationState: requestRes.data?.state ?? null,
+      isSandboxActive: hasActiveAccess && hasSandboxCookie,
+      sandboxBalance,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error";
+    const message = err instanceof Error ? err.message : 'Internal server error';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 /**
  * POST /api/tester/session
- * Explicitly Opt-In: Enables Sandbox Session for 1 hour.
- * Protected: Requires profiles.is_tester === true and role !== admin/manager.
+ * Enables Sandbox session only for a verified customer with ACTIVE access.
  */
 export async function POST(req: Request) {
   try {
     const user = await getAuthenticatedUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Autentikasi diperlukan.' }, { status: 401 });
-    }
+    if (!user) return NextResponse.json({ error: 'Autentikasi diperlukan.' }, { status: 401 });
 
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('is_tester, role')
-      .eq('id', user.id)
-      .maybeSingle();
+    const [profileRes, accessRes] = await Promise.all([
+      supabaseAdmin.from('profiles').select('role').eq('id', user.id).maybeSingle(),
+      supabaseAdmin.from('sandbox_access').select('state').eq('user_id', user.id).maybeSingle(),
+    ]);
+    if (profileRes.error || accessRes.error || !profileRes.data) return NextResponse.json({ error: 'Tidak dapat memverifikasi akses Sandbox.' }, { status: 503 });
 
-    if (profileError) {
-      return NextResponse.json({ error: 'Tidak dapat memverifikasi akses tester.' }, { status: 503 });
-    }
+    const role = (profileRes.data.role || '').trim().toLowerCase();
+    if (role === 'admin' || role === 'manager') return NextResponse.json({ error: 'Akses Ditolak: Akun Admin/Manager menggunakan Sandbox Test Center.' }, { status: 403 });
+    if (accessRes.data?.state !== 'ACTIVE') return NextResponse.json({ error: 'Akses Sandbox tidak aktif.' }, { status: 403 });
 
-    const role = (profile?.role || '').trim().toLowerCase();
-    if (role === 'admin' || role === 'manager') {
-      return NextResponse.json(
-        { error: 'Akses Ditolak: Akun Admin/Manager tidak diperkenankan mengaktifkan sesi belanja tester konsumen. Gunakan Sandbox Test Center untuk pengujian.' },
-        { status: 403 }
-      );
-    }
-
-    if (profile?.is_tester !== true) {
-      return NextResponse.json(
-        { error: 'Akses Ditolak: Akun Anda belum memiliki izin tester (profiles.is_tester = false).' },
-        { status: 403 }
-      );
-    }
-
-    // Ensure sandbox wallet exists
     const walletRes = await ensureSandboxWallet(user.id);
-
-    const response = NextResponse.json({
-      success: true,
-      message: 'Mode Sandbox aktif untuk sesi ini (berlaku 1 jam).',
-      sandboxBalance: walletRes.balance
-    });
-
-    // Set HttpOnly cookie valid for 1 hour (3600 seconds)
-    response.cookies.set(SANDBOX_SESSION_COOKIE, 'active', {
-      httpOnly: true,
-      path: '/',
-      maxAge: 3600,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
-    });
-
+    const response = NextResponse.json({ success: true, message: 'Mode Sandbox aktif untuk sesi ini (berlaku 1 jam).', sandboxBalance: walletRes.balance, sandboxAccessState: 'ACTIVE' });
+    response.cookies.set(SANDBOX_SESSION_COOKIE, 'active', { httpOnly: true, path: '/', maxAge: 3600, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' });
     return response;
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error";
+    const message = err instanceof Error ? err.message : 'Internal server error';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
 /**
  * DELETE /api/tester/session
  * Instant Disarm: Deactivates Sandbox Session and returns immediately to LIVE.

@@ -1,11 +1,58 @@
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
-import { isManagementRole } from '@/utils/serverAuth';
+import { authenticateRequest, isManagementRole } from '@/utils/serverAuth';
 
 export const SANDBOX_SESSION_COOKIE = 'dapay_sandbox_session';
 
+export interface SandboxCustomerAuthorization {
+  ok: true;
+  userId: string;
+  accessState: 'ACTIVE';
+}
+
+export interface SandboxAuthorizationFailure {
+  ok: false;
+  status: 401 | 403 | 503;
+  code: 'AUTHENTICATION_REQUIRED' | 'SANDBOX_ACCESS_DENIED' | 'SANDBOX_ACCESS_UNAVAILABLE';
+}
+
+export type SandboxAuthorizationResult = SandboxCustomerAuthorization | SandboxAuthorizationFailure;
+
+export async function getSandboxAccessState(userId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('sandbox_access')
+    .select('state')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throw new OrderEnvironmentResolutionError('Unable to verify Sandbox access.');
+  return data?.state ?? null;
+}
+
+export async function requireSandboxCustomerAccess(request: Request): Promise<SandboxAuthorizationResult> {
+  const authentication = await authenticateRequest(request);
+  if (!authentication.ok) return { ok: false, status: 401, code: 'AUTHENTICATION_REQUIRED' };
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('role')
+    .eq('id', authentication.user.id)
+    .maybeSingle();
+  if (profileError || !profile) return { ok: false, status: 503, code: 'SANDBOX_ACCESS_UNAVAILABLE' };
+  if (isManagementRole(profile.role)) return { ok: false, status: 403, code: 'SANDBOX_ACCESS_DENIED' };
+
+  const { data: access, error: accessError } = await supabaseAdmin
+    .from('sandbox_access')
+    .select('state')
+    .eq('user_id', authentication.user.id)
+    .maybeSingle();
+  if (accessError) return { ok: false, status: 503, code: 'SANDBOX_ACCESS_UNAVAILABLE' };
+  if (access?.state !== 'ACTIVE') return { ok: false, status: 403, code: 'SANDBOX_ACCESS_DENIED' };
+
+  return { ok: true, userId: authentication.user.id, accessState: 'ACTIVE' };
+}
+
 export interface OrderEnvironmentResolution {
   isSandbox: boolean;
-  reason: 
+  reason:
     | 'GLOBAL_STORE_SANDBOX'
     | 'AUTHORIZED_TESTER_SANDBOX'
     | 'LIVE_DEFAULT'
@@ -21,92 +68,51 @@ export class OrderEnvironmentResolutionError extends Error {
   }
 }
 
-/**
- * Resolves whether an incoming transaction order should be treated as LIVE or SANDBOX.
- * 
- * Rules:
- * 0. Management Persona (Admin/Manager) NEVER enters customer Sandbox (reason: 'MANAGEMENT_PERSONA_NON_CUSTOMER').
- * 1. If global store_settings.is_live_mode is FALSE -> All customer orders target SANDBOX.
- * 2. If store_settings.is_live_mode is TRUE:
- *    - Check for active sandbox session cookie ('dapay_sandbox_session' = 'active').
- *    - If no cookie -> LIVE.
- *    - If cookie exists, verify user authority in DB:
- *      * profiles.is_tester MUST be true.
- *      * If verified -> SANDBOX.
- *      * If unverified or non-tester -> LIVE (prevents cookie tampering).
- */
 export async function resolveOrderEnvironment(
   req?: Request,
-  userId?: string | null
+  userId?: string | null,
 ): Promise<OrderEnvironmentResolution> {
   try {
-    // 0. Management Persona Guard:
-    // Admin and Manager are strictly Management & QA persona, not Customer Shopping persona.
-    // They must never receive a customer Sandbox environment, even if the store is globally in sandbox.
-    let userProfile: { is_tester?: boolean | null; role?: string | null } | null = null;
-    if (userId) {
-      const { data: profile, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .select('is_tester, role')
-        .eq('id', userId)
-        .maybeSingle();
-      if (profileError) throw new OrderEnvironmentResolutionError('Unable to verify user profile.');
-      userProfile = profile;
+    if (!userId) return { isSandbox: false, reason: 'UNAUTHORIZED_FORCED_LIVE' };
 
-      if (isManagementRole(profile?.role)) {
-        return { isSandbox: false, reason: 'MANAGEMENT_PERSONA_NON_CUSTOMER' };
-      }
-    }
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+    if (profileError || !profile) throw new OrderEnvironmentResolutionError('Unable to verify user profile.');
+    if (isManagementRole(profile.role)) return { isSandbox: false, reason: 'MANAGEMENT_PERSONA_NON_CUSTOMER' };
 
-    // 1. Check Global Store Mode (canonical: store_settings.is_live_mode)
+    const hasActiveSandboxAccess = (await getSandboxAccessState(userId)) === 'ACTIVE';
     const { data: storeSettings, error: storeSettingsError } = await supabaseAdmin
       .from('store_settings')
       .select('is_live_mode')
       .limit(1)
       .single();
-    if (storeSettingsError || !storeSettings) {
-      throw new OrderEnvironmentResolutionError('Unable to verify store environment.');
+    if (storeSettingsError || !storeSettings) throw new OrderEnvironmentResolutionError('Unable to verify store environment.');
+
+    if (storeSettings.is_live_mode === false) {
+      return hasActiveSandboxAccess
+        ? { isSandbox: true, reason: 'GLOBAL_STORE_SANDBOX' }
+        : { isSandbox: false, reason: 'UNAUTHORIZED_FORCED_LIVE' };
     }
 
-    const isGlobalLive = storeSettings?.is_live_mode ?? true;
-
-    if (!isGlobalLive) {
-      return { isSandbox: true, reason: 'GLOBAL_STORE_SANDBOX' };
+    if (!req || !hasActiveSandboxAccess) {
+      return { isSandbox: false, reason: hasActiveSandboxAccess ? 'LIVE_DEFAULT' : 'UNAUTHORIZED_FORCED_LIVE' };
     }
 
-    // 2. If store is LIVE, check if request contains an active sandbox session
-    if (!req) {
-      return { isSandbox: false, reason: 'LIVE_DEFAULT' };
-    }
-
-    const cookieHeader = req.headers.get('cookie') || '';
-    const hasSandboxCookie = cookieHeader
+    const hasSandboxCookie = (req.headers.get('cookie') || '')
       .split(';')
-      .some(c => c.trim().startsWith(`${SANDBOX_SESSION_COOKIE}=active`));
-
-    if (!hasSandboxCookie) {
-      return { isSandbox: false, reason: 'LIVE_DEFAULT' };
-    }
-
-    // 3. Cookie exists -> Verify user authority in database
-    if (!userId || !userProfile) {
-      // Unauthenticated user attempting to claim sandbox session -> Rejected to LIVE
-      return { isSandbox: false, reason: 'UNAUTHORIZED_FORCED_LIVE' };
-    }
-
-    if (userProfile.is_tester === true) {
-      return { isSandbox: true, reason: 'AUTHORIZED_TESTER_SANDBOX' };
-    }
-
-    // Account does not have is_tester privilege
-    return { isSandbox: false, reason: 'UNAUTHORIZED_FORCED_LIVE' };
-  } catch (err) {
-    console.error('❌ [RESOLVE_ENV] Error resolving order environment:', err);
-    if (err instanceof OrderEnvironmentResolutionError) throw err;
+      .some((cookie) => cookie.trim().startsWith(`${SANDBOX_SESSION_COOKIE}=active`));
+    return hasSandboxCookie
+      ? { isSandbox: true, reason: 'AUTHORIZED_TESTER_SANDBOX' }
+      : { isSandbox: false, reason: 'LIVE_DEFAULT' };
+  } catch (error) {
+    console.error('❌ [RESOLVE_ENV] Error resolving order environment:', error);
+    if (error instanceof OrderEnvironmentResolutionError) throw error;
     throw new OrderEnvironmentResolutionError();
   }
 }
-
 /**
  * Ensures a sandbox wallet exists for the specified tester.
  * Automatically initializes with 1,000,000 coins if not present.
@@ -129,7 +135,7 @@ export async function ensureSandboxWallet(userId: string): Promise<{ balance: nu
 
     // Initialize with 1,000,000
     const initialBalance = 1000000;
-    const { data: created, error: insertErr } = await supabaseAdmin
+    const { error: insertErr } = await supabaseAdmin
       .from('sandbox_wallets')
       .insert({
         user_id: userId,
@@ -155,7 +161,7 @@ export async function ensureSandboxWallet(userId: string): Promise<{ balance: nu
       });
 
     return { balance: initialBalance, error: null };
-  } catch (err: any) {
-    return { balance: 0, error: err.message };
+  } catch (err: unknown) {
+    return { balance: 0, error: err instanceof Error ? err.message : "Unable to initialize Sandbox wallet." };
   }
 }
