@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
+  FlaskConical,
   History,
   Loader2,
   Package,
@@ -94,15 +95,17 @@ interface OrdersViewUserProps {
   initialOrders?: Partial<Order>[];
   isSidebarExpanded?: boolean;
   onRefresh?: () => void | Promise<void>;
+  isSandboxMode?: boolean;
 }
 
 export default function OrdersViewUser({
   initialOrders = [],
   isSidebarExpanded = false,
   onRefresh,
+  isSandboxMode = false,
 }: OrdersViewUserProps) {
   void onRefresh;
-  const hasInitialData = Boolean(initialOrders && initialOrders.length > 0);
+  const hasInitialData = !isSandboxMode && Boolean(initialOrders && initialOrders.length > 0);
 
   const [orders, setOrders] = useState<Order[]>(() =>
     hasInitialData ? (initialOrders as Order[]) : [],
@@ -167,11 +170,11 @@ export default function OrdersViewUser({
 
   // SWR: Synchronize when parent passes updated orders
   useEffect(() => {
-    if (initialOrders && initialOrders.length > 0) {
+    if (!isSandboxMode && initialOrders && initialOrders.length > 0) {
       setOrders(initialOrders as Order[]);
       setSummary(computeInitialSummary(initialOrders));
     }
-  }, [initialOrders]);
+  }, [initialOrders, isSandboxMode]);
 
   // ================================================================== //
   // FETCH USER ORDERS (GET /api/user/orders)                            //
@@ -208,7 +211,8 @@ export default function OrdersViewUser({
           params.set("date", currentFilters.date);
         }
 
-        const response = await fetch(`/api/user/orders?${params.toString()}`, {
+        const endpoint = isSandboxMode ? "/api/tester/orders" : "/api/user/orders";
+        const response = await fetch(`${endpoint}?${params.toString()}`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -244,19 +248,28 @@ export default function OrdersViewUser({
         setRefreshing(false);
       }
     },
-    [showToast],
+    [showToast, isSandboxMode],
   );
 
-  // Initial load (SWR background sync only if memory is empty)
+  // Initial load (SWR background sync only if memory is empty or sandbox mode)
   useEffect(() => {
     if (isFirstMountRef.current) {
       isFirstMountRef.current = false;
-      if (!initialOrders || initialOrders.length === 0) {
+      if (!initialOrders || initialOrders.length === 0 || isSandboxMode) {
         void fetchOrders(filters, false);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // When mode switches between LIVE and Sandbox, reset and refetch
+  useEffect(() => {
+    if (!isFirstMountRef.current) {
+      setLoading(true);
+      void fetchOrders(filters, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSandboxMode]);
 
   // Handle filter changes (with debounce for search)
   const handleFilterChange = (updates: Partial<OrderFilters>) => {
@@ -314,15 +327,25 @@ export default function OrdersViewUser({
         {/* Table/List Subheader */}
         <div className="flex items-center justify-between border-b border-slate-100 px-3.5 py-3 sm:px-5">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-              <History size={15} />
+            <span className={`flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl ${
+              isSandboxMode ? "bg-amber-100 text-amber-700" : "bg-blue-50 text-blue-600"
+            }`}>
+              {isSandboxMode ? <FlaskConical size={15} /> : <History size={15} />}
             </span>
             <div className="min-w-0">
-              <h2 className="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">
-                Riwayat Transaksi
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">
+                  {isSandboxMode ? "Riwayat Transaksi Simulasi" : "Riwayat Transaksi"}
+                </h2>
+                {isSandboxMode && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[8.5px] font-black uppercase tracking-wider text-amber-900 border border-amber-300">
+                    <FlaskConical size={10} className="text-amber-700" />
+                    SANDBOX • SIMULASI
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">
-                Menampilkan {orders.length} dari {pagination.total} transaksi
+                Menampilkan {orders.length} dari {pagination.total} transaksi{isSandboxMode ? " simulasi" : ""}
               </p>
             </div>
           </div>

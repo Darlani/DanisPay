@@ -8,7 +8,6 @@ import {
   FlaskConical,
   Package,
   RefreshCw,
-  Sparkles,
   WalletCards,
 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
@@ -40,6 +39,7 @@ interface WalletViewUserProps {
   initialLogs?: BalanceLog[];
   isSidebarExpanded?: boolean;
   onRefresh?: () => void | Promise<void>;
+  isSandboxMode?: boolean;
 }
 
 function computeEntriesFromLogs(rawLogs: BalanceLog[]): WalletEntry[] {
@@ -107,24 +107,25 @@ export default function WalletViewUser({
   initialLogs = [],
   isSidebarExpanded = false,
   onRefresh,
+  isSandboxMode = false,
 }: WalletViewUserProps) {
   // Local state override for manual refresh
   const [localLogs, setLocalLogs] = useState<BalanceLog[] | null>(null);
   const [localBalance, setLocalBalance] = useState<number | null>(null);
   const [localCoinBalance, setLocalCoinBalance] = useState<number | null>(null);
 
-  // 1. TRUE INSTANT 0ms HYDRATION: Directly bind to parent live memory state with zero delay
+  // 1. TRUE INSTANT 0ms HYDRATION: Directly bind to parent live memory state with zero delay (suppressed in Sandbox mode)
   const logs = useMemo(() => {
+    if (isSandboxMode) return [];
     return localLogs ?? (Array.isArray(initialLogs) ? initialLogs : []);
-  }, [localLogs, initialLogs]);
-  const balance = localBalance ?? toNumber(initialBalance);
-  const coinBalance = localCoinBalance ?? toNumber(initialCoinBalance);
+  }, [localLogs, initialLogs, isSandboxMode]);
+  const balance = isSandboxMode ? 0 : (localBalance ?? toNumber(initialBalance));
+  const coinBalance = isSandboxMode ? 0 : (localCoinBalance ?? toNumber(initialCoinBalance));
 
   // ================================================================== //
-  // 🧪 DUAL-PERSONA SANDBOX VIRTUAL WALLET INTEGRATION                 //
+  // 🧪 AUTHORITATIVE WORKSPACE WALLET MODE                             //
   // ================================================================== //
-  const [sandboxAccessState, setSandboxAccessState] = useState<"ACTIVE" | "LOCKED" | "REVOKED" | null>(null);
-  const [walletMode, setWalletMode] = useState<"live" | "sandbox">("live");
+  const walletMode: "live" | "sandbox" = isSandboxMode ? "sandbox" : "live";
   const [sandboxBalance, setSandboxBalance] = useState<number>(1000000);
   const [sandboxLogs, setSandboxLogs] = useState<BalanceLog[]>([]);
   const [sandboxLoading, setSandboxLoading] = useState<boolean>(false);
@@ -174,6 +175,11 @@ export default function WalletViewUser({
   // ================================================================== //
   const fetchWalletData = useCallback(
     async (isManual = false) => {
+      // In Sandbox mode, NEVER fetch LIVE wallet data
+      if (isSandboxMode) {
+        return;
+      }
+
       if (isManual) {
         setRefreshing(true);
       }
@@ -250,41 +256,9 @@ export default function WalletViewUser({
         setRefreshing(false);
       }
     },
-    [onRefresh, showToast],
+    [onRefresh, showToast, isSandboxMode],
   );
 
-  // SWR: Only trigger background fetch if initial memory is empty (e.g. direct page refresh on wallet tab)
-  useEffect(() => {
-    if (isFirstMountRef.current) {
-      isFirstMountRef.current = false;
-      if (!initialLogs || initialLogs.length === 0) {
-        void fetchWalletData(false);
-      }
-    }
-  }, [fetchWalletData, initialLogs]);
-
-  // ================================================================== //
-  // 🧪 SANDBOX SESSION LISTENER & SYNCHRONIZATION                      //
-  // ================================================================== //
-  useEffect(() => {
-    const refreshSandboxSession = async () => {
-      const data = await fetchTesterSessionDeduplicated(true);
-      if (!data) return;
-      setSandboxAccessState(data.sandboxAccessState);
-      setSandboxBalance(data.sandboxBalance || 1000000);
-      if (data.sandboxAccessState !== "ACTIVE" || !data.isSandboxActive) {
-        setWalletMode("live");
-      }
-    };
-
-    void refreshSandboxSession();
-    window.addEventListener("sandboxSessionChanged", refreshSandboxSession);
-    window.addEventListener("storage", refreshSandboxSession);
-    return () => {
-      window.removeEventListener("sandboxSessionChanged", refreshSandboxSession);
-      window.removeEventListener("storage", refreshSandboxSession);
-    };
-  }, []);
   // Fetch sandbox wallet data from /api/tester/wallet
   const fetchSandboxWallet = useCallback(async (showToastNotice = false) => {
     if (isFetchingSandboxRef.current) return;
@@ -297,13 +271,6 @@ export default function WalletViewUser({
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
       const res = await fetch("/api/tester/wallet", { headers });
-
-      // Handle 403 / 401: status revoked by manager or expired
-      if (res.status === 403 || res.status === 401) {
-        setSandboxAccessState(null);
-        setWalletMode("live");
-        return;
-      }
 
       if (res.ok) {
         const data = await res.json();
@@ -331,19 +298,47 @@ export default function WalletViewUser({
     }
   }, [showToast]);
 
-  // Fallback guard: If Sandbox access is not active, force walletMode back to live
+  // SWR: Initial mount data fetching depending on active workspace mode
   useEffect(() => {
-    if (sandboxAccessState !== "ACTIVE" && walletMode === "sandbox") {
-      setWalletMode("live");
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false;
+      if (isSandboxMode) {
+        void fetchSandboxWallet();
+      } else if (!initialLogs || initialLogs.length === 0) {
+        void fetchWalletData(false);
+      }
     }
-  }, [sandboxAccessState, walletMode]);
+  }, [fetchWalletData, fetchSandboxWallet, initialLogs, isSandboxMode]);
 
-  // Trigger fetch sandbox wallet only when entering sandbox mode and authorized
+  // Mode-change synchronization (e.g. session activated / deactivated)
   useEffect(() => {
-    if (walletMode === "sandbox" && sandboxAccessState === "ACTIVE") {
-      void fetchSandboxWallet();
+    if (!isFirstMountRef.current) {
+      if (isSandboxMode) {
+        void fetchSandboxWallet();
+      } else {
+        void fetchWalletData(false);
+      }
     }
-  }, [walletMode, sandboxAccessState, fetchSandboxWallet]);
+  }, [isSandboxMode, fetchSandboxWallet, fetchWalletData]);
+
+  // Sync virtual wallet balance on global sandbox session events
+  useEffect(() => {
+    if (!isSandboxMode) return;
+
+    const refreshSandboxSession = async () => {
+      const data = await fetchTesterSessionDeduplicated(true);
+      if (!data) return;
+      setSandboxBalance(data.sandboxBalance || 1000000);
+      void fetchSandboxWallet();
+    };
+
+    window.addEventListener("sandboxSessionChanged", refreshSandboxSession);
+    window.addEventListener("storage", refreshSandboxSession);
+    return () => {
+      window.removeEventListener("sandboxSessionChanged", refreshSandboxSession);
+      window.removeEventListener("storage", refreshSandboxSession);
+    };
+  }, [isSandboxMode, fetchSandboxWallet]);
 
   // Reset sandbox wallet handler
   const handleResetSandbox = useCallback(async () => {
@@ -576,54 +571,6 @@ export default function WalletViewUser({
 
   return (
     <section className="w-full relative min-w-0">
-      {/* ============================================================ */}
-      {/* 0. DUAL-PERSONA MODE SWITCHER TABS (AUTHORIZED TESTERS ONLY) */}
-      {/* ============================================================ */}
-      {sandboxAccessState === "ACTIVE" && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-slate-200/90 bg-slate-50/80 p-1.5 xs:p-2 backdrop-blur-md shadow-2xs">
-          <div className="flex items-center gap-1.5 p-0.5 bg-slate-200/60 rounded-xl">
-            <button
-              type="button"
-              onClick={() => {
-                setWalletMode("live");
-                handleFilterChange({ page: 1 });
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
-                walletMode === "live"
-                  ? "bg-white text-blue-700 shadow-xs ring-1 ring-black/5"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <WalletCards size={13} className={walletMode === "live" ? "text-blue-600" : "text-slate-400"} />
-              <span>Dompet Utama (LIVE)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setWalletMode("sandbox");
-                handleFilterChange({ page: 1 });
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
-                walletMode === "sandbox"
-                  ? "bg-linear-to-r from-amber-500 to-orange-500 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <FlaskConical size={13} className={walletMode === "sandbox" ? "text-yellow-200" : "text-amber-500"} />
-              <span>Dompet Virtual (SANDBOX)</span>
-              <span className="ml-0.5 rounded-md bg-amber-400/30 px-1 py-0.2 text-[9px] font-black uppercase text-white">
-                Test
-              </span>
-            </button>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-slate-500 pr-2">
-            <Sparkles size={12} className="text-amber-500" />
-            <span>Mode Tester Terverifikasi</span>
-          </div>
-        </div>
-      )}
 
       {/* ============================================================ */}
       {/* 0.5. SANDBOX DISCLAIMER BANNER                              */}

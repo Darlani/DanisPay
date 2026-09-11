@@ -17,6 +17,7 @@ import {
   Bell,
   CheckCircle2,
   ChevronDown,
+  Clock,
   Copy,
   CreditCard,
   FlaskConical,
@@ -38,6 +39,7 @@ import {
   setCachedSandboxSession,
   broadcastSandboxSync,
   type SandboxSessionData,
+  type SandboxQuotaData,
 } from "@/components/sandbox/SandboxSessionControl";
 import UserSidebar from "./components/UserSidebar";
 import UserBottomNav from "./components/UserBottomNav";
@@ -637,20 +639,55 @@ function UserDashboardContent() {
     setSandboxSession(session);
   }, []);
 
+  const [sandboxOrders, setSandboxOrders] = useState<DashboardOrder[]>([]);
+  const isFetchingSandboxOrdersRef = useRef(false);
+
+  const fetchSandboxOrders = useCallback(async () => {
+    if (isFetchingSandboxOrdersRef.current) return;
+    try {
+      isFetchingSandboxOrdersRef.current = true;
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = "Bearer " + session.access_token;
+      }
+      const res = await fetch("/api/tester/orders?limit=10", { headers });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data?.orders)) {
+          setSandboxOrders(json.data.orders);
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      isFetchingSandboxOrdersRef.current = false;
+    }
+  }, []);
+
   useEffect(() => {
     void syncSandboxSession(true);
-    const handleSync = () => { void syncSandboxSession(true); };
+    const handleSync = () => {
+      void syncSandboxSession(true);
+      void fetchSandboxOrders();
+    };
     window.addEventListener("sandboxSessionChanged", handleSync);
     window.addEventListener("storage", handleSync);
     return () => {
       window.removeEventListener("sandboxSessionChanged", handleSync);
       window.removeEventListener("storage", handleSync);
     };
-  }, [syncSandboxSession]);
+  }, [syncSandboxSession, fetchSandboxOrders]);
 
   const isSandboxMode = Boolean(
     sandboxSession?.sandboxAccessState === "ACTIVE" && sandboxSession?.isSandboxActive
   );
+
+  useEffect(() => {
+    if (isSandboxMode && activeMenu === "overview") {
+      void fetchSandboxOrders();
+    }
+  }, [isSandboxMode, activeMenu, fetchSandboxOrders]);
 
   /* ---------------------------------------------------------------- */
   /* SANDBOX MEANINGFUL ACTIVITY DISPATCHER                           */
@@ -707,6 +744,7 @@ function UserDashboardContent() {
     prevSandboxMenuRef.current = activeMenu;
   }, [activeMenu, isSandboxMode, emitSandboxActivity]);
 
+
   const handleExitSandbox = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -721,10 +759,20 @@ function UserDashboardContent() {
       setCachedSandboxSession(nextData);
       if (nextData) broadcastSandboxSync(nextData);
       window.dispatchEvent(new Event("sandboxSessionChanged"));
+      if (activeMenu === "catalog") {
+        router.push("/user", { scroll: false });
+      }
     } catch {
       // ignore
     }
   };
+
+  // Redirect to overview if non-sandbox user visits catalog tab
+  useEffect(() => {
+    if (!isSandboxMode && activeMenu === "catalog") {
+      router.replace("/user", { scroll: false });
+    }
+  }, [isSandboxMode, activeMenu, router]);
 
   const handleResetSandbox = async () => {
     if (!confirm("Reset saldo koin virtual tester ke Rp 1.000.000?")) return;
@@ -1158,7 +1206,8 @@ function UserDashboardContent() {
           isSandboxMode={isSandboxMode}
           sandboxBalance={sandboxSession?.sandboxBalance ?? 1000000}
           onResetSandbox={handleResetSandbox}
-          isSimulationQuotaExhausted={Boolean(sandboxSession?.quota?.isSimulationQuotaExhausted)}
+          sandboxOrders={sandboxOrders}
+          sandboxQuota={sandboxSession?.quota}
         />
       )}
 
@@ -1186,11 +1235,12 @@ function UserDashboardContent() {
 
       {activeMenu === "wallet" && (
         <WalletViewUser
-          initialBalance={Number(userData.balance || 0)}
-          initialCoinBalance={Number(userData.coinBalance || 0)}
-          initialLogs={balanceLogs}
+          initialBalance={isSandboxMode ? 0 : Number(userData.balance || 0)}
+          initialCoinBalance={isSandboxMode ? 0 : Number(userData.coinBalance || 0)}
+          initialLogs={isSandboxMode ? [] : balanceLogs}
           isSidebarExpanded={isSidebarExpanded}
           onRefresh={() => void fetchDashboardData(false)}
+          isSandboxMode={isSandboxMode}
         />
       )}
 
@@ -1347,7 +1397,8 @@ function OverviewContent({
   isSandboxMode = false,
   sandboxBalance = 1000000,
   onResetSandbox,
-  isSimulationQuotaExhausted = false,
+  sandboxOrders = [],
+  sandboxQuota = null,
 }: {
   userData: {
     email: string;
@@ -1368,8 +1419,34 @@ function OverviewContent({
   isSandboxMode?: boolean;
   sandboxBalance?: number;
   onResetSandbox?: () => void;
-  isSimulationQuotaExhausted?: boolean;
+  sandboxOrders?: DashboardOrder[];
+  sandboxQuota?: SandboxQuotaData | null;
 }) {
+  // Sandbox Calculations (Strictly isolated from LIVE data)
+  const remainingSimulations = useMemo(() => {
+    if (!sandboxQuota) return 20;
+    return Math.max(0, (sandboxQuota.dailySimulationLimit || 20) - (sandboxQuota.simulationsToday || 0));
+  }, [sandboxQuota]);
+
+  const dailySimulationLimit = sandboxQuota?.dailySimulationLimit || 20;
+
+  const successfulSandboxOrdersCount = useMemo(() => {
+    return sandboxOrders.filter((o) => normalizeStatus(o.status) === "Berhasil").length;
+  }, [sandboxOrders]);
+
+  const totalSimulatedValue = useMemo(() => {
+    return sandboxOrders
+      .filter((o) => normalizeStatus(o.status) === "Berhasil")
+      .reduce((sum, o) => sum + Number(o.total_amount ?? o.price ?? 0), 0);
+  }, [sandboxOrders]);
+
+  const sandboxOrdersSparkline = useMemo(() => {
+    const points = generateCumulativeMonthlyPoints(sandboxOrders, () => 1);
+    return buildSvgSparkline(points);
+  }, [sandboxOrders]);
+
+  const displayOrders = isSandboxMode ? sandboxOrders : orders;
+
   const totalReferralCommission = useMemo(() => {
     return balanceLogs
       .filter(
@@ -1664,183 +1741,296 @@ function OverviewContent({
         )}
 
         {/* ====================================================== */}
-        {/* KOIN DAPAY (Modern Glassmorphism Multi-Device)        */}
+        {/* TOP CARD 2: KOIN DAPAY (LIVE) / STATUS KUOTA (SANDBOX) */}
         {/* ====================================================== */}
+        {isSandboxMode ? (
+          <div className="group relative flex h-full min-h-40 xs:min-h-[170px] sm:min-h-47.5 md:min-h-60 lg:min-h-68 xl:min-h-75 flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-3xl xl:rounded-[28px] border border-amber-300/60 bg-linear-to-br from-white/95 via-amber-50/70 to-orange-100/60 p-2.5 xs:p-3 sm:p-4.5 md:p-5 lg:p-6 xl:p-7 shadow-[0_16px_40px_rgba(245,158,11,0.10)] backdrop-blur-2xl ring-1 ring-inset ring-white/80 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(245,158,11,0.16)]">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white to-transparent" aria-hidden="true" />
+            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-linear-to-tr from-amber-400/20 via-orange-300/25 to-yellow-300/15 blur-3xl" aria-hidden="true" />
+            <div className="pointer-events-none absolute -left-12 -bottom-12 h-52 w-52 rounded-full bg-amber-300/20 blur-3xl" aria-hidden="true" />
 
-        <div className="group relative flex h-full min-h-40 xs:min-h-[170px] sm:min-h-47.5 md:min-h-60 lg:min-h-68 xl:min-h-75 flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-3xl xl:rounded-[28px] border border-purple-200/75 bg-linear-to-br from-white/90 via-purple-50/70 to-violet-100/60 p-2.5 xs:p-3 sm:p-4.5 md:p-5 lg:p-6 xl:p-7 shadow-[0_16px_40px_rgba(139,92,246,0.10)] backdrop-blur-2xl ring-1 ring-inset ring-white/80 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(139,92,246,0.16)]">
-          {/* Top Specular Glare / Light Rim */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white to-transparent" aria-hidden="true" />
-
-          {/* Ambient Multi-Color Glass Glow Orbs */}
-          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-linear-to-tr from-violet-400/25 via-purple-300/30 to-pink-300/20 blur-3xl" aria-hidden="true" />
-          <div className="pointer-events-none absolute -left-12 -bottom-12 h-52 w-52 rounded-full bg-purple-300/25 blur-3xl" aria-hidden="true" />
-
-          {/* Layered Decorative 3D Coins Artwork */}
-          <div
-            className="pointer-events-none absolute -right-6 xs:-right-8 top-1/2 -translate-y-1/2 opacity-[0.14] sm:opacity-[0.18] transition-transform duration-700 group-hover:scale-105"
-            style={{ perspective: "1000px" }}
-            aria-hidden="true"
-          >
-            <div
-              style={{
-                transform: "rotateY(-18deg) rotateX(10deg) rotateZ(-10deg)",
-                transformStyle: "preserve-3d",
-              }}
-            >
-              <DaPayCoin size={155} showShadow={false} showText={true} />
+            <div className="pointer-events-none absolute -right-4 top-1/2 -translate-y-1/2 text-amber-500/10 opacity-70 transition-transform duration-700 group-hover:scale-105" aria-hidden="true">
+              <Clock size={160} strokeWidth={1} />
             </div>
-          </div>
 
-          <div
-            className="pointer-events-none absolute right-1 -bottom-3 sm:-bottom-4 opacity-[0.16] sm:opacity-[0.20] transition-transform duration-700 group-hover:scale-105"
-            style={{ perspective: "1000px" }}
-            aria-hidden="true"
-          >
-            <div
-              style={{
-                transform: "rotateY(-12deg) rotateX(6deg) rotateZ(6deg)",
-                transformStyle: "preserve-3d",
-              }}
-            >
-              <DaPayCoin size={95} showShadow={false} showText={true} />
-            </div>
-          </div>
-
-          <div className="relative z-10 flex h-full flex-col justify-between">
-            {/* Header Card */}
-            <div className="flex items-start justify-between gap-1 xs:gap-1.5 md:gap-3">
-              <div className="flex items-center gap-1.5 xs:gap-2 md:gap-3 min-w-0">
-                {/* Hero Coin Brand Asset with Glowing Aura Halo */}
-                <div
-                  className="relative flex shrink-0 items-center justify-center rounded-full p-0.5 xs:p-1 md:p-1.5 lg:p-2 bg-linear-to-tr from-violet-200/70 via-white/80 to-purple-200/50 border border-white/80 shadow-[0_6px_20px_rgba(139,92,246,0.22),inset_0_1px_1px_rgba(255,255,255,0.8)] backdrop-blur-md"
-                  style={{ perspective: "800px" }}
-                  aria-hidden="true"
-                >
-                  <div
-                    style={{
-                      transform: "rotateY(-10deg) rotateX(6deg) rotateZ(-2deg)",
-                      transformStyle: "preserve-3d",
-                    }}
-                  >
-                    <div className="md:hidden">
-                      <DaPayCoin size={22} showShadow={true} showText={true} />
-                    </div>
-                    <div className="hidden md:block">
-                      <DaPayCoin size={34} showShadow={true} showText={true} />
-                    </div>
+            <div className="relative z-10 flex h-full flex-col justify-between">
+              {/* Header Card */}
+              <div className="flex items-start justify-between gap-1 xs:gap-1.5 md:gap-3">
+                <div className="flex items-center gap-1.5 xs:gap-2 md:gap-3 min-w-0">
+                  <div className="flex h-7 w-7 xs:h-8 xs:w-8 md:h-10 md:w-10 lg:h-11 lg:w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl md:rounded-2xl border border-amber-200/80 bg-linear-to-tr from-amber-200/70 via-white/80 to-orange-200/50 text-amber-700 shadow-[0_6px_20px_rgba(245,158,11,0.2),inset_0_1px_1px_rgba(255,255,255,0.8)] backdrop-blur-md">
+                    <Clock size={14} className="xs:h-4 xs:w-4 md:h-4.5 md:w-4.5" strokeWidth={2.2} />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-[12px] xs:text-[13px] sm:text-[15px] md:text-sm lg:text-base font-black tracking-tight text-slate-900 leading-tight truncate">
+                      Status Kuota Sandbox
+                    </h2>
+                    <p className="hidden md:block text-[10px] font-semibold text-amber-700 leading-tight">
+                      Sesi &amp; Batas Simulasi
+                    </p>
                   </div>
                 </div>
 
-                <div className="min-w-0">
-                  <h2 className="text-[12px] xs:text-[13px] sm:text-[15px] md:text-sm lg:text-base font-black tracking-tight text-slate-900 leading-tight truncate">
-                    Koin DaPay
-                  </h2>
-                  <p className="hidden md:block text-[10px] font-semibold text-purple-600 leading-tight">
-                    Loyalty Reward (Non-Likuid)
-                  </p>
+                <span className={`hidden ${!isSidebarExpanded ? "md:inline-flex" : "lg:inline-flex"} items-center gap-1.5 rounded-full border border-amber-200/90 bg-white/70 px-2 xs:px-2.5 py-0.5 text-[9px] md:text-[9.5px] font-black uppercase tracking-[0.14em] text-amber-800 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60 whitespace-nowrap`}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" aria-hidden="true" />
+                  Aktif
+                </span>
+              </div>
+
+              {/* Nominal Area */}
+              <div className="my-2 xs:my-2.5 md:my-4 lg:my-5 xl:my-6">
+                <p className="text-[8.5px] xs:text-[9.5px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-[0.18em] text-amber-900/70">
+                  Sisa Kuota Hari Ini
+                </p>
+                <div className="mt-0.5 md:mt-1 flex items-baseline gap-1 md:gap-1.5">
+                  <span className="truncate text-[13px] xs:text-[15px] sm:text-[17px] md:text-[clamp(16px,2vw,24px)] lg:text-3xl xl:text-4xl font-black tracking-tight text-slate-950 leading-none">
+                    {remainingSimulations}
+                  </span>
+                  <span className="text-[10px] xs:text-[11px] sm:text-[13px] md:text-sm lg:text-lg font-black tracking-tight text-amber-700">
+                    / {dailySimulationLimit} TRANSAKSI
+                  </span>
                 </div>
               </div>
 
-              <span className={`hidden ${!isSidebarExpanded ? "md:inline-flex" : "lg:inline-flex"} items-center gap-1.5 rounded-full border border-purple-200/90 bg-white/70 px-2 xs:px-2.5 py-0.5 text-[9px] md:text-[9.5px] font-black uppercase tracking-[0.14em] text-purple-700 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60 whitespace-nowrap`}>
-                <span className="text-[10px] xs:text-[11px] text-purple-600 leading-none" aria-hidden="true">✦</span>
-                Reward
-              </span>
-            </div>
-
-            {/* Nominal Area */}
-            <div className="my-2 xs:my-2.5 md:my-4 lg:my-5 xl:my-6">
-              <p className="text-[8.5px] xs:text-[9.5px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-[0.18em] text-purple-900/60">
-                Total Reward Koin
-              </p>
-              {isInitialLoading ? (
-                <div className="h-6 xs:h-7 sm:h-8 md:h-9 lg:h-10 w-28 xs:w-36 sm:w-44 md:w-48 rounded-xl bg-purple-200/50 animate-pulse my-1" />
-              ) : (
-                <div className="mt-0.5 md:mt-1 flex items-baseline gap-1 md:gap-1.5">
-                  <span className="truncate text-[13px] xs:text-[15px] sm:text-[17px] md:text-[clamp(16px,2vw,24px)] lg:text-3xl xl:text-4xl font-black tracking-tight text-slate-950 leading-none">
-                    {coinBalance.toLocaleString("id-ID")}
-                  </span>
-                  <span className="text-[10px] xs:text-[11px] sm:text-[13px] md:text-sm lg:text-lg font-black tracking-tight text-violet-700">
-                    KOIN
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Informational Callout */}
-            <div>
-              <div className="flex items-center gap-1.5 xs:gap-2 md:gap-2.5 rounded-md xs:rounded-lg md:rounded-xl border border-purple-200/60 bg-white/75 p-1.5 xs:p-2 md:p-2.5 lg:p-3 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60 w-full max-w-md">
-                <div className="flex h-5 w-5 xs:h-6 xs:w-6 md:h-8 md:w-8 shrink-0 items-center justify-center rounded-sm xs:rounded-md md:rounded-lg border border-purple-200/80 bg-purple-100/70 text-purple-700 shadow-2xs backdrop-blur-xs" aria-hidden="true">
-                  <Gift size={11} className="xs:h-3 xs:w-3 md:h-4 md:w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[9px] xs:text-[10.5px] sm:text-[12px] md:text-xs font-bold text-slate-900 leading-tight">
-                    Gunakan Koin DaPay saat checkout
-                  </p>
-                  <p className="hidden md:block mt-0.5 text-[10px] lg:text-xs text-slate-500 leading-tight">
-                    untuk potongan harga langsung.
-                  </p>
+              {/* Informational Callout */}
+              <div>
+                <div className="flex items-center gap-1.5 xs:gap-2 md:gap-2.5 rounded-md xs:rounded-lg md:rounded-xl border border-amber-200/70 bg-white/75 p-1.5 xs:p-2 md:p-2.5 lg:p-3 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60 w-full max-w-md">
+                  <div className="flex h-5 w-5 xs:h-6 xs:w-6 md:h-8 md:w-8 shrink-0 items-center justify-center rounded-sm xs:rounded-md md:rounded-lg border border-amber-200/80 bg-amber-100/70 text-amber-700 shadow-2xs" aria-hidden="true">
+                    <FlaskConical size={11} className="xs:h-3 xs:w-3 md:h-4 md:w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] xs:text-[10.5px] sm:text-[12px] md:text-xs font-bold text-slate-900 leading-tight truncate">
+                      Simulasi aman tanpa vendor riil
+                    </p>
+                    <p className="hidden md:block mt-0.5 text-[10px] lg:text-xs text-slate-500 leading-tight">
+                      Sesi terkunci otomatis setelah 1 jam tidak aktif.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="group relative flex h-full min-h-40 xs:min-h-[170px] sm:min-h-47.5 md:min-h-60 lg:min-h-68 xl:min-h-75 flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-3xl xl:rounded-[28px] border border-purple-200/75 bg-linear-to-br from-white/90 via-purple-50/70 to-violet-100/60 p-2.5 xs:p-3 sm:p-4.5 md:p-5 lg:p-6 xl:p-7 shadow-[0_16px_40px_rgba(139,92,246,0.10)] backdrop-blur-2xl ring-1 ring-inset ring-white/80 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(139,92,246,0.16)]">
+            {/* Top Specular Glare / Light Rim */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white to-transparent" aria-hidden="true" />
+
+            {/* Ambient Multi-Color Glass Glow Orbs */}
+            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-linear-to-tr from-violet-400/25 via-purple-300/30 to-pink-300/20 blur-3xl" aria-hidden="true" />
+            <div className="pointer-events-none absolute -left-12 -bottom-12 h-52 w-52 rounded-full bg-purple-300/25 blur-3xl" aria-hidden="true" />
+
+            {/* Layered Decorative 3D Coins Artwork */}
+            <div
+              className="pointer-events-none absolute -right-6 xs:-right-8 top-1/2 -translate-y-1/2 opacity-[0.14] sm:opacity-[0.18] transition-transform duration-700 group-hover:scale-105"
+              style={{ perspective: "1000px" }}
+              aria-hidden="true"
+            >
+              <div
+                style={{
+                  transform: "rotateY(-18deg) rotateX(10deg) rotateZ(-10deg)",
+                  transformStyle: "preserve-3d",
+                }}
+              >
+                <DaPayCoin size={155} showShadow={false} showText={true} />
+              </div>
+            </div>
+
+            <div
+              className="pointer-events-none absolute right-1 -bottom-3 sm:-bottom-4 opacity-[0.16] sm:opacity-[0.20] transition-transform duration-700 group-hover:scale-105"
+              style={{ perspective: "1000px" }}
+              aria-hidden="true"
+            >
+              <div
+                style={{
+                  transform: "rotateY(-12deg) rotateX(6deg) rotateZ(6deg)",
+                  transformStyle: "preserve-3d",
+                }}
+              >
+                <DaPayCoin size={95} showShadow={false} showText={true} />
+              </div>
+            </div>
+
+            <div className="relative z-10 flex h-full flex-col justify-between">
+              {/* Header Card */}
+              <div className="flex items-start justify-between gap-1 xs:gap-1.5 md:gap-3">
+                <div className="flex items-center gap-1.5 xs:gap-2 md:gap-3 min-w-0">
+                  {/* Hero Coin Brand Asset with Glowing Aura Halo */}
+                  <div
+                    className="relative flex shrink-0 items-center justify-center rounded-full p-0.5 xs:p-1 md:p-1.5 lg:p-2 bg-linear-to-tr from-violet-200/70 via-white/80 to-purple-200/50 border border-white/80 shadow-[0_6px_20px_rgba(139,92,246,0.22),inset_0_1px_1px_rgba(255,255,255,0.8)] backdrop-blur-md"
+                    style={{ perspective: "800px" }}
+                    aria-hidden="true"
+                  >
+                    <div
+                      style={{
+                        transform: "rotateY(-10deg) rotateX(6deg) rotateZ(-2deg)",
+                        transformStyle: "preserve-3d",
+                      }}
+                    >
+                      <div className="md:hidden">
+                        <DaPayCoin size={22} showShadow={true} showText={true} />
+                      </div>
+                      <div className="hidden md:block">
+                        <DaPayCoin size={34} showShadow={true} showText={true} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="min-w-0">
+                    <h2 className="text-[12px] xs:text-[13px] sm:text-[15px] md:text-sm lg:text-base font-black tracking-tight text-slate-900 leading-tight truncate">
+                      Koin DaPay
+                    </h2>
+                    <p className="hidden md:block text-[10px] font-semibold text-purple-600 leading-tight">
+                      Loyalty Reward (Non-Likuid)
+                    </p>
+                  </div>
+                </div>
+
+                <span className={`hidden ${!isSidebarExpanded ? "md:inline-flex" : "lg:inline-flex"} items-center gap-1.5 rounded-full border border-purple-200/90 bg-white/70 px-2 xs:px-2.5 py-0.5 text-[9px] md:text-[9.5px] font-black uppercase tracking-[0.14em] text-purple-700 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60 whitespace-nowrap`}>
+                  <span className="text-[10px] xs:text-[11px] text-purple-600 leading-none" aria-hidden="true">✦</span>
+                  Reward
+                </span>
+              </div>
+
+              {/* Nominal Area */}
+              <div className="my-2 xs:my-2.5 md:my-4 lg:my-5 xl:my-6">
+                <p className="text-[8.5px] xs:text-[9.5px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-[0.18em] text-purple-900/60">
+                  Total Reward Koin
+                </p>
+                {isInitialLoading ? (
+                  <div className="h-6 xs:h-7 sm:h-8 md:h-9 lg:h-10 w-28 xs:w-36 sm:w-44 md:w-48 rounded-xl bg-purple-200/50 animate-pulse my-1" />
+                ) : (
+                  <div className="mt-0.5 md:mt-1 flex items-baseline gap-1 md:gap-1.5">
+                    <span className="truncate text-[13px] xs:text-[15px] sm:text-[17px] md:text-[clamp(16px,2vw,24px)] lg:text-3xl xl:text-4xl font-black tracking-tight text-slate-950 leading-none">
+                      {coinBalance.toLocaleString("id-ID")}
+                    </span>
+                    <span className="text-[10px] xs:text-[11px] sm:text-[13px] md:text-sm lg:text-lg font-black tracking-tight text-violet-700">
+                      KOIN
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Informational Callout */}
+              <div>
+                <div className="flex items-center gap-1.5 xs:gap-2 md:gap-2.5 rounded-md xs:rounded-lg md:rounded-xl border border-purple-200/60 bg-white/75 p-1.5 xs:p-2 md:p-2.5 lg:p-3 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60 w-full max-w-md">
+                  <div className="flex h-5 w-5 xs:h-6 xs:w-6 md:h-8 md:w-8 shrink-0 items-center justify-center rounded-sm xs:rounded-md md:rounded-lg border border-purple-200/80 bg-purple-100/70 text-purple-700 shadow-2xs backdrop-blur-xs" aria-hidden="true">
+                    <Gift size={11} className="xs:h-3 xs:w-3 md:h-4 md:w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] xs:text-[10.5px] sm:text-[12px] md:text-xs font-bold text-slate-900 leading-tight">
+                      Gunakan Koin DaPay saat checkout
+                    </p>
+                    <p className="hidden md:block mt-0.5 text-[10px] lg:text-xs text-slate-500 leading-tight">
+                      untuk potongan harga langsung.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ======================================================== */}
       {/* KPI SUMMARY                                              */}
       {/* ======================================================== */}
 
-      <section className="mb-5 sm:mb-6 grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3.5 md:grid-cols-2 md:gap-3.5 lg:grid-cols-4 lg:gap-4 xl:gap-5">
-        <KpiCard
-          icon={<ArrowUpRight size={17} />}
-          label="Komisi Referral"
-          value={formatRupiah(totalReferralCommission)}
-          note="Masuk ke Saldo DaPay"
-          tone="purple"
-          sparkline={referralSparkline}
-          isLoading={isInitialLoading}
-        />
+      {isSandboxMode ? (
+        <section className="mb-5 sm:mb-6 grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3.5 md:grid-cols-2 md:gap-3.5 lg:grid-cols-4 lg:gap-4 xl:gap-5">
+          <KpiCard
+            icon={<ShoppingBag size={17} />}
+            label="Total Simulasi"
+            value={sandboxOrders.length.toLocaleString("id-ID")}
+            note="Pesanan simulasi"
+            tone="amber"
+            sparkline={sandboxOrdersSparkline}
+            isLoading={isInitialLoading}
+          />
 
-        <KpiCard
-          icon={<ArrowUpRight size={17} />}
-          label="Total Penarikan"
-          value={formatRupiah(totalWithdrawn)}
-          note={
-            pendingWithdrawAmount > 0
-              ? `Pending ${formatRupiah(pendingWithdrawAmount)}`
-              : "Penarikan berhasil"
-          }
-          tone="emerald"
-          sparkline={withdrawalSparkline}
-          isLoading={isInitialLoading}
-        />
+          <KpiCard
+            icon={<CheckCircle2 size={17} />}
+            label="Simulasi Berhasil"
+            value={successfulSandboxOrdersCount.toLocaleString("id-ID")}
+            note={
+              sandboxOrders.length > 0
+                ? `${Math.round((successfulSandboxOrdersCount / sandboxOrders.length) * 100)}% berhasil`
+                : "Simulasi berhasil"
+            }
+            tone="emerald"
+            sparkline={sandboxOrdersSparkline}
+            isLoading={isInitialLoading}
+          />
 
-        <KpiCard
-          icon={<CreditCard size={17} />}
-          label="Total Deposit"
-          value={formatRupiah(totalDeposit)}
-          note="Deposit berhasil"
-          tone="blue"
-          sparkline={depositSparkline}
-          isLoading={isInitialLoading}
-        />
+          <KpiCard
+            icon={<Clock size={17} />}
+            label="Sisa Kuota"
+            value={`${remainingSimulations}`}
+            note={`Dari limit ${dailySimulationLimit}/hari`}
+            tone="purple"
+            isLoading={isInitialLoading}
+          />
 
-        <KpiCard
-          icon={<ShoppingBag size={17} />}
-          label="Total Transaksi"
-          value={orders.length.toLocaleString("id-ID")}
-          note="Total pesanan"
-          tone="amber"
-          sparkline={ordersSparkline}
-          isLoading={isInitialLoading}
-        />
-      </section>
+          <KpiCard
+            icon={<Wallet size={17} />}
+            label="Nilai Transaksi Simulasi"
+            value={formatRupiah(totalSimulatedValue)}
+            note="Nilai transaksi virtual"
+            tone="blue"
+            isLoading={isInitialLoading}
+          />
+        </section>
+      ) : (
+        <section className="mb-5 sm:mb-6 grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3.5 md:grid-cols-2 md:gap-3.5 lg:grid-cols-4 lg:gap-4 xl:gap-5">
+          <KpiCard
+            icon={<ArrowUpRight size={17} />}
+            label="Komisi Referral"
+            value={formatRupiah(totalReferralCommission)}
+            note="Masuk ke Saldo DaPay"
+            tone="purple"
+            sparkline={referralSparkline}
+            isLoading={isInitialLoading}
+          />
+
+          <KpiCard
+            icon={<ArrowUpRight size={17} />}
+            label="Total Penarikan"
+            value={formatRupiah(totalWithdrawn)}
+            note={
+              pendingWithdrawAmount > 0
+                ? `Pending ${formatRupiah(pendingWithdrawAmount)}`
+                : "Penarikan berhasil"
+            }
+            tone="emerald"
+            sparkline={withdrawalSparkline}
+            isLoading={isInitialLoading}
+          />
+
+          <KpiCard
+            icon={<CreditCard size={17} />}
+            label="Total Deposit"
+            value={formatRupiah(totalDeposit)}
+            note="Deposit berhasil"
+            tone="blue"
+            sparkline={depositSparkline}
+            isLoading={isInitialLoading}
+          />
+
+          <KpiCard
+            icon={<ShoppingBag size={17} />}
+            label="Total Transaksi"
+            value={orders.length.toLocaleString("id-ID")}
+            note="Total pesanan"
+            tone="amber"
+            sparkline={ordersSparkline}
+            isLoading={isInitialLoading}
+          />
+        </section>
+      )}
 
       {/* ======================================================== */}
       {/* OPERATIONAL SECTION: TRANSAKSI & STATISTIK AFILIASI      */}
       {/* ======================================================== */}
 
-      <section className="mb-6 grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px] lg:items-stretch w-full min-w-0">
+      <section className={`mb-6 grid gap-4 sm:gap-6 ${isSandboxMode ? "grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]"} lg:items-stretch w-full min-w-0`}>
         {/* ====================================================== */}
         {/* TRANSAKSI TERBARU (~70%)                               */}
         {/* ====================================================== */}
@@ -1854,10 +2044,10 @@ function OverviewContent({
               </div>
               <div className="min-w-0">
                 <h2 className="text-[11px] xs:text-xs font-black text-slate-900 sm:text-sm truncate">
-                  Transaksi Terbaru
+                  {isSandboxMode ? "Transaksi Terbaru (Simulasi)" : "Transaksi Terbaru"}
                 </h2>
                 <p className="hidden xs:block text-[10px] font-medium text-slate-400 truncate">
-                  Aktivitas pesanan digital terkini
+                  {isSandboxMode ? "Aktivitas pesanan digital simulasi" : "Aktivitas pesanan digital terkini"}
                 </p>
               </div>
             </div>
@@ -1879,8 +2069,27 @@ function OverviewContent({
                 <div className="h-11 w-full rounded-xl bg-slate-100 animate-pulse" />
                 <div className="h-11 w-full rounded-xl bg-slate-100 animate-pulse" />
               </div>
-            ) : orders.length === 0 ? (
-              <EmptyDashboard text="Belum ada transaksi pesanan tercatat." />
+            ) : displayOrders.length === 0 ? (
+              isSandboxMode ? (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-amber-200 bg-amber-50/40 px-4 py-8 text-center">
+                  <FlaskConical size={28} className="text-amber-500 mb-2" />
+                  <p className="text-xs font-semibold text-slate-700">
+                    Belum ada transaksi simulasi.
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-400 max-w-xs">
+                    Uji coba transaksi produk digital tanpa memotong saldo riil di katalog simulasi.
+                  </p>
+                  <Link
+                    href="/user?tab=catalog"
+                    scroll={false}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition active:scale-95 cursor-pointer"
+                  >
+                    <span>Mulai Simulasi di Katalog →</span>
+                  </Link>
+                </div>
+              ) : (
+                <EmptyDashboard text="Belum ada transaksi pesanan tercatat." />
+              )
             ) : (
               <>
                 {/* Desktop / Tablet Modern Data Table (md+ on Navigation Rail / 2xl+ when Expanded) */}
@@ -1896,7 +2105,7 @@ function OverviewContent({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {orders.slice(0, 5).map((order) => {
+                      {displayOrders.slice(0, 5).map((order) => {
                         const status = normalizeStatus(order.status);
                         const style = getStatusClasses(status);
                         const orderRef = order.order_id || order.id;
@@ -1965,7 +2174,7 @@ function OverviewContent({
 
                 {/* Mobile, Tablet & Desktop Activity Feed (Matches Mockup) */}
                 <div className={`divide-y divide-slate-100 ${!isSidebarExpanded ? "md:hidden" : "2xl:hidden"}`}>
-                  {orders.slice(0, 5).map((order) => {
+                  {displayOrders.slice(0, 5).map((order) => {
                     const status = normalizeStatus(order.status);
                     const style = getStatusClasses(status);
                     const orderRef = order.order_id || order.id;
@@ -2025,168 +2234,141 @@ function OverviewContent({
           </div>
         </div>
 
-        {/* ====================================================== */}
-        {/* KATALOG PRODUK DEMO (Sandbox Mode Only)                */}
-        {/* ====================================================== */}
-        {isSandboxMode && (
-          <div className="col-span-full mt-2 sm:mt-3">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[8.5px] font-black uppercase tracking-wider text-amber-900 border border-amber-300">
-                  <FlaskConical size={10} className="text-amber-700" />
-                  SANDBOX
-                </span>
-                <h2 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
-                  Katalog Produk Demo Terkurasi
-                </h2>
-              </div>
-              <Link
-                href="/user?tab=catalog"
-                scroll={false}
-                className="text-[11px] sm:text-xs font-bold text-amber-700 hover:text-amber-800 transition flex items-center gap-1 cursor-pointer"
-              >
-                Lihat Katalog Lengkap →
-              </Link>
-            </div>
-            <SandboxCatalogView
-              isSidebarExpanded={isSidebarExpanded}
-              isSimulationQuotaExhausted={isSimulationQuotaExhausted}
-            />
-          </div>
-        )}
 
         {/* ====================================================== */}
         {/* STATISTIK AFILIASI (~30%)                              */}
         {/* ====================================================== */}
 
-        <div className="flex h-full flex-col justify-between rounded-2xl xs:rounded-3xl md:rounded-3xl border border-slate-200/80 bg-white p-3 xs:p-4 sm:p-5 shadow-2xs w-full min-w-0">
-          <div className="space-y-2.5 xs:space-y-3">
-            {/* Header */}
-            <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5 xs:pb-3">
-              <div className="flex items-center gap-1.5 xs:gap-2 min-w-0">
-                <div className="flex h-6.5 w-6.5 xs:h-7 xs:w-7 shrink-0 items-center justify-center rounded-lg border border-purple-100 bg-purple-50 text-purple-600">
-                  <Gift size={13} className="xs:h-3.5 xs:w-3.5" />
+        {!isSandboxMode && (
+          <div className="flex h-full flex-col justify-between rounded-2xl xs:rounded-3xl md:rounded-3xl border border-slate-200/80 bg-white p-3 xs:p-4 sm:p-5 shadow-2xs w-full min-w-0">
+            <div className="space-y-2.5 xs:space-y-3">
+              {/* Header */}
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5 xs:pb-3">
+                <div className="flex items-center gap-1.5 xs:gap-2 min-w-0">
+                  <div className="flex h-6.5 w-6.5 xs:h-7 xs:w-7 shrink-0 items-center justify-center rounded-lg border border-purple-100 bg-purple-50 text-purple-600">
+                    <Gift size={13} className="xs:h-3.5 xs:w-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-[11px] xs:text-xs font-black text-slate-900 sm:text-sm truncate">
+                      Statistik Afiliasi
+                    </h2>
+                    <p className="hidden xs:block text-[10px] font-medium text-slate-400 truncate">
+                      Performa mitra & pendapatan
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h2 className="text-[11px] xs:text-xs font-black text-slate-900 sm:text-sm truncate">
-                    Statistik Afiliasi
-                  </h2>
-                  <p className="hidden xs:block text-[10px] font-medium text-slate-400 truncate">
-                    Performa mitra & pendapatan
+
+                <Link
+                  href="/user?tab=affiliate"
+                  scroll={false}
+                  className="inline-flex shrink-0 items-center text-[10px] xs:text-[11px] font-bold text-purple-600 transition hover:text-purple-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-purple-500"
+                >
+                  <span>Lihat Detail →</span>
+                </Link>
+              </div>
+
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-2 gap-1.5 xs:gap-2">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-2 xs:p-2.5 min-w-0">
+                  <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">
+                    Total Mitra
                   </p>
+                  {isInitialLoading ? (
+                    <div className="h-4.5 xs:h-5 sm:h-6 w-14 xs:w-16 rounded bg-slate-200/70 animate-pulse mt-0.5" />
+                  ) : (
+                    <p className="mt-0.5 text-xs xs:text-sm sm:text-base font-black text-slate-950 truncate">
+                      {referrals.length} <span className="text-[9px] xs:text-[10px] font-semibold text-slate-500">Orang</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-purple-100 bg-purple-50/80 p-2 xs:p-2.5 min-w-0">
+                  <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-purple-700 truncate">
+                    Komisi Referral
+                  </p>
+                  {isInitialLoading ? (
+                    <div className="h-4.5 xs:h-5 sm:h-6 w-18 xs:w-20 rounded bg-purple-200/60 animate-pulse mt-0.5" />
+                  ) : (
+                    <p className="mt-0.5 truncate text-xs xs:text-sm sm:text-base font-black text-purple-900">
+                      {formatRupiah(totalReferralCommission)}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <Link
-                href="/user?tab=affiliate"
-                scroll={false}
-                className="inline-flex shrink-0 items-center text-[10px] xs:text-[11px] font-bold text-purple-600 transition hover:text-purple-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-purple-500"
-              >
-                <span>Lihat Detail →</span>
-              </Link>
-            </div>
+              {/* Progress Referral Bulan Ini */}
+              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2 xs:p-2.5 min-w-0">
+                <div className="flex items-center justify-between gap-1 text-[9.5px] xs:text-[10px]">
+                  <span className="font-bold text-slate-700 truncate">
+                    Progress: {monthlyReferrals.length}/25 Mitra
+                  </span>
+                  <span className="shrink-0 rounded-md bg-purple-100/80 px-1.5 py-0.2 font-mono text-[8.5px] xs:text-[9px] font-black text-purple-700">
+                    {Math.min(Math.round((monthlyReferrals.length / 25) * 100), 100)}%
+                  </span>
+                </div>
 
-            {/* Metrics Grid */}
-            <div className="grid grid-cols-2 gap-1.5 xs:gap-2">
-              <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-2 xs:p-2.5 min-w-0">
-                <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">
-                  Total Mitra
-                </p>
+                {/* Compact Rounded Progress Bar */}
+                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-purple-100/70 p-0.5">
+                  <div
+                    className="h-full rounded-full bg-linear-to-r from-purple-500 to-indigo-600 transition-all duration-500"
+                    style={{
+                      width: `${Math.min(
+                        Math.round((monthlyReferrals.length / 25) * 100),
+                        100,
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Monthly Commission Insight */}
+              <div className="rounded-xl border border-purple-100/90 bg-linear-to-br from-purple-50/70 via-white to-violet-50/40 p-2 xs:p-2.5 shadow-2xs min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <div className="flex h-4.5 w-4.5 xs:h-5 xs:w-5 shrink-0 items-center justify-center rounded-md border border-purple-100 bg-purple-100 text-purple-700">
+                    <Wallet size={10} className="xs:h-2.5 xs:w-2.5" />
+                  </div>
+                  <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-purple-900 truncate">
+                    Komisi Bulan Ini
+                  </p>
+                </div>
+
                 {isInitialLoading ? (
-                  <div className="h-4.5 xs:h-5 sm:h-6 w-14 xs:w-16 rounded bg-slate-200/70 animate-pulse mt-0.5" />
+                  <div className="h-5 xs:h-6 w-24 xs:w-28 rounded bg-purple-200/50 animate-pulse mt-1" />
                 ) : (
-                  <p className="mt-0.5 text-xs xs:text-sm sm:text-base font-black text-slate-950 truncate">
-                    {referrals.length} <span className="text-[9px] xs:text-[10px] font-semibold text-slate-500">Orang</span>
+                  <p className="mt-1 truncate text-xs xs:text-sm sm:text-base font-black text-purple-950">
+                    {formatRupiah(monthlyReferralCommission)}
                   </p>
                 )}
-              </div>
 
-              <div className="rounded-xl border border-purple-100 bg-purple-50/80 p-2 xs:p-2.5 min-w-0">
-                <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-purple-700 truncate">
-                  Komisi Referral
+                <p className="mt-0.5 text-[9px] xs:text-[10px] leading-tight text-slate-500">
+                  Otomatis masuk ke <strong className="font-bold text-slate-700">Saldo DaPay</strong> dari transaksi mitra.
                 </p>
-                {isInitialLoading ? (
-                  <div className="h-4.5 xs:h-5 sm:h-6 w-18 xs:w-20 rounded bg-purple-200/60 animate-pulse mt-0.5" />
-                ) : (
-                  <p className="mt-0.5 truncate text-xs xs:text-sm sm:text-base font-black text-purple-900">
-                    {formatRupiah(totalReferralCommission)}
-                  </p>
-                )}
               </div>
             </div>
 
-            {/* Progress Referral Bulan Ini */}
-            <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2 xs:p-2.5 min-w-0">
-              <div className="flex items-center justify-between gap-1 text-[9.5px] xs:text-[10px]">
-                <span className="font-bold text-slate-700 truncate">
-                  Progress: {monthlyReferrals.length}/25 Mitra
-                </span>
-                <span className="shrink-0 rounded-md bg-purple-100/80 px-1.5 py-0.2 font-mono text-[8.5px] xs:text-[9px] font-black text-purple-700">
-                  {Math.min(Math.round((monthlyReferrals.length / 25) * 100), 100)}%
-                </span>
-              </div>
-
-              {/* Compact Rounded Progress Bar */}
-              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-purple-100/70 p-0.5">
-                <div
-                  className="h-full rounded-full bg-linear-to-r from-purple-500 to-indigo-600 transition-all duration-500"
-                  style={{
-                    width: `${Math.min(
-                      Math.round((monthlyReferrals.length / 25) * 100),
-                      100,
-                    )}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Monthly Commission Insight */}
-            <div className="rounded-xl border border-purple-100/90 bg-linear-to-br from-purple-50/70 via-white to-violet-50/40 p-2 xs:p-2.5 shadow-2xs min-w-0">
-              <div className="flex items-center gap-1.5">
-                <div className="flex h-4.5 w-4.5 xs:h-5 xs:w-5 shrink-0 items-center justify-center rounded-md border border-purple-100 bg-purple-100 text-purple-700">
-                  <Wallet size={10} className="xs:h-2.5 xs:w-2.5" />
-                </div>
-                <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-purple-900 truncate">
-                  Komisi Bulan Ini
-                </p>
-              </div>
-
-              {isInitialLoading ? (
-                <div className="h-5 xs:h-6 w-24 xs:w-28 rounded bg-purple-200/50 animate-pulse mt-1" />
-              ) : (
-                <p className="mt-1 truncate text-xs xs:text-sm sm:text-base font-black text-purple-950">
-                  {formatRupiah(monthlyReferralCommission)}
-                </p>
-              )}
-
-              <p className="mt-0.5 text-[9px] xs:text-[10px] leading-tight text-slate-500">
-                Otomatis masuk ke <strong className="font-bold text-slate-700">Saldo DaPay</strong> dari transaksi mitra.
+            {/* Referral Link & Copy Container */}
+            <div className="mt-2.5 xs:mt-3 border-t border-slate-100 pt-2 xs:pt-2.5 min-w-0">
+              <p className="mb-1 text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                Tautan Referral Anda
               </p>
+              <div className="flex items-center gap-1 xs:gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50 p-1 shadow-2xs min-w-0">
+                <code className="min-w-0 flex-1 truncate px-1.5 xs:px-2 font-mono text-[9px] xs:text-[10px] font-semibold text-slate-700">
+                  {referralLink || "Link belum tersedia"}
+                </code>
+
+                <button
+                  type="button"
+                  onClick={copyReferralLink}
+                  disabled={!referralLink}
+                  className="inline-flex h-6.5 xs:h-7 shrink-0 items-center justify-center gap-1 rounded-lg bg-purple-600 px-2 xs:px-2.5 text-[10px] xs:text-[11px] font-bold text-white transition hover:bg-purple-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
+                >
+                  <Copy size={10} className="xs:h-2.5 xs:w-2.5" />
+                  <span>Salin</span>
+                </button>
+              </div>
             </div>
           </div>
-
-          {/* Referral Link & Copy Container */}
-          <div className="mt-2.5 xs:mt-3 border-t border-slate-100 pt-2 xs:pt-2.5 min-w-0">
-            <p className="mb-1 text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-slate-400">
-              Tautan Referral Anda
-            </p>
-            <div className="flex items-center gap-1 xs:gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50 p-1 shadow-2xs min-w-0">
-              <code className="min-w-0 flex-1 truncate px-1.5 xs:px-2 font-mono text-[9px] xs:text-[10px] font-semibold text-slate-700">
-                {referralLink || "Link belum tersedia"}
-              </code>
-
-              <button
-                type="button"
-                onClick={copyReferralLink}
-                disabled={!referralLink}
-                className="inline-flex h-6.5 xs:h-7 shrink-0 items-center justify-center gap-1 rounded-lg bg-purple-600 px-2 xs:px-2.5 text-[10px] xs:text-[11px] font-bold text-white transition hover:bg-purple-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
-              >
-                <Copy size={10} className="xs:h-2.5 xs:w-2.5" />
-                <span>Salin</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        )}
       </section>
     </main>
   );
@@ -2326,24 +2508,28 @@ function DashboardShell({
 
         <main className="min-w-0 flex-1 px-2.5 xs:px-4 pb-28 pt-3 sm:pt-4 sm:px-6 md:pb-8 lg:px-8 xl:px-10">
           <div className="mx-auto w-full max-w-330">
+
+            {/* ====================================================== */}
+            {/* PRIMARY PAGE-LEVEL SANDBOX BANNER                      */}
+            {/* ====================================================== */}
             {isSandboxMode && (
-              <div className="mb-3 sm:mb-4 flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl border border-amber-300 bg-linear-to-r from-amber-50 via-orange-50 to-amber-100/70 p-2.5 sm:px-4 sm:py-3 text-xs shadow-2xs backdrop-blur-md animate-in fade-in duration-200">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="mb-3 sm:mb-4 flex items-center justify-between gap-2.5 rounded-xl sm:rounded-2xl border border-amber-300/80 bg-linear-to-r from-amber-50 via-orange-50/70 to-amber-100/70 p-2.5 sm:px-4 sm:py-3 text-xs shadow-2xs backdrop-blur-md animate-in fade-in duration-200">
+                <div className="flex items-center gap-2 xs:gap-2.5 min-w-0">
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/90 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-950 border border-amber-300 shrink-0">
                     <FlaskConical size={11} className="text-amber-700" />
                     SANDBOX • SIMULASI
                   </span>
                   <p className="truncate text-[11px] font-semibold text-amber-900 hidden sm:inline">
-                    Workspace Simulasi Aktif — Transaksi & saldo bersifat virtual (bebas risiko modal riil).
+                    Workspace Simulasi Aktif — Transaksi &amp; saldo bersifat virtual (bebas risiko modal riil).
                   </p>
                 </div>
                 {onExitSandbox && (
                   <button
                     type="button"
                     onClick={onExitSandbox}
-                    className="shrink-0 rounded-lg sm:rounded-xl border border-amber-400/60 bg-white px-2.5 py-1.5 text-[10.5px] font-bold text-amber-950 shadow-2xs hover:bg-amber-50 active:scale-95 transition cursor-pointer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-amber-500/80 bg-linear-to-r from-amber-500 to-orange-500 px-2.5 xs:px-3 py-1.5 text-[10.5px] font-bold text-white shadow-2xs hover:from-amber-600 hover:to-orange-600 active:scale-95 transition cursor-pointer shrink-0"
                   >
-                    Kembali ke LIVE →
+                    <span>Kembali ke LIVE →</span>
                   </button>
                 )}
               </div>

@@ -86,7 +86,7 @@ export default function SandboxTopBanner() {
     }
   };
 
-  if (!mounted || !isActive || pathname?.startsWith("/admin")) return null;
+  if (!mounted || !isActive || pathname?.startsWith("/admin") || pathname?.startsWith("/user")) return null;
 
   return (
     <div className="bg-linear-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-xs font-semibold px-4 py-2 shadow-md sticky top-0 z-9999 flex flex-wrap items-center justify-between gap-3 border-b border-amber-400/40 animate-in slide-in-from-top duration-300">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -35,6 +35,7 @@ type SidebarProps = {
   setActiveMenu: (menu: string) => void;
   isSidebarExpanded?: boolean;
   setIsSidebarExpanded?: React.Dispatch<React.SetStateAction<boolean>>;
+  isSandboxMode?: boolean;
 };
 
 type SubMenuItem = {
@@ -148,6 +149,7 @@ export default function UserSidebar({
   setActiveMenu,
   isSidebarExpanded,
   setIsSidebarExpanded,
+  isSandboxMode = false,
 }: SidebarProps) {
   void balance;
   void userName;
@@ -204,6 +206,23 @@ export default function UserSidebar({
       document.body.style.overflow = "";
     };
   }, [isMobileOpen]);
+
+  const menuGroups = useMemo(() => {
+    return MENU_GROUPS.map((group) => {
+      if (group.label === "Overview") {
+        const items = [...group.items];
+        if (isSandboxMode) {
+          items.push({
+            id: "catalog",
+            label: "Katalog Simulasi",
+            icon: ShoppingBag,
+          });
+        }
+        return { ...group, items };
+      }
+      return group;
+    });
+  }, [isSandboxMode]);
 
   const [expandedMenus, setExpandedMenus] = useState<string[]>(() => {
     return activeMenu.startsWith("settings") ? ["settings"] : [];
@@ -370,7 +389,7 @@ export default function UserSidebar({
           className="custom-scrollbar flex-1 overflow-y-auto px-2.5 py-2.5 md:px-3 md:py-4"
           aria-label="Navigasi member"
         >
-          {MENU_GROUPS.map((group) => (
+          {menuGroups.map((group) => (
             <section
               key={group.label}
               className="mb-2.5 md:mb-5 last:mb-0"
