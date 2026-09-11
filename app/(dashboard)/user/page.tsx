@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Copy,
   CreditCard,
+  FlaskConical,
   Gift,
   History,
   Loader2,
@@ -30,6 +31,14 @@ import {
   X,
 } from "lucide-react";
 import DaPayCoin from "@/components/dapay/DaPayCoin";
+import SandboxCatalogView from "@/components/sandbox/SandboxCatalogView";
+import {
+  fetchTesterSessionDeduplicated,
+  getCachedSandboxSession,
+  setCachedSandboxSession,
+  broadcastSandboxSync,
+  type SandboxSessionData,
+} from "@/components/sandbox/SandboxSessionControl";
 import UserSidebar from "./components/UserSidebar";
 import UserBottomNav from "./components/UserBottomNav";
 
@@ -538,6 +547,7 @@ function buildSvgSparkline(
 
 const VALID_USER_TABS: Record<string, string> = {
   overview: "overview",
+  catalog: "catalog",
   orders: "orders",
   wallet: "wallet",
   deposit: "deposit",
@@ -613,6 +623,135 @@ function UserDashboardContent() {
     useState("");
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
+
+  /* ---------------------------------------------------------------- */
+  /* SANDBOX WORKSPACE MODE                                           */
+  /* ---------------------------------------------------------------- */
+
+  const [sandboxSession, setSandboxSession] = useState<SandboxSessionData | null>(
+    () => getCachedSandboxSession()
+  );
+
+  const syncSandboxSession = useCallback(async (force = false) => {
+    const session = await fetchTesterSessionDeduplicated(force);
+    setSandboxSession(session);
+  }, []);
+
+  useEffect(() => {
+    void syncSandboxSession(true);
+    const handleSync = () => { void syncSandboxSession(true); };
+    window.addEventListener("sandboxSessionChanged", handleSync);
+    window.addEventListener("storage", handleSync);
+    return () => {
+      window.removeEventListener("sandboxSessionChanged", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
+  }, [syncSandboxSession]);
+
+  const isSandboxMode = Boolean(
+    sandboxSession?.sandboxAccessState === "ACTIVE" && sandboxSession?.isSandboxActive
+  );
+
+  /* ---------------------------------------------------------------- */
+  /* SANDBOX MEANINGFUL ACTIVITY DISPATCHER                           */
+  /* ---------------------------------------------------------------- */
+
+  const lastActivitySignalRef = useRef<Record<string, number>>({});
+
+  const emitSandboxActivity = useCallback(
+    (action: "catalog_view" | "margin_view" | "order_review") => {
+      if (!isSandboxMode) return;
+
+      const now = Date.now();
+      const lastSent = lastActivitySignalRef.current[action] || 0;
+      // 30-second client-side cooldown to reduce duplicate requests
+      if (now - lastSent < 30_000) return;
+      lastActivitySignalRef.current[action] = now;
+
+      // Fire-and-forget: never block UX or navigation
+      (async () => {
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+          };
+          if (session?.access_token) {
+            headers["Authorization"] = "Bearer " + session.access_token;
+          }
+          await fetch("/api/tester/activity", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ action }),
+          });
+        } catch {
+          // Silently ignore network failures; server throttle remains authoritative
+        }
+      })();
+    },
+    [isSandboxMode]
+  );
+
+  // Track explicit user tab switching in Sandbox mode
+  // Does NOT fire on generic mount/render because prevSandboxMenuRef initializes to activeMenu
+  const prevSandboxMenuRef = useRef<string>(activeMenu);
+  useEffect(() => {
+    if (isSandboxMode && activeMenu !== prevSandboxMenuRef.current) {
+      if (activeMenu === "catalog") {
+        emitSandboxActivity("catalog_view");
+      } else if (activeMenu === "orders") {
+        emitSandboxActivity("order_review");
+      }
+    }
+    prevSandboxMenuRef.current = activeMenu;
+  }, [activeMenu, isSandboxMode, emitSandboxActivity]);
+
+  const handleExitSandbox = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = "Bearer " + session.access_token;
+      }
+      await fetch("/api/tester/session", { method: "DELETE", headers });
+      const nextData: SandboxSessionData | null = sandboxSession
+        ? { ...sandboxSession, isSandboxActive: false }
+        : null;
+      setCachedSandboxSession(nextData);
+      if (nextData) broadcastSandboxSync(nextData);
+      window.dispatchEvent(new Event("sandboxSessionChanged"));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleResetSandbox = async () => {
+    if (!confirm("Reset saldo koin virtual tester ke Rp 1.000.000?")) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = "Bearer " + session.access_token;
+      }
+      const res = await fetch("/api/tester/wallet/reset", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ targetAmount: 1000000 }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        const nextData: SandboxSessionData | null = sandboxSession
+          ? { ...sandboxSession, sandboxBalance: updated.balance || 1000000 }
+          : null;
+        setCachedSandboxSession(nextData);
+        if (nextData) broadcastSandboxSync(nextData);
+        window.dispatchEvent(new Event("sandboxSessionChanged"));
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   /* ---------------------------------------------------------------- */
   /* UPGRADE                                                          */
@@ -993,6 +1132,8 @@ function UserDashboardContent() {
 
   return (
     <DashboardShell
+      isSandboxMode={isSandboxMode}
+      onExitSandbox={handleExitSandbox}
       activeMenu={activeMenu}
       userName={userData.name || "Member DaPay"}
       memberType={memberType}
@@ -1014,14 +1155,30 @@ function UserDashboardContent() {
           isSidebarExpanded={isSidebarExpanded}
           currentDomain={currentDomain}
           isInitialLoading={isInitialLoading}
+          isSandboxMode={isSandboxMode}
+          sandboxBalance={sandboxSession?.sandboxBalance ?? 1000000}
+          onResetSandbox={handleResetSandbox}
+        />
+      )}
+
+      {activeMenu === "catalog" && isSandboxMode && (
+        <SandboxCatalogView
+          isSidebarExpanded={isSidebarExpanded}
+          onMarginView={() => emitSandboxActivity("margin_view")}
         />
       )}
 
       {activeMenu === "orders" && (
         <OrdersViewUser
-          initialOrders={orders}
+          initialOrders={isSandboxMode ? [] : orders}
           isSidebarExpanded={isSidebarExpanded}
-          onRefresh={() => void fetchDashboardData(false)}
+          onRefresh={() => {
+            if (isSandboxMode) {
+              emitSandboxActivity("order_review");
+            }
+            void fetchDashboardData(false);
+          }}
+          isSandboxMode={isSandboxMode}
         />
       )}
 
@@ -1185,6 +1342,9 @@ function OverviewContent({
   isSidebarExpanded,
   currentDomain,
   isInitialLoading = false,
+  isSandboxMode = false,
+  sandboxBalance = 1000000,
+  onResetSandbox,
 }: {
   userData: {
     email: string;
@@ -1202,6 +1362,9 @@ function OverviewContent({
   isSidebarExpanded?: boolean;
   currentDomain: string;
   isInitialLoading?: boolean;
+  isSandboxMode?: boolean;
+  sandboxBalance?: number;
+  onResetSandbox?: () => void;
 }) {
   const totalReferralCommission = useMemo(() => {
     return balanceLogs
@@ -1360,6 +1523,65 @@ function OverviewContent({
         {/* ====================================================== */}
         {/* SALDO DAYAP (Modern Glassmorphism Multi-Device)       */}
         {/* ====================================================== */}
+        {isSandboxMode ? (
+          <div className="group relative flex h-full min-h-40 xs:min-h-[170px] sm:min-h-47.5 md:min-h-60 lg:min-h-68 xl:min-h-75 flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-3xl xl:rounded-[28px] border border-amber-400/40 bg-linear-to-br from-[#78350f]/90 via-[#92400e]/85 to-[#b45309]/90 p-2.5 xs:p-3 sm:p-4.5 md:p-5 lg:p-6 xl:p-7 text-white shadow-[0_16px_40px_rgba(180,83,9,0.22)] backdrop-blur-2xl ring-1 ring-inset ring-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(180,83,9,0.32)]">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/40 to-transparent" aria-hidden="true" />
+            <div className="pointer-events-none absolute -right-16 -top-20 h-60 w-60 rounded-full bg-linear-to-br from-amber-400/25 via-orange-400/20 to-yellow-500/20 blur-3xl" aria-hidden="true" />
+            <div className="pointer-events-none absolute -left-12 -bottom-12 h-52 w-52 rounded-full bg-amber-500/25 blur-3xl" aria-hidden="true" />
+            <div className="pointer-events-none absolute -right-3 top-1/2 -translate-y-1/2 text-white/5 opacity-50 md:opacity-100 transition-transform duration-700 group-hover:scale-105" aria-hidden="true">
+              <FlaskConical size={160} strokeWidth={1} />
+            </div>
+            <div className="relative z-10 flex h-full flex-col justify-between">
+              <div className="flex items-start justify-between gap-1 xs:gap-1.5 md:gap-3">
+                <div className="flex items-center gap-1.5 xs:gap-2 md:gap-3 min-w-0">
+                  <div className="flex h-7 w-7 xs:h-8 xs:w-8 md:h-10 md:w-10 lg:h-11 lg:w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl md:rounded-2xl border border-white/25 bg-white/15 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_20px_rgba(0,0,0,0.15)] backdrop-blur-md">
+                    <FlaskConical size={14} className="xs:h-4 xs:w-4 md:h-4.5 md:w-4.5 text-amber-300" strokeWidth={2.2} />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-[12px] xs:text-[13px] sm:text-[15px] md:text-sm lg:text-base font-bold tracking-tight text-white leading-tight truncate">
+                      Koin Virtual Sandbox
+                    </h2>
+                    <p className="hidden md:block text-[10px] lg:text-[11px] font-medium text-amber-200/80 leading-tight">
+                      Simulasi Tanpa Risiko
+                    </p>
+                  </div>
+                </div>
+                <span className={"hidden " + (!isSidebarExpanded ? "md:inline-flex" : "lg:inline-flex") + " items-center gap-1.5 rounded-full border border-amber-300/40 bg-amber-400/20 px-2 xs:px-2.5 py-0.5 text-[9px] md:text-[9.5px] font-black uppercase tracking-[0.14em] text-amber-200 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-amber-300/20 whitespace-nowrap"}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(251,191,36,0.8)]" aria-hidden="true" />
+                  Sandbox Aktif
+                </span>
+              </div>
+              <div className="my-2 xs:my-2.5 md:my-4 lg:my-5 xl:my-6">
+                <p className="text-[8.5px] xs:text-[9.5px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-[0.18em] text-amber-200/70">
+                  Saldo Koin Tersedia
+                </p>
+                <p className="mt-0.5 md:mt-1 truncate text-[13px] xs:text-[15px] sm:text-[17px] md:text-[clamp(15px,1.9vw,22px)] lg:text-2xl xl:text-3xl 2xl:text-4xl font-black tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.25)] leading-none font-mono">
+                  {formatRupiah(sandboxBalance)}
+                </p>
+              </div>
+              <div>
+                <div className={"grid grid-cols-1 " + (!isSidebarExpanded ? "md:grid-cols-2" : "lg:grid-cols-2") + " gap-1 xs:gap-1.5 md:gap-2 lg:gap-2.5 w-full"}>
+                  <Link
+                    href="/user?tab=wallet"
+                    scroll={false}
+                    className="inline-flex w-full h-6.5 xs:h-7.5 sm:h-8.5 md:h-9 lg:h-10 xl:h-10.5 items-center justify-center gap-1 xs:gap-1.5 md:gap-1.5 rounded-md xs:rounded-lg md:rounded-xl bg-white px-1.5 xs:px-2 md:px-2.5 lg:px-4 text-[10px] xs:text-[11px] md:text-xs font-bold text-amber-950 shadow-[0_4px_14px_rgba(0,0,0,0.15)] transition-all duration-200 hover:bg-amber-50 active:scale-95 cursor-pointer whitespace-nowrap"
+                  >
+                    <History size={11} className="xs:h-3 xs:w-3 md:h-3.5 md:w-3.5 shrink-0 text-amber-800" />
+                    <span className="truncate">Mutasi Sandbox</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={onResetSandbox}
+                    className="inline-flex w-full h-6.5 xs:h-7.5 sm:h-8.5 md:h-9 lg:h-10 xl:h-10.5 items-center justify-center gap-1 xs:gap-1.5 md:gap-1.5 rounded-md xs:rounded-lg md:rounded-xl border border-white/30 bg-white/15 px-1.5 xs:px-2 md:px-2.5 lg:px-4 text-[10px] xs:text-[11px] md:text-xs font-bold text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-200 hover:bg-white/25 hover:border-white/45 active:scale-95 cursor-pointer whitespace-nowrap"
+                  >
+                    <RefreshCw size={11} className="xs:h-3 xs:w-3 md:h-3.5 md:w-3.5 shrink-0" />
+                    <span className="truncate">Reset Rp 1 Juta</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
 
         <div className="group relative flex h-full min-h-40 xs:min-h-[170px] sm:min-h-47.5 md:min-h-60 lg:min-h-68 xl:min-h-75 flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-3xl xl:rounded-[28px] border border-blue-400/30 bg-linear-to-br from-[#1e3a8a]/90 via-[#1d4ed8]/85 to-[#312e81]/90 p-2.5 xs:p-3 sm:p-4.5 md:p-5 lg:p-6 xl:p-7 text-white shadow-[0_16px_40px_rgba(30,58,138,0.22)] backdrop-blur-2xl ring-1 ring-inset ring-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(30,58,138,0.32)]">
           {/* Top Specular Glare / Light Rim */}
@@ -1435,6 +1657,7 @@ function OverviewContent({
             </div>
           </div>
         </div>
+        )}
 
         {/* ====================================================== */}
         {/* KOIN DAPAY (Modern Glassmorphism Multi-Device)        */}
@@ -1799,6 +2022,33 @@ function OverviewContent({
         </div>
 
         {/* ====================================================== */}
+        {/* KATALOG PRODUK DEMO (Sandbox Mode Only)                */}
+        {/* ====================================================== */}
+        {isSandboxMode && (
+          <div className="col-span-full mt-2 sm:mt-3">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[8.5px] font-black uppercase tracking-wider text-amber-900 border border-amber-300">
+                  <FlaskConical size={10} className="text-amber-700" />
+                  SANDBOX
+                </span>
+                <h2 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
+                  Katalog Produk Demo Terkurasi
+                </h2>
+              </div>
+              <Link
+                href="/user?tab=catalog"
+                scroll={false}
+                className="text-[11px] sm:text-xs font-bold text-amber-700 hover:text-amber-800 transition flex items-center gap-1 cursor-pointer"
+              >
+                Lihat Katalog Lengkap →
+              </Link>
+            </div>
+            <SandboxCatalogView isSidebarExpanded={isSidebarExpanded} />
+          </div>
+        )}
+
+        {/* ====================================================== */}
         {/* STATISTIK AFILIASI (~30%)                              */}
         {/* ====================================================== */}
 
@@ -1949,6 +2199,8 @@ function getTimeGreeting(): string {
 
 function DashboardShell({
   children,
+  isSandboxMode = false,
+  onExitSandbox,
   activeMenu,
   userName,
   memberType,
@@ -1960,6 +2212,8 @@ function DashboardShell({
   onRefresh,
 }: {
   children: React.ReactNode;
+  isSandboxMode?: boolean;
+  onExitSandbox?: () => void;
   activeMenu: string;
   userName: string;
   memberType: "Reguler" | "Special" | "Gold" | string;
@@ -1996,6 +2250,10 @@ function DashboardShell({
   const greeting = getTimeGreeting();
 
   const PAGE_META: Record<string, { title: string; subtitle: string }> = {
+    catalog: {
+      title: "Katalog Produk Sandbox",
+      subtitle: "Katalog produk retail terkurasi untuk simulasi transaksi digital.",
+    },
     orders: {
       title: "Riwayat Transaksi",
       subtitle: "Semua transaksi digital yang pernah dilakukan.",
@@ -2056,10 +2314,33 @@ function DashboardShell({
           setActiveMenu={setActiveMenu}
           isSidebarExpanded={isSidebarExpanded}
           setIsSidebarExpanded={setIsSidebarExpanded}
+          isSandboxMode={isSandboxMode}
         />
 
         <main className="min-w-0 flex-1 px-2.5 xs:px-4 pb-28 pt-3 sm:pt-4 sm:px-6 md:pb-8 lg:px-8 xl:px-10">
           <div className="mx-auto w-full max-w-330">
+            {isSandboxMode && (
+              <div className="mb-3 sm:mb-4 flex items-center justify-between gap-2 rounded-xl sm:rounded-2xl border border-amber-300 bg-linear-to-r from-amber-50 via-orange-50 to-amber-100/70 p-2.5 sm:px-4 sm:py-3 text-xs shadow-2xs backdrop-blur-md animate-in fade-in duration-200">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/90 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-950 border border-amber-300 shrink-0">
+                    <FlaskConical size={11} className="text-amber-700" />
+                    SANDBOX • SIMULASI
+                  </span>
+                  <p className="truncate text-[11px] font-semibold text-amber-900 hidden sm:inline">
+                    Workspace Simulasi Aktif — Transaksi & saldo bersifat virtual (bebas risiko modal riil).
+                  </p>
+                </div>
+                {onExitSandbox && (
+                  <button
+                    type="button"
+                    onClick={onExitSandbox}
+                    className="shrink-0 rounded-lg sm:rounded-xl border border-amber-400/60 bg-white px-2.5 py-1.5 text-[10.5px] font-bold text-amber-950 shadow-2xs hover:bg-amber-50 active:scale-95 transition cursor-pointer"
+                  >
+                    Kembali ke LIVE →
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* ====================================================== */}
             {/* MOBILE HEADER (< 768px) — ALL WORKSPACES               */}
@@ -2154,6 +2435,12 @@ function DashboardShell({
                       <h1 className="text-sm xs:text-base font-black tracking-tight text-slate-950 leading-tight truncate">
                         <span className="text-slate-600 font-bold">{greeting}, </span>
                         <span className="text-slate-950 font-black">{firstName}!</span>
+                        {isSandboxMode && (
+                          <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[8.5px] font-black uppercase tracking-wider text-amber-800 border border-amber-300 shrink-0">
+                            <FlaskConical size={10} className="text-amber-600" />
+                            SANDBOX
+                          </span>
+                        )}
                       </h1>
                       <p className="mt-0.5 text-[9.5px] xs:text-[10.5px] font-medium text-slate-400 truncate">
                         Ringkasan saldo, transaksi, koin & aktivitas akun.

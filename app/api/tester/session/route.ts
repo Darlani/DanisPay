@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
-import { SANDBOX_SESSION_COOKIE, ensureSandboxWallet } from '@/lib/auth/tester';
+import { SANDBOX_SESSION_COOKIE, ensureSandboxWallet, lockSingleUserForInactivity } from '@/lib/auth/tester';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,7 +72,7 @@ export async function GET(req: Request) {
     const hasSandboxCookie = cookieHeader.split(';').some((cookie) => cookie.trim().startsWith(`${SANDBOX_SESSION_COOKIE}=active`));
     const [profileRes, accessRes, walletRes, requestRes] = await Promise.all([
       supabaseAdmin.from('profiles').select('is_tester, role').eq('id', user.id).maybeSingle(),
-      supabaseAdmin.from('sandbox_access').select('state').eq('user_id', user.id).maybeSingle(),
+      supabaseAdmin.from('sandbox_access').select('state, last_meaningful_activity_at, changed_at').eq('user_id', user.id).maybeSingle(),
       supabaseAdmin.from('sandbox_wallets').select('balance').eq('user_id', user.id).maybeSingle(),
       supabaseAdmin.from('sandbox_reactivation_requests').select('state').eq('user_id', user.id).eq('state', 'PENDING').maybeSingle(),
     ]);
@@ -80,20 +80,53 @@ export async function GET(req: Request) {
 
     const role = (profileRes.data?.role || '').trim().toLowerCase();
     const isStaff = role === 'admin' || role === 'manager';
-    const accessState = isStaff ? null : (accessRes.data?.state ?? null);
+    let accessState = isStaff ? null : (accessRes.data?.state ?? null);
+    let isOverdue = false;
+
+    // Lazy auto-lock evaluation: check 7-day inactivity baseline for ACTIVE customers
+    // NEVER refreshes activity timestamp; NEVER treats session polling as meaningful activity
+    if (!isStaff && accessState === 'ACTIVE' && accessRes.data?.changed_at) {
+      const changedAt = new Date(accessRes.data.changed_at).getTime();
+      const lastActivityAt = accessRes.data.last_meaningful_activity_at
+        ? new Date(accessRes.data.last_meaningful_activity_at).getTime()
+        : null;
+      const baseline = lastActivityAt ? Math.max(lastActivityAt, changedAt) : changedAt;
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+      if (Date.now() - baseline >= sevenDaysMs) {
+        await lockSingleUserForInactivity(user.id);
+        accessState = 'LOCKED';
+        isOverdue = true;
+      }
+    }
+
     const hasActiveAccess = accessState === 'ACTIVE';
+    const isSandboxActive = hasActiveAccess && hasSandboxCookie && !isOverdue;
     let sandboxBalance = hasActiveAccess ? Number(walletRes.data?.balance || 0) : 0;
     if (hasActiveAccess && !walletRes.data) sandboxBalance = (await ensureSandboxWallet(user.id)).balance;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       authenticated: true,
       userId: user.id,
       isTester: !isStaff && profileRes.data?.is_tester === true,
       sandboxAccessState: accessState,
       sandboxReactivationState: requestRes.data?.state ?? null,
-      isSandboxActive: hasActiveAccess && hasSandboxCookie,
+      isSandboxActive,
       sandboxBalance,
     });
+
+    // If overdue, clear dapay_sandbox_session cookie immediately
+    if (isOverdue && hasSandboxCookie) {
+      response.cookies.set(SANDBOX_SESSION_COOKIE, '', {
+        httpOnly: true,
+        path: '/',
+        maxAge: 0,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      });
+    }
+
+    return response;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal server error';
     return NextResponse.json({ error: message }, { status: 500 });
@@ -111,13 +144,29 @@ export async function POST(req: Request) {
 
     const [profileRes, accessRes] = await Promise.all([
       supabaseAdmin.from('profiles').select('role').eq('id', user.id).maybeSingle(),
-      supabaseAdmin.from('sandbox_access').select('state').eq('user_id', user.id).maybeSingle(),
+      supabaseAdmin.from('sandbox_access').select('state, last_meaningful_activity_at, changed_at').eq('user_id', user.id).maybeSingle(),
     ]);
     if (profileRes.error || accessRes.error || !profileRes.data) return NextResponse.json({ error: 'Tidak dapat memverifikasi akses Sandbox.' }, { status: 503 });
 
     const role = (profileRes.data.role || '').trim().toLowerCase();
     if (role === 'admin' || role === 'manager') return NextResponse.json({ error: 'Akses Ditolak: Akun Admin/Manager menggunakan Sandbox Test Center.' }, { status: 403 });
-    if (accessRes.data?.state !== 'ACTIVE') return NextResponse.json({ error: 'Akses Sandbox tidak aktif.' }, { status: 403 });
+
+    let accessState = accessRes.data?.state ?? null;
+    if (accessState === 'ACTIVE' && accessRes.data?.changed_at) {
+      const changedAt = new Date(accessRes.data.changed_at).getTime();
+      const lastActivityAt = accessRes.data.last_meaningful_activity_at
+        ? new Date(accessRes.data.last_meaningful_activity_at).getTime()
+        : null;
+      const baseline = lastActivityAt ? Math.max(lastActivityAt, changedAt) : changedAt;
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+      if (Date.now() - baseline >= sevenDaysMs) {
+        await lockSingleUserForInactivity(user.id);
+        accessState = 'LOCKED';
+      }
+    }
+
+    if (accessState !== 'ACTIVE') return NextResponse.json({ error: 'Akses Sandbox tidak aktif.', code: 'SANDBOX_ACCESS_NOT_ACTIVE' }, { status: 403 });
 
     const walletRes = await ensureSandboxWallet(user.id);
     const response = NextResponse.json({ success: true, message: 'Mode Sandbox aktif untuk sesi ini (berlaku 1 jam).', sandboxBalance: walletRes.balance, sandboxAccessState: 'ACTIVE' });

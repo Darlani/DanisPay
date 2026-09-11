@@ -50,6 +50,99 @@ export async function requireSandboxCustomerAccess(request: Request): Promise<Sa
   return { ok: true, userId: authentication.user.id, accessState: 'ACTIVE' };
 }
 
+export function hasActiveSandboxSessionCookie(req: Request): boolean {
+  const cookieHeader = req.headers.get('cookie') || '';
+  return cookieHeader
+    .split(';')
+    .some((c) => c.trim().startsWith(`${SANDBOX_SESSION_COOKIE}=active`));
+}
+
+export type TouchSandboxActivityResult =
+  | { ok: true; touched: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Touches meaningful sandbox activity for an active tester.
+ * Enforces DB-side 5-minute debounce and ACTIVE-only guard via atomic RPC.
+ * Distinguishes between legitimate throttle ({ ok: true, touched: false })
+ * and actual database/RPC error ({ ok: false, error: ... }).
+ */
+export async function touchSandboxActivity(userId: string): Promise<TouchSandboxActivityResult> {
+  try {
+    if (!userId) return { ok: false, error: 'User ID is required' };
+    const { data, error } = await supabaseAdmin.rpc('touch_sandbox_activity', {
+      p_user_id: userId,
+    });
+    if (error) {
+      console.error('⚠️ [SANDBOX_ACTIVITY] Failed to touch activity for user:', userId, error.message);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true, touched: Boolean(data) };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown activity touch error';
+    console.error('⚠️ [SANDBOX_ACTIVITY] Error touching activity for user:', userId, err);
+    return { ok: false, error: message };
+  }
+}
+
+/**
+ * Atomically locks a single active sandbox user due to inactivity.
+ * Enforces single-user isolation: strictly updates user_id = userId AND state = 'ACTIVE'.
+ * Preserves wallet, sandbox_orders, profiles.is_tester, and reactivation records.
+ * Returns true if the user was locked (or already locked), false if update failed.
+ */
+export async function lockSingleUserForInactivity(userId: string): Promise<boolean> {
+  try {
+    if (!userId) return false;
+    const { error } = await supabaseAdmin
+      .from('sandbox_access')
+      .update({
+        state: 'LOCKED',
+        changed_by: null,
+        changed_at: new Date().toISOString(),
+        reason: 'Auto-lock: 7 hari tanpa aktivitas bermakna',
+      })
+      .eq('user_id', userId)
+      .eq('state', 'ACTIVE');
+
+    if (error) {
+      console.error('❌ [SANDBOX_LAZY_AUTOLOCK] Error locking user:', userId, error.message);
+      return false;
+    }
+    return true;
+  } catch (err: unknown) {
+    console.error('❌ [SANDBOX_LAZY_AUTOLOCK] Exception locking user:', userId, err);
+    return false;
+  }
+}
+
+/**
+ * Auto-locks active sandbox users who have been inactive for >= 7 days.
+ * Calls atomic service-role-only RPC auto_lock_inactive_sandbox_users().
+ */
+export async function autoLockInactiveSandboxUsers(): Promise<{
+  lockedCount: number;
+  lockedUserIds: string[];
+}> {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('auto_lock_inactive_sandbox_users');
+    if (error) {
+      console.error('❌ [SANDBOX_AUTOLOCK] Error executing auto-lock sweep:', error.message);
+      throw new Error(`Auto-lock failed: ${error.message}`);
+    }
+    const rows = Array.isArray(data) ? data : [];
+    const lockedUserIds = rows.map((r: { user_id: string }) => r.user_id).filter(Boolean);
+    return {
+      lockedCount: lockedUserIds.length,
+      lockedUserIds,
+    };
+  } catch (err: unknown) {
+    console.error('❌ [SANDBOX_AUTOLOCK] Error during auto-lock execution:', err);
+    throw err;
+  }
+}
+
+
 export interface OrderEnvironmentResolution {
   isSandbox: boolean;
   reason:
