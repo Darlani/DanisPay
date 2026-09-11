@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { requireSandboxCustomerAccess, SANDBOX_SESSION_COOKIE, touchSandboxActivity } from '@/lib/auth/tester';
+import {
+  requireSandboxCustomerAccess,
+  SANDBOX_SESSION_COOKIE,
+  touchSandboxActivity,
+  createSandboxOrderGuarded,
+} from '@/lib/auth/tester';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 import { CURATED_SANDBOX_PRODUCTS } from '@/lib/sandbox/curated-catalog';
 import { sandboxFinancialEngine } from '@/lib/providers/sandbox/financial';
@@ -126,37 +131,42 @@ export async function POST(req: Request) {
       );
     }
 
-    // 8. Create Sandbox Order in public.sandbox_orders ONLY
+    // 8. Create Sandbox Order atomically via guarded RPC (TOCTOU Quota Protection)
     const orderId = `SIM-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-    const { data: newOrder, error: insertErr } = await supabaseAdmin
-      .from('sandbox_orders')
-      .insert({
-        order_id: orderId,
-        user_id: userId,
-        email: userEmail,
-        sku: product.sku,
-        product_name: product.name,
-        item_label: product.categoryLabel,
-        category: product.category,
-        customer_no: customerNo,
-        price: product.demoPrice,
-        total_amount: product.demoPrice,
-        used_balance: product.demoPrice,
-        buy_price: product.demoPrice,
-        payment_method: 'KOIN_SANDBOX',
-        status: 'Pending',
-        provider_used: 'SANDBOX_SIMULATOR',
-      })
-      .select('id, order_id')
-      .single();
+    const orderResult = await createSandboxOrderGuarded(userId, {
+      order_id: orderId,
+      sku: product.sku,
+      product_name: product.name,
+      item_label: product.categoryLabel,
+      category: product.category,
+      customer_no: customerNo,
+      price: product.demoPrice,
+      email: userEmail,
+    });
 
-    if (insertErr || !newOrder) {
+    if (!orderResult.allowed) {
+      return NextResponse.json(
+        {
+          error: orderResult.message || 'Batas kuota simulasi transaksi tercapai.',
+          code: orderResult.code || 'SIMULATION_QUOTA_EXCEEDED',
+          dailyUsed: orderResult.dailyUsed,
+          dailyLimit: orderResult.dailyLimit,
+          hourlyUsed: orderResult.hourlyUsed,
+          hourlyLimit: orderResult.hourlyLimit,
+        },
+        { status: 429 },
+      );
+    }
+
+    if (!orderResult.ok || !orderResult.id) {
       return NextResponse.json(
         { error: 'Gagal membuat pesanan simulasi.', code: 'ORDER_CREATION_FAILED' },
         { status: 500 },
       );
     }
+
+    const newOrder = { id: orderResult.id, order_id: orderId };
 
     // 9. Atomic Coin Debit via ACID RPC
     const paymentResult = await sandboxFinancialEngine.executeCoinPayment(orderId);

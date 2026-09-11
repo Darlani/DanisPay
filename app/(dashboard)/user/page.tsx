@@ -1158,6 +1158,7 @@ function UserDashboardContent() {
           isSandboxMode={isSandboxMode}
           sandboxBalance={sandboxSession?.sandboxBalance ?? 1000000}
           onResetSandbox={handleResetSandbox}
+          isSimulationQuotaExhausted={Boolean(sandboxSession?.quota?.isSimulationQuotaExhausted)}
         />
       )}
 
@@ -1165,6 +1166,7 @@ function UserDashboardContent() {
         <SandboxCatalogView
           isSidebarExpanded={isSidebarExpanded}
           onMarginView={() => emitSandboxActivity("margin_view")}
+          isSimulationQuotaExhausted={Boolean(sandboxSession?.quota?.isSimulationQuotaExhausted)}
         />
       )}
 
@@ -1345,6 +1347,7 @@ function OverviewContent({
   isSandboxMode = false,
   sandboxBalance = 1000000,
   onResetSandbox,
+  isSimulationQuotaExhausted = false,
 }: {
   userData: {
     email: string;
@@ -1365,6 +1368,7 @@ function OverviewContent({
   isSandboxMode?: boolean;
   sandboxBalance?: number;
   onResetSandbox?: () => void;
+  isSimulationQuotaExhausted?: boolean;
 }) {
   const totalReferralCommission = useMemo(() => {
     return balanceLogs
@@ -2044,7 +2048,10 @@ function OverviewContent({
                 Lihat Katalog Lengkap →
               </Link>
             </div>
-            <SandboxCatalogView isSidebarExpanded={isSidebarExpanded} />
+            <SandboxCatalogView
+              isSidebarExpanded={isSidebarExpanded}
+              isSimulationQuotaExhausted={isSimulationQuotaExhausted}
+            />
           </div>
         )}
 

@@ -14,6 +14,17 @@ import {
 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
 
+export interface SandboxQuotaData {
+  sessionsToday: number;
+  dailySessionLimit: number;
+  simulationsToday: number;
+  dailySimulationLimit: number;
+  simulationsHourly: number;
+  hourlySimulationBurstLimit: number;
+  isSessionQuotaExhausted: boolean;
+  isSimulationQuotaExhausted: boolean;
+}
+
 export interface SandboxSessionData {
   authenticated: boolean;
   userId?: string | null;
@@ -22,6 +33,7 @@ export interface SandboxSessionData {
   sandboxReactivationState?: 'PENDING' | null;
   isSandboxActive: boolean;
   sandboxBalance: number;
+  quota?: SandboxQuotaData | null;
 }
 
 const CACHE_KEY = "dapay_tester_session_cache";

@@ -26,6 +26,7 @@ import {
 interface SandboxCatalogViewProps {
   isSidebarExpanded?: boolean;
   onMarginView?: () => void;
+  isSimulationQuotaExhausted?: boolean;
 }
 
 interface SimulatedTransactionOutcome {
@@ -43,6 +44,7 @@ interface SimulatedTransactionOutcome {
 export default function SandboxCatalogView({
   isSidebarExpanded = true,
   onMarginView,
+  isSimulationQuotaExhausted = false,
 }: SandboxCatalogViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activeProduct, setActiveProduct] = useState<CuratedSandboxProduct | null>(null);
@@ -485,16 +487,28 @@ export default function SandboxCatalogView({
                     </div>
                   )}
 
+                  {isSimulationQuotaExhausted && (
+                    <div className="flex items-start gap-2 rounded-xl bg-amber-50 p-2.5 text-xs text-amber-900 border border-amber-200">
+                      <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                      <span className="leading-snug">Batas kuota simulasi harian Anda telah tercapai. Eksplorasi katalog tetap aktif, silakan lanjutkan transaksi besok.</span>
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     onClick={handleExecuteSimulatedTransaction}
-                    disabled={isTransacting}
+                    disabled={isTransacting || isSimulationQuotaExhausted}
                     className="w-full flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 py-3 text-xs font-black uppercase tracking-wider text-slate-950 shadow-md shadow-amber-500/25 hover:from-amber-600 hover:to-orange-600 transition cursor-pointer disabled:opacity-50"
                   >
                     {isTransacting ? (
                       <>
                         <Loader2 size={14} className="animate-spin text-slate-950" />
                         <span>Memproses Transaksi Simulasi...</span>
+                      </>
+                    ) : isSimulationQuotaExhausted ? (
+                      <>
+                        <FlaskConical size={14} />
+                        <span>Batas Kuota Tercapai (Coba Besok)</span>
                       </>
                     ) : (
                       <>

@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
-import { SANDBOX_SESSION_COOKIE, ensureSandboxWallet, lockSingleUserForInactivity } from '@/lib/auth/tester';
+import {
+  SANDBOX_SESSION_COOKIE,
+  ensureSandboxWallet,
+  lockSingleUserForInactivity,
+  getSandboxQuotaUsage,
+  recordSandboxSessionIfAllowed,
+} from '@/lib/auth/tester';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,6 +111,11 @@ export async function GET(req: Request) {
     let sandboxBalance = hasActiveAccess ? Number(walletRes.data?.balance || 0) : 0;
     if (hasActiveAccess && !walletRes.data) sandboxBalance = (await ensureSandboxWallet(user.id)).balance;
 
+    let quotaUsage = null;
+    if (hasActiveAccess) {
+      quotaUsage = await getSandboxQuotaUsage(user.id);
+    }
+
     const response = NextResponse.json({
       authenticated: true,
       userId: user.id,
@@ -113,6 +124,7 @@ export async function GET(req: Request) {
       sandboxReactivationState: requestRes.data?.state ?? null,
       isSandboxActive,
       sandboxBalance,
+      quota: quotaUsage,
     });
 
     // If overdue, clear dapay_sandbox_session cookie immediately
@@ -135,7 +147,8 @@ export async function GET(req: Request) {
 
 /**
  * POST /api/tester/session
- * Enables Sandbox session only for a verified customer with ACTIVE access.
+ * Enables Sandbox session only for a verified customer with ACTIVE access and available quota.
+ * Idempotent refresh: existing active session cookie does not consume daily session quota.
  */
 export async function POST(req: Request) {
   try {
@@ -167,6 +180,29 @@ export async function POST(req: Request) {
     }
 
     if (accessState !== 'ACTIVE') return NextResponse.json({ error: 'Akses Sandbox tidak aktif.', code: 'SANDBOX_ACCESS_NOT_ACTIVE' }, { status: 403 });
+
+    // Session quota gate:
+    // Only a NEW session activation consumes from daily session quota.
+    // If client already holds an active valid session cookie, this is an idempotent refresh.
+    const cookieHeader = req.headers.get('cookie') || '';
+    const hasSandboxCookie = cookieHeader
+      .split(';')
+      .some((cookie) => cookie.trim().startsWith(`${SANDBOX_SESSION_COOKIE}=active`));
+
+    if (!hasSandboxCookie) {
+      const quotaRes = await recordSandboxSessionIfAllowed(user.id);
+      if (!quotaRes.allowed) {
+        return NextResponse.json(
+          {
+            error: quotaRes.message || 'Batas sesi harian telah tercapai. Silakan kembali besok.',
+            code: quotaRes.code || 'SESSION_QUOTA_EXCEEDED',
+            usedToday: quotaRes.usedToday,
+            dailyLimit: quotaRes.dailyLimit,
+          },
+          { status: 429 },
+        );
+      }
+    }
 
     const walletRes = await ensureSandboxWallet(user.id);
     const response = NextResponse.json({ success: true, message: 'Mode Sandbox aktif untuk sesi ini (berlaku 1 jam).', sandboxBalance: walletRes.balance, sandboxAccessState: 'ACTIVE' });

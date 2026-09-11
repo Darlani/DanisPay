@@ -258,3 +258,156 @@ export async function ensureSandboxWallet(userId: string): Promise<{ balance: nu
     return { balance: 0, error: err instanceof Error ? err.message : "Unable to initialize Sandbox wallet." };
   }
 }
+
+/**
+ * Records a new Sandbox session if within daily session quota.
+ * Atomic RPC under sandbox_access FOR UPDATE lock.
+ */
+export async function recordSandboxSessionIfAllowed(userId: string): Promise<{
+  ok: boolean;
+  allowed: boolean;
+  code?: string;
+  message?: string;
+  usedToday?: number;
+  dailyLimit?: number;
+}> {
+  try {
+    const { dailySessionLimit } = (await import('@/lib/sandbox/quota-config')).getSandboxQuotaConfig();
+    const { data, error } = await supabaseAdmin.rpc('record_sandbox_session_if_allowed', {
+      p_user_id: userId,
+      p_daily_limit: dailySessionLimit,
+    });
+
+    if (error) {
+      console.error('❌ [SANDBOX_SESSION_QUOTA] RPC error:', error.message);
+      return { ok: false, allowed: false, message: error.message };
+    }
+
+    const res = (data as Record<string, unknown>) || {};
+    return {
+      ok: Boolean(res.success),
+      allowed: Boolean(res.allowed),
+      code: typeof res.code === 'string' ? res.code : undefined,
+      message: typeof res.message === 'string' ? res.message : undefined,
+      usedToday: typeof res.used_today === 'number' ? res.used_today : undefined,
+      dailyLimit: typeof res.daily_limit === 'number' ? res.daily_limit : dailySessionLimit,
+    };
+  } catch (err: unknown) {
+    console.error('❌ [SANDBOX_SESSION_QUOTA] Exception:', err);
+    return { ok: false, allowed: false, message: err instanceof Error ? err.message : 'Unknown session quota error' };
+  }
+}
+
+/**
+ * Atomically checks simulation quota (daily calendar day and rolling 1 hour)
+ * and inserts a pending Sandbox order in a single ACID transaction.
+ * Strict TOCTOU protection under sandbox_access FOR UPDATE lock.
+ */
+export async function createSandboxOrderGuarded(
+  userId: string,
+  orderData: Record<string, unknown>,
+): Promise<{
+  ok: boolean;
+  allowed: boolean;
+  code?: string;
+  message?: string;
+  orderId?: string;
+  id?: string;
+  dailyUsed?: number;
+  dailyLimit?: number;
+  hourlyUsed?: number;
+  hourlyLimit?: number;
+}> {
+  try {
+    const { dailySimulationLimit, hourlySimulationBurstLimit } = (await import('@/lib/sandbox/quota-config')).getSandboxQuotaConfig();
+    const { data, error } = await supabaseAdmin.rpc('create_sandbox_order_guarded', {
+      p_user_id: userId,
+      p_order_data: orderData,
+      p_daily_limit: dailySimulationLimit,
+      p_hourly_limit: hourlySimulationBurstLimit,
+    });
+
+    if (error) {
+      console.error('❌ [SANDBOX_SIMULATION_QUOTA] RPC error:', error.message);
+      return { ok: false, allowed: false, message: error.message };
+    }
+
+    const res = (data as Record<string, unknown>) || {};
+    return {
+      ok: Boolean(res.success),
+      allowed: Boolean(res.allowed),
+      code: typeof res.code === 'string' ? res.code : undefined,
+      message: typeof res.message === 'string' ? res.message : undefined,
+      orderId: typeof res.order_id === 'string' ? res.order_id : undefined,
+      id: typeof res.id === 'string' ? res.id : undefined,
+      dailyUsed: typeof res.daily_used === 'number' ? res.daily_used : undefined,
+      dailyLimit: typeof res.daily_limit === 'number' ? res.daily_limit : dailySimulationLimit,
+      hourlyUsed: typeof res.hourly_used === 'number' ? res.hourly_used : undefined,
+      hourlyLimit: typeof res.hourly_limit === 'number' ? res.hourly_limit : hourlySimulationBurstLimit,
+    };
+  } catch (err: unknown) {
+    console.error('❌ [SANDBOX_SIMULATION_QUOTA] Exception:', err);
+    return { ok: false, allowed: false, message: err instanceof Error ? err.message : 'Unknown simulation quota error' };
+  }
+}
+
+/**
+ * Fetches current user quota usage (read-only, no mutation, no lock).
+ */
+export async function getSandboxQuotaUsage(userId: string): Promise<{
+  sessionsToday: number;
+  dailySessionLimit: number;
+  simulationsToday: number;
+  dailySimulationLimit: number;
+  simulationsHourly: number;
+  hourlySimulationBurstLimit: number;
+  isSessionQuotaExhausted: boolean;
+  isSimulationQuotaExhausted: boolean;
+}> {
+  const { dailySessionLimit, dailySimulationLimit, hourlySimulationBurstLimit } = (await import('@/lib/sandbox/quota-config')).getSandboxQuotaConfig();
+  try {
+    const { data, error } = await supabaseAdmin.rpc('get_sandbox_quota_usage', {
+      p_user_id: userId,
+    });
+
+    if (error) {
+      return {
+        sessionsToday: 0,
+        dailySessionLimit,
+        simulationsToday: 0,
+        dailySimulationLimit,
+        simulationsHourly: 0,
+        hourlySimulationBurstLimit,
+        isSessionQuotaExhausted: false,
+        isSimulationQuotaExhausted: false,
+      };
+    }
+
+    const res = (data as Record<string, unknown>) || {};
+    const sessionsToday = Number(res.sessions_today || 0);
+    const simulationsToday = Number(res.simulations_today || 0);
+    const simulationsHourly = Number(res.simulations_hourly || 0);
+
+    return {
+      sessionsToday,
+      dailySessionLimit,
+      simulationsToday,
+      dailySimulationLimit,
+      simulationsHourly,
+      hourlySimulationBurstLimit,
+      isSessionQuotaExhausted: sessionsToday >= dailySessionLimit,
+      isSimulationQuotaExhausted: simulationsToday >= dailySimulationLimit || simulationsHourly >= hourlySimulationBurstLimit,
+    };
+  } catch {
+    return {
+      sessionsToday: 0,
+      dailySessionLimit,
+      simulationsToday: 0,
+      dailySimulationLimit,
+      simulationsHourly: 0,
+      hourlySimulationBurstLimit,
+      isSessionQuotaExhausted: false,
+      isSimulationQuotaExhausted: false,
+    };
+  }
+}
