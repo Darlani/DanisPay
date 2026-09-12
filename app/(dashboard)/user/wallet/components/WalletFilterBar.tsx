@@ -19,6 +19,7 @@ interface WalletFilterBarProps {
   onFilterChange: (updates: Partial<WalletFilters>) => void;
   onReset: () => void;
   isSidebarExpanded?: boolean;
+  isSandboxMode?: boolean;
 }
 
 export default function WalletFilterBar({
@@ -27,6 +28,7 @@ export default function WalletFilterBar({
   onFilterChange,
   onReset,
   isSidebarExpanded = false,
+  isSandboxMode = false,
 }: WalletFilterBarProps) {
   const desktopDateInputRef = useRef<HTMLInputElement>(null);
   const mobileDateInputRef = useRef<HTMLInputElement>(null);
@@ -122,7 +124,7 @@ export default function WalletFilterBar({
             }`}
           >
             <CircleDollarSign size={13} />
-            <span>Saldo</span>
+            <span>{isSandboxMode ? "Saldo Virtual" : "Saldo"}</span>
           </button>
           <button
             type="button"
@@ -134,7 +136,7 @@ export default function WalletFilterBar({
             }`}
           >
             <Coins size={13} />
-            <span>Koin</span>
+            <span>{isSandboxMode ? "Koin Sandbox" : "Koin"}</span>
           </button>
         </div>
 
@@ -292,7 +294,7 @@ export default function WalletFilterBar({
                 }`}
               >
                 <CircleDollarSign size={12} />
-                <span>Saldo</span>
+                <span>{isSandboxMode ? "Saldo Virtual" : "Saldo"}</span>
               </button>
               <button
                 type="button"
@@ -304,7 +306,7 @@ export default function WalletFilterBar({
                 }`}
               >
                 <Coins size={12} />
-                <span>Koin</span>
+                <span>{isSandboxMode ? "Koin Sandbox" : "Koin"}</span>
               </button>
             </div>
           ) : (
@@ -326,8 +328,8 @@ export default function WalletFilterBar({
                 }`}
               >
                 <option value="Semua">Semua</option>
-                <option value="Saldo">Saldo</option>
-                <option value="Koin">Koin</option>
+                <option value="Saldo">{isSandboxMode ? "Saldo Virtual" : "Saldo"}</option>
+                <option value="Koin">{isSandboxMode ? "Koin Sandbox" : "Koin"}</option>
               </select>
               <ChevronDown
                 size={12}
@@ -519,8 +521,8 @@ export default function WalletFilterBar({
               }`}
             >
               <option value="Semua">Semua</option>
-              <option value="Saldo">Saldo</option>
-              <option value="Koin">Koin</option>
+              <option value="Saldo">{isSandboxMode ? "Saldo Virtual" : "Saldo"}</option>
+              <option value="Koin">{isSandboxMode ? "Koin Sandbox" : "Koin"}</option>
             </select>
           </div>
 

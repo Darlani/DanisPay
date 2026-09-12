@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/utils/supabaseAdmin';
 export interface SandboxRewardsResult {
   success: boolean;
   orderId: string;
+  simulatedMemberType?: 'regular' | 'special';
   cashbackAwarded: number;
   welcomeBonusAwarded: number;
   referralCommissionAwarded: number;
@@ -14,7 +15,9 @@ export interface SandboxPaymentResult {
   success: boolean;
   orderId: string;
   debitedAmount: number;
+  assetType?: 'balance' | 'coin';
   remainingBalance: number;
+  remainingCoin?: number;
   alreadyPaid?: boolean;
   message: string;
 }
@@ -23,6 +26,9 @@ export interface SandboxRefundResult {
   success: boolean;
   orderId: string;
   refundedAmount: number;
+  assetType?: 'balance' | 'coin';
+  remainingBalance?: number;
+  remainingCoin?: number;
   alreadyRefunded?: boolean;
   message: string;
 }
@@ -82,7 +88,9 @@ export class SandboxFinancialEngine {
         success: Boolean(res.success),
         orderId: String(res.order_id || orderIdentifier),
         debitedAmount: Number(res.debited_amount || 0),
+        assetType: (res.asset_type as 'balance' | 'coin') || 'balance',
         remainingBalance: Number(res.remaining_balance || 0),
+        remainingCoin: Number(res.remaining_coin || 0),
         alreadyPaid: Boolean(res.already_paid),
         message: String(res.message || (res.success ? 'Payment berhasil' : res.error || 'Payment gagal'))
       };
@@ -124,6 +132,7 @@ export class SandboxFinancialEngine {
       return {
         success: Boolean(res.success),
         orderId: String(res.order_id || orderIdentifier),
+        simulatedMemberType: (res.simulated_member_type as 'regular' | 'special') || 'regular',
         cashbackAwarded: Number(res.cashback_awarded || 0),
         welcomeBonusAwarded: Number(res.welcome_bonus_awarded || 0),
         referralCommissionAwarded: Number(res.referral_commission_awarded || 0),
@@ -167,6 +176,9 @@ export class SandboxFinancialEngine {
         success: Boolean(res.success),
         orderId: String(res.order_id || orderIdentifier),
         refundedAmount: Number(res.refunded_amount || 0),
+        assetType: (res.asset_type as 'balance' | 'coin') || 'balance',
+        remainingBalance: Number(res.remaining_balance || 0),
+        remainingCoin: Number(res.remaining_coin || 0),
         alreadyRefunded: Boolean(res.already_refunded),
         message: String(res.message || (res.success ? 'Refund berhasil diproses' : res.error || 'Refund gagal'))
       };

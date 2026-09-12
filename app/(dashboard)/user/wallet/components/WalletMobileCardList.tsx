@@ -21,12 +21,14 @@ interface WalletMobileCardListProps {
   entries: WalletEntry[];
   onSelectEntry: (entry: WalletEntry) => void;
   onCopy: (text: string, label: string) => void;
+  isSandboxMode?: boolean;
 }
 
 export default function WalletMobileCardList({
   entries,
   onSelectEntry,
   onCopy,
+  isSandboxMode = false,
 }: WalletMobileCardListProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -90,7 +92,11 @@ export default function WalletMobileCardList({
                     </span>
                     {isCoin ? (
                       <span className="rounded-md bg-violet-100 px-1.5 py-0.5 text-[8px] font-extrabold text-violet-700">
-                        KOIN
+                        {isSandboxMode ? "KOIN SANDBOX" : "KOIN"}
+                      </span>
+                    ) : isSandboxMode ? (
+                      <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[8px] font-extrabold text-amber-800">
+                        SALDO VIRTUAL
                       </span>
                     ) : (
                       <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[8px] font-extrabold text-blue-700">

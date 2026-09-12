@@ -4,6 +4,8 @@ import {
   SANDBOX_SESSION_COOKIE,
   touchSandboxActivity,
   createSandboxOrderGuarded,
+  getSandboxSimulatedMemberType,
+  setSandboxSimulatedMemberType,
 } from '@/lib/auth/tester';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 import { CURATED_SANDBOX_PRODUCTS } from '@/lib/sandbox/curated-catalog';
@@ -56,10 +58,16 @@ export async function POST(req: Request) {
       'total' in body ||
       'total_amount' in body ||
       'userId' in body ||
-      'user_id' in body
+      'user_id' in body ||
+      'buy_price' in body ||
+      'cashback' in body ||
+      'referred_by' in body ||
+      'member_type' in body ||
+      'used_balance' in body ||
+      'used_coin' in body
     ) {
       return NextResponse.json(
-        { error: 'Permintaan tidak boleh memuat harga atau identitas pengguna.', code: 'FORBIDDEN_PAYLOAD_FIELDS' },
+        { error: 'Permintaan tidak boleh memuat harga, komisi, saldo, atau identitas pengguna.', code: 'FORBIDDEN_PAYLOAD_FIELDS' },
         { status: 400 },
       );
     }
@@ -111,6 +119,16 @@ export async function POST(req: Request) {
       );
     }
 
+    // Optional Sandbox persona switch ('regular' | 'special')
+    if (typeof body.simulatedMemberType === 'string') {
+      const requested = body.simulatedMemberType.toLowerCase().trim();
+      if (requested === 'regular' || requested === 'special') {
+        await setSandboxSimulatedMemberType(userId, requested);
+      }
+    }
+    const simMemberType = await getSandboxSimulatedMemberType(userId);
+    const calculatedCashback = simMemberType === 'special' ? (product.cashback ?? 0) : 0;
+
     // 7. Verify Sandbox wallet balance before creating order
     const { data: wallet } = await supabaseAdmin
       .from('sandbox_wallets')
@@ -122,7 +140,7 @@ export async function POST(req: Request) {
     if (!wallet || currentBalance < product.demoPrice) {
       return NextResponse.json(
         {
-          error: 'Saldo koin virtual tidak mencukupi untuk simulasi ini.',
+          error: 'Saldo virtual sandbox tidak mencukupi untuk simulasi ini.',
           code: 'INSUFFICIENT_SANDBOX_BALANCE',
           availableBalance: currentBalance,
           requiredAmount: product.demoPrice,
@@ -142,6 +160,10 @@ export async function POST(req: Request) {
       category: product.category,
       customer_no: customerNo,
       price: product.demoPrice,
+      buy_price: product.buyPrice,
+      cashback: calculatedCashback,
+      used_balance: product.demoPrice,
+      used_coin: 0,
       email: userEmail,
     });
 
@@ -168,7 +190,7 @@ export async function POST(req: Request) {
 
     const newOrder = { id: orderResult.id, order_id: orderId };
 
-    // 9. Atomic Coin Debit via ACID RPC
+    // 9. Atomic Coin/Balance Debit via ACID RPC
     const paymentResult = await sandboxFinancialEngine.executeCoinPayment(orderId);
     if (!paymentResult.success) {
       // If debit failed (e.g. concurrent balance race), mark order Gagal
@@ -179,7 +201,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json(
         {
-          error: paymentResult.message || 'Pembayaran koin sandbox gagal.',
+          error: paymentResult.message || 'Pembayaran saldo sandbox gagal.',
           code: 'PAYMENT_FAILED',
         },
         { status: 400 },
@@ -216,6 +238,13 @@ export async function POST(req: Request) {
       await touchSandboxActivity(userId);
     }
 
+    // Fetch latest sandbox wallet state
+    const { data: latestWallet } = await supabaseAdmin
+      .from('sandbox_wallets')
+      .select('balance, coin_balance')
+      .eq('user_id', userId)
+      .maybeSingle();
+
     return NextResponse.json({
       success: true,
       status: resolution.finalStatus,
@@ -223,7 +252,10 @@ export async function POST(req: Request) {
       productName: product.name,
       customerNo,
       amount: product.demoPrice,
-      remainingBalance: paymentResult.remainingBalance,
+      cashbackAwarded: resolution.finalStatus === 'Berhasil' ? calculatedCashback : 0,
+      simulatedMemberType: simMemberType,
+      remainingBalance: Number(latestWallet?.balance ?? paymentResult.remainingBalance),
+      remainingCoin: Number(latestWallet?.coin_balance ?? 0),
       sn: resolution.sn || null,
       message:
         resolution.finalStatus === 'Berhasil'

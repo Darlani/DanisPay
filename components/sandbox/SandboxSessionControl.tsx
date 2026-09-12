@@ -33,6 +33,8 @@ export interface SandboxSessionData {
   sandboxReactivationState?: 'PENDING' | null;
   isSandboxActive: boolean;
   sandboxBalance: number;
+  sandboxCoinBalance?: number;
+  simulatedMemberType?: 'regular' | 'special';
   quota?: SandboxQuotaData | null;
 }
 
@@ -57,7 +59,7 @@ export async function fetchTesterSessionDeduplicated(force = false): Promise<San
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
-      const res = await fetch("/api/tester/session", { headers });
+      const res = await fetch("/api/tester/session", { headers, credentials: "include" });
       if (res.ok) {
         const json = (await res.json()) as SandboxSessionData;
         setCachedSandboxSession(json);
@@ -246,7 +248,7 @@ export default function SandboxSessionControl({
   };
 
   const handleResetWallet = async () => {
-    if (!confirm("Reset saldo koin virtual tester ke Rp 1.000.000?")) return;
+    if (!confirm("Reset saldo virtual sandbox ke Rp 1.000.000?")) return;
     setIsLoading(true);
     setActionError(null);
     try {
@@ -263,7 +265,7 @@ export default function SandboxSessionControl({
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Gagal mereset koin sandbox.");
+        throw new Error(err.error || "Gagal mereset saldo virtual sandbox.");
       }
       const updated = await res.json();
       const nextData: SandboxSessionData = {
@@ -276,7 +278,7 @@ export default function SandboxSessionControl({
       window.dispatchEvent(new Event("sandboxSessionChanged"));
     } catch (err: unknown) {
       setActionError(
-        err instanceof Error ? err.message : "Gagal mereset koin sandbox."
+        err instanceof Error ? err.message : "Gagal mereset saldo virtual sandbox."
       );
     } finally {
       setIsLoading(false);
@@ -335,10 +337,17 @@ export default function SandboxSessionControl({
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] mb-2">
-            <span className="text-slate-400">Koin Virtual:</span>
+          <div className="flex items-center justify-between text-[11px] mb-1">
+            <span className="text-slate-400">Saldo Virtual:</span>
             <span className="font-bold text-amber-300 font-mono">
               Rp {data.sandboxBalance.toLocaleString("id-ID")}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] mb-2">
+            <span className="text-slate-400">Koin Sandbox:</span>
+            <span className="font-bold text-violet-300 font-mono">
+              {(data.sandboxCoinBalance || 0).toLocaleString("id-ID")} KOIN
             </span>
           </div>
 
@@ -437,11 +446,27 @@ export default function SandboxSessionControl({
                 )}
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                <span className="text-slate-400">Saldo Koin Virtual:</span>
-                <span className="font-extrabold text-amber-300 font-mono text-sm">
-                  Rp {data.sandboxBalance.toLocaleString("id-ID")}
-                </span>
+              <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Saldo Virtual:</span>
+                  <span className="font-extrabold text-amber-300 font-mono text-sm">
+                    Rp {data.sandboxBalance.toLocaleString("id-ID")}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Koin Sandbox:</span>
+                  <span className="font-extrabold text-violet-300 font-mono text-sm">
+                    {(data.sandboxCoinBalance || 0).toLocaleString("id-ID")} KOIN
+                  </span>
+                </div>
+                {data.simulatedMemberType && (
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-800/40 text-[11px]">
+                    <span className="text-slate-400">Simulasi Persona:</span>
+                    <span className="font-bold text-amber-200 uppercase tracking-wide">
+                      Member {data.simulatedMemberType === "special" ? "Spesial" : "Reguler"}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -489,7 +514,7 @@ export default function SandboxSessionControl({
                     className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 py-2.5 text-xs font-semibold transition border border-white/10 cursor-pointer disabled:opacity-50"
                   >
                     <RotateCcw size={13} />
-                    Reset Koin Tester ke Rp 1.000.000
+                    Reset Saldo Virtual ke Rp 1.000.000
                   </button>
                 </>
               ) : (

@@ -210,35 +210,41 @@ export async function resolveOrderEnvironment(
  * Ensures a sandbox wallet exists for the specified tester.
  * Automatically initializes with 1,000,000 coins if not present.
  */
-export async function ensureSandboxWallet(userId: string): Promise<{ balance: number; error: string | null }> {
+export async function ensureSandboxWallet(userId: string): Promise<{ balance: number; coinBalance: number; error: string | null }> {
   try {
     const { data: existing, error: fetchErr } = await supabaseAdmin
       .from('sandbox_wallets')
-      .select('balance')
+      .select('balance, coin_balance')
       .eq('user_id', userId)
       .maybeSingle();
 
     if (fetchErr) {
-      return { balance: 0, error: fetchErr.message };
+      return { balance: 0, coinBalance: 0, error: fetchErr.message };
     }
 
     if (existing) {
-      return { balance: Number(existing.balance), error: null };
+      return {
+        balance: Number(existing.balance || 0),
+        coinBalance: Number(existing.coin_balance || 0),
+        error: null,
+      };
     }
 
-    // Initialize with 1,000,000
+    // Initialize with 1,000,000 balance and 0 coin_balance
     const initialBalance = 1000000;
-    const { error: insertErr } = await supabaseAdmin
+    const initialCoinBalance = 0;
+    const { data: inserted, error: insertErr } = await supabaseAdmin
       .from('sandbox_wallets')
       .insert({
         user_id: userId,
-        balance: initialBalance
+        balance: initialBalance,
+        coin_balance: initialCoinBalance,
       })
-      .select('balance')
+      .select('balance, coin_balance')
       .single();
 
     if (insertErr) {
-      return { balance: 0, error: insertErr.message };
+      return { balance: 0, coinBalance: 0, error: insertErr.message };
     }
 
     // Log initial grant
@@ -248,14 +254,64 @@ export async function ensureSandboxWallet(userId: string): Promise<{ balance: nu
         user_id: userId,
         amount: initialBalance,
         type: 'Bonus',
-        description: 'Modal awal koin virtual sandbox',
+        asset_type: 'balance',
+        description: 'Modal awal saldo virtual sandbox',
         initial_balance: 0,
-        final_balance: initialBalance
+        final_balance: initialBalance,
       });
 
-    return { balance: initialBalance, error: null };
+    return {
+      balance: Number(inserted?.balance ?? initialBalance),
+      coinBalance: Number(inserted?.coin_balance ?? initialCoinBalance),
+      error: null,
+    };
   } catch (err: unknown) {
-    return { balance: 0, error: err instanceof Error ? err.message : "Unable to initialize Sandbox wallet." };
+    return {
+      balance: 0,
+      coinBalance: 0,
+      error: err instanceof Error ? err.message : "Unable to initialize Sandbox wallet.",
+    };
+  }
+}
+
+/**
+ * Gets effective Sandbox simulation persona ('regular' | 'special').
+ * Strictly scoped to sandbox_access; NEVER reads or alters LIVE profiles.member_type.
+ */
+export async function getSandboxSimulatedMemberType(userId: string): Promise<'regular' | 'special'> {
+  try {
+    const { data } = await supabaseAdmin
+      .from('sandbox_access')
+      .select('simulated_member_type')
+      .eq('user_id', userId)
+      .maybeSingle();
+    return data?.simulated_member_type === 'special' ? 'special' : 'regular';
+  } catch {
+    return 'regular';
+  }
+}
+
+/**
+ * Updates effective Sandbox simulation persona ('regular' | 'special').
+ * Strictly scoped to sandbox_access; NEVER alters LIVE profiles.member_type.
+ */
+export async function setSandboxSimulatedMemberType(
+  userId: string,
+  memberType: 'regular' | 'special',
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    if (memberType !== 'regular' && memberType !== 'special') {
+      return { ok: false, error: 'Persona simulasi tidak sah. Hanya Regular atau Special yang diizinkan.' };
+    }
+    const { error } = await supabaseAdmin
+      .from('sandbox_access')
+      .update({ simulated_member_type: memberType, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('state', 'ACTIVE');
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Gagal memperbarui persona simulasi.' };
   }
 }
 

@@ -69,4 +69,4 @@ repomix-output.txt
 # Local scripts / experiments
 /scripts/
 /gas.bat
-/checkpoint.bat
+/cp.bat

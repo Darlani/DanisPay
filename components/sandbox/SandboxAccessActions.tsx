@@ -165,7 +165,7 @@ export default function SandboxAccessActions() {
               </span>
             </div>
             <span className="mt-1 block text-[10px] font-normal text-amber-800/80 leading-tight">
-              Pelajari transaksi digital dengan saldo koin virtual.
+              Pelajari transaksi digital dengan saldo virtual sandbox.
             </span>
           </button>
 
@@ -194,7 +194,7 @@ export default function SandboxAccessActions() {
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-700 border border-slate-100 mb-3.5">
                   <div className="flex items-start gap-2">
                     <CheckCircle2 size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Dapatkan Rp 1.000.000 saldo koin virtual secara gratis.</span>
+                    <span>Dapatkan Rp 1.000.000 saldo virtual sandbox secara gratis.</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 size={14} className="text-emerald-500 shrink-0 mt-0.5" />
@@ -297,14 +297,14 @@ export default function SandboxAccessActions() {
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-bold text-amber-950 flex items-center gap-1">
                   <Sparkles size={13} className="text-amber-600" />
-                  Saldo Koin Virtual Diberikan
+                  Saldo Virtual Sandbox Diberikan
                 </span>
                 <span className="font-extrabold font-mono text-amber-800 text-sm">
                   Rp 1.000.000
                 </span>
               </div>
               <p className="text-[11px] text-amber-900/80 leading-relaxed">
-                Koin virtual disediakan untuk mencoba simulasi transaksi. Saldo ini sepenuhnya virtual, tidak dapat dicairkan (<span className="font-semibold">non-withdrawable</span>), dan tidak dapat dipindahkan ke saldo riil.
+                Saldo virtual disediakan untuk mencoba simulasi transaksi. Saldo ini sepenuhnya virtual, tidak dapat dicairkan (<span className="font-semibold">non-withdrawable</span>), dan tidak dapat dipindahkan ke saldo riil.
               </p>
             </div>
 
@@ -325,7 +325,7 @@ export default function SandboxAccessActions() {
               <div className="flex items-start gap-2.5">
                 <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
                 <span className="leading-snug">
-                  <strong className="text-slate-900">Terisolasi Sempurna:</strong> Mutasi koin dan pesanan simulasi terpisah dari pembukuan riil.
+                  <strong className="text-slate-900">Terisolasi Sempurna:</strong> Mutasi saldo virtual dan pesanan simulasi terpisah dari pembukuan riil.
                 </span>
               </div>
             </div>

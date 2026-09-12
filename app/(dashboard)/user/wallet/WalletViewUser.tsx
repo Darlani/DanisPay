@@ -127,6 +127,7 @@ export default function WalletViewUser({
   // ================================================================== //
   const walletMode: "live" | "sandbox" = isSandboxMode ? "sandbox" : "live";
   const [sandboxBalance, setSandboxBalance] = useState<number>(1000000);
+  const [sandboxCoinBalance, setSandboxCoinBalance] = useState<number>(0);
   const [sandboxLogs, setSandboxLogs] = useState<BalanceLog[]>([]);
   const [sandboxLoading, setSandboxLoading] = useState<boolean>(false);
   const [isResettingSandbox, setIsResettingSandbox] = useState<boolean>(false);
@@ -147,7 +148,13 @@ export default function WalletViewUser({
 
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isFirstMountRef = useRef(true);
+  const prevSandboxModeRef = useRef(isSandboxMode);
   const isFetchingSandboxRef = useRef(false);
+
+  const onRefreshRef = useRef(onRefresh);
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
 
   // Show floating toast notification
   const showToast = useCallback((message: string) => {
@@ -184,9 +191,9 @@ export default function WalletViewUser({
         setRefreshing(true);
       }
 
-      if (onRefresh) {
+      if (onRefreshRef.current) {
         try {
-          await onRefresh();
+          await onRefreshRef.current();
           setLocalLogs(null);
           setLocalBalance(null);
           setLocalCoinBalance(null);
@@ -256,7 +263,7 @@ export default function WalletViewUser({
         setRefreshing(false);
       }
     },
-    [onRefresh, showToast, isSandboxMode],
+    [showToast, isSandboxMode],
   );
 
   // Fetch sandbox wallet data from /api/tester/wallet
@@ -276,10 +283,10 @@ export default function WalletViewUser({
         const data = await res.json();
         if (data.success) {
           setSandboxBalance(Number(data.balance || 0));
+          setSandboxCoinBalance(Number(data.coinBalance || 0));
           const mappedLogs: BalanceLog[] = (data.logs || []).map((l: BalanceLog) => ({
             ...l,
-            asset_type: "coin",
-            coin_amount: l.amount,
+            asset_type: (l.asset_type as "balance" | "coin") || "balance",
           }));
           setSandboxLogs(mappedLogs);
           if (showToastNotice) {
@@ -312,7 +319,8 @@ export default function WalletViewUser({
 
   // Mode-change synchronization (e.g. session activated / deactivated)
   useEffect(() => {
-    if (!isFirstMountRef.current) {
+    if (prevSandboxModeRef.current !== isSandboxMode) {
+      prevSandboxModeRef.current = isSandboxMode;
       if (isSandboxMode) {
         void fetchSandboxWallet();
       } else {
@@ -329,6 +337,7 @@ export default function WalletViewUser({
       const data = await fetchTesterSessionDeduplicated(true);
       if (!data) return;
       setSandboxBalance(data.sandboxBalance || 1000000);
+      setSandboxCoinBalance(data.sandboxCoinBalance || 0);
       void fetchSandboxWallet();
     };
 
@@ -357,7 +366,7 @@ export default function WalletViewUser({
         body: JSON.stringify({ targetAmount: 1000000 }),
       });
       if (res.ok) {
-        showToast("Saldo Koin Sandbox berhasil direset ke Rp 1.000.000!");
+        showToast("Saldo virtual sandbox berhasil direset ke Rp 1.000.000!");
         await fetchSandboxWallet();
       } else {
         const err = await res.json();
@@ -372,7 +381,7 @@ export default function WalletViewUser({
 
   const activeLogs = walletMode === "sandbox" ? sandboxLogs : logs;
   const activeBalance = walletMode === "sandbox" ? sandboxBalance : balance;
-  const activeCoinBalance = walletMode === "sandbox" ? sandboxBalance : coinBalance;
+  const activeCoinBalance = walletMode === "sandbox" ? sandboxCoinBalance : coinBalance;
 
   // Synchronously compute entries from memory
   const entries = useMemo<WalletEntry[]>(() => {
@@ -475,12 +484,33 @@ export default function WalletViewUser({
   const ledgerTitle = useMemo(() => {
     // 0. Sandbox Mode
     if (walletMode === "sandbox") {
-      if (filters.flow === "Masuk") return "Mutasi Virtual Masuk (Sandbox)";
-      if (filters.flow === "Keluar") return "Mutasi Virtual Keluar (Sandbox)";
+      // 0a. Tab Koin (Koin Virtual Sandbox)
+      if (filters.asset === "Koin") {
+        if (filters.flow === "Masuk") return "Mutasi Koin Masuk (Sandbox)";
+        if (filters.flow === "Keluar") return "Mutasi Koin Keluar (Sandbox)";
+        if (filters.type && filters.type !== "Semua") {
+          return `Mutasi Koin Virtual ${filters.type} (Sandbox)`;
+        }
+        return "Mutasi Koin Virtual (Sandbox)";
+      }
+
+      // 0b. Tab Saldo (Saldo Virtual Sandbox)
+      if (filters.asset === "Saldo") {
+        if (filters.flow === "Masuk") return "Mutasi Saldo Masuk (Sandbox)";
+        if (filters.flow === "Keluar") return "Mutasi Saldo Keluar (Sandbox)";
+        if (filters.type && filters.type !== "Semua") {
+          return `Mutasi Saldo Virtual ${filters.type} (Sandbox)`;
+        }
+        return "Mutasi Saldo Virtual (Sandbox)";
+      }
+
+      // 0c. Tab Semua
+      if (filters.flow === "Masuk") return "Mutasi Saldo & Koin Masuk (Sandbox)";
+      if (filters.flow === "Keluar") return "Mutasi Saldo & Koin Keluar (Sandbox)";
       if (filters.type && filters.type !== "Semua") {
         return `Mutasi Sandbox ${filters.type}`;
       }
-      return "Mutasi Dompet Virtual (Sandbox)";
+      return "Mutasi Saldo Virtual (Sandbox)";
     }
 
     // 1. Tab Koin
@@ -553,7 +583,9 @@ export default function WalletViewUser({
   // Dynamic header icon based on asset
   const HeaderIcon =
     walletMode === "sandbox"
-      ? FlaskConical
+      ? filters.asset === "Koin"
+        ? Coins
+        : FlaskConical
       : filters.asset === "Koin"
       ? Coins
       : filters.asset === "Saldo"
@@ -562,7 +594,9 @@ export default function WalletViewUser({
 
   const headerIconBg =
     walletMode === "sandbox"
-      ? "bg-amber-50 text-amber-600 border border-amber-200"
+      ? filters.asset === "Koin"
+        ? "bg-violet-50 text-violet-600 border border-violet-200"
+        : "bg-amber-50 text-amber-600 border border-amber-200"
       : filters.asset === "Koin"
       ? "bg-violet-50 text-violet-600 border border-violet-100"
       : filters.asset === "Saldo"
@@ -585,7 +619,7 @@ export default function WalletViewUser({
               Dompet Virtual Sandbox Aktif
             </p>
             <p className="mt-0.5 text-amber-800 leading-relaxed font-medium">
-              Saldo koin dan riwayat mutasi di halaman ini adalah simulasi pengujian. Mutasi tidak memotong saldo akun riil Anda dan tidak bernilai finansial nyata.
+              Saldo virtual dan riwayat mutasi di halaman ini adalah simulasi pengujian. Mutasi tidak memotong saldo akun riil Anda dan tidak bernilai finansial nyata.
             </p>
           </div>
         </div>
@@ -597,6 +631,7 @@ export default function WalletViewUser({
       {walletMode === "sandbox" ? (
         <SandboxWalletKpiCards
           sandboxBalance={sandboxBalance}
+          sandboxCoinBalance={sandboxCoinBalance}
           summary={summary}
           onReset={handleResetSandbox}
           isResetting={isResettingSandbox}
@@ -614,6 +649,7 @@ export default function WalletViewUser({
         onFilterChange={handleFilterChange}
         onReset={handleResetFilters}
         isSidebarExpanded={isSidebarExpanded}
+        isSandboxMode={walletMode === "sandbox"}
       />
 
       {/* ============================================================ */}
@@ -697,6 +733,7 @@ export default function WalletViewUser({
                 entries={visibleEntries}
                 onSelectEntry={setSelectedEntry}
                 onCopy={handleCopy}
+                isSandboxMode={walletMode === "sandbox"}
               />
             </div>
 
@@ -706,6 +743,7 @@ export default function WalletViewUser({
                 entries={visibleEntries}
                 onSelectEntry={setSelectedEntry}
                 onCopy={handleCopy}
+                isSandboxMode={walletMode === "sandbox"}
               />
             </div>
 
@@ -729,6 +767,7 @@ export default function WalletViewUser({
         entry={selectedEntry}
         onClose={() => setSelectedEntry(null)}
         onCopy={handleCopy}
+        isSandboxMode={walletMode === "sandbox"}
       />
 
       {/* ============================================================ */}

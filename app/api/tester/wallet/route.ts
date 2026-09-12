@@ -70,7 +70,7 @@ export async function GET(req: Request) {
     // Fetch latest 50 logs from sandbox_balance_logs
     const { data: logs, error: logsErr } = await supabaseAdmin
       .from('sandbox_balance_logs')
-      .select('id, created_at, type, description, amount, initial_balance, final_balance')
+      .select('id, created_at, type, description, amount, asset_type, initial_balance, final_balance, initial_coin_balance, final_coin_balance')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -82,6 +82,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       success: true,
       balance: walletRes.balance,
+      coinBalance: walletRes.coinBalance,
       logs: logs || []
     });
   } catch (err: unknown) {

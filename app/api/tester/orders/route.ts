@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireSandboxCustomerAccess, SANDBOX_SESSION_COOKIE } from '@/lib/auth/tester';
+import { requireSandboxCustomerAccess } from '@/lib/auth/tester';
 import { supabaseAdmin } from '@/utils/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,7 @@ function maskCustomerNo(customerNo: string | null | undefined): string {
 
 export async function GET(req: Request) {
   try {
-    // 1. Authenticate customer & verify ACTIVE Sandbox access
+    // 1. Authenticate customer & verify ACTIVE Sandbox access (rejects non-testers & Admin/Manager)
     const authorization = await requireSandboxCustomerAccess(req);
     if (!authorization.ok) {
       return NextResponse.json(
@@ -25,20 +25,7 @@ export async function GET(req: Request) {
     }
     const userId = authorization.userId;
 
-    // 2. Verify active Sandbox session cookie
-    const cookieHeader = req.headers.get('cookie') || '';
-    const hasSandboxCookie = cookieHeader
-      .split(';')
-      .some((c) => c.trim().startsWith(`${SANDBOX_SESSION_COOKIE}=active`));
-
-    if (!hasSandboxCookie) {
-      return NextResponse.json(
-        { error: 'Sesi mode Sandbox tidak aktif.', code: 'SANDBOX_SESSION_REQUIRED' },
-        { status: 403 },
-      );
-    }
-
-    // 3. Parse query parameters
+    // 2. Parse query parameters
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '10', 10)));
@@ -50,7 +37,7 @@ export async function GET(req: Request) {
     let query = supabaseAdmin
       .from('sandbox_orders')
       .select(
-        'id, order_id, sku, product_name, item_label, category, customer_no, customer_name, price, total_amount, used_balance, status, sn, provider_used, notes, created_at, updated_at',
+        'id, order_id, sku, product_name, item_label, category, customer_no, customer_name, price, total_amount, used_balance, used_coin, buy_price, cashback, referral_commission, status, sn, provider_used, notes, created_at, updated_at',
         { count: 'exact' },
       )
       .eq('user_id', userId);

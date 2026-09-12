@@ -6,6 +6,8 @@ import {
   lockSingleUserForInactivity,
   getSandboxQuotaUsage,
   recordSandboxSessionIfAllowed,
+  getSandboxSimulatedMemberType,
+  setSandboxSimulatedMemberType,
 } from '@/lib/auth/tester';
 
 export const dynamic = 'force-dynamic';
@@ -78,8 +80,8 @@ export async function GET(req: Request) {
     const hasSandboxCookie = cookieHeader.split(';').some((cookie) => cookie.trim().startsWith(`${SANDBOX_SESSION_COOKIE}=active`));
     const [profileRes, accessRes, walletRes, requestRes] = await Promise.all([
       supabaseAdmin.from('profiles').select('is_tester, role').eq('id', user.id).maybeSingle(),
-      supabaseAdmin.from('sandbox_access').select('state, last_meaningful_activity_at, changed_at').eq('user_id', user.id).maybeSingle(),
-      supabaseAdmin.from('sandbox_wallets').select('balance').eq('user_id', user.id).maybeSingle(),
+      supabaseAdmin.from('sandbox_access').select('state, last_meaningful_activity_at, changed_at, simulated_member_type').eq('user_id', user.id).maybeSingle(),
+      supabaseAdmin.from('sandbox_wallets').select('balance, coin_balance').eq('user_id', user.id).maybeSingle(),
       supabaseAdmin.from('sandbox_reactivation_requests').select('state').eq('user_id', user.id).eq('state', 'PENDING').maybeSingle(),
     ]);
     if (profileRes.error || accessRes.error || walletRes.error || requestRes.error) return NextResponse.json({ error: 'Tidak dapat memverifikasi status Sandbox.' }, { status: 503 });
@@ -109,7 +111,13 @@ export async function GET(req: Request) {
     const hasActiveAccess = accessState === 'ACTIVE';
     const isSandboxActive = hasActiveAccess && hasSandboxCookie && !isOverdue;
     let sandboxBalance = hasActiveAccess ? Number(walletRes.data?.balance || 0) : 0;
-    if (hasActiveAccess && !walletRes.data) sandboxBalance = (await ensureSandboxWallet(user.id)).balance;
+    let sandboxCoinBalance = hasActiveAccess ? Number(walletRes.data?.coin_balance || 0) : 0;
+    if (hasActiveAccess && !walletRes.data) {
+      const w = await ensureSandboxWallet(user.id);
+      sandboxBalance = w.balance;
+      sandboxCoinBalance = w.coinBalance;
+    }
+    const simulatedMemberType = accessRes.data?.simulated_member_type === 'special' ? 'special' : 'regular';
 
     let quotaUsage = null;
     if (hasActiveAccess) {
@@ -124,6 +132,8 @@ export async function GET(req: Request) {
       sandboxReactivationState: requestRes.data?.state ?? null,
       isSandboxActive,
       sandboxBalance,
+      sandboxCoinBalance,
+      simulatedMemberType,
       quota: quotaUsage,
     });
 
@@ -204,8 +214,32 @@ export async function POST(req: Request) {
       }
     }
 
+    // Check if client wishes to update simulated member type upon activation/refresh
+    try {
+      const rawText = await req.text();
+      if (rawText.trim().length > 0) {
+        const body = JSON.parse(rawText);
+        if (typeof body.simulatedMemberType === 'string') {
+          const reqType = body.simulatedMemberType.toLowerCase().trim();
+          if (reqType === 'regular' || reqType === 'special') {
+            await setSandboxSimulatedMemberType(user.id, reqType);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     const walletRes = await ensureSandboxWallet(user.id);
-    const response = NextResponse.json({ success: true, message: 'Mode Sandbox aktif untuk sesi ini (berlaku 1 jam).', sandboxBalance: walletRes.balance, sandboxAccessState: 'ACTIVE' });
+    const simMemberType = await getSandboxSimulatedMemberType(user.id);
+    const response = NextResponse.json({
+      success: true,
+      message: 'Mode Sandbox aktif untuk sesi ini (berlaku 1 jam).',
+      sandboxBalance: walletRes.balance,
+      sandboxCoinBalance: walletRes.coinBalance,
+      simulatedMemberType: simMemberType,
+      sandboxAccessState: 'ACTIVE',
+    });
     response.cookies.set(SANDBOX_SESSION_COOKIE, 'active', { httpOnly: true, path: '/', maxAge: 3600, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' });
     return response;
   } catch (err: unknown) {

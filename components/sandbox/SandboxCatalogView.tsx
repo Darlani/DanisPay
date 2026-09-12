@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   FlaskConical,
   Smartphone,
@@ -14,8 +14,10 @@ import {
   RotateCcw,
   Loader2,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
+import { fetchTesterSessionDeduplicated } from "@/components/sandbox/SandboxSessionControl";
 import {
   CURATED_SANDBOX_CATEGORIES,
   CURATED_SANDBOX_PRODUCTS,
@@ -36,7 +38,10 @@ interface SimulatedTransactionOutcome {
   productName: string;
   customerNo: string;
   amount: number;
+  cashbackAwarded?: number;
+  simulatedMemberType?: string;
   remainingBalance: number;
+  remainingCoin?: number;
   sn: string | null;
   message: string;
 }
@@ -50,11 +55,54 @@ export default function SandboxCatalogView({
   const [activeProduct, setActiveProduct] = useState<CuratedSandboxProduct | null>(null);
   const [customSellingPrice, setCustomSellingPrice] = useState<number | null>(null);
 
+  // Simulated Persona State (Regular vs Special)
+  const [simulatedMemberType, setSimulatedMemberType] = useState<"regular" | "special">("regular");
+  const [isSwitchingPersona, setIsSwitchingPersona] = useState<boolean>(false);
+
   // Simulated Transaction States
   const [targetNumber, setTargetNumber] = useState<string>("081234567890");
   const [isTransacting, setIsTransacting] = useState<boolean>(false);
   const [transactionResult, setTransactionResult] = useState<SimulatedTransactionOutcome | null>(null);
   const [transactionError, setTransactionError] = useState<string | null>(null);
+
+  // Sync simulated member type from session
+  const refreshPersona = useCallback(async () => {
+    const session = await fetchTesterSessionDeduplicated(true);
+    if (session?.simulatedMemberType) {
+      setSimulatedMemberType(session.simulatedMemberType === "special" ? "special" : "regular");
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPersona();
+    const handleSync = () => { void refreshPersona(); };
+    window.addEventListener("sandboxSessionChanged", handleSync);
+    return () => window.removeEventListener("sandboxSessionChanged", handleSync);
+  }, [refreshPersona]);
+
+  const handleTogglePersona = async (newType: "regular" | "special") => {
+    if (simulatedMemberType === newType || isSwitchingPersona) return;
+    setIsSwitchingPersona(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch("/api/tester/session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ simulatedMemberType: newType }),
+      });
+      if (response.ok) {
+        setSimulatedMemberType(newType);
+        window.dispatchEvent(new Event("sandboxSessionChanged"));
+      }
+    } catch (err) {
+      console.error("Failed to toggle persona:", err);
+    } finally {
+      setIsSwitchingPersona(false);
+    }
+  };
 
   const filteredProducts =
     selectedCategory === "all"
@@ -165,13 +213,59 @@ export default function SandboxCatalogView({
               Katalog Produk & Simulasi Transaksi Digital
             </h2>
             <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
-              Pilih produk retail digital di bawah untuk mencoba simulasi pembelian menggunakan koin virtual. Semua transaksi dan mutasi saldo terisolasi dari sistem LIVE DaPay.
+              Pilih produk retail digital di bawah untuk mencoba simulasi pembelian menggunakan saldo virtual sandbox. Semua transaksi dan mutasi saldo terisolasi dari sistem LIVE DaPay.
             </p>
           </div>
 
           <div className="shrink-0 flex items-center gap-2 text-xs font-semibold text-amber-900 bg-white/80 px-3 py-2 rounded-xl border border-amber-200/80 shadow-2xs">
             <TrendingUp size={15} className="text-emerald-600 shrink-0" />
             <span>Simulasi Transaksi Aktif</span>
+          </div>
+        </div>
+
+        {/* Persona Simulation Switcher */}
+        <div className="mt-3.5 pt-3 border-t border-amber-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-amber-950">Mode Simulasi Member:</span>
+            <div className="inline-flex items-center rounded-xl bg-white/90 p-1 border border-amber-200/90 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => void handleTogglePersona("regular")}
+                disabled={isSwitchingPersona}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  simulatedMemberType === "regular"
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Member Reguler
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleTogglePersona("special")}
+                disabled={isSwitchingPersona}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  simulatedMemberType === "special"
+                    ? "bg-amber-600 text-white shadow-xs"
+                    : "text-amber-900 hover:text-amber-950"
+                }`}
+              >
+                Member Spesial
+              </button>
+            </div>
+          </div>
+          <div className="text-[11px] text-amber-900/90 font-medium">
+            {simulatedMemberType === "special" ? (
+              <span className="inline-flex items-center gap-1.5 text-amber-950 font-semibold">
+                <span className="rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-black text-amber-900 border border-amber-300">SPESIAL</span>
+                Promo ✅ • Referral ✅ • <strong>Cashback Koin Sandbox ✅</strong>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-slate-700">
+                <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[10px] font-black text-slate-800 border border-slate-300">REGULER</span>
+                Promo ✅ • Referral ✅ • Cashback ❌
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -214,10 +308,18 @@ export default function SandboxCatalogView({
                   <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-[9.5px] font-bold text-slate-700 tracking-wide uppercase">
                     {product.brand}
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[8.5px] font-extrabold text-amber-900 border border-amber-300/80">
-                    <FlaskConical size={9} className="text-amber-600" />
-                    SIMULASI
-                  </span>
+                  <div className="flex items-center gap-1">
+                    {product.cashback > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[8px] font-extrabold text-violet-800 border border-violet-200">
+                        <Sparkles size={8} className="text-violet-600" />
+                        +{product.cashback} Koin
+                      </span>
+                    )}
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[8.5px] font-extrabold text-amber-900 border border-amber-300/80">
+                      <FlaskConical size={9} className="text-amber-600" />
+                      SIMULASI
+                    </span>
+                  </div>
                 </div>
 
                 {/* Product Title */}
@@ -251,7 +353,7 @@ export default function SandboxCatalogView({
 
               {/* Bottom Row: Action */}
               <div className="mt-3 pt-2 flex items-center justify-between">
-                <span className="text-[10px] text-slate-400">Koin Virtual</span>
+                <span className="text-[10px] text-slate-400">Saldo Virtual</span>
                 <span className="text-[10.5px] font-bold text-amber-800 group-hover:text-amber-950 transition flex items-center gap-0.5">
                   Coba Simulasi →
                 </span>
@@ -269,7 +371,7 @@ export default function SandboxCatalogView({
             Jaminan Isolasi Finansial Sandbox:
           </p>
           <p className="text-[11.5px] leading-relaxed text-slate-600">
-            Semua transaksi di katalog ini hanya memotong saldo koin virtual sandbox. Tidak ada pemanggilan API ke vendor riil dan saldo kas riil DaPay Anda dijamin 100% aman tanpa pemotongan.
+            Semua transaksi di katalog ini hanya memotong saldo virtual sandbox. Tidak ada pemanggilan API ke vendor riil dan saldo kas riil DaPay Anda dijamin 100% aman tanpa pemotongan.
           </p>
         </div>
       </div>
@@ -348,13 +450,28 @@ export default function SandboxCatalogView({
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Koin Terpotong:</span>
+                      <span className="text-slate-500">Saldo Virtual Terpotong:</span>
                       <span className="font-mono font-bold text-slate-900">Rp {transactionResult.amount.toLocaleString("id-ID")}</span>
                     </div>
+                    {Boolean(transactionResult.cashbackAwarded && transactionResult.cashbackAwarded > 0) && (
+                      <div className="flex justify-between text-violet-800 font-bold bg-violet-50 px-2 py-1 rounded-lg border border-violet-200">
+                        <span className="flex items-center gap-1 text-[11px]">
+                          <Sparkles size={12} className="text-violet-600" />
+                          Cashback Koin Sandbox:
+                        </span>
+                        <span className="font-mono text-xs">+{transactionResult.cashbackAwarded} Koin</span>
+                      </div>
+                    )}
                     <div className="flex justify-between border-t border-slate-200/70 pt-1.5 font-bold">
-                      <span className="text-slate-600">Sisa Saldo Koin:</span>
+                      <span className="text-slate-600">Sisa Saldo Virtual:</span>
                       <span className="font-mono text-amber-700">Rp {transactionResult.remainingBalance.toLocaleString("id-ID")}</span>
                     </div>
+                    {transactionResult.remainingCoin !== undefined && (
+                      <div className="flex justify-between font-bold text-violet-900">
+                        <span className="text-slate-600">Sisa Koin Sandbox:</span>
+                        <span className="font-mono text-violet-700">{(transactionResult.remainingCoin || 0).toLocaleString("id-ID")} KOIN</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -390,6 +507,18 @@ export default function SandboxCatalogView({
                     <span className="text-slate-500">Brand Provider:</span>
                     <span className="font-bold text-slate-900">{activeProduct.brand}</span>
                   </div>
+                  {activeProduct.cashback > 0 && (
+                    <div className="flex justify-between items-center pt-1 border-t border-slate-200/60">
+                      <span className="text-slate-500">Reward Cashback:</span>
+                      <span className="font-bold text-violet-700 font-mono flex items-center gap-1">
+                        <Sparkles size={11} className="text-violet-600" />
+                        +{activeProduct.cashback} Koin Sandbox
+                        <span className="text-[9.5px] font-semibold text-slate-400">
+                          {simulatedMemberType === "special" ? "(Aktif)" : "(Khusus Spesial)"}
+                        </span>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Margin Simulator Summary */}
@@ -513,7 +642,7 @@ export default function SandboxCatalogView({
                     ) : (
                       <>
                         <FlaskConical size={14} />
-                        <span>Beli dengan Koin (Rp {activeProduct.demoPrice.toLocaleString("id-ID")})</span>
+                        <span>Simulasi Beli (Rp {activeProduct.demoPrice.toLocaleString("id-ID")})</span>
                       </>
                     )}
                   </button>

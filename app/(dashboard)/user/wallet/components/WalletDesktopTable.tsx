@@ -21,12 +21,14 @@ interface WalletDesktopTableProps {
   entries: WalletEntry[];
   onSelectEntry: (entry: WalletEntry) => void;
   onCopy: (text: string, label: string) => void;
+  isSandboxMode?: boolean;
 }
 
 export default function WalletDesktopTable({
   entries,
   onSelectEntry,
   onCopy,
+  isSandboxMode = false,
 }: WalletDesktopTableProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -166,11 +168,15 @@ export default function WalletDesktopTable({
                         <span className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`} />
                         <span>{meta.label}</span>
                       </span>
-                      {isCoin && (
+                      {isCoin ? (
                         <span className="rounded-md bg-violet-100 px-1 py-0.2 text-[8px] font-extrabold text-violet-700">
-                          KOIN
+                          {isSandboxMode ? "KOIN SANDBOX" : "KOIN"}
                         </span>
-                      )}
+                      ) : isSandboxMode ? (
+                        <span className="rounded-md bg-amber-100 px-1 py-0.2 text-[8px] font-extrabold text-amber-800">
+                          SALDO VIRTUAL
+                        </span>
+                      ) : null}
                     </div>
                     <p
                       className="truncate text-[11px] sm:text-[11.5px] font-semibold text-slate-800 max-w-40 sm:max-w-50"
@@ -190,11 +196,15 @@ export default function WalletDesktopTable({
                       <span className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`} />
                       <span>{meta.label}</span>
                     </span>
-                    {isCoin && (
+                    {isCoin ? (
                       <span className="inline-flex rounded-md bg-violet-100 px-1 py-0.2 text-[8px] font-extrabold text-violet-700">
-                        KOIN
+                        {isSandboxMode ? "KOIN SANDBOX" : "KOIN"}
                       </span>
-                    )}
+                    ) : isSandboxMode ? (
+                      <span className="inline-flex rounded-md bg-amber-100 px-1 py-0.2 text-[8px] font-extrabold text-amber-800">
+                        SALDO VIRTUAL
+                      </span>
+                    ) : null}
                   </div>
                 </td>
 

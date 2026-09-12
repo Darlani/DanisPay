@@ -89,48 +89,76 @@ export async function POST(req: Request) {
       // no body, use default
     }
 
-    // 1. Get current balance
+    // 1. Get current balance & coin balance
     const { data: currentWallet } = await supabaseAdmin
       .from('sandbox_wallets')
-      .select('balance')
+      .select('balance, coin_balance')
       .eq('user_id', targetUserId)
       .maybeSingle();
 
     const oldBalance = Number(currentWallet?.balance || 0);
-    const diff = targetAmount - oldBalance;
+    const oldCoinBalance = Number(currentWallet?.coin_balance || 0);
+    const balanceDiff = targetAmount - oldBalance;
+    const coinDiff = 0 - oldCoinBalance;
 
-    // 2. Update sandbox wallet
+    // 2. Update sandbox wallet: balance -> targetAmount, coin_balance -> 0
     const { data: updatedWallet, error: updateErr } = await supabaseAdmin
       .from('sandbox_wallets')
       .upsert({
         user_id: targetUserId,
         balance: targetAmount,
-        updated_at: new Date().toISOString()
+        coin_balance: 0,
+        updated_at: new Date().toISOString(),
       })
-      .select('balance')
+      .select('balance, coin_balance')
       .single();
 
     if (updateErr) {
       return NextResponse.json({ error: updateErr.message }, { status: 500 });
     }
 
-    // 3. Append adjustment log (non-destructive)
-    await supabaseAdmin
-      .from('sandbox_balance_logs')
-      .insert({
-        user_id: targetUserId,
-        user_email: user.email,
-        amount: diff,
-        type: 'AdminAdjustment',
-        description: `Penyesuaian/Reset saldo virtual tester ke Rp ${targetAmount.toLocaleString('id-ID')}`,
-        initial_balance: oldBalance,
-        final_balance: targetAmount
-      });
+    // 3. Append adjustment logs (non-destructive)
+    // 3a. Balance adjustment if changed
+    if (balanceDiff !== 0 || !currentWallet) {
+      await supabaseAdmin
+        .from('sandbox_balance_logs')
+        .insert({
+          user_id: targetUserId,
+          user_email: user.email,
+          amount: balanceDiff,
+          type: 'AdminAdjustment',
+          asset_type: 'balance',
+          description: `Penyesuaian/Reset saldo virtual tester ke Rp ${targetAmount.toLocaleString('id-ID')}`,
+          initial_balance: oldBalance,
+          final_balance: targetAmount,
+          initial_coin_balance: null,
+          final_coin_balance: null,
+        });
+    }
+
+    // 3b. Coin adjustment ONLY if coin_balance changed (do not create fake coin history if already 0)
+    if (oldCoinBalance > 0) {
+      await supabaseAdmin
+        .from('sandbox_balance_logs')
+        .insert({
+          user_id: targetUserId,
+          user_email: user.email,
+          amount: coinDiff,
+          type: 'AdminAdjustment',
+          asset_type: 'coin',
+          description: 'Reset Koin Sandbox ke 0 KOIN',
+          initial_balance: null,
+          final_balance: null,
+          initial_coin_balance: oldCoinBalance,
+          final_coin_balance: 0,
+        });
+    }
 
     return NextResponse.json({
       success: true,
       message: `Saldo sandbox berhasil disetel ke Rp ${targetAmount.toLocaleString('id-ID')}`,
-      balance: updatedWallet.balance
+      balance: updatedWallet?.balance ?? targetAmount,
+      coinBalance: updatedWallet?.coin_balance ?? 0,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";

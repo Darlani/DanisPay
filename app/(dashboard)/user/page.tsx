@@ -630,9 +630,8 @@ function UserDashboardContent() {
   /* SANDBOX WORKSPACE MODE                                           */
   /* ---------------------------------------------------------------- */
 
-  const [sandboxSession, setSandboxSession] = useState<SandboxSessionData | null>(
-    () => getCachedSandboxSession()
-  );
+  const [sandboxSession, setSandboxSession] = useState<SandboxSessionData | null>(null);
+  const [isSandboxInitialized, setIsSandboxInitialized] = useState(false);
 
   const syncSandboxSession = useCallback(async (force = false) => {
     const session = await fetchTesterSessionDeduplicated(force);
@@ -651,7 +650,10 @@ function UserDashboardContent() {
       if (session?.access_token) {
         headers["Authorization"] = "Bearer " + session.access_token;
       }
-      const res = await fetch("/api/tester/orders?limit=10", { headers });
+      const res = await fetch("/api/tester/orders?limit=10", {
+        headers,
+        credentials: "include",
+      });
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data?.orders)) {
@@ -666,6 +668,11 @@ function UserDashboardContent() {
   }, []);
 
   useEffect(() => {
+    const cached = getCachedSandboxSession();
+    if (cached) {
+      setSandboxSession(cached);
+    }
+    setIsSandboxInitialized(true);
     void syncSandboxSession(true);
     const handleSync = () => {
       void syncSandboxSession(true);
@@ -767,15 +774,15 @@ function UserDashboardContent() {
     }
   };
 
-  // Redirect to overview if non-sandbox user visits catalog tab
+  // Redirect to overview if non-sandbox user visits catalog tab (only after sandbox session check initializes)
   useEffect(() => {
-    if (!isSandboxMode && activeMenu === "catalog") {
+    if (isSandboxInitialized && !isSandboxMode && activeMenu === "catalog") {
       router.replace("/user", { scroll: false });
     }
-  }, [isSandboxMode, activeMenu, router]);
+  }, [isSandboxInitialized, isSandboxMode, activeMenu, router]);
 
   const handleResetSandbox = async () => {
-    if (!confirm("Reset saldo koin virtual tester ke Rp 1.000.000?")) return;
+    if (!confirm("Reset saldo virtual sandbox ke Rp 1.000.000?")) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -1060,6 +1067,17 @@ function UserDashboardContent() {
     };
   }, [fetchDashboardData]);
 
+  const handleRefreshDashboard = useCallback(() => {
+    void fetchDashboardData(false);
+  }, [fetchDashboardData]);
+
+  const handleRefreshOrders = useCallback(() => {
+    if (isSandboxMode) {
+      emitSandboxActivity("order_review");
+    }
+    void fetchDashboardData(false);
+  }, [isSandboxMode, emitSandboxActivity, fetchDashboardData]);
+
   /* ================================================================= */
   /* RESPONSIVE SIDEBAR EXPANSION                                      */
   /* ================================================================= */
@@ -1190,7 +1208,7 @@ function UserDashboardContent() {
       isSidebarExpanded={isSidebarExpanded}
       setIsSidebarExpanded={setIsSidebarExpanded}
       avatarUrl={userData.avatarUrl}
-      onRefresh={() => void fetchDashboardData(false)}
+      onRefresh={handleRefreshDashboard}
     >
       {activeMenu === "overview" && (
         <OverviewContent
@@ -1205,6 +1223,7 @@ function UserDashboardContent() {
           isInitialLoading={isInitialLoading}
           isSandboxMode={isSandboxMode}
           sandboxBalance={sandboxSession?.sandboxBalance ?? 1000000}
+          sandboxCoinBalance={sandboxSession?.sandboxCoinBalance ?? 0}
           onResetSandbox={handleResetSandbox}
           sandboxOrders={sandboxOrders}
           sandboxQuota={sandboxSession?.quota}
@@ -1223,12 +1242,7 @@ function UserDashboardContent() {
         <OrdersViewUser
           initialOrders={isSandboxMode ? [] : orders}
           isSidebarExpanded={isSidebarExpanded}
-          onRefresh={() => {
-            if (isSandboxMode) {
-              emitSandboxActivity("order_review");
-            }
-            void fetchDashboardData(false);
-          }}
+          onRefresh={handleRefreshOrders}
           isSandboxMode={isSandboxMode}
         />
       )}
@@ -1239,7 +1253,7 @@ function UserDashboardContent() {
           initialCoinBalance={isSandboxMode ? 0 : Number(userData.coinBalance || 0)}
           initialLogs={isSandboxMode ? [] : balanceLogs}
           isSidebarExpanded={isSidebarExpanded}
-          onRefresh={() => void fetchDashboardData(false)}
+          onRefresh={handleRefreshDashboard}
           isSandboxMode={isSandboxMode}
         />
       )}
@@ -1250,7 +1264,7 @@ function UserDashboardContent() {
           initialCoinBalance={Number(userData.coinBalance || 0)}
           initialDeposits={deposits}
           isSidebarExpanded={isSidebarExpanded}
-          onRefresh={() => void fetchDashboardData(false)}
+          onRefresh={handleRefreshDashboard}
         />
       )}
 
@@ -1260,7 +1274,7 @@ function UserDashboardContent() {
           initialCoinBalance={Number(userData.coinBalance || 0)}
           initialWithdrawals={withdrawals}
           isSidebarExpanded={isSidebarExpanded}
-          onRefresh={() => void fetchDashboardData(false)}
+          onRefresh={handleRefreshDashboard}
         />
       )}
 
@@ -1277,7 +1291,7 @@ function UserDashboardContent() {
           initialReferrals={referrals}
           initialBalanceLogs={balanceLogs}
           isSidebarExpanded={isSidebarExpanded}
-          onRefresh={() => void fetchDashboardData(false)}
+          onRefresh={handleRefreshDashboard}
         />
       )}
 
@@ -1295,7 +1309,7 @@ function UserDashboardContent() {
           activeSection={settingsSection}
           onSectionChange={(sec) => handleMenuNavigation(`settings-${sec}`)}
           isSidebarExpanded={isSidebarExpanded}
-          onRefresh={() => void fetchDashboardData(false)}
+          onRefresh={handleRefreshDashboard}
         />
       )}
 
@@ -1396,6 +1410,7 @@ function OverviewContent({
   isInitialLoading = false,
   isSandboxMode = false,
   sandboxBalance = 1000000,
+  sandboxCoinBalance = 0,
   onResetSandbox,
   sandboxOrders = [],
   sandboxQuota = null,
@@ -1418,6 +1433,7 @@ function OverviewContent({
   isInitialLoading?: boolean;
   isSandboxMode?: boolean;
   sandboxBalance?: number;
+  sandboxCoinBalance?: number;
   onResetSandbox?: () => void;
   sandboxOrders?: DashboardOrder[];
   sandboxQuota?: SandboxQuotaData | null;
@@ -1620,7 +1636,7 @@ function OverviewContent({
                   </div>
                   <div className="min-w-0">
                     <h2 className="text-[12px] xs:text-[13px] sm:text-[15px] md:text-sm lg:text-base font-bold tracking-tight text-white leading-tight truncate">
-                      Koin Virtual Sandbox
+                      Saldo Virtual Sandbox
                     </h2>
                     <p className="hidden md:block text-[10px] lg:text-[11px] font-medium text-amber-200/80 leading-tight">
                       Simulasi Tanpa Risiko
@@ -1633,9 +1649,15 @@ function OverviewContent({
                 </span>
               </div>
               <div className="my-2 xs:my-2.5 md:my-4 lg:my-5 xl:my-6">
-                <p className="text-[8.5px] xs:text-[9.5px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-[0.18em] text-amber-200/70">
-                  Saldo Koin Tersedia
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[8.5px] xs:text-[9.5px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-[0.18em] text-amber-200/70">
+                    Saldo Virtual Tersedia
+                  </p>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold text-amber-100 backdrop-blur-xs">
+                    <DaPayCoin size={11} />
+                    {sandboxCoinBalance.toLocaleString("id-ID")} KOIN
+                  </span>
+                </div>
                 <p className="mt-0.5 md:mt-1 truncate text-[13px] xs:text-[15px] sm:text-[17px] md:text-[clamp(15px,1.9vw,22px)] lg:text-2xl xl:text-3xl 2xl:text-4xl font-black tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.25)] leading-none font-mono">
                   {formatRupiah(sandboxBalance)}
                 </p>
@@ -1799,7 +1821,7 @@ function OverviewContent({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[9px] xs:text-[10.5px] sm:text-[12px] md:text-xs font-bold text-slate-900 leading-tight truncate">
-                      Simulasi aman tanpa vendor riil
+                      Simulasi aman • Koin Sandbox: {sandboxCoinBalance.toLocaleString("id-ID")}
                     </p>
                     <p className="hidden md:block mt-0.5 text-[10px] lg:text-xs text-slate-500 leading-tight">
                       Sesi terkunci otomatis setelah 1 jam tidak aktif.

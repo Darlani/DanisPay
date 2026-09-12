@@ -6,14 +6,14 @@ import {
   ArrowUpRight,
   FlaskConical,
   RotateCcw,
-  Sparkles,
-  History,
+  Coins,
   Loader2,
 } from "lucide-react";
-import { formatRupiah, WalletSummary } from "../types";
+import { formatRupiah, formatCoins, WalletSummary } from "../types";
 
 interface SandboxWalletKpiCardsProps {
   sandboxBalance: number;
+  sandboxCoinBalance: number;
   summary: WalletSummary;
   onReset: () => Promise<void>;
   isResetting: boolean;
@@ -21,6 +21,7 @@ interface SandboxWalletKpiCardsProps {
 
 export default function SandboxWalletKpiCards({
   sandboxBalance,
+  sandboxCoinBalance,
   summary,
   onReset,
   isResetting,
@@ -42,7 +43,7 @@ export default function SandboxWalletKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-white/20 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-amber-100 backdrop-blur-xs ring-1 ring-white/25">
               <FlaskConical size={9} className="shrink-0 text-yellow-300" />
-              <span className="truncate">Koin Sandbox</span>
+              <span className="truncate">Saldo Virtual Sandbox</span>
             </span>
           </div>
 
@@ -54,7 +55,7 @@ export default function SandboxWalletKpiCards({
               void onReset();
             }}
             disabled={isResetting}
-            title="Reset Koin Virtual ke Rp 1.000.000"
+            title="Reset Saldo Virtual ke Rp 1.000.000"
             className="flex items-center gap-1 px-2 py-1 rounded-lg xs:rounded-xl border border-white/30 bg-white/20 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-md hover:bg-white/30 active:scale-95 transition-all duration-200 cursor-pointer text-[9px] xs:text-[10px] font-bold disabled:opacity-50"
           >
             {isResetting ? (
@@ -84,7 +85,7 @@ export default function SandboxWalletKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-emerald-100/80 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-800">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-              <span className="truncate">Virtual Masuk</span>
+              <span className="truncate">Saldo Masuk (Virtual)</span>
             </span>
           </div>
 
@@ -98,7 +99,7 @@ export default function SandboxWalletKpiCards({
             {formatRupiah(summary.totalIncome)}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-emerald-700">
-            Cashback & reset virtual
+            Reset & simulasi masuk
           </p>
         </div>
       </div>
@@ -111,7 +112,7 @@ export default function SandboxWalletKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-rose-100/80 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-rose-800">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
-              <span className="truncate">Virtual Keluar</span>
+              <span className="truncate">Saldo Keluar (Virtual)</span>
             </span>
           </div>
 
@@ -125,34 +126,34 @@ export default function SandboxWalletKpiCards({
             {formatRupiah(summary.totalExpense)}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-rose-700">
-            Pembelian pesanan sandbox
+            Simulasi belanja digital
           </p>
         </div>
       </div>
 
       {/* ============================================================ */}
-      {/* 4. TOTAL MUTASI VIRTUAL (SLATE / AMBER CARD)                 */}
+      {/* 4. KOIN SANDBOX (LUMINOUS VIOLET CARD)                       */}
       {/* ============================================================ */}
-      <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-3xl border border-amber-200/90 bg-linear-to-br from-amber-50/70 via-white/90 to-orange-50/70 p-2.5 xs:p-3 sm:p-4.5 md:p-5 shadow-2xs transition-all duration-300 hover:shadow-xs hover:border-amber-300 min-h-24 xs:min-h-28 sm:min-h-32">
+      <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-3xl border border-violet-200/90 bg-linear-to-br from-violet-50/70 via-white/90 to-purple-50/70 p-2.5 xs:p-3 sm:p-4.5 md:p-5 shadow-2xs transition-all duration-300 hover:shadow-xs hover:border-violet-300 min-h-24 xs:min-h-28 sm:min-h-32">
         <div className="relative z-10 flex items-start justify-between gap-1.5 xs:gap-2">
           <div className="min-w-0 flex-1 flex justify-start">
-            <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-amber-100/90 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-amber-800">
-              <Sparkles size={9} className="shrink-0 text-amber-600" />
-              <span className="truncate">Total Aktivitas</span>
+            <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-violet-100/90 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-violet-800">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
+              <span className="truncate">Koin Sandbox</span>
             </span>
           </div>
 
-          <div className="flex h-6.5 w-6.5 xs:h-7.5 xs:w-7.5 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg xs:rounded-xl border border-amber-200 bg-amber-100 text-amber-700 shadow-2xs">
-            <History className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-4.5 sm:w-4.5" />
+          <div className="flex h-6.5 w-6.5 xs:h-7.5 xs:w-7.5 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg xs:rounded-xl border border-violet-200 bg-violet-100 text-violet-700 shadow-2xs">
+            <Coins className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-4.5 sm:w-4.5" />
           </div>
         </div>
 
         <div className="relative z-10 mt-1.5 xs:mt-2.5">
-          <p className="truncate text-sm xs:text-base sm:text-xl md:text-2xl font-black tracking-tight text-amber-950 leading-tight">
-            {summary.totalCount} Log
+          <p className="truncate text-sm xs:text-base sm:text-xl md:text-2xl font-black tracking-tight text-violet-950 leading-tight">
+            {formatCoins(sandboxCoinBalance)}
           </p>
-          <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-amber-700">
-            Riwayat mutasi sandbox
+          <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-violet-700">
+            Reward cashback simulasi
           </p>
         </div>
       </div>

@@ -21,12 +21,14 @@ interface WalletDetailModalProps {
   entry: WalletEntry | null;
   onClose: () => void;
   onCopy: (text: string, label: string) => void;
+  isSandboxMode?: boolean;
 }
 
 export default function WalletDetailModal({
   entry,
   onClose,
   onCopy,
+  isSandboxMode = false,
 }: WalletDetailModalProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
@@ -130,7 +132,7 @@ export default function WalletDetailModal({
                 <span>{meta.label}</span>
               </span>
               <span className="rounded-md bg-white/80 px-2 py-0.5 text-[9px] font-extrabold text-slate-700 border border-slate-200/80">
-                {isCoin ? "KOIN DAPAY" : "SALDO DAPAY"}
+                {isCoin ? (isSandboxMode ? "KOIN VIRTUAL (SANDBOX)" : "KOIN DAPAY") : isSandboxMode ? "SALDO VIRTUAL (SANDBOX)" : "SALDO DAPAY"}
               </span>
             </div>
 
@@ -166,11 +168,19 @@ export default function WalletDetailModal({
           (afterAmount !== null && afterAmount !== undefined) ? (
             <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 sm:p-4">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2.5">
-                Perubahan Saldo Akun
+                {isSandboxMode
+                  ? isCoin
+                    ? "Perubahan Koin Virtual (Sandbox)"
+                    : "Perubahan Saldo Virtual (Sandbox)"
+                  : isCoin
+                  ? "Perubahan Koin DaPay"
+                  : "Perubahan Saldo Akun"}
               </p>
               <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-2xs">
-                  <p className="text-[9px] font-semibold text-slate-400">Saldo Awal</p>
+                  <p className="text-[9px] font-semibold text-slate-400">
+                    {isCoin ? "Koin Awal" : "Saldo Awal"}
+                  </p>
                   <p className="mt-0.5 text-xs sm:text-sm font-black text-slate-800">
                     {beforeAmount !== null && beforeAmount !== undefined
                       ? isCoin
@@ -180,7 +190,9 @@ export default function WalletDetailModal({
                   </p>
                 </div>
                 <div className="rounded-xl border border-blue-200/80 bg-blue-50/60 p-2.5 shadow-2xs">
-                  <p className="text-[9px] font-semibold text-blue-600">Saldo Akhir</p>
+                  <p className="text-[9px] font-semibold text-blue-600">
+                    {isCoin ? "Koin Akhir" : "Saldo Akhir"}
+                  </p>
                   <p className="mt-0.5 text-xs sm:text-sm font-black text-blue-900">
                     {afterAmount !== null && afterAmount !== undefined
                       ? isCoin

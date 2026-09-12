@@ -58,7 +58,7 @@ export default function SandboxTopBanner() {
   };
 
   const handleResetWallet = async () => {
-    if (!confirm("Reset saldo koin virtual tester ke Rp 1.000.000?")) return;
+    if (!confirm("Reset saldo virtual sandbox ke Rp 1.000.000?")) return;
     setIsLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -77,7 +77,7 @@ export default function SandboxTopBanner() {
         const newBalance = data.balance || 1000000;
         setSandboxBalance(newBalance);
         window.dispatchEvent(new Event("sandboxSessionChanged"));
-        alert("Saldo koin virtual tester berhasil direset!");
+        alert("Saldo virtual sandbox berhasil direset!");
       }
     } catch {
       alert("Gagal mereset saldo sandbox");
@@ -98,7 +98,7 @@ export default function SandboxTopBanner() {
           <strong className="uppercase tracking-wider">Mode Sandbox Aktif:</strong> Transaksi diuji secara aman tanpa menyentuh vendor riil.
         </span>
         <span className="bg-white/20 px-2 py-0.5 rounded-full font-mono text-[11px]">
-          Koin Virtual: Rp {sandboxBalance.toLocaleString("id-ID")}
+          Saldo Virtual: Rp {sandboxBalance.toLocaleString("id-ID")}
         </span>
       </div>
 
@@ -107,7 +107,7 @@ export default function SandboxTopBanner() {
           onClick={handleResetWallet}
           disabled={isLoading}
           className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-md transition text-[11px] cursor-pointer"
-          title="Reset saldo koin tester ke Rp 1.000.000"
+          title="Reset saldo virtual sandbox ke Rp 1.000.000"
         >
           <RotateCcw size={12} />
           Reset Saldo

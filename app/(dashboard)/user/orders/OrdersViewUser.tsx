@@ -217,10 +217,25 @@ export default function OrdersViewUser({
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
+          credentials: "include",
         });
 
         if (response.status === 401) {
           window.location.href = "/login";
+          return;
+        }
+
+        if (response.status === 403 && isSandboxMode) {
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.removeItem("dapay_tester_session_cache");
+              window.dispatchEvent(new Event("sandboxSessionChanged"));
+            } catch {
+              // ignore
+            }
+          }
+          setOrders([]);
+          setSummary(INITIAL_SUMMARY);
           return;
         }
 
