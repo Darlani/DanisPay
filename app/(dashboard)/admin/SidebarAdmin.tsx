@@ -22,6 +22,7 @@ interface SidebarProps {
   setIsOpen: (val: boolean) => void;
   activeMenu: string;
   setActiveMenu: (val: string) => void;
+  currentRole?: string;
 }
 
 export default function SidebarAdmin({
@@ -29,6 +30,7 @@ export default function SidebarAdmin({
   setIsOpen,
   activeMenu,
   setActiveMenu,
+  currentRole,
 }: SidebarProps) {
   void setActiveMenu;
   const [todayMemo, setTodayMemo] = useState(
@@ -171,6 +173,15 @@ export default function SidebarAdmin({
 
               <div className="space-y-1">
                 {group.items.map((item) => {
+                  const normalizedRole = (currentRole || "").trim().toLowerCase();
+                  const isLeadAdmin =
+                    normalizedRole === "lead admin" ||
+                    normalizedRole === "lead_admin" ||
+                    normalizedRole === "leadadmin";
+                  if (item.id === "ContentCMS" && isLeadAdmin) {
+                    return null;
+                  }
+
                   const isActive = activeMenu === item.id;
                   const Icon = item.icon;
                   const targetHref = getAdminTabHref(item.id);

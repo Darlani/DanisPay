@@ -70,3 +70,6 @@ repomix-output.txt
 /scripts/
 /gas.bat
 /cp.bat
+
+# Supabase CLI local metadata
+/.supabase/

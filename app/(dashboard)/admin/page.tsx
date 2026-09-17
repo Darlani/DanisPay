@@ -37,6 +37,7 @@ import AnalyticsView from "./analytics/AnalyticsView";
 import CategoryManagement from "./categories/CategoryManagement";
 import ProductManagement from "./products/ProductManagement";
 import AccountDatabaseManagement from "./account-database/AccountDatabaseManagement";
+import ContentCmsManagement from "./content-cms/ContentCmsManagement";
 import EventView from "./events/EventView";
 import OrdersView from "./orders/OrdersView";
 import DepositView from "./deposit/DepositView";
@@ -577,6 +578,7 @@ function AdminDashboardContent() {
         setIsOpen={setIsSidebarOpen}
         activeMenu={activeMenu}
         setActiveMenu={handleSetActiveMenu}
+        currentRole={adminProfile.role}
       />
 
       <div
@@ -737,6 +739,25 @@ function AdminDashboardContent() {
             {activeMenu === "AccountDatabase" && (
               <AccountDatabaseManagement />
             )}
+            {activeMenu === "ContentCMS" &&
+              (() => {
+                const normalizedRole = (adminProfile.role || "").trim().toLowerCase();
+                const isAllowed = normalizedRole === "admin" || normalizedRole === "manager";
+                if (!isAllowed) {
+                  return (
+                    <div className="flex min-h-[50vh] items-center justify-center p-6">
+                      <div className="max-w-md rounded-2xl border border-rose-200 bg-white p-6 text-center shadow-lg">
+                        <p className="text-xs font-black uppercase tracking-widest text-rose-600">Akses Ditolak</p>
+                        <h2 className="mt-2 text-lg font-black text-slate-900">Content CMS</h2>
+                        <p className="mt-2 text-sm text-slate-500">
+                          Hanya role Admin dan Manager yang memiliki otorisasi untuk mengelola konten CMS DaPay.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                return <ContentCmsManagement currentRole={adminProfile.role} />;
+              })()}
             {activeMenu === "Event" && <EventView />}
             {activeMenu === "Orders" && <OrdersView />}
             {activeMenu === "Deposit" && <DepositView />}

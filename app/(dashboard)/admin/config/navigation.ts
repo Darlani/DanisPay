@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Calendar,
+  FileText,
   FlaskConical,
   Globe,
   Grid,
@@ -22,6 +23,7 @@ export type AdminTabId =
   | "Category"
   | "Products"
   | "AccountDatabase"
+  | "ContentCMS"
   | "Event"
   | "Payment"
   | "Orders"
@@ -51,6 +53,7 @@ export const ADMIN_TAB_SLUGS: Record<AdminTabId, string> = {
   Category: "category",
   Products: "products",
   AccountDatabase: "account-database",
+  ContentCMS: "content-cms",
   Event: "event",
   Payment: "payment",
   Orders: "orders",
@@ -70,6 +73,8 @@ export const VALID_ADMIN_TABS: Record<string, AdminTabId> = {
   products: "Products",
   "account-database": "AccountDatabase",
   accountdatabase: "AccountDatabase",
+  "content-cms": "ContentCMS",
+  contentcms: "ContentCMS",
   event: "Event",
   payment: "Payment",
   orders: "Orders",
@@ -133,6 +138,12 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         label: "Event",
         icon: Calendar,
         slug: "event",
+      },
+      {
+        id: "ContentCMS",
+        label: "Content CMS",
+        icon: FileText,
+        slug: "content-cms",
       },
       {
         id: "Payment",
@@ -256,6 +267,11 @@ export const ADMIN_PAGE_META: Record<AdminTabId, AdminPageMetaItem> = {
     title: "Event & Campaign Center",
     subtitle: "Kelola campaign, promo, maintenance, dan agenda operasional sistem.",
     icon: Calendar,
+  },
+  ContentCMS: {
+    title: "Content CMS",
+    subtitle: "Kelola news, promo, announcement, maintenance, dan section publik DaPay.",
+    icon: FileText,
   },
   Payment: {
     title: "Payment Management",

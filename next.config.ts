@@ -20,10 +20,22 @@ const nextConfig = {
       {
         source: '/(.*)',
         headers: [
-           {
-            key: 'Content-Security-Policy',
+          {
+            key: 'Content-Security-Policy',
             value: `script-src ${scriptSrc}; frame-src 'self' https://challenges.cloudflare.com; connect-src 'self' https://ptdezfwyamskazfwswxh.supabase.co wss://ptdezfwyamskazfwswxh.supabase.co https://challenges.cloudflare.com https://api.ipify.org;`
-          },
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
         ],
       },
     ];
@@ -59,7 +71,7 @@ async redirects() {
     return [
       {
         // Tambahkan rute aplikasi (ref, register, user, auth, dsb) dan 'public' ke daftar pengecualian agar tidak ter-rewrite ke ProductSection
-        source: '/:slug((?!admin|api|login|register|ref|user|checkout|forgot-password|setup-2fa|update-password|promotions|qris-analyzer|qris-generator|public|_next|static|favicon.ico).*)',
+        source: '/:slug((?!admin|api|login|register|ref|user|checkout|forgot-password|setup-2fa|update-password|promotions|promo|news|qris-analyzer|qris-generator|public|_next|static|favicon.ico).*)',
         destination: '/ProductSection/:slug',
       },
     ];
