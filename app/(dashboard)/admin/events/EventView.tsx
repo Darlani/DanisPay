@@ -138,6 +138,15 @@ const getGoogleCalendarMonthUrl = (date: Date) => {
 ========================================================= */
 
 export default function EventView() {
+  const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers = new Headers(options.headers || {});
+    if (session?.access_token) {
+      headers.set("Authorization", `Bearer ${session.access_token}`);
+    }
+    return fetch(url, { ...options, headers });
+  };
+
   /* =======================================================
      GENERAL STATE
   ======================================================= */
@@ -242,16 +251,11 @@ export default function EventView() {
 
   const fetchBanners = async () => {
     try {
-      const { data, error } = await supabase
-        .from("banners")
-        .select("*")
-        .order("id", { ascending: true });
-
-      if (error) {
-        console.error("Fetch banners error:", error);
-        return;
+      const res = await fetchWithAuth("/api/admin/banners");
+      if (!res.ok) {
+        throw new Error(`Fetch banners failed: ${res.statusText}`);
       }
-
+      const data = await res.json();
       const existingBanners = (data || []) as Banner[];
 
       const slots: Banner[] = [...existingBanners];
@@ -549,51 +553,57 @@ export default function EventView() {
 
     const file = e.target.files[0];
 
-    if (!file.type.startsWith("image/")) {
-      alert("File harus berupa gambar.");
+    // Cek MIME type atau ekstensi file
+    const ext = file.name ? file.name.split(".").pop()?.toLowerCase() : "";
+    const isImage = file.type.startsWith("image/") || ["jpg", "jpeg", "png", "webp", "gif", "avif"].includes(ext || "");
+
+    if (!isImage) {
+      alert("File harus berupa gambar (JPG, PNG, WEBP, GIF).");
       return;
     }
 
     setUploading(true);
 
     try {
-      const compressed = await imageCompression(file, {
-        maxSizeMB: 0.4,
-        maxWidthOrHeight: 1280,
-        useWebWorker: true,
-        fileType: "image/webp",
-      });
+      let fileToUpload: File | Blob = file;
 
-      const fileName = `promotions/${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2, 8)}.webp`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("banners")
-        .upload(fileName, compressed, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: "image/webp",
-        });
-
-      if (uploadError) {
-        throw uploadError;
+      // Kompresi jika file BUKAN webp dan ukurannya > 600KB
+      // Mempertahankan resolusi 1920x820 tanpa merusak aspect ratio dan menghindari crash web worker
+      if (!file.name.toLowerCase().endsWith(".webp") && file.size > 600 * 1024) {
+        try {
+          fileToUpload = await imageCompression(file, {
+            maxSizeMB: 0.8,
+            maxWidthOrHeight: 1920,
+            useWebWorker: false,
+            fileType: "image/webp",
+          });
+        } catch (compressionErr) {
+          console.warn("Client compression skipped, uploading original file:", compressionErr);
+          fileToUpload = file;
+        }
       }
 
-      const { data } = supabase.storage
-        .from("banners")
-        .getPublicUrl(fileName);
+      const formData = new FormData();
+      formData.append("file", fileToUpload, file.name);
 
-      setPreviewImage(data.publicUrl);
-    } catch (error: any) {
+      const res = await fetchWithAuth("/api/admin/banners/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || "Upload gambar gagal.");
+      }
+
+      setPreviewImage(json.publicUrl);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Upload gambar gagal.";
       console.error("Upload banner error:", error);
-      alert(
-        error?.message || "Upload gambar gagal."
-      );
+      alert(message);
     } finally {
       setUploading(false);
-
-      // Supaya file yang sama bisa dipilih lagi
       e.target.value = "";
     }
   };
@@ -614,6 +624,7 @@ export default function EventView() {
 
     try {
       const payload = {
+        id: editingBanner.id || null,
         src: previewImage || editingBanner.src,
         alt: editingBanner.alt || "DaPay Banner",
         promo: editingBanner.promo || null,
@@ -626,38 +637,28 @@ export default function EventView() {
           editingBanner.is_active !== false,
       };
 
-      let error;
+      const res = await fetchWithAuth("/api/admin/banners", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
-      if (editingBanner.id) {
-        const result = await supabase
-          .from("banners")
-          .update(payload)
-          .eq("id", editingBanner.id);
+      const json = await res.json();
 
-        error = result.error;
-      } else {
-        const result = await supabase
-          .from("banners")
-          .insert([payload]);
-
-        error = result.error;
-      }
-
-      if (error) {
-        console.error("Save banner error:", error);
-        alert(`Gagal menyimpan banner: ${error.message}`);
-        return;
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || "Gagal menyimpan banner.");
       }
 
       setEditingBanner(null);
       setPreviewImage("");
 
       await fetchBanners();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Gagal menyimpan banner.";
       console.error("Save banner exception:", error);
-      alert(
-        error?.message || "Gagal menyimpan banner."
-      );
+      alert(message);
     } finally {
       setSavingBanner(false);
     }

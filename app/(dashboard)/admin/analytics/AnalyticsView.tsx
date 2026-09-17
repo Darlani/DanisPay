@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Area,
   CartesianGrid,
@@ -25,6 +26,7 @@ import {
   CircleDollarSign,
   FileSpreadsheet,
   FileText,
+  FlaskConical,
   Gift,
   Hourglass,
   Lightbulb,
@@ -44,6 +46,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/utils/supabaseClient";
+import SandboxAnalyticsView from "@/components/admin/analytics/SandboxAnalyticsView";
 
 type TimeRange = "TODAY" | "YESTERDAY" | "7D" | "30D" | "MONTH" | "LAST_MONTH" | "YEAR" | "CUSTOM" | "ALL";
 
@@ -872,6 +875,22 @@ function formatBenchmarkMetric(
 }
 
 export default function AnalyticsView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawView = searchParams.get("view");
+  const activeSection = rawView === "sandbox" ? "sandbox" : "business";
+
+  const handleSwitchSection = (section: "business" | "sandbox") => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (section === "sandbox") {
+      params.set("view", "sandbox");
+    } else {
+      params.delete("view");
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/admin?${qs}` : "/admin?tab=analytics", { scroll: false });
+  };
+
   const [timeRange, setTimeRange] = useState<TimeRange>("MONTH");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -1488,7 +1507,39 @@ export default function AnalyticsView() {
 
   return (
     <div className="space-y-3.5 pb-10 text-slate-600 md:space-y-4">
-      <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      {/* View Switcher: Bisnis LIVE vs Sandbox Funnel */}
+      <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200/80 bg-white p-1.5 shadow-xs w-fit">
+        <button
+          type="button"
+          onClick={() => handleSwitchSection("business")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+            activeSection === "business"
+              ? "bg-[#081226] text-white shadow-xs"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          }`}
+        >
+          <Activity size={15} />
+          Bisnis LIVE
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSwitchSection("sandbox")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+            activeSection === "sandbox"
+              ? "bg-[#081226] text-white shadow-xs"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          }`}
+        >
+          <FlaskConical size={15} />
+          Sandbox Funnel
+        </button>
+      </div>
+
+      {activeSection === "sandbox" ? (
+        <SandboxAnalyticsView />
+      ) : (
+        <>
+          <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-start gap-4">
           <span className="flex h-13 w-13 shrink-0 items-center justify-center rounded-[18px] bg-[#081226] text-white shadow-[0_10px_24px_rgba(15,23,42,0.16)]">
             <Activity size={26} strokeWidth={2.1} />
@@ -2069,6 +2120,8 @@ export default function AnalyticsView() {
           </div>
         </section>
       </div>
+        </>
+      )}
     </div>
   );
 }

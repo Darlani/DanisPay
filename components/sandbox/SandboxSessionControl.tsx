@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   FlaskConical,
   RotateCcw,
@@ -13,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
+import SandboxConversionModal from "@/components/sandbox/SandboxConversionModal";
 
 export interface SandboxQuotaData {
   sessionsToday: number;
@@ -133,8 +135,20 @@ export default function SandboxSessionControl({
   const [mounted, setMounted] = useState<boolean>(false);
   const [data, setData] = useState<SandboxSessionData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isConversionModalOpen, setIsConversionModalOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isModalOpen]);
 
   const fetchSession = useCallback(async (force = false) => {
     const sessionData = await fetchTesterSessionDeduplicated(force);
@@ -367,13 +381,13 @@ export default function SandboxSessionControl({
       )}
 
       {/* 3. MODAL KONTROL SESI SANDBOX */}
-      {isModalOpen && (
+      {isModalOpen && mounted && typeof document !== "undefined" && createPortal(
         <div
           className="fixed inset-0 z-10000 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 animate-in fade-in duration-200"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 text-white shadow-2xl space-y-5">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar rounded-3xl border border-slate-800 bg-slate-900 p-6 text-white shadow-2xl space-y-5">
             {/* Header Modal */}
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -398,7 +412,8 @@ export default function SandboxSessionControl({
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                aria-label="Tutup modal sandbox"
+                className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -532,10 +547,35 @@ export default function SandboxSessionControl({
                   Aktifkan Sesi Sandbox (1 Jam)
                 </button>
               )}
+
+              {/* Low-emphasis conversion CTA if tester and access state is ACTIVE */}
+              {data.isTester && data.sandboxAccessState === "ACTIVE" && (
+                <div className="pt-2 border-t border-slate-800/80 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setIsConversionModalOpen(true);
+                    }}
+                    disabled={isLoading}
+                    className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 hover:underline transition cursor-pointer inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Sparkles size={12} />
+                    <span>Sudah siap berbisnis nyata? Beralih ke Member LIVE</span>
+                    <span aria-hidden="true">→</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
+      <SandboxConversionModal
+        isOpen={isConversionModalOpen}
+        onClose={() => setIsConversionModalOpen(false)}
+      />
     </>
   );
 }

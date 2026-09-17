@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Check,
   Clock,
@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   Package,
+  Receipt,
   RotateCcw,
   ShoppingBag,
   X,
@@ -32,6 +33,9 @@ import {
   toNumber,
 } from "../types";
 import OrderTimeline from "./OrderTimeline";
+import CounterCartReceiptModal, {
+  type CounterCartReceiptData,
+} from "@/components/sandbox/CounterCartReceiptModal";
 
 interface OrderDetailModalProps {
   order: Order;
@@ -39,11 +43,115 @@ interface OrderDetailModalProps {
   onCopy: (text: string, label: string) => void;
 }
 
+export interface CounterCartSnapshotLine {
+  lineId: string;
+  productId: string;
+  sku?: string;
+  productName: string;
+  customerNo: string;
+  quantity: number;
+  modalUnitPrice: number;
+  modalLineTotal: number;
+  sellingPrice: number;
+  salesLineTotal: number;
+  estimatedMargin: number;
+  cashbackPerUnit?: number;
+  lineCashback?: number;
+  simulatedSn?: string;
+  simulatedSns?: string[];
+}
+
+export interface CounterCartSnapshotTotals {
+  totalLines: number;
+  totalQuantity: number;
+  grandTotalModal: number;
+  totalSimulatedSales: number;
+  totalEstimatedMargin: number;
+  totalCashbackCoin: number;
+}
+
+export interface CounterCartSnapshot {
+  snapshotVersion: 2;
+  isCounterCart: boolean;
+  simulatedMemberType?: string;
+  resolvedAt?: string;
+  totals?: CounterCartSnapshotTotals;
+  lines: CounterCartSnapshotLine[];
+}
+
+/**
+ * Defensive parser for Counter Cart Snapshot V2 stored in order.notes.
+ * Returns null if notes is missing, invalid JSON, or not a valid Counter Cart snapshot.
+ */
+export function parseCounterCartSnapshot(notes?: string | null): CounterCartSnapshot | null {
+  if (!notes || typeof notes !== "string" || !notes.trim()) return null;
+  try {
+    const parsed = JSON.parse(notes);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      !Array.isArray(parsed) &&
+      parsed.snapshotVersion === 2 &&
+      parsed.isCounterCart === true &&
+      Array.isArray(parsed.lines) &&
+      parsed.lines.length > 0
+    ) {
+      return parsed as CounterCartSnapshot;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export default function OrderDetailModal({
   order,
   onClose,
   onCopy,
 }: OrderDetailModalProps) {
+  const counterCartSnapshot = parseCounterCartSnapshot(order.notes);
+  const isCounterCart = counterCartSnapshot !== null;
+  const currentOrderKey = order.order_id || order.id;
+  const [receiptOpenOrderId, setReceiptOpenOrderId] = useState<string | null>(null);
+  const isReceiptOpen = Boolean(receiptOpenOrderId && receiptOpenOrderId === currentOrderKey);
+
+  const receiptData: CounterCartReceiptData | null = useMemo(() => {
+    if (!counterCartSnapshot) return null;
+
+    return {
+      orderId: order.order_id || order.id,
+      status: order.status || "Berhasil",
+      totalModal: counterCartSnapshot.totals?.grandTotalModal ?? toNumber(order.price),
+      totalSimulatedSales:
+        counterCartSnapshot.totals?.totalSimulatedSales ??
+        toNumber(order.total_amount ?? order.price),
+      totalEstimatedMargin: counterCartSnapshot.totals?.totalEstimatedMargin ?? 0,
+      totalCashbackCoin: counterCartSnapshot.totals?.totalCashbackCoin ?? toNumber(order.cashback),
+      lines: counterCartSnapshot.lines.map((l, idx) => ({
+        lineId: l.lineId || `line_${idx}`,
+        productId: l.productId,
+        sku: l.sku,
+        productName: l.productName,
+        customerNo: l.customerNo,
+        quantity: l.quantity,
+        modalUnitPrice: l.modalUnitPrice,
+        modalLineTotal: l.modalLineTotal,
+        sellingPrice: l.sellingPrice,
+        salesLineTotal: l.salesLineTotal,
+        estimatedMargin: l.estimatedMargin,
+        cashbackPerUnit: l.cashbackPerUnit,
+        lineCashback: l.lineCashback,
+        simulatedSn:
+          l.simulatedSn ||
+          (Array.isArray(l.simulatedSns) && l.simulatedSns.length > 0 ? l.simulatedSns[0] : "") ||
+          "",
+        simulatedSns: l.simulatedSns,
+      })),
+      resolvedAt: counterCartSnapshot.resolvedAt || order.created_at || undefined,
+      simulatedMemberType: counterCartSnapshot.simulatedMemberType,
+    };
+  }, [counterCartSnapshot, order]);
+
   const [isTokenVisible, setIsTokenVisible] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
   const [copiedCustNo, setCopiedCustNo] = useState(false);
@@ -143,6 +251,11 @@ export default function OrderDetailModal({
                 {order.is_sandbox && (
                   <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider text-amber-600 border border-amber-500/20">
                     Sandbox
+                  </span>
+                )}
+                {isCounterCart && (
+                  <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider text-emerald-700 border border-emerald-500/20">
+                    Counter Cart
                   </span>
                 )}
               </div>
@@ -406,6 +519,18 @@ export default function OrderDetailModal({
               </button>
             )}
 
+            {/* Buka Struk Kasir (Counter Cart only) */}
+            {isCounterCart && (
+              <button
+                type="button"
+                onClick={() => setReceiptOpenOrderId(currentOrderKey)}
+                className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 sm:px-4 text-xs font-black text-amber-900 hover:bg-amber-100 transition active:scale-95 cursor-pointer shadow-2xs"
+              >
+                <Receipt size={14} className="text-amber-700" />
+                <span>Buka Struk Kasir</span>
+              </button>
+            )}
+
             {/* 2. Download / Lihat Invoice Button */}
             <button
               type="button"
@@ -428,6 +553,17 @@ export default function OrderDetailModal({
           </div>
         </div>
       </div>
+
+      {/* Counter Cart Receipt Modal */}
+      {isCounterCart && receiptData && (
+        <CounterCartReceiptModal
+          isOpen={isReceiptOpen}
+          onClose={() => setReceiptOpenOrderId(null)}
+          receipt={receiptData}
+          allowSelection={true}
+          initialMode="customer"
+        />
+      )}
     </div>
   );
 }

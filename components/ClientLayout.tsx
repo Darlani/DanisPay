@@ -6,7 +6,7 @@ import { STORE_CONFIG } from "@/utils/storeConfig";
 // Load Navbar, Footer, dan BottomNav cuma pas dibutuhin (Lazy Load)
 const Navbar = dynamic(() => import("./Navbar"), { ssr: false });
 const Footer = dynamic(() => import("./Footer"), { ssr: false });
-const BottomNav = dynamic(() => import("./BottomNav"), { ssr: false }); 
+const BottomNav = dynamic(() => import("./BottomNav"), { ssr: false });
 const MaintenancePage = dynamic(() => import("./MaintenancePage"));
 const SandboxTopBanner = dynamic(() => import("./sandbox/SandboxTopBanner"), { ssr: false });
 
@@ -21,16 +21,18 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <>
-      <SandboxTopBanner />
-      {!isDashboardPage && <Navbar />}
-      
+      <header className="sticky top-0 z-50 w-full">
+        <SandboxTopBanner />
+        {!isDashboardPage && <Navbar />}
+      </header>
+
       {/* Tambahkan pb-20 di HP agar konten tidak ketutupan BottomNav */}
       <main className={`grow relative ${!isDashboardPage ? "pb-20 md:pb-0" : ""}`}>
         {children}
       </main>
 
       {!isDashboardPage && <Footer />}
-      
+
       {/* Tampilkan Bottom Navigasi khusus Mobile di Landing Page */}
       {!isDashboardPage && <BottomNav />}
     </>

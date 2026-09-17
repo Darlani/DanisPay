@@ -27,14 +27,146 @@ export async function getSandboxAccessState(userId: string): Promise<string | nu
   return data?.state ?? null;
 }
 
+export function validateOriginForCookieFallback(request: Request): boolean {
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+
+  const trustedOrigins = new Set<string>();
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (siteUrl) {
+    try {
+      trustedOrigins.add(new URL(siteUrl).origin.toLowerCase());
+    } catch {
+      // ignore invalid URL configuration
+    }
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) {
+    try {
+      trustedOrigins.add(new URL(appUrl).origin.toLowerCase());
+    } catch {
+      // ignore invalid URL configuration
+    }
+  }
+
+  if (host) {
+    const hostLower = host.toLowerCase();
+    const isLocal = hostLower.startsWith('localhost') || hostLower.startsWith('127.0.0.1') || hostLower.startsWith('0.0.0.0');
+    if (isLocal || trustedOrigins.size === 0) {
+      trustedOrigins.add(`http://${hostLower}`);
+      trustedOrigins.add(`https://${hostLower}`);
+    } else {
+      for (const trusted of Array.from(trustedOrigins)) {
+        try {
+          if (new URL(trusted).host.toLowerCase() === hostLower) {
+            trustedOrigins.add(`https://${hostLower}`);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+
+  if (origin) {
+    try {
+      const originNormalized = new URL(origin).origin.toLowerCase();
+      return trustedOrigins.has(originNormalized);
+    } catch {
+      return false;
+    }
+  }
+
+  if (referer) {
+    try {
+      const refererOrigin = new URL(referer).origin.toLowerCase();
+      return trustedOrigins.has(refererOrigin);
+    } catch {
+      return false;
+    }
+  }
+
+  const secFetchSite = request.headers.get('sec-fetch-site');
+  if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'same-site' && secFetchSite !== 'none') {
+    return false;
+  }
+
+  return true;
+}
+
+export function extractTesterAuthCookie(cookieHeader: string): string | null {
+  if (!cookieHeader) return null;
+
+  // 1. Check sb-access-token cookie (used by DaPay)
+  const sbAccessTokenMatch = cookieHeader.match(/sb-access-token=([^;]+)/i);
+  if (sbAccessTokenMatch?.[1]) {
+    try {
+      const raw = decodeURIComponent(sbAccessTokenMatch[1]).trim();
+      if (raw) return raw;
+    } catch {
+      // ignore
+    }
+  }
+
+  // 2. Check sb-*-auth-token cookie (Supabase standard)
+  const tokenMatch = cookieHeader.match(/sb-[a-z0-9]+-auth-token=([^;]+)/i);
+  if (tokenMatch?.[1]) {
+    try {
+      const decoded = decodeURIComponent(tokenMatch[1]);
+      let parsed = JSON.parse(decoded);
+      if (Array.isArray(parsed) && parsed[0]) parsed = parsed[0];
+      const rawToken = typeof parsed === 'string' ? parsed : parsed?.access_token;
+      if (rawToken && typeof rawToken === 'string') {
+        return rawToken.trim();
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return null;
+}
+
 export async function requireSandboxCustomerAccess(request: Request): Promise<SandboxAuthorizationResult> {
-  const authentication = await authenticateRequest(request);
-  if (!authentication.ok) return { ok: false, status: 401, code: 'AUTHENTICATION_REQUIRED' };
+  const authHeader = request.headers.get('Authorization') || request.headers.get('authorization');
+  const hasBearer = Boolean(authHeader && authHeader.trim().length > 0);
+
+  let userId: string;
+
+  if (hasBearer) {
+    // Case 1 & Case 3: Authorization header exists -> use Bearer authentication.
+    const authentication = await authenticateRequest(request);
+    if (!authentication.ok) {
+      // Case 3: Header was supplied but invalid/expired -> strictly reject, DO NOT fallback to cookie.
+      return { ok: false, status: 401, code: 'AUTHENTICATION_REQUIRED' };
+    }
+    userId = authentication.user.id;
+  } else {
+    // Case 2: Authorization header does NOT exist -> validate Same-Origin then fallback to cookie.
+    if (!validateOriginForCookieFallback(request)) {
+      return { ok: false, status: 403, code: 'SANDBOX_ACCESS_DENIED' };
+    }
+
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieToken = extractTesterAuthCookie(cookieHeader);
+    if (!cookieToken) {
+      return { ok: false, status: 401, code: 'AUTHENTICATION_REQUIRED' };
+    }
+
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(cookieToken);
+    if (userError || !user) {
+      return { ok: false, status: 401, code: 'AUTHENTICATION_REQUIRED' };
+    }
+    userId = user.id;
+  }
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('role')
-    .eq('id', authentication.user.id)
+    .eq('id', userId)
     .maybeSingle();
   if (profileError || !profile) return { ok: false, status: 503, code: 'SANDBOX_ACCESS_UNAVAILABLE' };
   if (isManagementRole(profile.role)) return { ok: false, status: 403, code: 'SANDBOX_ACCESS_DENIED' };
@@ -42,12 +174,12 @@ export async function requireSandboxCustomerAccess(request: Request): Promise<Sa
   const { data: access, error: accessError } = await supabaseAdmin
     .from('sandbox_access')
     .select('state')
-    .eq('user_id', authentication.user.id)
+    .eq('user_id', userId)
     .maybeSingle();
   if (accessError) return { ok: false, status: 503, code: 'SANDBOX_ACCESS_UNAVAILABLE' };
   if (access?.state !== 'ACTIVE') return { ok: false, status: 403, code: 'SANDBOX_ACCESS_DENIED' };
 
-  return { ok: true, userId: authentication.user.id, accessState: 'ACTIVE' };
+  return { ok: true, userId, accessState: 'ACTIVE' };
 }
 
 export function hasActiveSandboxSessionCookie(req: Request): boolean {

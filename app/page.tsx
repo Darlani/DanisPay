@@ -49,7 +49,7 @@ interface ActiveProductRow {
   brand_id: number | string | null;
 }
 import MaintenancePage from "@/utils/MaintenancePage";
-import { Loader2, Settings, Clock, ChevronRight, Zap, Smartphone, Gamepad2, Wifi, MonitorPlay, Headset, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Settings, Clock, Zap, Smartphone, Gamepad2, Wifi, MonitorPlay, Headset, CheckCircle2, XCircle } from "lucide-react";
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import ContactModal from "@/components/ContactModal";
 

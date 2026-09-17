@@ -80,9 +80,9 @@ export async function GET(req: Request) {
     const hasSandboxCookie = cookieHeader.split(';').some((cookie) => cookie.trim().startsWith(`${SANDBOX_SESSION_COOKIE}=active`));
     const [profileRes, accessRes, walletRes, requestRes] = await Promise.all([
       supabaseAdmin.from('profiles').select('is_tester, role').eq('id', user.id).maybeSingle(),
-      supabaseAdmin.from('sandbox_access').select('state, last_meaningful_activity_at, changed_at, simulated_member_type').eq('user_id', user.id).maybeSingle(),
+      supabaseAdmin.from('sandbox_access').select('state, last_meaningful_activity_at, changed_at, simulated_member_type, reason').eq('user_id', user.id).maybeSingle(),
       supabaseAdmin.from('sandbox_wallets').select('balance, coin_balance').eq('user_id', user.id).maybeSingle(),
-      supabaseAdmin.from('sandbox_reactivation_requests').select('state').eq('user_id', user.id).eq('state', 'PENDING').maybeSingle(),
+      supabaseAdmin.from('sandbox_reactivation_requests').select('state, rejection_reason, requested_at, reviewed_at').eq('user_id', user.id).order('requested_at', { ascending: false }).limit(1).maybeSingle(),
     ]);
     if (profileRes.error || accessRes.error || walletRes.error || requestRes.error) return NextResponse.json({ error: 'Tidak dapat memverifikasi status Sandbox.' }, { status: 503 });
 
@@ -129,7 +129,10 @@ export async function GET(req: Request) {
       userId: user.id,
       isTester: !isStaff && profileRes.data?.is_tester === true,
       sandboxAccessState: accessState,
+      sandboxAccessReason: isStaff ? null : (accessRes.data?.reason ?? null),
       sandboxReactivationState: requestRes.data?.state ?? null,
+      sandboxReactivationReason: requestRes.data?.rejection_reason ?? null,
+      sandboxReactivationRequestedAt: requestRes.data?.requested_at ?? null,
       isSandboxActive,
       sandboxBalance,
       sandboxCoinBalance,

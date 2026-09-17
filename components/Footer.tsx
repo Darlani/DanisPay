@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { Instagram, Facebook, Twitter, ShieldCheck } from "lucide-react";
 import ContactModal from "./ContactModal";
 
@@ -31,7 +32,8 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-bold mb-6">Peta Situs</h4>
             <ul className="space-y-4 text-sm text-slate-400">
-              <li><a href="/" className="hover:text-blue-500 transition-colors">Beranda</a></li>
+              <li><Link href="/" className="hover:text-blue-500 transition-colors">Beranda</Link></li>
+              <li><Link href="/sandbox" className="hover:text-blue-500 transition-colors">Sandbox DaPay</Link></li>
               <li><a href="#" className="hover:text-blue-500 transition-colors">Cek Transaksi</a></li>
               <li><a href="#" className="hover:text-blue-500 transition-colors">Daftar Harga</a></li>
               <li><a href="#" className="hover:text-blue-500 transition-colors">Syarat & Ketentuan</a></li>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   FlaskConical,
   CheckCircle2,
@@ -9,6 +10,11 @@ import {
   Loader2,
   ShieldCheck,
   Sparkles,
+  Clock,
+  RotateCcw,
+  UserCheck,
+  ShieldAlert,
+  ArrowRight,
 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
 import {
@@ -17,16 +23,41 @@ import {
   setCachedSandboxSession,
   type SandboxSessionData,
 } from "@/components/sandbox/SandboxSessionControl";
+import SandboxReactivationModal from "@/components/sandbox/SandboxReactivationModal";
+
+type ExtendedSandboxSessionData = Omit<SandboxSessionData, "sandboxReactivationState"> & {
+  sandboxAccessReason?: string | null;
+  sandboxReactivationState?: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | null;
+  sandboxReactivationReason?: string | null;
+  sandboxReactivationRequestedAt?: string | null;
+};
+
+function getLockType(reason?: string | null): "conversion" | "inactivity" | "other" {
+  if (!reason) return "other";
+  const lower = reason.toLowerCase();
+  if (lower.includes("convert") || lower.includes("member live")) return "conversion";
+  if (
+    lower.includes("auto-lock") ||
+    lower.includes("aktivitas") ||
+    lower.includes("inactivity") ||
+    lower.includes("inaktif")
+  ) {
+    return "inactivity";
+  }
+  return "other";
+}
 
 export default function SandboxAccessActions() {
-  const [data, setData] = useState<SandboxSessionData | null>(null);
+  const router = useRouter();
+  const [data, setData] = useState<ExtendedSandboxSessionData | null>(null);
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showReactivationModal, setShowReactivationModal] = useState(false);
+  const [reactivationLockType, setReactivationLockType] = useState<"conversion" | "inactivity" | "other" | "revoked">("other");
 
-  const refresh = async () => setData(await fetchTesterSessionDeduplicated(true));
+  const refresh = async () => setData((await fetchTesterSessionDeduplicated(true)) as ExtendedSandboxSessionData | null);
 
   useEffect(() => {
     void refresh();
@@ -66,25 +97,21 @@ export default function SandboxAccessActions() {
     }
   };
 
-  const call = async (url: string) => {
-    setPending(true);
-    setMessage(null);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(url, {
-        method: "POST",
-        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || "Permintaan gagal.");
-      setMessage(body.message || (url.includes("convert") ? "Akun menjadi Member LIVE." : "Permintaan reaktivasi terkirim."));
-      await refresh();
-      window.dispatchEvent(new Event("sandboxSessionChanged"));
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Permintaan gagal.");
-    } finally {
-      setPending(false);
+  const handleStartExploration = () => {
+    setShowOnboarding(false);
+    if (data?.userId && typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`dapay_sandbox_onboarded_${data.userId}`, "true");
+      } catch {
+        // ignore localStorage failure
+      }
     }
+    router.push("/user?tab=catalog");
+  };
+
+  const openReactivation = (type: "conversion" | "inactivity" | "other" | "revoked") => {
+    setReactivationLockType(type);
+    setShowReactivationModal(true);
   };
 
   const handleActivate = async () => {
@@ -117,7 +144,7 @@ export default function SandboxAccessActions() {
         throw new Error(msg);
       }
 
-      const nextData: SandboxSessionData = {
+      const nextData: ExtendedSandboxSessionData = {
         authenticated: true,
         userId: data?.userId ?? null,
         isTester: true,
@@ -126,8 +153,8 @@ export default function SandboxAccessActions() {
         sandboxBalance: 1000000,
       };
 
-      setCachedSandboxSession(nextData);
-      broadcastSandboxSync(nextData);
+      setCachedSandboxSession(nextData as SandboxSessionData);
+      broadcastSandboxSync(nextData as SandboxSessionData);
       window.dispatchEvent(new Event("sandboxSessionChanged"));
       setShowConfirm(false);
       setShowOnboarding(true);
@@ -140,6 +167,8 @@ export default function SandboxAccessActions() {
   };
 
   if (!data?.authenticated) return null;
+
+  const lockType = getLockType(data.sandboxAccessReason);
 
   return (
     <>
@@ -242,109 +271,283 @@ export default function SandboxAccessActions() {
         </>
       )}
 
-
-      {/* PENDING reactivation state */}
+      {/* 1. PENDING REACTIVATION: Waiting for manager review */}
       {data.sandboxReactivationState === "PENDING" && (
-        <div className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-          Permintaan reaktivasi Sandbox sedang menunggu persetujuan.
+        <div className="w-full rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-left">
+          <div className="flex items-center justify-between gap-1.5 mb-1.5">
+            <span className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+              <Clock size={14} className="text-amber-600 shrink-0" />
+              Menunggu Persetujuan
+            </span>
+            <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-900">
+              Dalam Antrean
+            </span>
+          </div>
+          <p className="text-[11px] text-amber-900/85 leading-relaxed">
+            Permohonan reaktivasi Sandbox Anda telah terkirim dan sedang ditinjau oleh Admin/Manager.
+          </p>
+          <div className="mt-2 flex items-center gap-1 text-[10px] text-amber-800/80">
+            <ShieldCheck size={12} className="shrink-0 text-amber-600" />
+            <span>Akun & saldo kas riil Anda tetap aman.</span>
+          </div>
         </div>
       )}
 
-      {/* LOCKED or REVOKED state */}
-      {(data.sandboxAccessState === "LOCKED" || data.sandboxAccessState === "REVOKED") && (
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => void call("/api/tester/reactivation-request")}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
-        >
-          {pending ? "Mengirim..." : "Minta Reaktivasi Sandbox"}
-          <span className="mt-1 block text-[10px] font-normal">Persetujuan Admin/Manager diperlukan.</span>
-          {message && <span className="mt-1 block text-[10px]">{message}</span>}
-        </button>
-      )}
+      {/* 2. REJECTED REACTIVATION: Show manager notice & allow re-apply */}
+      {data.sandboxReactivationState === "REJECTED" &&
+        (data.sandboxAccessState === "LOCKED" || data.sandboxAccessState === "REVOKED") && (
+          <div className="w-full rounded-xl border border-rose-200 bg-rose-50/70 p-3 text-left">
+            <div className="flex items-center justify-between gap-1.5 mb-1.5">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-rose-950">
+                <AlertCircle size={14} className="text-rose-600 shrink-0" />
+                Pengajuan Ditolak
+              </span>
+              <span className="rounded-full bg-rose-200/80 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-rose-900">
+                Ditolak
+              </span>
+            </div>
+            <p className="text-[11px] text-rose-900/85 leading-relaxed">
+              {data.sandboxReactivationReason ? (
+                <>
+                  <span className="font-semibold text-rose-950">Catatan Manajemen:</span>{" "}
+                  &ldquo;{data.sandboxReactivationReason}&rdquo;
+                </>
+              ) : (
+                "Permohonan reaktivasi sebelumnya belum disetujui oleh manajemen."
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() =>
+                openReactivation(
+                  data.sandboxAccessState === "REVOKED"
+                    ? "revoked"
+                    : lockType
+                )
+              }
+              className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-[11px] font-bold text-white shadow-xs hover:bg-rose-700 transition cursor-pointer"
+            >
+              <RotateCcw size={12} />
+              Ajukan Ulang Reaktivasi
+            </button>
+          </div>
+        )}
+
+      {/* 3. LOCKED: Reason-specific cards (only if not pending and not rejected) */}
+      {data.sandboxAccessState === "LOCKED" &&
+        data.sandboxReactivationState !== "PENDING" &&
+        data.sandboxReactivationState !== "REJECTED" && (
+          <>
+            {/* 3A. LOCKED VIA CONVERSION: Member LIVE */}
+            {lockType === "conversion" && (
+              <div className="w-full rounded-xl border border-sky-200 bg-linear-to-r from-sky-50 to-blue-50 p-3 text-left">
+                <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-sky-950">
+                    <UserCheck size={14} className="text-sky-600 shrink-0" />
+                    Member LIVE Aktif
+                  </span>
+                  <span className="rounded-full bg-sky-200/80 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-sky-900">
+                    Graduated
+                  </span>
+                </div>
+                <p className="text-[11px] text-sky-900/85 leading-relaxed">
+                  Akun Anda telah aktif sebagai Member LIVE. Akses simulasi Sandbox dialihkan, namun Anda dapat mengajukan pembukaan kembali untuk belajar atau simulasi.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openReactivation("conversion")}
+                  className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2 text-[11px] font-bold text-white shadow-xs hover:bg-sky-700 transition cursor-pointer"
+                >
+                  <FlaskConical size={12} />
+                  Ajukan Akses Sandbox
+                  <ArrowRight size={12} />
+                </button>
+              </div>
+            )}
+
+            {/* 3B. LOCKED VIA INACTIVITY: 7 days inactive */}
+            {lockType === "inactivity" && (
+              <div className="w-full rounded-xl border border-amber-200 bg-linear-to-r from-amber-50 to-orange-50 p-3 text-left">
+                <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+                    <Clock size={14} className="text-amber-600 shrink-0" />
+                    Akses Terkunci
+                  </span>
+                  <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-900">
+                    7 Hari Inaktif
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-900/85 leading-relaxed">
+                  Akses simulasi Sandbox terkunci otomatis karena tidak ada aktivitas selama 7 hari. Data dan riwayat simulasi Anda tetap tersimpan.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openReactivation("inactivity")}
+                  className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg bg-linear-to-r from-amber-500 to-orange-500 px-3 py-2 text-[11px] font-bold text-slate-950 shadow-xs hover:from-amber-600 hover:to-orange-600 transition cursor-pointer"
+                >
+                  <RotateCcw size={12} />
+                  Buka Kembali Akses
+                  <ArrowRight size={12} />
+                </button>
+              </div>
+            )}
+
+            {/* 3C. LOCKED VIA OTHER: Generic locked state */}
+            {lockType === "other" && (
+              <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-left">
+                <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                    <RotateCcw size={14} className="text-slate-600 shrink-0" />
+                    Akses Terkunci
+                  </span>
+                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-slate-700">
+                    Terkunci
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  {data.sandboxAccessReason || "Akses lingkungan simulasi Sandbox Anda saat ini terkunci."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openReactivation("other")}
+                  className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-[11px] font-bold text-white shadow-xs hover:bg-slate-900 transition cursor-pointer"
+                >
+                  <RotateCcw size={12} />
+                  Minta Reaktivasi Sandbox
+                  <ArrowRight size={12} />
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+      {/* 4. REVOKED: Administratively revoked access */}
+      {data.sandboxAccessState === "REVOKED" &&
+        data.sandboxReactivationState !== "PENDING" &&
+        data.sandboxReactivationState !== "REJECTED" && (
+          <div className="w-full rounded-xl border border-rose-200 bg-rose-50/60 p-3 text-left">
+            <div className="flex items-center justify-between gap-1.5 mb-1.5">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-rose-950">
+                <ShieldAlert size={14} className="text-rose-600 shrink-0" />
+                Akses Dicabut
+              </span>
+              <span className="rounded-full bg-rose-200/80 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-rose-900">
+                Revoked
+              </span>
+            </div>
+            <p className="text-[11px] text-rose-900/85 leading-relaxed">
+              {data.sandboxAccessReason ? (
+                <>
+                  <span className="font-semibold text-rose-950">Alasan:</span> &ldquo;{data.sandboxAccessReason}&rdquo;
+                </>
+              ) : (
+                "Akses Sandbox telah dinonaktifkan secara administratif oleh manajemen DaPay."
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => openReactivation("revoked")}
+              className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-2 text-[11px] font-bold text-rose-800 shadow-2xs hover:bg-rose-50 transition cursor-pointer"
+            >
+              <RotateCcw size={12} />
+              Ajukan Peninjauan Akses
+              <ArrowRight size={12} />
+            </button>
+          </div>
+        )}
+
+      {/* PHASE 4B: REACTIVATION MODAL */}
+      <SandboxReactivationModal
+        isOpen={showReactivationModal}
+        onClose={() => setShowReactivationModal(false)}
+        onSuccess={() => void refresh()}
+        lockType={reactivationLockType}
+      />
 
       {/* PHASE 1C: SANDBOX ONBOARDING MODAL (ACTIVE & IN SANDBOX SESSION ONLY) */}
       {showOnboarding && data.sandboxAccessState === "ACTIVE" && data.isSandboxActive && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md rounded-2xl bg-white p-5 md:p-6 shadow-2xl border border-slate-100 text-slate-900 animate-in zoom-in-95 duration-150">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sandbox-welcome-title"
+          aria-describedby="sandbox-welcome-desc"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
+        >
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-5 md:p-6 shadow-2xl border border-slate-100 text-slate-900 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <button
               type="button"
               onClick={handleDismissOnboarding}
-              className="absolute right-3.5 top-3.5 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
-              aria-label="Tutup Onboarding"
+              className="absolute right-3.5 top-3.5 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-400"
+              aria-label="Tutup panduan selamat datang"
             >
               <X size={18} />
             </button>
 
-            {/* Prominent Labeling */}
+            {/* PART 1 — STATUS */}
             <div className="mb-3">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-900 border border-amber-300/80 shadow-2xs">
                 <FlaskConical size={13} className="text-amber-600 shrink-0" />
-                SANDBOX • SIMULASI
+                SANDBOX SUDAH AKTIF
               </span>
             </div>
 
-            <h2 className="text-base font-extrabold text-slate-950 tracking-tight">
-              Selamat Datang di Sandbox DaPay
+            <h2 id="sandbox-welcome-title" className="text-base font-extrabold text-slate-950 tracking-tight">
+              Selamat, Sandbox Anda Sudah Aktif!
             </h2>
-            <p className="text-xs text-slate-500 mt-1 leading-normal">
-              Ruang belajar dan simulasi transaksi produk digital tanpa risiko finansial.
+            <p id="sandbox-welcome-desc" className="text-xs text-slate-500 mt-1 leading-normal">
+              Gunakan saldo virtual untuk mencoba simulasi transaksi produk digital.
             </p>
 
-            {/* Virtual Balance Card */}
-            <div className="mt-4 rounded-xl border border-amber-200/80 bg-amber-50/70 p-3.5 text-xs">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="font-bold text-amber-950 flex items-center gap-1">
+            {/* PART 2 — VIRTUAL BALANCE / SAFETY */}
+            <div className="mt-4 rounded-xl border border-amber-200/90 bg-amber-50/70 p-3.5 text-xs">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-amber-950 flex items-center gap-1.5">
                   <Sparkles size={13} className="text-amber-600" />
-                  Saldo Virtual Sandbox Diberikan
+                  Saldo Virtual
                 </span>
-                <span className="font-extrabold font-mono text-amber-800 text-sm">
+                <span className="font-extrabold font-mono text-amber-900 text-sm">
                   Rp 1.000.000
                 </span>
               </div>
-              <p className="text-[11px] text-amber-900/80 leading-relaxed">
-                Saldo virtual disediakan untuk mencoba simulasi transaksi. Saldo ini sepenuhnya virtual, tidak dapat dicairkan (<span className="font-semibold">non-withdrawable</span>), dan tidak dapat dipindahkan ke saldo riil.
+              <p className="text-[11px] text-amber-900/85 leading-relaxed">
+                Saldo ini hanya untuk latihan. Saldo kas LIVE Anda tidak digunakan dan tidak terpengaruh.
+              </p>
+              <p className="text-[10px] text-amber-800/75 mt-1 font-medium">
+                *Saldo Virtual tidak dapat diuangkan.
               </p>
             </div>
 
-            {/* Simulation / No Real Money Feature Checklist */}
-            <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-3.5 text-xs text-slate-700 border border-slate-100">
-              <div className="flex items-start gap-2.5">
-                <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
-                <span className="leading-snug">
-                  <strong className="text-slate-900">Transaksi Simulasi:</strong> Berlatih transaksi pulsa dan data tanpa terhubung ke vendor riil.
+            {/* PART 3 — FIRST STEP */}
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs text-slate-700">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-100 text-emerald-700 font-bold text-[10px]">
+                  01
                 </span>
+                <h3 className="font-bold text-slate-900 text-xs">
+                  Langkah Pertama: Coba Satu Transaksi Contoh
+                </h3>
               </div>
-              <div className="flex items-start gap-2.5">
-                <ShieldCheck size={15} className="text-emerald-600 shrink-0 mt-0.5" />
-                <span className="leading-snug">
-                  <strong className="text-slate-900">Bebas Risiko Finansial:</strong> Saldo kas riil DaPay Anda tidak akan pernah terpotong.
-                </span>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
-                <span className="leading-snug">
-                  <strong className="text-slate-900">Terisolasi Sempurna:</strong> Mutasi saldo virtual dan pesanan simulasi terpisah dari pembukuan riil.
-                </span>
-              </div>
+              <p className="text-[11.5px] text-slate-600 leading-relaxed">
+                Pilih satu produk di katalog dan lakukan simulasi pertama Anda. Di katalog tersedia panduan <strong>&ldquo;Mulai dari sini&rdquo;</strong>.
+              </p>
             </div>
 
-            {/* Recommended First Action & Dismiss */}
+            {/* ACTIONS */}
             <div className="mt-5 space-y-2">
               <button
                 type="button"
-                onClick={handleDismissOnboarding}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 py-3 text-xs font-black uppercase tracking-wider text-slate-950 shadow-md shadow-amber-500/25 hover:from-amber-600 hover:to-orange-600 transition cursor-pointer"
+                onClick={handleStartExploration}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 py-3 text-xs font-black uppercase tracking-wider text-slate-950 shadow-md shadow-amber-500/25 hover:from-amber-600 hover:to-orange-600 transition cursor-pointer active:scale-98 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-400"
               >
-                Mulai Eksplorasi Sandbox →
+                <span>Mulai Coba Produk</span>
+                <ArrowRight size={14} />
               </button>
               <button
                 type="button"
                 onClick={handleDismissOnboarding}
-                className="w-full py-2 text-[11px] font-semibold text-slate-500 hover:text-slate-700 transition cursor-pointer text-center"
+                className="w-full py-2 text-[11px] font-semibold text-slate-500 hover:text-slate-700 transition cursor-pointer text-center focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400 rounded-lg"
               >
-                Lewati & Tutup Panduan
+                Nanti Saja
               </button>
             </div>
           </div>
