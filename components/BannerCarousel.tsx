@@ -6,11 +6,23 @@ import { ChevronLeft, ChevronRight, Tag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link"; 
 import { supabase } from "@/utils/supabaseClient";
+import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
+
+interface BannerItem {
+  id: number | string;
+  src: string;
+  alt?: string | null;
+  href?: string | null;
+  promo?: string | null;
+  is_active?: boolean;
+}
 
 export default function BannerCarousel() {
+  const { locale } = useI18n();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [shouldAnimate, setShouldAnimate] = useState(false);
-  const [banners, setBanners] = useState<any[]>([]);
+  const [banners, setBanners] = useState<BannerItem[]>([]);
   const [initialIndex, setInitialIndex] = useState(0);
 
   // 1. FETCH DATA & AMBIL POSISI TERAKHIR
@@ -124,7 +136,10 @@ const fetchBanners = async () => {
               
               // LOGIKA SMART LINK YANG RAMAH TYPESCRIPT
               // Banner cuma bisa diklik kalau ada link-nya DAN status is_active-nya TRUE
-const isLinkActive = banner.href && banner.href !== "#" && banner.href !== "" && banner.is_active === true;
+              const targetHref = (banner.href && banner.href !== "#" && banner.href !== "" && banner.is_active === true)
+                ? banner.href
+                : null;
+              const isLinkActive = Boolean(targetHref);
               
               // Bungkus style dan class biar nggak ditulis dua kali
               const wrapperClasses = `slide-inner-container block h-full w-full ${isActive ? (isLinkActive ? 'cursor-pointer' : 'cursor-default opacity-80') : 'cursor-default pointer-events-none'}`;
@@ -174,8 +189,12 @@ const isLinkActive = banner.href && banner.href !== "#" && banner.href !== "" &&
                   style={{ zIndex: isActive ? 30 : 10 }}
                 >
                   {/* Eksekusi Kondisi Link (TS Senang, UI Aman) */}
-                  {isLinkActive ? (
-                    <Link href={banner.href} className={wrapperClasses} style={wrapperStyle}>
+                  {targetHref ? (
+                    <Link
+                      href={targetHref.startsWith("/") ? localizeHref(targetHref, locale) : targetHref}
+                      className={wrapperClasses}
+                      style={wrapperStyle}
+                    >
                       {InnerBannerContent}
                     </Link>
                   ) : (

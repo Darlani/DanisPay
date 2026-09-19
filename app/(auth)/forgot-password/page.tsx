@@ -1,11 +1,13 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, ArrowRight, Loader2, AlertCircle, ShieldCheck, ChevronLeft, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { Turnstile } from '@marsidev/react-turnstile'; 
+import { useI18n } from "@/lib/i18n/context";
 
 export default function ForgotPasswordPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -64,10 +66,10 @@ export default function ForgotPasswordPage() {
               <ShieldCheck size={32} className="text-white" />
           </div>
           <h1 className="text-3xl text-white font-black italic tracking-tighter uppercase mb-2">
-            LUPA <span className="text-blue-500">PASSWORD?</span>
+            {t("auth.forgotTitle")}
           </h1>
           <p className="text-slate-400 text-[11px] font-medium tracking-widest uppercase mt-3 leading-relaxed">
-            Jangan panik. Masukkan email akun Anda dan kami akan mengirimkan link untuk membuat password baru.
+            {t("auth.forgotDesc")}
           </p>
         </div>
 
@@ -77,12 +79,12 @@ export default function ForgotPasswordPage() {
             <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
               <CheckCircle2 className="text-emerald-500" size={32} />
             </div>
-            <h3 className="text-emerald-400 font-black text-lg uppercase tracking-widest mb-2">EMAIL TERKIRIM!</h3>
+            <h3 className="text-emerald-400 font-black text-lg uppercase tracking-widest mb-2">{t("auth.emailSentTitle")}</h3>
             <p className="text-slate-400 text-xs leading-relaxed mb-8">
-              Silakan cek kotak masuk atau folder spam di email <span className="text-white font-bold">{email}</span>.
+              {t("auth.emailSentDesc")}
             </p>
             <Link href="/login" className="w-full bg-slate-800 hover:bg-slate-700 text-white font-black italic uppercase py-4 rounded-2xl transition-all transform active:scale-95 flex items-center justify-center gap-2">
-              <ChevronLeft size={18} /> KEMBALI KE LOGIN
+              <ChevronLeft size={18} /> {t("auth.backToLogin").toUpperCase()}
             </Link>
           </div>
         ) : (
@@ -97,7 +99,7 @@ export default function ForgotPasswordPage() {
 
             <form onSubmit={handleResetPassword} className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="space-y-1">
-                <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase ml-3">Email Akun Anda</label>
+                <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase ml-3">{t("auth.emailLabel")}</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Mail className="h-5 w-5 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
@@ -106,7 +108,8 @@ export default function ForgotPasswordPage() {
                     type="email"
                     required
                     className="w-full bg-slate-900/50 border border-white/10 text-white text-sm rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent block pl-12 p-4 placeholder-slate-600 transition-all outline-none font-medium"
-                    placeholder="email@anda.com"
+                    placeholder={t("auth.emailPlaceholder")}
+                    aria-label={t("auth.emailLabel")}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -133,15 +136,15 @@ export default function ForgotPasswordPage() {
                 {loading ? (
                   <Loader2 className="animate-spin" size={20} />
                 ) : (!captchaToken && !(typeof window !== "undefined" && window.location.hostname === "localhost")) ? (
-                  "Verifikasi Keamanan..."
+                  t("auth.verifying")
                 ) : (
-                  <>KIRIM LINK RESET <ArrowRight size={20} /></>
+                  <>{t("auth.sendResetLink")} <ArrowRight size={20} /></>
                 )}
               </button>
 
               <div className="pt-4 text-center">
                 <Link href="/login" className="inline-flex items-center justify-center gap-1 text-slate-500 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-colors">
-                  <ChevronLeft size={14}/> Batal & Kembali
+                  <ChevronLeft size={14}/> {t("auth.backToLogin")}
                 </Link>
               </div>
             </form>

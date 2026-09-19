@@ -191,6 +191,10 @@ export default async function proxy(request: NextRequest) {
   const isAdminRoute = pathname.startsWith('/admin');
   const isUserRoute = pathname.startsWith('/user');
 
+  // 4. Deteksi locale untuk server-side HTML lang
+  const isEnglishRoute = pathname === '/en' || pathname.startsWith('/en/');
+  const requestLocale = isEnglishRoute ? 'en' : 'id';
+
   // =========================================================================
   // CONCURRENT FETCH / VALIDATION PHASE
   // =========================================================================
@@ -214,14 +218,15 @@ export default async function proxy(request: NextRequest) {
   }
 
   // 3. Izin Akses
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-dapay-locale', requestLocale);
+
   if (process.env.DAPAY_NONCE_PROTOTYPE === 'true') {
     const nonce = generateRequestNonce();
-    const requestHeaders = new Headers(request.headers);
     requestHeaders.set('Content-Security-Policy', buildPrototypeCsp(nonce));
-    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
-  return NextResponse.next();
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

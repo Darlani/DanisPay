@@ -1,11 +1,13 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import { Lock, ArrowRight, Loader2, AlertCircle, CheckCircle2, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function UpdatePasswordPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -78,10 +80,10 @@ export default function UpdatePasswordPage() {
               <ShieldCheck size={32} className="text-white" />
           </div>
           <h1 className="text-2xl text-white font-black italic tracking-tighter uppercase mb-2">
-            BUAT <span className="text-emerald-400">PASSWORD BARU</span>
+            {t("auth.updateTitle")}
           </h1>
           <p className="text-slate-400 text-xs font-medium tracking-widest uppercase">
-            Amankan kembali akun anda
+            {t("auth.updateSubtitle")}
           </p>
         </div>
 
@@ -90,11 +92,11 @@ export default function UpdatePasswordPage() {
           <div className="text-center space-y-6 animate-in zoom-in duration-500">
             <div className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-3xl">
               <CheckCircle2 className="text-emerald-400 mx-auto mb-4" size={48} />
-              <p className="text-white text-sm font-bold">Password Berhasil Diubah!</p>
-              <p className="text-slate-400 text-xs mt-2">Mengarahkan ke halaman login...</p>
+              <p className="text-white text-sm font-bold">{t("auth.passwordUpdated")}</p>
+              <p className="text-slate-400 text-xs mt-2">{t("auth.redirectingToLogin")}</p>
             </div>
             <Link href="/login" className="block w-full bg-slate-800 hover:bg-slate-700 text-white font-black italic uppercase py-4 rounded-2xl transition-all">
-              Login Sekarang
+              {t("products.common.loginNow")}
             </Link>
           </div>
         ) : (
@@ -109,7 +111,7 @@ export default function UpdatePasswordPage() {
             )}
 
             <div className="space-y-1">
-              <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase ml-3">Password Baru</label>
+              <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase ml-3">{t("auth.newPasswordLabel")}</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-slate-500 group-focus-within:text-emerald-500 transition-colors" />
@@ -118,13 +120,16 @@ export default function UpdatePasswordPage() {
                   type={showPassword ? "text" : "password"}
                   required
                   className="w-full bg-slate-900/50 border border-white/10 text-white text-sm rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent block pl-12 pr-12 p-4 placeholder-slate-600 transition-all outline-none font-medium"
-                  placeholder="Minimal 6 Karakter"
+                  placeholder={t("auth.newPasswordPlaceholder")}
+                  aria-label={t("auth.newPasswordLabel")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  title={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                   className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-white transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -133,7 +138,7 @@ export default function UpdatePasswordPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase ml-3">Ulangi Password</label>
+              <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase ml-3">{t("auth.confirmPasswordLabel")}</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-slate-500 group-focus-within:text-emerald-500 transition-colors" />
@@ -142,13 +147,16 @@ export default function UpdatePasswordPage() {
                   type={showConfirmPassword ? "text" : "password"}
                   required
                   className="w-full bg-slate-900/50 border border-white/10 text-white text-sm rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent block pl-12 pr-12 p-4 placeholder-slate-600 transition-all outline-none font-medium"
-                  placeholder="Ketik ulang password"
+                  placeholder={t("auth.confirmPasswordPlaceholder")}
+                  aria-label={t("auth.confirmPasswordLabel")}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  title={showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                   className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-white transition-colors"
                 >
                   {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -164,7 +172,7 @@ export default function UpdatePasswordPage() {
               {loading ? (
                 <Loader2 className="animate-spin" size={20} />
               ) : (
-                <>SIMPAN PASSWORD <ArrowRight size={20} /></>
+                <>{t("auth.savePassword")} <ArrowRight size={20} /></>
               )}
             </button>
           </form>

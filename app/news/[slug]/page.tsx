@@ -4,20 +4,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Calendar, ExternalLink, ShieldCheck, Tag } from "lucide-react";
 import { getPublicContentBySlug, listContents } from "@/lib/cms/content-service";
+import { type Locale, localizeHref } from "@/lib/i18n/config";
+import { createTranslator } from "@/lib/i18n/dictionaries";
 import NewsCard from "../components/NewsCard";
 
 export const revalidate = 60;
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  locale?: Locale;
 }
 
-function formatDate(dateStr: string | null) {
+function formatDate(dateStr: string | null, locale: Locale) {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   return Number.isNaN(d.getTime())
     ? null
-    : d.toLocaleDateString("id-ID", {
+    : d.toLocaleDateString(locale === "en" ? "en-US" : "id-ID", {
         day: "numeric",
         month: "long",
         year: "numeric",
@@ -27,20 +30,24 @@ function formatDate(dateStr: string | null) {
 /**
  * Dynamic SEO metadata generator for /news/[slug]
  */
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateNewsMetadata(
+  { params }: { params: Promise<{ slug: string }> },
+  locale: Locale = "id",
+): Promise<Metadata> {
   const { slug } = await params;
-  const result = await getPublicContentBySlug(slug);
+  const result = await getPublicContentBySlug(slug, locale);
+  const t = createTranslator(locale);
 
   if (result.isError || !result.data) {
     return {
-      title: "Artikel Tidak Ditemukan - DaPay",
-      description: "Artikel yang Anda cari tidak tersedia atau belum dipublikasikan.",
+      title: t("news.notFoundTitle"),
+      description: t("news.notFoundDesc"),
     };
   }
 
   const content = result.data;
   const title = `${content.title} - DaPay News`;
-  const description = content.excerpt || "Informasi resmi dan pembaruan terkini dari DaPay.";
+  const description = content.excerpt || t("news.description");
 
   return {
     title,
@@ -59,6 +66,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       images: content.cover_image_url ? [content.cover_image_url] : undefined,
     },
   };
+}
+
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  return generateNewsMetadata(props, props.locale || "id");
 }
 
 /**
@@ -142,17 +153,18 @@ function SafeMarkdownBody({ body }: { body: string }) {
   );
 }
 
-export default async function NewsDetailPage({ params }: PageProps) {
+export default async function NewsDetailPage({ params, locale = "id" }: PageProps) {
   const { slug } = await params;
+  const t = createTranslator(locale);
 
-  // 1. Fetch eligible published article by slug
-  const result = await getPublicContentBySlug(slug);
+  // 1. Fetch eligible published article by slug with locale awareness
+  const result = await getPublicContentBySlug(slug, locale);
   if (result.isError || !result.data) {
     notFound();
   }
 
   const content = result.data;
-  const formattedDate = formatDate(content.published_at);
+  const formattedDate = formatDate(content.published_at, locale);
 
   // 2. Fetch related/recent news for sidebar (excluding current article)
   const relatedResult = await listContents(
@@ -163,12 +175,14 @@ export default async function NewsDetailPage({ params }: PageProps) {
       limit: 4,
     },
     true, // Public only
+    locale,
   );
   const relatedNews = (relatedResult.isError ? [] : relatedResult.data.items).filter(
     (item) => item.id !== content.id,
   );
 
   const hasValidCta = Boolean(content.cta_label?.trim() && content.cta_url?.trim());
+  const localizedCtaUrl = content.cta_url ? localizeHref(content.cta_url, locale) : "#";
 
   return (
     <main className="min-h-screen bg-[#0f172a] text-slate-200 py-8 md:py-12">
@@ -176,11 +190,11 @@ export default async function NewsDetailPage({ params }: PageProps) {
         {/* Back navigation */}
         <div>
           <Link
-            href="/news"
+            href={localizeHref("/news", locale)}
             className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-lg px-2 py-1 -ml-2"
           >
             <ArrowLeft size={14} />
-            <span>Kembali ke Semua Berita</span>
+            <span>{t("news.backToNews")}</span>
           </Link>
         </div>
 
@@ -233,7 +247,7 @@ export default async function NewsDetailPage({ params }: PageProps) {
             {content.tags && content.tags.length > 0 && (
               <div className="pt-6 border-t border-slate-800 flex flex-wrap items-center gap-2">
                 <Tag size={13} className="text-slate-500" />
-                <span className="text-xs font-semibold text-slate-500">Topik:</span>
+                <span className="text-xs font-semibold text-slate-500">{t("news.topics")}</span>
                 {content.tags.map((tag) => (
                   <span
                     key={tag}
@@ -250,14 +264,14 @@ export default async function NewsDetailPage({ params }: PageProps) {
               <div className="mt-8 rounded-2xl border border-blue-500/30 bg-linear-to-r from-blue-950/50 to-indigo-950/40 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="space-y-1">
                   <p className="text-[11px] font-black uppercase tracking-wider text-blue-400">
-                    Aksi Terkait
+                    {t("news.relatedAction")}
                   </p>
                   <p className="text-sm font-semibold text-white">
-                    Informasi lebih lanjut atau tindak lanjut terkait berita ini:
+                    {t("news.relatedActionDesc")}
                   </p>
                 </div>
                 <a
-                  href={content.cta_url || "#"}
+                  href={localizedCtaUrl}
                   target={content.cta_target || "_self"}
                   rel={content.cta_target === "_blank" ? "noopener noreferrer" : undefined}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all shrink-0"
@@ -279,10 +293,10 @@ export default async function NewsDetailPage({ params }: PageProps) {
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 space-y-2">
               <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
                 <ShieldCheck size={16} />
-                <span>Informasi Resmi</span>
+                <span>{t("news.officialInfo")}</span>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Seluruh pengumuman pada laman ini dipublikasikan secara resmi oleh manajemen DaPay.
+                {t("news.officialInfoDesc")}
               </p>
             </div>
 
@@ -290,11 +304,11 @@ export default async function NewsDetailPage({ params }: PageProps) {
             {relatedNews.length > 0 && (
               <div className="space-y-4">
                 <h3 className="text-sm font-black uppercase tracking-wider text-slate-400">
-                  Berita Terkait
+                  {t("news.relatedNews")}
                 </h3>
                 <div className="space-y-3">
                   {relatedNews.map((item) => (
-                    <NewsCard key={item.id} content={item} layout="list" />
+                    <NewsCard key={item.id} content={item} layout="list" locale={locale} />
                   ))}
                 </div>
               </div>

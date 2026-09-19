@@ -3,8 +3,10 @@
 import { useRef, useState } from "react";
 import { isPaymentAllowed } from '@/utils/LogicPembayaran';
 import { Zap, Smartphone, Info, ChevronRight, CheckCircle2, ShoppingCart, ShieldCheck, CircleDollarSign } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function InterfaceEMoney(props: any) {
+  const { t } = useI18n();
   const {
     product, selectedItemId, setSelectedItemId, selectedPayment, setSelectedPayment,
     accId, setAccId, waNumber, setWaNumber, totalPrice, formatRupiah, handleCheckout, 
@@ -29,9 +31,9 @@ export default function InterfaceEMoney(props: any) {
   };
 
   const steps = [
-    { id: 1, label: "Pilih Nominal Saldo", completed: !!selectedItemId },
-    { id: 2, label: "Masukan Nomor HP Akun", completed: accId.length >= 10 },
-    { id: 3, label: "Pilih Pembayaran", completed: !!selectedPayment },
+    { id: 1, label: t("products.minor.emoneyStep1"), completed: !!selectedItemId },
+    { id: 2, label: t("products.minor.emoneyStep2"), completed: accId.length >= 10 },
+    { id: 3, label: t("products.payment.title"), completed: !!selectedPayment },
   ];
 
   return (
@@ -64,7 +66,7 @@ export default function InterfaceEMoney(props: any) {
             <section className="bg-white rounded-[2.5rem] shadow-sm border border-[#B2DFDB]/40 overflow-hidden">
               <div className="p-8 border-b border-[#E0F2F1] bg-[#F5FBFA] flex items-center gap-5">
                 <div className="bg-[#00796B] text-white w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl">1</div>
-                <h2 className="font-black text-2xl">Pilih Nominal Saldo</h2>
+                <h2 className="font-black text-2xl">{t("products.minor.emoneyStep1")}</h2>
               </div>
               <div className="p-8">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -82,11 +84,11 @@ export default function InterfaceEMoney(props: any) {
             <section ref={step2Ref} className="bg-white rounded-[2.5rem] shadow-sm border border-[#B2DFDB]/40 overflow-hidden">
               <div className="p-8 border-b border-[#E0F2F1] bg-[#F5FBFA] flex items-center gap-5">
                 <div className="bg-[#00796B] text-white w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl">2</div>
-                <h2 className="font-black text-2xl">Nomor HP Akun</h2>
+                <h2 className="font-black text-2xl">{t("products.minor.emoneyStep2")}</h2>
               </div>
               <div className="p-8">
                 <input type="text" value={accId} onChange={(e) => { setAccId(e.target.value); if(e.target.value.length >= 12) scrollToNext(step3Ref); }} 
-                  placeholder="Masukkan Nomor HP Akun (DANA/OVO/Maxim)" className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] p-5 rounded-2xl outline-none font-bold text-lg" />
+                  placeholder={t("products.game.enterUid", { label: "Nomor HP Akun (DANA/OVO/Maxim)" })} className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] p-5 rounded-2xl outline-none font-bold text-lg" />
               </div>
             </section>
           </div>

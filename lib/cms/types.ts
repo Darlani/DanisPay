@@ -92,6 +92,21 @@ export interface PublicContent {
 }
 
 /**
+ * Full Database Entity: public.public_content_translations
+ */
+export interface PublicContentTranslation {
+  id: string;
+  content_id: string;
+  locale: string;
+  title: string;
+  excerpt: string | null;
+  body: string;
+  cta_label: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * Full Database Entity: public.content_sections
  */
 export interface ContentSection {
@@ -171,6 +186,7 @@ export interface ListContentsFilter {
   limit?: number;
   offset?: number;
   sortBy?: "priority_desc" | "published_desc" | "event_asc" | "created_desc";
+  locale?: string;
 }
 
 export interface CreateSectionInput {

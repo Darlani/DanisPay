@@ -1,7 +1,9 @@
 "use client";
 import { ShoppingBag } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function InterfaceMarketplace({ product, accId, setAccId, selectedItemId, setSelectedItemId, formatRupiah }: any) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-1">
@@ -15,7 +17,7 @@ export default function InterfaceMarketplace({ product, accId, setAccId, selecte
       </div>
       <div className="lg:col-span-2 space-y-6">
         <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
-           <h2 className="font-black text-xl italic mb-6 text-slate-800">1. Pilih Barang / Paket</h2>
+           <h2 className="font-black text-xl italic mb-6 text-slate-800">{t("products.minor.marketplaceStep1")}</h2>
            <div className="grid grid-cols-1 gap-3">
                {product.items.map((item: any) => (
                    <button key={item.id} onClick={() => setSelectedItemId(item.id)}
@@ -30,14 +32,14 @@ export default function InterfaceMarketplace({ product, accId, setAccId, selecte
         </section>
 
         <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
-          <h2 className="font-black text-xl italic mb-6 text-slate-800">2. Link Produk / Catatan</h2>
+          <h2 className="font-black text-xl italic mb-6 text-slate-800">{t("products.minor.marketplaceStep2")}</h2>
           <textarea 
             value={accId}
             onChange={(e) => setAccId(e.target.value)}
-            placeholder="Tempelkan link produk atau tuliskan detail barang (Warna, Ukuran) di sini..."
+            placeholder={t("products.minor.marketplaceNotesPlaceholder")}
             className="w-full h-32 bg-slate-50 p-5 rounded-2xl border-2 border-slate-100 outline-none focus:border-orange-500 font-medium text-slate-700 resize-none"
           />
-          <p className="text-[10px] text-slate-400 mt-2 italic">*Admin akan memproses pesanan sesuai catatan yang diberikan.</p>
+          <p className="text-[10px] text-slate-400 mt-2 italic">{t("products.minor.marketplaceNotesHelper")}</p>
         </section>
       </div>
     </div>

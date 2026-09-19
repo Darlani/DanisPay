@@ -4,27 +4,32 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Calendar } from "lucide-react";
 import type { PublicContent } from "@/lib/cms/types";
+import { useI18n } from "@/lib/i18n/context";
+import { type Locale, localizeHref } from "@/lib/i18n/config";
 
 interface NewsCardProps {
   content: PublicContent;
   layout?: "grid" | "list";
+  locale?: Locale;
 }
 
-function formatDate(dateStr: string | null) {
+function formatDate(dateStr: string | null, locale: Locale) {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   return Number.isNaN(d.getTime())
     ? null
-    : d.toLocaleDateString("id-ID", {
+    : d.toLocaleDateString(locale === "en" ? "en-US" : "id-ID", {
         day: "numeric",
         month: "short",
         year: "numeric",
       });
 }
 
-export default function NewsCard({ content, layout = "grid" }: NewsCardProps) {
-  const formattedDate = formatDate(content.published_at);
-  const detailHref = `/news/${content.slug}`;
+export default function NewsCard({ content, layout = "grid", locale: propLocale }: NewsCardProps) {
+  const { locale: contextLocale, t } = useI18n();
+  const currentLocale = propLocale || contextLocale || "id";
+  const formattedDate = formatDate(content.published_at, currentLocale);
+  const detailHref = localizeHref(`/news/${content.slug}`, currentLocale);
 
   if (layout === "list") {
     return (
@@ -130,7 +135,7 @@ export default function NewsCard({ content, layout = "grid" }: NewsCardProps) {
             href={detailHref}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-400 transition-colors group-hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
           >
-            <span>Baca</span>
+            <span>{t("common.read")}</span>
             <ArrowRight size={13} className="transition-transform group-hover:translate-x-1" />
           </Link>
         </div>

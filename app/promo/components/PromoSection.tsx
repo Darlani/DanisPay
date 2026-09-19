@@ -4,25 +4,31 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowUpRight, Calendar, ExternalLink, Sparkles, Tag } from "lucide-react";
 import type { ContentSection, PublicContent } from "@/lib/cms/types";
+import { useI18n } from "@/lib/i18n/context";
+import { type Locale, localizeHref } from "@/lib/i18n/config";
 
 interface PromoSectionProps {
   section: ContentSection;
   items: PublicContent[];
+  locale?: Locale;
 }
 
-function formatDate(dateStr: string | null) {
+function formatDate(dateStr: string | null, locale: Locale) {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   return Number.isNaN(d.getTime())
     ? null
-    : d.toLocaleDateString("id-ID", {
+    : d.toLocaleDateString(locale === "en" ? "en-US" : "id-ID", {
         day: "numeric",
         month: "short",
         year: "numeric",
       });
 }
 
-export default function PromoSection({ section, items }: PromoSectionProps) {
+export default function PromoSection({ section, items, locale: propLocale }: PromoSectionProps) {
+  const { locale: contextLocale, t } = useI18n();
+  const currentLocale = propLocale || contextLocale || "id";
+
   if (items.length === 0) return null;
 
   const layoutClass =
@@ -49,18 +55,23 @@ export default function PromoSection({ section, items }: PromoSectionProps) {
           )}
         </div>
         <span className="text-xs font-mono text-slate-500 uppercase">
-          {items.length} penawaran
+          {t("promo.offersCount", { count: items.length })}
         </span>
       </div>
 
       {/* Items Container */}
       <div className={layoutClass}>
         {items.map((item) => {
-          const formattedPublished = formatDate(item.published_at);
-          const formattedEventEnd = formatDate(item.event_end_at);
+          const formattedPublished = formatDate(item.published_at, currentLocale);
+          const formattedEventEnd = formatDate(item.event_end_at, currentLocale);
           const hasCta = Boolean(item.cta_url && item.cta_url.trim());
           const ctaTarget = item.cta_target || "_self";
           const isBlank = ctaTarget === "_blank";
+          const ctaHref = item.cta_url
+            ? item.cta_url.startsWith("/")
+              ? localizeHref(item.cta_url, currentLocale)
+              : item.cta_url
+            : "#";
 
           if (section.layout === "list") {
             return (
@@ -79,7 +90,7 @@ export default function PromoSection({ section, items }: PromoSectionProps) {
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-slate-800 text-xs font-bold uppercase text-slate-500">
-                      Promo DaPay
+                      DaPay Promo
                     </div>
                   )}
                 </div>
@@ -92,7 +103,7 @@ export default function PromoSection({ section, items }: PromoSectionProps) {
                     {formattedEventEnd && (
                       <span className="text-xs text-amber-400 flex items-center gap-1">
                         <Calendar size={12} />
-                        Hingga {formattedEventEnd}
+                        {t("promo.untilDate", { date: formattedEventEnd })}
                       </span>
                     )}
                   </div>
@@ -110,12 +121,12 @@ export default function PromoSection({ section, items }: PromoSectionProps) {
                   {hasCta && (
                     <div>
                       <a
-                        href={item.cta_url || "#"}
+                        href={ctaHref}
                         target={ctaTarget}
                         rel={isBlank ? "noopener noreferrer" : undefined}
                         className="inline-flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300"
                       >
-                        <span>{item.cta_label || "Klaim Promo"}</span>
+                        <span>{item.cta_label || t("promo.claimPromo")}</span>
                         {isBlank ? <ExternalLink size={12} /> : <ArrowUpRight size={13} />}
                       </a>
                     </div>
@@ -167,7 +178,7 @@ export default function PromoSection({ section, items }: PromoSectionProps) {
                     {formattedPublished && <span>{formattedPublished}</span>}
                     {formattedEventEnd && (
                       <span className="font-semibold text-amber-400">
-                        s/d {formattedEventEnd}
+                        {t("promo.upToDate", { date: formattedEventEnd })}
                       </span>
                     )}
                   </div>
@@ -201,20 +212,20 @@ export default function PromoSection({ section, items }: PromoSectionProps) {
                 <div className="pt-2 border-t border-slate-800/80">
                   {hasCta ? (
                     <a
-                      href={item.cta_url || "#"}
+                      href={ctaHref}
                       target={ctaTarget}
                       rel={isBlank ? "noopener noreferrer" : undefined}
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2.5 text-xs font-bold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     >
-                      <span>{item.cta_label || "Ambil Promo"}</span>
+                      <span>{item.cta_label || t("promo.takePromo")}</span>
                       {isBlank ? <ExternalLink size={13} /> : <ArrowUpRight size={14} />}
                     </a>
                   ) : (
                     <Link
-                      href="/"
+                      href={localizeHref("/", currentLocale)}
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 px-4 py-2.5 text-xs font-semibold text-slate-300 transition-colors"
                     >
-                      <span>Jelajahi Produk</span>
+                      <span>{t("common.exploreProducts")}</span>
                     </Link>
                   )}
                 </div>

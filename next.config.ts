@@ -70,8 +70,13 @@ async redirects() {
   async rewrites() {
     return [
       {
-        // Tambahkan rute aplikasi (ref, register, user, auth, dsb) dan 'public' ke daftar pengecualian agar tidak ter-rewrite ke ProductSection
-        source: '/:slug((?!admin|api|login|register|ref|user|checkout|forgot-password|setup-2fa|update-password|promotions|promo|news|qris-analyzer|qris-generator|public|_next|static|favicon.ico).*)',
+        // Rute produk bahasa Inggris: /en/:slug di-rewrite ke /ProductSection/:slug
+        source: '/en/:slug((?!admin|api|login|register|ref|user|checkout|forgot-password|setup-2fa|update-password|promotions|promo|news|sandbox|qris-analyzer|qris-generator|public|_next|static|favicon.ico).*)',
+        destination: '/ProductSection/:slug',
+      },
+      {
+        // Tambahkan rute aplikasi (en, ref, register, user, auth, dsb) dan 'public' ke daftar pengecualian agar tidak ter-rewrite ke ProductSection
+        source: '/:slug((?!admin|api|en|login|register|ref|user|checkout|forgot-password|setup-2fa|update-password|promotions|promo|news|sandbox|qris-analyzer|qris-generator|public|_next|static|favicon.ico).*)',
         destination: '/ProductSection/:slug',
       },
     ];

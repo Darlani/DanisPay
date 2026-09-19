@@ -1,11 +1,13 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import Link from "next/link";
 import { Instagram, Facebook, Twitter, ShieldCheck } from "lucide-react";
 import ContactModal from "./ContactModal";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function Footer() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { locale, t } = useI18n();
 
   return (
     <footer className="bg-[#0f172a] border-t border-slate-800 pt-16 pb-8">
@@ -18,8 +20,7 @@ export default function Footer() {
               DANISH<span className="text-blue-500">TOPUP</span>
             </h2>
             <p className="text-slate-400 text-sm leading-relaxed mb-6">
-              Platform top up game tercepat, termurah, dan terpercaya di Indonesia. 
-              Otomatis masuk dalam hitungan detik 24/7.
+              {t("footer.brandDescription")}
             </p>
             <div className="flex gap-4">
               <a href="#" className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"><Instagram size={20}/></a>
@@ -30,29 +31,29 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-white font-bold mb-6">Peta Situs</h4>
+            <h4 className="text-white font-bold mb-6">{t("footer.sitemapTitle")}</h4>
             <ul className="space-y-4 text-sm text-slate-400">
-              <li><Link href="/" className="hover:text-blue-500 transition-colors">Beranda</Link></li>
-              <li><Link href="/sandbox" className="hover:text-blue-500 transition-colors">Sandbox DaPay</Link></li>
-              <li><a href="#" className="hover:text-blue-500 transition-colors">Cek Transaksi</a></li>
-              <li><a href="#" className="hover:text-blue-500 transition-colors">Daftar Harga</a></li>
-              <li><a href="#" className="hover:text-blue-500 transition-colors">Syarat & Ketentuan</a></li>
+              <li><Link href={locale === "en" ? "/en" : "/"} className="hover:text-blue-500 transition-colors">{t("navigation.home")}</Link></li>
+              <li><Link href={locale === "en" ? "/en/sandbox" : "/sandbox"} className="hover:text-blue-500 transition-colors">{t("footer.sandboxLink")}</Link></li>
+              <li><a href="#" className="hover:text-blue-500 transition-colors">{t("footer.checkTransaction")}</a></li>
+              <li><a href="#" className="hover:text-blue-500 transition-colors">{t("footer.priceList")}</a></li>
+              <li><a href="#" className="hover:text-blue-500 transition-colors">{t("footer.termsAndConditions")}</a></li>
             </ul>
           </div>
 
           {/* Support */}
           <div>
-            <h4 className="text-white font-bold mb-6">Bantuan</h4>
+            <h4 className="text-white font-bold mb-6">{t("footer.helpTitle")}</h4>
             <ul className="space-y-4 text-sm text-slate-400">
-              <li><a href="#" className="hover:text-blue-500 transition-colors">WhatsApp Kami</a></li>
+              <li><a href="#" className="hover:text-blue-500 transition-colors">{t("footer.ourWhatsApp")}</a></li>
               <li>
                 {/* Tampil di HP (Mobile-first): Buka aplikasi email */}
-                <a href="mailto:support@danispay.my.id" className="md:hidden hover:text-blue-500 transition-colors">Hubungi Email</a>
+                <a href="mailto:support@danispay.my.id" className="md:hidden hover:text-blue-500 transition-colors">{t("footer.contactEmail")}</a>
                 
                 {/* Tampil di Desktop: Buka Modal UI */}
-                <button onClick={() => setIsModalOpen(true)} className="hidden md:block hover:text-blue-500 transition-colors text-left w-full">Hubungi Email</button>
+                <button onClick={() => setIsModalOpen(true)} className="hidden md:block hover:text-blue-500 transition-colors text-left w-full">{t("footer.contactEmail")}</button>
               </li>
-              <li><a href="#" className="hover:text-blue-500 transition-colors">Metode Pembayaran</a></li>
+              <li><a href="#" className="hover:text-blue-500 transition-colors">{t("footer.paymentMethods")}</a></li>
             </ul>
           </div>
 
@@ -60,10 +61,10 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-bold mb-6 flex items-center gap-2">
               <ShieldCheck size={18} className="text-green-500" />
-              Keamanan Transaksi
+              {t("footer.transactionSecurity")}
             </h4>
             <p className="text-slate-400 text-sm mb-4">
-              Kami bekerja sama dengan payment gateway berlisensi untuk menjamin keamanan dana Anda.
+              {t("footer.securityDescription")}
             </p>
             <div className="grid grid-cols-4 gap-2 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
               {['DANA', 'GOPAY', 'OVO', 'QRIS', 'BCA', 'BNI', 'BRI', 'MDR'].map((bank) => (
@@ -78,10 +79,10 @@ export default function Footer() {
 
         <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-slate-500 text-xs text-center md:text-left">
-            © 2026 Danishtopup. All rights reserved. Made with ❤️ by Arlan.
+            {t("footer.copyrightText")}
           </p>
           <p className="text-slate-500 text-[10px] uppercase tracking-widest font-bold">
-            Powered by Next.js & Midtrans
+            {t("footer.poweredBy")}
           </p>
         </div>
       </div>

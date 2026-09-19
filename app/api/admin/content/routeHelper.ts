@@ -36,8 +36,11 @@ export function revalidatePublicContentRoutes(slug?: string) {
   try {
     revalidatePath("/news");
     revalidatePath("/promo");
+    revalidatePath("/en/news");
+    revalidatePath("/en/promo");
     if (slug?.trim()) {
       revalidatePath(`/news/${slug.trim()}`);
+      revalidatePath(`/en/news/${slug.trim()}`);
     }
   } catch {
     // Non-fatal if revalidation fails in preview/non-ISR context

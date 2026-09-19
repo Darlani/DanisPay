@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useRef, useState, useEffect, useMemo } from "react";
-import { 
+import {
   Info, ChevronRight, CheckCircle2, ShoppingCart,
   ShieldCheck, CircleDollarSign, Zap, Loader2
 } from "lucide-react";
@@ -11,6 +11,7 @@ import OrderConfirmationModal from "./shared/OrderConfirmationModal";
 import StickyBottomBar from "./shared/StickyBottomBar";
 import PaymentSection from "./shared/PaymentSection";
 import ContactAndPromoSection from "./shared/ContactAndPromoSection";
+import { useI18n } from "@/lib/i18n/context";
 
 interface InterfaceGameProps {
   product: any;
@@ -51,8 +52,8 @@ interface InterfaceGameProps {
   isAdmin: boolean;
   dbPayments: any[];
   uniqueCode: number;
-  isLoading: boolean;              
-  onPreCheckout: () => Promise<void>; 
+  isLoading: boolean;
+  onPreCheckout: () => Promise<void>;
 }
 
 // 💡 MESIN PENYARING NAMA DI FRONTEND (Testing Gratis Tanpa Potong Saldo!)
@@ -90,10 +91,11 @@ function formatGameName(rawName: string): string {
     .replace(/Sukses Cek ID\.|Nickname:|Nama:|Username:|Tujuan:|ID:|User:/gi, '')
     .replace(/^[-\s]+|[-\s]+$/g, '');
 
-  return clean || safeRaw; 
+  return clean || safeRaw;
 }
 
 export default function InterfaceGame(props: InterfaceGameProps) {
+  const { t } = useI18n();
   const {
     product, selectedItemId, setSelectedItemId, selectedPayment, setSelectedPayment,
     accId, setAccId, zoneId, setZoneId, email, setEmail, promoCode, setPromoCode,
@@ -104,7 +106,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
     usedCoinsAmount, isMaintenanceDigiflazz, isAdmin, dbPayments, uniqueCode, isLoading, onPreCheckout
   } = props;
 
-  const [isProcessing, setIsProcessing] = useState(false); 
+  const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState("");
 
   // State khusus Navigasi Bertingkat (FF & MLBB)
@@ -145,7 +147,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
 
   // 💡 Tambahkan isPolling agar sistem tahu ini jemput bola antrean atau refresh manual biasa
   const handleInquiryGame = async (forceRefresh = false, isPolling = false) => {
-    if (inquirySkus.length === 0) return true; 
+    if (inquirySkus.length === 0) return true;
     if (!accId || accId.length < 3) { setErrorMsg("ID terlalu pendek!"); return false; }
 
     // 💡 CEK LIMIT REFRESH MANUAL (Bypass/Abaikan limit jika ini adalah aksi Jemput Bola)
@@ -153,13 +155,13 @@ export default function InterfaceGame(props: InterfaceGameProps) {
       const today = new Date().toDateString();
       const limitData = JSON.parse(localStorage.getItem('dapay_refresh_limit') || "{}");
       if (limitData.date === today && limitData.count >= 3) {
-        alert("Mohon maaf, Kakak terlalu sering memuat ulang (Refresh) ID. Silakan coba kembali besok ya Kak untuk refresh ID-nya. Jika Kakak baru saja mengubah Nickname namun yang muncul masih Nickname lama, transaksi tetap aman dilanjutkan kok! Yang terpenting, pastikan Nomor ID yang dimasukkan sudah benar ya, Kak. Terima kasih telah menggunakan layanan DaPay.");
+        alert(t("products.game.refreshLimitAlert"));
         return false;
       }
     }
 
     const cacheKey = `dapay_inquiry_${product?.name}_${accId}_${zoneId}`;
-    
+
     // 💡 SMART CACHE (Expired 7 Hari) - Hanya jalan jika tidak di-refresh manual
     if (!forceRefresh) {
       const cachedData = localStorage.getItem(cacheKey);
@@ -167,7 +169,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
         try {
           const { name, timestamp } = JSON.parse(cachedData);
           const isExpired = Date.now() - timestamp > 7 * 24 * 60 * 60 * 1000; // 7 Hari
-          
+
           if (!isExpired) {
             setCustomerName(name);
             return true; // Lolos jika belum 7 hari
@@ -190,26 +192,26 @@ export default function InterfaceGame(props: InterfaceGameProps) {
       const res = await fetch('/api/digiflazz/prabayar/inquiry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          customer_id: zoneId ? `${accId}${zoneId}` : accId, 
-          skus: inquirySkus, 
+        body: JSON.stringify({
+          customer_id: zoneId ? `${accId}${zoneId}` : accId,
+          skus: inquirySkus,
           category: product.category || 'game',
           game_name: product.name // 💡 Kirim nama game untuk server-side lock
         })
       });
       const result = await res.json();
-      
+
       if (res.ok && (result.data?.customerName || result.data?.customer_name)) {
         const rawName = result.data.customerName || result.data.customer_name;
-        
+
         // 💡 PERCANTIK FORMAT TEKS TEPAT SEBELUM DITAMPILKAN KE LAYAR
         const cleanName = formatGameName(rawName);
-        
+
         setCustomerName(cleanName);
-        
+
         // 1. Simpan nama dan timestamp untuk umur 7 hari
         localStorage.setItem(cacheKey, JSON.stringify({ name: cleanName, timestamp: Date.now() }));
-        
+
         // 2. Simpan nomor ke History
         saveToHistory(accId, zoneId);
 
@@ -220,15 +222,15 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           const currentCount = limitData.date === today ? limitData.count : 0;
           localStorage.setItem('dapay_refresh_limit', JSON.stringify({ date: today, count: currentCount + 1 }));
         }
-        
-        return true; 
+
+        return true;
       } else {
         setErrorMsg(result.message || "ID tidak ditemukan / gangguan.");
-        return false; 
+        return false;
       }
     } catch (err) {
-      setErrorMsg("Gagal verifikasi ID. Coba lagi.");
-      return false; 
+      setErrorMsg(t("products.game.verificationFailed"));
+      return false;
     } finally {
       setIsChecking(false);
     }
@@ -248,7 +250,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
     if (isModalOpen && (errorMsg.includes('antrean') || errorMsg.includes('Pending')) && !isChecking) {
       interval = setInterval(() => {
         // forceRefresh = true, isPolling = true (Maka limit 3x sehari akan di-bypass!)
-        handleInquiryGame(true, true); 
+        handleInquiryGame(true, true);
       }, 5000); // 5000 ms = 5 detik
     }
     return () => clearInterval(interval);
@@ -280,15 +282,15 @@ export default function InterfaceGame(props: InterfaceGameProps) {
   // --- MESIN LOGIKA AUTO-HIDE TABS MULTI-TIER (FF & MLBB) ---
   const processedItems = useMemo(() => {
     if (!product?.items) return [];
-    
+
     // Hilangkan item Cek Username dari UI
-    const visibleItems = product.items.filter((item: any) => 
+    const visibleItems = product.items.filter((item: any) =>
       !String(item.label || item.name || "").toLowerCase().includes("cek username")
     );
 
     const isFreeFire = product?.name?.toLowerCase().includes('free fire');
     const isMLBB = product?.name?.toLowerCase().includes('mobile legends') || product?.name?.toLowerCase().includes('mlbb');
-    
+
     return visibleItems.map((item: any) => {
       const name = String(item.label || item.name || "").toLowerCase();
       let region = "Indonesia";
@@ -316,7 +318,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           else if (name.match(/x2|x3|x4|x5/)) subCat = "Paket Multiplier";
           else subCat = "Reguler";
         }
-      } 
+      }
       // 3. KATEGORI KHUSUS MOBILE LEGENDS
       else if (isMLBB) {
         if (name.includes("pass") || name.includes("starlight") || name.includes("member") || name.includes("bundle")) category = "Membership & Pass";
@@ -363,7 +365,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
 
   const filteredItems = useMemo(() => {
     if (!processedItems) return [];
-    
+
     return processedItems.filter((item: any) => {
       // Filter khusus MLBB dan FF
       if (item.isAdvGame) {
@@ -380,10 +382,10 @@ export default function InterfaceGame(props: InterfaceGameProps) {
   }, [processedItems, activeTab, availableSubBrands, advRegion, advCategory, advSubCategory]);
 
   const isMLBB = product.name.toLowerCase().includes('legends');
-  
-  const isReadyToCheckout = !!selectedItemId && 
-                            accId.length >= 3 && 
-                            (!!selectedPayment || totalPrice === 0) && 
+
+  const isReadyToCheckout = !!selectedItemId &&
+                            accId.length >= 3 &&
+                            (!!selectedPayment || totalPrice === 0) &&
                             (!isMLBB || zoneId.length >= 3);
 
   const scrollToNext = (ref: React.RefObject<HTMLDivElement | null>) => {
@@ -396,10 +398,10 @@ export default function InterfaceGame(props: InterfaceGameProps) {
 
   const getDynamicLabel = () => {
     const name = product.name.toLowerCase();
-    if (name.includes('legends')) return "User ID"; 
+    if (name.includes('legends')) return "User ID";
     if (name.includes('honor of kings')) return "Player ID";
     if (name.includes('league of legends')) return "Riot ID";
-    if (name.includes('free fire')) return "Player ID"; 
+    if (name.includes('free fire')) return "Player ID";
     if (name.includes('pubg')) return "ID Karakter";
     if (name.includes('call of duty')) return "Player ID";
     if (name.includes('fortnite')) return "Epic Games ID";
@@ -417,13 +419,13 @@ export default function InterfaceGame(props: InterfaceGameProps) {
     if (name.includes('brawl stars')) return "Player Tag";
     if (name.includes('minecraft')) return "Username / Email";
 
-    return "User ID"; 
+    return "User ID";
   };
 
   const onConfirmCheckout = () => {
     if (inquirySkus.length > 0 && errorMsg) {
-      alert(`Gagal: ${errorMsg}\nSilakan perbaiki ID Akun Anda terlebih dahulu.`);
-      setIsModalOpen(false); 
+      alert(t("products.game.fixIdAlert", { error: errorMsg }));
+      setIsModalOpen(false);
       return;
     }
     saveToHistory(accId, zoneId); // Simpan riwayat jika game tanpa fitur inquiry
@@ -432,11 +434,11 @@ export default function InterfaceGame(props: InterfaceGameProps) {
   };
 
   const steps = [
-    { id: 1, label: "Pilih Nominal yang kamu inginkan", completed: !!selectedItemId },
-    { id: 2, label: "Masukan Detail Akun yang kamu gunakan", completed: isMLBB ? accId.length >= 3 && zoneId.length >= 3 : accId.length >= 3 },
-    { id: 3, label: "Pilih Metode Pembayaran", completed: !!selectedPayment },
-    { id: 4, label: "Masukan alamat Email kamu", completed: email.includes('@') && email.length > 5 },
-    { id: 5, label: "Masukan Kode Promo yang kamu punya", completed: isPromoApplied },
+    { id: 1, label: t("products.game.step1Title"), completed: !!selectedItemId },
+    { id: 2, label: t("products.game.step2Title"), completed: isMLBB ? accId.length >= 3 && zoneId.length >= 3 : accId.length >= 3 },
+    { id: 3, label: t("products.payment.title"), completed: !!selectedPayment },
+    { id: 4, label: t("products.contact.emailTitle"), completed: email.includes('@') && email.length > 5 },
+    { id: 5, label: t("products.contact.promoTitle"), completed: isPromoApplied },
   ];
 
   if (!product) return null;
@@ -444,24 +446,24 @@ export default function InterfaceGame(props: InterfaceGameProps) {
   return (
     <div className="min-h-screen bg-[#bcefe5] text-slate-900 font-sans tracking-tight relative">
       <div className="relative pb-10">
-        
-        <div 
+
+        <div
           className="h-48 w-full absolute top-0 z-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/background/header-bg.png')", backgroundColor: '#002C5F' }} 
+          style={{ backgroundImage: "url('/background/header-bg.png')", backgroundColor: '#002C5F' }}
         />
 
-        <div className="relative z-10 max-w-6xl mx-auto px-4 pt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">    
-          
+        <div className="relative z-10 max-w-6xl mx-auto px-4 pt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+
           {/* KOLOM KIRI (INFO PRODUK) */}
           <div className="lg:col-span-1 lg:sticky lg:top-24 lg:self-start z-20 space-y-4 relative">
             <div className="bg-white p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-900/10 border border-slate-100">
               <div className="flex flex-col items-center text-center lg:items-start lg:text-left gap-4 mb-10">
                 <div className="relative w-full lg:w-fit flex justify-center">
                   <div className="absolute inset-0 bg-blue-500/10 blur-3xl rounded-full lg:block hidden" />
-                  <img 
-                    src={product.img} 
+                  <img
+                    src={product.img}
                     className="relative w-full aspect-square sm:w-70 sm:h-70 lg:w-70 lg:h-70 rounded-3xl sm:rounded-4xl object-cover shadow-2xl border-4 border-white transition-all duration-500"
-                    alt={product.name} 
+                    alt={product.name}
                   />
                 </div>
                 <div className="flex flex-col items-center lg:items-start gap-2 min-w-0">
@@ -485,7 +487,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-bold text-lg text-slate-800 border-b border-slate-50 pb-2 italic text-center lg:text-left">Panduan Top Up</h3>
+                <h3 className="font-bold text-lg text-slate-800 border-b border-slate-50 pb-2 italic text-center lg:text-left">{t("products.common.guideTopup")}</h3>
                 <ul className="space-y-3">
                   {steps.map((step) => (
                     <li key={step.id} className="flex items-start gap-3">
@@ -498,7 +500,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                       </div>
                     </li>
                   ))}
-                  
+
                   {isReadyToCheckout && (
                     <li className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-2xl animate-in fade-in shadow-sm list-none shadow-blue-100">
                       <div className="flex items-center gap-3">
@@ -506,8 +508,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                           <ShoppingCart size={18} className="animate-bounce" />
                         </div>
                         <div>
-                          <p className="text-[10px] font-black text-blue-700 uppercase leading-none mb-1">Siap Transaksi!</p>
-                          <p className="text-[11px] font-bold text-blue-600 italic leading-none">Silakan klik Beli Sekarang.</p>
+                          <p className="text-[10px] font-black text-blue-700 uppercase leading-none mb-1">{t("products.common.readyToTransact")}</p>
+                          <p className="text-[11px] font-bold text-blue-600 italic leading-none">{t("products.common.buyNowHint")}</p>
                         </div>
                         <ChevronRight size={16} className="ml-auto text-blue-400 animate-pulse" />
                       </div>
@@ -520,7 +522,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
 
           {/* KOLOM KANAN (FORM) */}
           <div className="lg:col-span-2 space-y-8">
-            
+
             {/* STEP 1: PILIH NOMINAL */}
             <section className="bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-[#B2DFDB]/40 overflow-hidden relative">
               <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
@@ -528,11 +530,11 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                   1
                 </div>
                 <div className="py-2 px-3 sm:py-2.5 sm:px-4 flex flex-col justify-center">
-                  <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">Pilih Nominal</h2>
-                  <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">Item tersedia untuk top-up instan</p>
+                  <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">{t("products.common.selectNominal")}</h2>
+                  <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">{t("products.common.instantTopupAvailable")}</p>
                 </div>
               </div>
-              
+
               <div className="p-2 sm:p-8 space-y-6">
                 {/* RENDER MENU TABS DINAMIS */}
                 {product.name.toLowerCase().includes('free fire') || product.name.toLowerCase().includes('mobile legends') || product.name.toLowerCase().includes('mlbb') ? (
@@ -545,8 +547,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                             key={reg}
                             onClick={() => { setAdvRegion(reg); setShowAllItems(false); }}
                             className={`px-2.5 sm:px-4 h-7 sm:h-10 flex items-center justify-center rounded-xl sm:rounded-2xl text-[9px] sm:text-[12px] font-black tracking-tight sm:tracking-normal transition-all border sm:border-2 shrink-0 whitespace-nowrap cursor-pointer ${
-                              advRegion === reg 
-                                ? "bg-[#64d1c4] border-[#63cdc1] text-white shadow-md shadow-teal-900/20 flex-1" 
+                              advRegion === reg
+                                ? "bg-[#64d1c4] border-[#63cdc1] text-white shadow-md shadow-teal-900/20 flex-1"
                                 : "bg-[#F5FBFA] border-[#E0F2F1] text-slate-400 hover:border-[#80CBC4] flex-1"
                             }`}
                           >
@@ -564,8 +566,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                             key={cat}
                             onClick={() => { setAdvCategory(cat); setShowAllItems(false); }}
                             className={`px-3 sm:px-5 h-7 sm:h-9 flex items-center justify-center rounded-full text-[9px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shrink-0 whitespace-nowrap cursor-pointer ${
-                              advCategory === cat 
-                                ? "bg-[#00695C] text-white shadow-sm" 
+                              advCategory === cat
+                                ? "bg-[#00695C] text-white shadow-sm"
                                 : "bg-white border border-[#B2DFDB] text-slate-500 hover:bg-[#E0F2F1]"
                             }`}
                           >
@@ -583,8 +585,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                             key={sub}
                             onClick={() => { setAdvSubCategory(sub); setShowAllItems(false); }}
                             className={`px-2.5 sm:px-3 h-6 sm:h-8 flex items-center justify-center rounded-lg text-[8px] sm:text-[10px] font-bold italic tracking-tight transition-all border shrink-0 whitespace-nowrap cursor-pointer ${
-                              advSubCategory === sub 
-                                ? "bg-[#FFC107] border-[#FFB300] text-slate-900 shadow-sm" 
+                              advSubCategory === sub
+                                ? "bg-[#FFC107] border-[#FFB300] text-slate-900 shadow-sm"
                                 : "bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-50"
                             }`}
                           >
@@ -614,8 +616,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                   {filteredItems.map((opt: any, index: number) => {
                     const isEnabled = opt.is_active ?? true;
                     const promoLabel = opt.promo_label;
-                    const discountPersen = opt.discount || 0; 
-                    
+                    const discountPersen = opt.discount || 0;
+
                     const hargaAsli = opt.price;
                     const nominalPotongan = Math.floor(hargaAsli * (discountPersen / 100));
                     const hargaSetelahDiskon = hargaAsli - nominalPotongan;
@@ -625,19 +627,19 @@ export default function InterfaceGame(props: InterfaceGameProps) {
 
                     let cleanLabel = opt.label
                       .replace(new RegExp(product.name, 'gi'), '')
-                      .replace(new RegExp(activeTab, 'gi'), '')    
-                      .replace(/MOBILE\s*LEGENDS?/gi, '')          
+                      .replace(new RegExp(activeTab, 'gi'), '')
+                      .replace(/MOBILE\s*LEGENDS?/gi, '')
                       .replace(/FREE\s*FIRE/gi, '')
-                      .replace(/^[-_\s]+|[-_\s]+$/g, '')           
+                      .replace(/^[-_\s]+|[-_\s]+$/g, '')
                       .trim();
 
-                    if (!cleanLabel) cleanLabel = opt.label;       
+                    if (!cleanLabel) cleanLabel = opt.label;
 
                     return (
-                      <button 
-                        key={opt.id} 
-                        disabled={!isEnabled} 
-                        onClick={() => { setSelectedItemId(opt.id); scrollToNext(step2Ref); }} 
+                      <button
+                        key={opt.id}
+                        disabled={!isEnabled}
+                        onClick={() => { setSelectedItemId(opt.id); scrollToNext(step2Ref); }}
                         className="relative group h-auto sm:min-h-48 w-full text-left animate-in fade-in zoom-in cursor-pointer"
                       >
                     {discountPersen > 0 && (
@@ -655,10 +657,10 @@ export default function InterfaceGame(props: InterfaceGameProps) {
 
                         {/* Rounded kartu nominal diturunkan ke 2xl agar sudutnya lebih tegas tapi tetap halus */}
 <div className={`relative w-full h-full rounded-2xl overflow-hidden border-2 flex flex-col justify-between transition-all duration-300 shadow-sm hover:shadow-xl ${
-                          !isEnabled 
-                            ? 'opacity-50 cursor-not-allowed border-slate-200 bg-slate-50 grayscale' 
-                            : selectedItemId === opt.id 
-                              ? 'border-[#00796B] bg-[#E0F2F1]/60 ring-4 ring-[#00796B]/10 transform scale-[1.02] shadow-teal-900/10' 
+                          !isEnabled
+                            ? 'opacity-50 cursor-not-allowed border-slate-200 bg-slate-50 grayscale'
+                            : selectedItemId === opt.id
+                              ? 'border-[#00796B] bg-[#E0F2F1]/60 ring-4 ring-[#00796B]/10 transform scale-[1.02] shadow-teal-900/10'
                               : 'border-[#E0F2F1] bg-white hover:border-[#80CBC4] hover:shadow-teal-100'
                         }`}>
 
@@ -682,13 +684,13 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                                }`}>
                                  {cleanLabel}
                                </h3>
-                               
+
                                {/* Badge INSTAN dengan pembungkus putih di pojok kanan bawah [cite: 2026-03-09] */}
                                <div className="absolute bottom-1 right-1 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded-md border border-slate-100 shadow-sm flex items-center gap-1 scale-95 sm:scale-110 origin-bottom-right">
                                  <Zap size={10} className="text-[#00796B] fill-[#00796B]" />
                                  <div className="flex flex-col items-start leading-[0.7]">
-                                   <span className="text-[#00796B] text-[5px] font-bold uppercase tracking-tighter">Proses</span>
-                                   <span className="text-[#00796B] text-[7px] font-black italic uppercase tracking-tighter">Instan</span>
+                                   <span className="text-[#00796B] text-[5px] font-bold uppercase tracking-tighter">{t("products.common.process")}</span>
+                                   <span className="text-[#00796B] text-[7px] font-black italic uppercase tracking-tighter">{t("products.common.instant")}</span>
                                  </div>
                                </div>
                             </div>
@@ -698,7 +700,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                             }`}>
                                 <div className="flex flex-col w-full">
                                    <div className="flex justify-between items-center mb-0.5">
-                                      <span className="text-slate-400 font-bold text-[7px] sm:text-[10px]">Harga</span>
+                                      <span className="text-slate-400 font-bold text-[7px] sm:text-[10px]">{t("products.common.price")}</span>
                                       {discountPersen > 0 && (
                                          <span className="text-[#D32F2F] font-bold text-[7px] sm:text-[10px] line-through decoration-[#D32F2F]/60">
                                             {formatRupiah(hargaAsli)}
@@ -714,20 +716,20 @@ export default function InterfaceGame(props: InterfaceGameProps) {
 
                                 {/* Container Kapsul: py-1 px-1.5 gap-1 (mobile), normal di desktop */}
                                 <div className="bg-[#B2DFDB]/60 rounded-xl py-1 px-1.5 sm:py-1.5 sm:px-2 flex items-center justify-center gap-1 sm:gap-2 w-full border border-[#00796B]/10 shadow-sm">
-                                   
+
                                    {/* Kontainer Ikon Zap: w-3 h-3 (mobile), w-4 h-4 (desktop) */}
                                    <div className="bg-[#FFC107] w-3 h-3 sm:w-4 sm:h-4 rounded-full flex items-center justify-center shadow-sm shrink-0">
                                       <Zap className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-slate-900 fill-current" />
                                    </div>
-                                   
+
                                    {/* Kontainer Teks: gap-0.5 (mobile), gap-1 (desktop) */}
                                    <div className="flex items-center gap-0.5 sm:gap-1 leading-none overflow-hidden">
-                                      
+
                                       {/* Teks Nilai: text-[8px] (mobile), text-[10px] (desktop) */}
                                       <span className="text-[#025f54] font-bold text-[8px] sm:text-[10px] truncate" suppressHydrationWarning>
-                                        {isMounted ? `+${itemCashback.toLocaleString('id-ID')}` : ""} 
+                                        {isMounted ? `+${itemCashback.toLocaleString('id-ID')}` : ""}
                                       </span>
-                                      
+
                                       {/* Teks Logo DaPay: text-[8px] (mobile), text-[10px] (desktop) */}
                                       <span className="font-black text-[8px] sm:text-[10px] italic shrink-0">
                                         <span className="text-[#F57F17]">Da</span><span className="text-blue-600">Pay</span>
@@ -746,21 +748,21 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                     <div className="bg-[#E0F2F1] p-5 rounded-full mb-4 shadow-sm">
                       <Info className="text-[#00796B]" size={40} />
                     </div>
-                    <h3 className="text-[#004D40] font-black text-lg uppercase italic leading-none">Layanan Sedang Dioptimasi</h3>
+                    <h3 className="text-[#004D40] font-black text-lg uppercase italic leading-none">{t("products.common.stockRefreshingTitle")}</h3>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2 max-w-62.5 leading-relaxed text-center">
-                      Stok otomatis untuk kategori ini sedang diperbarui. Silakan pilih layanan lain atau kembali nanti.
+                      {t("products.common.stockRefreshing")}
                     </p>
                   </div>
                 )}
 
                 {!showAllItems && filteredItems.length > 8 && (
-<button 
+<button
   onClick={() => setShowAllItems(true)}
   className="w-full py-3 sm:py-4 bg-[#F5FBFA] hover:bg-[#004D40] border-2 border-dashed border-[#B2DFDB] hover:border-[#004D40] rounded-3xl transition-all duration-300 group shadow-sm mt-1! sm:mt-4! cursor-pointer"
 >
                     <div className="flex items-center justify-center">
                       <span className="font-black text-[11px] capitalize tracking-normal text-[#00796B] group-hover:text-white transition-colors">
-                        Lihat {filteredItems.length - 8} nominal lainnya
+                        {t("products.common.viewMoreNominals", { count: filteredItems.length - 8 })}
                       </span>
                       <ChevronRight size={16} className="text-[#4DB6AC] group-hover:text-white group-hover:translate-x-1 transition-all" />
                     </div>
@@ -778,12 +780,12 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                 </div>
                 <div className="py-2 px-3 sm:py-2.5 sm:px-4 flex flex-1 items-center justify-between">
                   <div className="flex flex-col justify-center">
-                    <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">Masukan Detail Akun</h2>
-                    <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">Pastikan data yang anda masukkan benar</p>
+                    <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">{t("products.common.enterAccountDetails")}</h2>
+                    <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">{t("products.common.accountDataMustBeCorrect")}</p>
                   </div>
                   {/* Tombol panduan */}
                   <button className="hidden sm:flex items-center gap-1 bg-[#E0F2F1] text-[#00695C] px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-[#B2DFDB] transition-all border border-[#B2DFDB]">
-                    <Info size={12} /> Panduan
+                    <Info size={12} /> {t("products.common.guide")}
                   </button>
                 </div>
               </div>
@@ -791,19 +793,19 @@ export default function InterfaceGame(props: InterfaceGameProps) {
 <div className="p-4 sm:p-8">
   {/* Gap diubah jadi 1 untuk HP agar rapat, dan 6 untuk desktop */}
   <div className="flex flex-col md:flex-row gap-0 md:gap-6">
-                  
+
 <div className="flex-1 space-y-3">
 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-2 justify-start">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#00796B]" />
                       <span>{getDynamicLabel()}</span>
                     </label>
                     <div className="relative">
-                      <input 
-                        type="text" 
-                        value={accId} 
-                        onChange={(e) => { setAccId(e.target.value); setCustomerName(""); setErrorMsg(""); }} 
-                        placeholder={`Masukkan ${getDynamicLabel()}`} 
-                        className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white py-2.5 px-4 sm:py-3 sm:px-5 rounded-xl outline-none text-sm sm:text-base font-bold text-slate-700 transition-all placeholder:text-slate-400" 
+                      <input
+                        type="text"
+                        value={accId}
+                        onChange={(e) => { setAccId(e.target.value); setCustomerName(""); setErrorMsg(""); }}
+                        placeholder={t("products.game.enterUid", { label: getDynamicLabel() })}
+                        className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white py-2.5 px-4 sm:py-3 sm:px-5 rounded-xl outline-none text-sm sm:text-base font-bold text-slate-700 transition-all placeholder:text-slate-400"
                       />
                     </div>
                     {customerName && (
@@ -821,12 +823,12 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                   {isMLBB && (
                     <div className="w-full md:w-1/3 space-y-3 animate-in fade-in slide-in-from-left-4 duration-500">
                       <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-2 justify-start">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#00796B]" /> 
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#00796B]" />
                         <span>Zone ID</span>
                       </label>
                       <div className="relative">
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             value={zoneId}
                             onChange={(e) => {
                               setZoneId(e.target.value);
@@ -834,8 +836,8 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                               setErrorMsg("");
                               if(e.target.value.length >= 4) scrollToNext(step3Ref);
                             }}
-                            placeholder="1234" 
-                            className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white py-2.5 px-4 sm:py-3 sm:px-5 rounded-xl outline-none text-sm sm:text-base font-bold text-slate-700 transition-all placeholder:text-slate-400" 
+                            placeholder="1234"
+                            className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white py-2.5 px-4 sm:py-3 sm:px-5 rounded-xl outline-none text-sm sm:text-base font-bold text-slate-700 transition-all placeholder:text-slate-400"
                         />
                       </div>
                     </div>
@@ -844,7 +846,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                 {/* 💡 CHIP RIWAYAT UI */}
                 {historyList.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 mt-2 sm:mt-4 pt-2 border-t border-slate-100 animate-in fade-in">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mr-1">Terakhir:</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mr-1">{t("products.common.lastUsed")}</span>
                     {historyList.map(h => {
                       const [hAcc, hZone] = h.split('|');
                       return (
@@ -900,11 +902,11 @@ export default function InterfaceGame(props: InterfaceGameProps) {
               checkPromo={checkPromo}
             />
 
-          </div> 
-        </div> 
+          </div>
+        </div>
 
         {/* STICKY BOTTOM BAR */}
-        <StickyBottomBar 
+        <StickyBottomBar
           selectedItemId={selectedItemId}
           selectedItem={selectedItem}
           totalPrice={totalPrice}
@@ -918,30 +920,30 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           memberType={memberType}
           isMounted={isMounted}
           // Copot fungsi penahan agar modal instan terbuka
-          onCheckInquiry={undefined} 
-          isChecking={false} 
+          onCheckInquiry={undefined}
+          isChecking={false}
           isLoading={isLoading}
           onPreCheckout={onPreCheckout}
         />
 
         {/* MODAL KONFIRMASI */}
-        <OrderConfirmationModal 
+        <OrderConfirmationModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           product={product}
           selectedItem={selectedItem}
           // 💡 Jika ditekan manual saat antrean, jadikan isPolling=true agar bebas limit!
-          onRefresh={inquirySkus.length > 0 ? () => handleInquiryGame(true, errorMsg.includes('antrean') || errorMsg.includes('Pending')) : undefined} 
+          onRefresh={inquirySkus.length > 0 ? () => handleInquiryGame(true, errorMsg.includes('antrean') || errorMsg.includes('Pending')) : undefined}
           // 💡 UI Canggih: Sembunyikan pesan backend & hapus ID redundan jika fitur Cek Username aktif
           accId={
-            isChecking 
-              ? `🔍 Mencari Data...` 
+            isChecking
+              ? `🔍 Mencari Data...`
               : errorMsg.includes('antrean') || errorMsg.includes('Pending')
                 ? `⏳ Menghubungkan Server...`
-                : errorMsg 
+                : errorMsg
                   ? `❌ ID Tidak Ditemukan`
-                  : customerName 
-                    ? `👤 ${customerName}` 
+                  : customerName
+                    ? `👤 ${customerName}`
                     : (zoneId ? `${accId} (${zoneId})` : accId) // Fallback untuk game tanpa Cek Username
           }
           selectedPayment={selectedPayment}

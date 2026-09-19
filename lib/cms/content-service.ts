@@ -8,6 +8,7 @@ import "server-only";
 import { supabaseAdmin } from "@/utils/supabaseAdmin";
 import type {
   PublicContent,
+  PublicContentTranslation,
   ContentSection,
   CreateContentDraftInput,
   UpdateContentInput,
@@ -627,13 +628,16 @@ export async function getContentById(id: string): Promise<CmsResult<PublicConten
  * Strictly enforces canonical public visibility contract:
  * status = 'PUBLISHED' AND published_at <= now() AND (expired_at IS NULL OR expired_at > now())
  */
-export async function getPublicContentBySlug(slug: string): Promise<CmsResult<PublicContent>> {
+export async function getPublicContentBySlug(
+  slug: string,
+  locale = "id",
+): Promise<CmsResult<PublicContent>> {
   const trimmed = slug.trim().toLowerCase();
   const nowIso = new Date().toISOString();
 
   const { data, error } = await supabaseAdmin
     .from("public_contents")
-    .select("*")
+    .select("*, public_content_translations(*)")
     .eq("slug", trimmed)
     .eq("status", "PUBLISHED")
     .lte("published_at", nowIso)
@@ -647,7 +651,34 @@ export async function getPublicContentBySlug(slug: string): Promise<CmsResult<Pu
     return fail("NOT_FOUND", "Konten tidak ditemukan atau belum dipublikasikan.");
   }
 
-  return ok(data as PublicContent);
+  type ContentWithTranslations = PublicContent & {
+    public_content_translations?: PublicContentTranslation[];
+  };
+
+  const rawItem = data as unknown as ContentWithTranslations;
+  const translations = rawItem.public_content_translations;
+  const baseData: PublicContent = { ...rawItem };
+  delete (baseData as { public_content_translations?: unknown }).public_content_translations;
+
+  if (locale === "en") {
+    const enTrans = Array.isArray(translations)
+      ? translations.find((t) => t.locale === "en")
+      : null;
+
+    if (!enTrans) {
+      return fail("NOT_FOUND", "Konten dalam bahasa Inggris belum tersedia.");
+    }
+
+    return ok({
+      ...baseData,
+      title: enTrans.title || baseData.title,
+      excerpt: enTrans.excerpt !== null ? enTrans.excerpt : baseData.excerpt,
+      body: enTrans.body || baseData.body,
+      cta_label: enTrans.cta_label !== null ? enTrans.cta_label : baseData.cta_label,
+    });
+  }
+
+  return ok(baseData);
 }
 
 /**
@@ -656,10 +687,12 @@ export async function getPublicContentBySlug(slug: string): Promise<CmsResult<Pu
 export async function listContents(
   filter: ListContentsFilter = {},
   isPublicOnly = false,
+  locale = "id",
 ): Promise<CmsResult<{ items: PublicContent[]; total: number }>> {
+  const effectiveLocale = filter.locale || locale;
   let query = supabaseAdmin
     .from("public_contents")
-    .select("*", { count: "exact" });
+    .select("*, public_content_translations(*)", { count: "exact" });
 
   if (isPublicOnly) {
     const nowIso = new Date().toISOString();
@@ -722,8 +755,56 @@ export async function listContents(
     return fail("DATABASE_ERROR", error.message, error);
   }
 
+  type ContentWithTranslations = PublicContent & {
+    public_content_translations?: PublicContentTranslation[];
+  };
+
+  const rawItems = (data || []) as unknown as ContentWithTranslations[];
+
+  if (effectiveLocale === "en") {
+    const localizedItems: PublicContent[] = [];
+
+    for (const raw of rawItems) {
+      const translations = raw.public_content_translations;
+      const enTrans = Array.isArray(translations)
+        ? translations.find((t) => t.locale === "en")
+        : null;
+
+      if (isPublicOnly && !enTrans) {
+        // Exclude unlocalized items from public English view
+        continue;
+      }
+
+      const base: PublicContent = { ...raw };
+      delete (base as { public_content_translations?: unknown }).public_content_translations;
+
+      if (enTrans) {
+        localizedItems.push({
+          ...base,
+          title: enTrans.title || base.title,
+          excerpt: enTrans.excerpt !== null ? enTrans.excerpt : base.excerpt,
+          body: enTrans.body || base.body,
+          cta_label: enTrans.cta_label !== null ? enTrans.cta_label : base.cta_label,
+        });
+      } else {
+        localizedItems.push(base);
+      }
+    }
+
+    return ok({
+      items: localizedItems,
+      total: isPublicOnly ? localizedItems.length : (count || 0),
+    });
+  }
+
+  const sanitizedItems: PublicContent[] = rawItems.map((raw) => {
+    const base: PublicContent = { ...raw };
+    delete (base as { public_content_translations?: unknown }).public_content_translations;
+    return base;
+  });
+
   return ok({
-    items: (data || []) as PublicContent[],
+    items: sanitizedItems,
     total: count || 0,
   });
 }
@@ -915,6 +996,7 @@ export async function deleteSection(id: string): Promise<CmsResult<{ success: bo
  */
 export async function getSectionContents(
   section: ContentSection,
+  locale = "id",
 ): Promise<PublicContent[]> {
   const filter: ListContentsFilter = {
     type: section.filter_type || undefined,
@@ -922,9 +1004,10 @@ export async function getSectionContents(
     tag: section.filter_tag || undefined,
     sortBy: section.sort_by,
     limit: Math.min(Math.max(section.display_limit, 1), 50),
+    locale,
   };
 
-  const res = await listContents(filter, true); // true = canonical public eligibility
+  const res = await listContents(filter, true, locale); // true = canonical public eligibility
   return res.isError ? [] : res.data.items;
 }
 
@@ -935,6 +1018,7 @@ export async function getSectionContents(
  */
 export async function resolveSectionContents(
   sections: ContentSection[],
+  locale = "id",
 ): Promise<Array<{ section: ContentSection; items: PublicContent[] }>> {
   if (sections.length === 0) return [];
 
@@ -948,10 +1032,11 @@ export async function resolveSectionContents(
       sec.filter_tag?.toLowerCase().trim() || "*",
       sec.sort_by,
       Math.min(Math.max(sec.display_limit, 1), 50),
+      locale,
     ].join(":");
 
     if (!queryPromises.has(key)) {
-      queryPromises.set(key, getSectionContents(sec));
+      queryPromises.set(key, getSectionContents(sec, locale));
     }
   }
 
@@ -977,6 +1062,7 @@ export async function resolveSectionContents(
       sec.filter_tag?.toLowerCase().trim() || "*",
       sec.sort_by,
       Math.min(Math.max(sec.display_limit, 1), 50),
+      locale,
     ].join(":");
 
     const items = resultsMap.get(key) || [];

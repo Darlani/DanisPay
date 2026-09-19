@@ -6,6 +6,7 @@ import { Loader2, ShieldAlert } from "lucide-react";
 import FingerprintJS from '@fingerprintjs/fingerprintjs'; 
 import { supabase } from "@/utils/supabaseClient";
 import MaintenancePage from "@/utils/MaintenancePage";
+import { useI18n } from "@/lib/i18n/context";
 
 // --- IMPORT KOMPONEN UI ---
 import InterfaceGame from "@/app/ProductSection/[slug]/components/InterfaceGame";
@@ -24,6 +25,7 @@ import InterfaceMarketplace from "@/app/ProductSection/[slug]/components/Interfa
 // 1. KOMPONEN ISI (YANG MEMBACA SEARCH PARAMS)
 // ============================================================================
 function DetailContent({ slug }: { slug: string }) {
+  const { locale } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams(); 
 
@@ -359,7 +361,7 @@ try {
       }
       // --- SELESAI: UPDATE CACHE GUEST ---
 
-      router.push(`/checkout/pay/${createdOrderId}`);
+      router.push(locale === "en" ? `/en/checkout/pay/${createdOrderId}` : `/checkout/pay/${createdOrderId}`);
     } catch (err: any) { 
       alert("Gagal: " + err.message); 
     } finally { 

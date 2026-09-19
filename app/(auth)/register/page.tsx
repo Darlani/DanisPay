@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -8,11 +8,13 @@ import {
 } from "lucide-react";
 import MaintenancePage from "@/utils/MaintenancePage";
 import { Turnstile } from '@marsidev/react-turnstile'; 
+import { useI18n } from "@/lib/i18n/context";
 
 // ==========================================================
 // BAGIAN 1: FORM PENDAFTARAN (Logika & Tampilan)
 // ==========================================================
 function RegisterForm() {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
@@ -234,7 +236,7 @@ function RegisterForm() {
             GABUNG <span className="text-emerald-500">SEKARANG</span>
           </h1>
           <p className="text-slate-400 text-xs font-medium tracking-widest uppercase">
-            Buat akun member Danish Top Up
+            {t("auth.registerSubtitle")}
           </p>
         </div>
 
@@ -345,11 +347,11 @@ function RegisterForm() {
             </div>
             
             {formData.confirmPassword && !isPasswordMatch && (
-               <p className="text-rose-400 text-[10px] font-bold uppercase tracking-wider px-2">Password tidak cocok!</p>
+               <p className="text-rose-400 text-[10px] font-bold uppercase tracking-wider px-2">{t("auth.passwordMismatch")}</p>
             )}
              {formData.confirmPassword && isPasswordMatch && (
                <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-wider px-2 flex items-center gap-1">
-                 <CheckCircle2 size={12}/> Password cocok
+                  <CheckCircle2 size={12}/> {t("auth.passwordMatch")}
                </p>
             )}
           </div>
@@ -395,7 +397,7 @@ function RegisterForm() {
               <div className="w-full border-t border-white/10"></div>
             </div>
             <div className="relative flex justify-center text-[10px] font-bold tracking-widest uppercase">
-              <span className="bg-[#0B0E14] px-4 text-slate-500">Atau Masuk Dengan</span>
+              <span className="bg-[#0B0E14] px-4 text-slate-500">{t("auth.orLoginFaster")}</span>
             </div>
           </div>
           
@@ -424,7 +426,7 @@ function RegisterForm() {
 
         <div className="mt-8 text-center border-t border-white/5 pt-6">
           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-            SUDAH PUNYA AKUN? <a href="/login" className="text-emerald-500 hover:text-emerald-400 hover:underline transition-colors">LOGIN DISINI</a>
+            {t("auth.alreadyHaveAccount").toUpperCase()} <a href="/login" className="text-emerald-500 hover:text-emerald-400 hover:underline transition-colors">{t("auth.loginLink").toUpperCase()}</a>
           </p>
         </div>
       </div>

@@ -1,7 +1,8 @@
-// @/app/ProductSection/[slug]/components/shared/StickyBottomBar.tsx
+﻿// @/app/ProductSection/[slug]/components/shared/StickyBottomBar.tsx
 "use client";
 
 import { Zap, Loader2 } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 interface StickyProps {
   selectedItemId: string | null;
@@ -23,6 +24,7 @@ interface StickyProps {
 }
 
 export default function StickyBottomBar(props: StickyProps) {
+  const { t } = useI18n();
   const {
     selectedItemId, selectedItem, totalPrice, formatRupiah, isReadyToCheckout,
     setIsModalOpen, nominalHemat, usedCoinsAmount, estimasiCashback,
@@ -72,14 +74,14 @@ export default function StickyBottomBar(props: StickyProps) {
         {usedCoinsAmount > 0 && (
           <div className="flex flex-col items-center border-r border-slate-300 pr-1.5 sm:pr-3 mr-1.5 sm:mr-3 shrink-0 animate-in zoom-in">
             <span className="text-amber-500 font-black text-[6px] sm:text-[9px] uppercase mb-0.5 sm:mb-1 leading-none flex items-center gap-0.5 sm:gap-1">
-               <Zap size={6} className="fill-current sm:w-2.5 sm:h-2.5"/> Pakai Koin
+               <Zap size={6} className="fill-current sm:w-2.5 sm:h-2.5"/> {t("products.common.useCoins")}
             </span>
             <span className="text-amber-600 font-black text-[8px] sm:text-sm leading-none" suppressHydrationWarning>-{formatRupiah(usedCoinsAmount)}</span>
           </div>
         )}
         {nominalHemat > 0 && (
           <div className="flex flex-col items-center border-r border-slate-300 pr-1.5 sm:pr-3 mr-1.5 sm:mr-3 shrink-0 animate-in zoom-in">
-            <span className="text-emerald-600 font-black text-[6px] sm:text-[9px] uppercase mb-0.5 sm:mb-1 leading-none">Anda Hemat</span>
+            <span className="text-emerald-600 font-black text-[6px] sm:text-[9px] uppercase mb-0.5 sm:mb-1 leading-none">{t("products.common.youSave")}</span>
             <span className="text-emerald-700 font-black text-[8px] sm:text-sm leading-none" suppressHydrationWarning>{formatRupiah(nominalHemat)}</span>
           </div>
         )}
@@ -91,8 +93,8 @@ export default function StickyBottomBar(props: StickyProps) {
         <div className="flex items-center animate-in fade-in overflow-x-auto hide-scrollbar w-full">
           <DiskonKoinDisplay />
           <div className="flex flex-col items-center gap-0.5 sm:gap-1 shrink-0">
-            <button onClick={() => window.location.href = "/login"} className="text-[#2962FF] font-black text-[7px] sm:text-[11px] uppercase hover:underline leading-none">Login Sekarang</button>
-            <CashbackBox text="Dapatkan Cashback" amount={estimasiCashback} />
+            <button onClick={() => window.location.href = "/login"} className="text-[#2962FF] font-black text-[7px] sm:text-[11px] uppercase hover:underline leading-none">{t("products.common.loginNow")}</button>
+            <CashbackBox text={t("products.financial.getCashback")} amount={estimasiCashback} />
           </div>
         </div>
       );
@@ -103,12 +105,12 @@ export default function StickyBottomBar(props: StickyProps) {
         <div className="flex items-center animate-in fade-in overflow-x-auto hide-scrollbar w-full">
           <DiskonKoinDisplay />
           <div className="hidden sm:flex flex-col items-start min-w-fit shrink-0 mr-3">
-            <span className="text-blue-600 font-black text-[10px] uppercase leading-none">Affiliasi Member</span>
-            <span className="text-slate-400 font-medium text-[8px] italic leading-tight">Cek Komisi</span>
+            <span className="text-blue-600 font-black text-[10px] uppercase leading-none">{t("products.common.affiliateMember")}</span>
+            <span className="text-slate-400 font-medium text-[8px] italic leading-tight">{t("products.common.checkCommission")}</span>
           </div>
           <button onClick={() => window.location.href = "/dashboard/user"} className="flex flex-col items-center gap-0.5 sm:gap-1 active:scale-95 transition-transform shrink-0">
-            <span className="text-amber-600 font-black text-[6px] sm:text-[10px] uppercase leading-none">Upgrade Member</span>
-            <CashbackBox text="Cashback" amount={estimasiCashback} />
+            <span className="text-amber-600 font-black text-[6px] sm:text-[10px] uppercase leading-none">{t("products.common.upgradeMember")}</span>
+            <CashbackBox text={t("products.financial.cashback")} amount={estimasiCashback} />
           </button>
         </div>
       );
@@ -118,8 +120,8 @@ export default function StickyBottomBar(props: StickyProps) {
       <div className="flex items-center animate-in zoom-in overflow-x-auto hide-scrollbar w-full">
         <DiskonKoinDisplay />
         <div className="flex flex-col items-center leading-none shrink-0">
-          <span className="text-emerald-600 font-black text-[6px] sm:text-[11px] uppercase italic tracking-widest mb-0.5 sm:mb-1">Selamat!</span>
-          <CashbackBox text="Dapat Cashback" amount={estimasiCashback} />
+          <span className="text-emerald-600 font-black text-[6px] sm:text-[11px] uppercase italic tracking-widest mb-0.5 sm:mb-1">{t("products.common.congrats")}</span>
+          <CashbackBox text={t("products.financial.getCashback")} amount={estimasiCashback} />
         </div>
       </div>
     );
@@ -149,7 +151,7 @@ export default function StickyBottomBar(props: StickyProps) {
             </div>
             
             <div className="flex flex-col min-w-0">
-              <span className="text-slate-500 font-bold text-[7px] sm:text-[10px] uppercase mb-0.5">TOTAL BAYAR</span>
+              <span className="text-slate-500 font-bold text-[7px] sm:text-[10px] uppercase mb-0.5">{t("products.financial.totalPayment")}</span>
               <span className="text-[#00796B] font-black text-[14px] sm:text-2xl leading-none truncate" suppressHydrationWarning>
                 {isMounted ? formatRupiah(totalPrice) : "..."}
               </span>
@@ -172,7 +174,7 @@ export default function StickyBottomBar(props: StickyProps) {
         className={`w-full sm:w-auto px-4 sm:px-10 py-2.5 sm:py-4 rounded-[14px] sm:rounded-[20px] border-b-4 shadow-xl flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 shrink-0 transition-all ${(!isReadyToCheckout || isChecking || isLoading) ? 'bg-slate-400 border-slate-600 text-slate-200 cursor-not-allowed' : 'bg-[#2962FF] border-[#0039CB] text-white hover:bg-[#1E40FF] active:scale-95 cursor-pointer'}`}
         >
           <span className="font-black text-[11px] sm:text-sm italic uppercase">
-            {isChecking ? 'MENGECEK ID...' : isLoading ? 'MEMPROSES...' : isReadyToCheckout ? 'BELI SEKARANG' : 'LENGKAPI DATA'}
+            {isChecking ? t("products.order.checkingId") : isLoading ? t("products.order.processing") : isReadyToCheckout ? t("products.order.buyNow") : t("products.order.completeData")}
           </span>
           {isReadyToCheckout && !isChecking && !isLoading && <Zap size={12} className="fill-white animate-bounce sm:w-4 sm:h-4" />}
           {(isChecking || isLoading) && <Loader2 size={12} className="animate-spin sm:w-4 sm:h-4" />}

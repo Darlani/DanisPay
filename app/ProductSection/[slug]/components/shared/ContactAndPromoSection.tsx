@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { safeFetch } from '@/utils/apiHelper';
+import { useI18n } from "@/lib/i18n/context";
 
 interface ContactAndPromoProps {
   step4Ref: React.RefObject<HTMLDivElement | null>;
@@ -16,6 +17,7 @@ interface ContactAndPromoProps {
 }
 
 export default function ContactAndPromoSection(props: ContactAndPromoProps) {
+  const { t } = useI18n();
 // Ambil checkPromo dari props
   const {
     step4Ref, email, setEmail, promoCode, setPromoCode,
@@ -27,7 +29,7 @@ export default function ContactAndPromoSection(props: ContactAndPromoProps) {
   // 🚀 GANTI FUNGSI INI TOTAL:
   const handleApplyPromo = async () => {
     if (!promoCode) return alert("Silakan masukkan kode promo.");
-    
+
     // Langsung tembak ke otak utama di page.tsx, jangan fetch sendiri!
     const result = await checkPromo(promoCode);
 
@@ -43,7 +45,7 @@ export default function ContactAndPromoSection(props: ContactAndPromoProps) {
 
 return (
     <div ref={step4Ref} className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
-      
+
 {/* STEP 4: ALAMAT EMAIL (Ukuran Compact/Separuh) */}
       <section className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-[#B2DFDB]/40 overflow-hidden relative h-fit">
         <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
@@ -51,20 +53,20 @@ return (
             4
           </div>
           <div className="py-1.5 px-3 sm:py-2.5 sm:px-4 flex flex-col justify-center">
-            <h2 className="font-black text-xs sm:text-sm tracking-tight text-slate-800 leading-none">Alamat Email</h2>
-            <p className="text-[7px] sm:text-[8px] font-bold text-slate-500 tracking-wide mt-0.5 lowercase first-letter:uppercase">Info status & bukti bayar (Opsional)</p>
+            <h2 className="font-black text-xs sm:text-sm tracking-tight text-slate-800 leading-none">{t("products.contact.emailTitle")}</h2>
+            <p className="text-[7px] sm:text-[8px] font-bold text-slate-500 tracking-wide mt-0.5 lowercase first-letter:uppercase">{t("products.contact.emailSubtitle")}</p>
           </div>
         </div>
         <div className="p-3 sm:p-5">
-          <input 
-            type="email" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-            placeholder="email@contoh.com" 
-            className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white py-2 px-3 sm:py-2.5 sm:px-4 rounded-lg sm:rounded-xl outline-none font-bold text-xs sm:text-sm text-slate-700 transition-all placeholder:text-slate-400" 
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={t("products.contact.emailPlaceholder")}
+            className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] focus:bg-white py-2 px-3 sm:py-2.5 sm:px-4 rounded-lg sm:rounded-xl outline-none font-bold text-xs sm:text-sm text-slate-700 transition-all placeholder:text-slate-400"
           />
           <p className="mt-1.5 ml-1 text-[8px] sm:text-[9px] font-medium text-slate-400 italic leading-tight">
-            *Struk akan otomatis dikirim ke email ini.
+            {t("products.contact.emailHelper")}
           </p>
         </div>
       </section>
@@ -76,52 +78,52 @@ return (
             5
           </div>
           <div className="py-1.5 px-3 sm:py-2.5 sm:px-4 flex flex-col justify-center">
-            <h2 className="font-black text-xs sm:text-sm tracking-tight text-slate-800 leading-none">Kode Promo</h2>
-            <p className="text-[7px] sm:text-[8px] font-bold text-slate-500 tracking-wide mt-0.5 lowercase first-letter:uppercase">Dapat harga hemat (Opsional)</p>
+            <h2 className="font-black text-xs sm:text-sm tracking-tight text-slate-800 leading-none">{t("products.contact.promoTitle")}</h2>
+            <p className="text-[7px] sm:text-[8px] font-bold text-slate-500 tracking-wide mt-0.5 lowercase first-letter:uppercase">{t("products.contact.promoSubtitle")}</p>
           </div>
         </div>
         <div className="p-3 sm:p-5">
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <input 
-                type="text" 
-                value={promoCode} 
+              <input
+                type="text"
+                value={promoCode}
                 onChange={(e) => {
                   setPromoCode(e.target.value.toUpperCase());
                   setIsPromoApplied(false);
                   setIsShake(false);
                 }}
-                placeholder="KODE PROMO" 
+                placeholder="KODE PROMO"
                 className={`w-full py-2 px-3 sm:py-2.5 sm:px-4 rounded-lg sm:rounded-xl outline-none font-black text-xs sm:text-sm text-slate-700 uppercase tracking-widest transition-all border-2 ${
-                  isShake 
-                    ? "animate-shake border-rose-500 bg-rose-50" 
-                    : isPromoApplied 
-                      ? "border-emerald-500 bg-emerald-50" 
+                  isShake
+                    ? "animate-shake border-rose-500 bg-rose-50"
+                    : isPromoApplied
+                      ? "border-emerald-500 bg-emerald-50"
                       : "bg-[#F5FBFA] border-[#E0F2F1] focus:border-[#00796B] focus:bg-white"
-                }`} 
+                }`}
               />
               {isPromoApplied && (
                 <CheckCircle2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 animate-in zoom-in" />
               )}
             </div>
-            <button 
+            <button
               type="button"
               onClick={handleApplyPromo}
               className="bg-[#00796B] text-white px-3 sm:px-5 rounded-lg sm:rounded-xl font-black text-[9px] sm:text-[10px] uppercase hover:bg-[#004D40] transition-all active:scale-95 shadow-md shadow-teal-900/10 shrink-0"
             >
-              Pakai
+              {t("products.contact.applyPromo")}
             </button>
           </div>
           <p className={`mt-1.5 ml-1 text-[8px] sm:text-[9px] font-medium leading-tight ${isShake ? "text-rose-500" : isPromoApplied ? "text-emerald-600" : "text-slate-400"}`}>
-            {isShake 
-              ? "❌ Kode promo tidak valid!" 
-              : isPromoApplied 
-                ? "✅ Mantap! Diskon terpasang." 
-                : "*Kosongkan jika tidak ada."}
+            {isShake
+              ? t("products.contact.promoInvalid")
+              : isPromoApplied
+                ? t("products.contact.promoSuccess")
+                : t("products.contact.promoOptional")}
           </p>
         </div>
       </section>
 
-    </div> 
+    </div>
   );
 }

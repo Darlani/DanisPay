@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useRef, useState, useMemo, useEffect } from "react";
 import { PULSA_CATEGORY_SLUGS } from '@/lib/constants/product-mappings';
 import { safeFetch } from '@/utils/apiHelper';
-import { 
-  Info, ChevronRight, CheckCircle2, ShoppingCart, 
+import {
+  Info, ChevronRight, CheckCircle2, ShoppingCart,
   ShieldCheck, CircleDollarSign, Zap, Loader2,
   ShieldAlert
 } from "lucide-react";
@@ -14,6 +14,7 @@ import OrderConfirmationModal from "./shared/OrderConfirmationModal";
 import StickyBottomBar from "./shared/StickyBottomBar";
 import PaymentSection from "./shared/PaymentSection";
 import ContactAndPromoSection from "./shared/ContactAndPromoSection";
+import { useI18n } from "@/lib/i18n/context";
 
 interface InterfacePulsaProps {
   product: any;
@@ -57,6 +58,7 @@ interface InterfacePulsaProps {
 }
 
 export default function InterfacePulsa(props: InterfacePulsaProps) {
+  const { t } = useI18n();
   const {
     product, selectedItemId, setSelectedItemId, selectedPayment, setSelectedPayment,
     accId, setAccId, email, setEmail, promoCode, setPromoCode,
@@ -68,7 +70,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
   } = props;
 
   const [isProcessing, setIsProcessing] = useState(false);
-  
+
   const [activeTab, setActiveTab] = useState("");
   const [mainCategory, setMainCategory] = useState("PULSA");
   const [errorOp, setErrorOp] = useState("");
@@ -81,7 +83,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
   // 💡 STATE RIWAYAT NOMOR (LOCAL STORAGE)
   const [historyList, setHistoryList] = useState<string[]>([]);
   const historyKey = isPLN ? 'dapay_history_pln' : 'dapay_history_pulsadata';
-  
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem(historyKey);
@@ -102,7 +104,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
     setErrorOp("");
     setCustomerName("");
 
-    const result = await safeFetch('/api/digiflazz/prabayar/inquiry', { 
+    const result = await safeFetch('/api/digiflazz/prabayar/inquiry', {
       method: 'POST',
       body: JSON.stringify({ customer_id: plnId, sku: 'pln', category: 'pln' })
     });
@@ -114,7 +116,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
     } else {
       setErrorOp(result.message || "ID PLN tidak ditemukan");
     }
-    
+
     setIsInquiring(false);
   };
 
@@ -219,8 +221,8 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
   const step3Ref = useRef<HTMLDivElement>(null);
   const step4Ref = useRef<HTMLDivElement>(null);
 
-  const isReadyToCheckout = !!selectedItemId && 
-                            (isPLN ? !!customerName : accId.length >= 10) && 
+  const isReadyToCheckout = !!selectedItemId &&
+                            (isPLN ? !!customerName : accId.length >= 10) &&
                             (!!selectedPayment || totalPrice === 0);
 
   const scrollToNext = (ref: React.RefObject<HTMLDivElement | null>) => {
@@ -235,7 +237,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
     if (isPLN) return "ID Pelanggan / No. Meter PLN";
     const category = product?.category?.toLowerCase() || "";
     if (category.includes('pulsa') || category.includes('data')) return "Nomor Handphone (08xxx)";
-    return "Nomor Tujuan / ID Pelanggan"; 
+    return "Nomor Tujuan / ID Pelanggan";
   };
 
   const onConfirmCheckout = () => {
@@ -245,11 +247,11 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
   };
 
   const steps = [
-    { id: 1, label: "Pilih Nominal Pulsa/Data", completed: !!selectedItemId },
-    { id: 2, label: `Masukan ${isPLN ? "ID PLN" : "Nomor Tujuan"}`, completed: isPLN ? accId.length >= 11 : accId.length >= 10 },
-    { id: 3, label: "Pilih Metode Pembayaran", completed: !!selectedPayment },
-    { id: 4, label: "Masukan alamat Email kamu", completed: email.includes('@') && email.length > 5 },
-    { id: 5, label: "Gunakan Kode Promo", completed: isPromoApplied },
+    { id: 1, label: t("products.ppob.step2Title"), completed: !!selectedItemId },
+    { id: 2, label: isPLN ? t("products.ppob.customerId") : t("products.ppob.step1Title"), completed: isPLN ? accId.length >= 11 : accId.length >= 10 },
+    { id: 3, label: t("products.payment.title"), completed: !!selectedPayment },
+    { id: 4, label: t("products.contact.emailTitle"), completed: email.includes('@') && email.length > 5 },
+    { id: 5, label: t("products.contact.promoTitle"), completed: isPromoApplied },
   ];
 
   if (!product) return null;
@@ -257,24 +259,24 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
   return (
     <div className="min-h-screen bg-[#bcefe5] text-slate-900 font-sans tracking-tight relative">
       <div className="relative pb-10">
-        
-        <div 
+
+        <div
           className="h-48 w-full absolute top-0 z-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/background/header-bg.png')", backgroundColor: '#002C5F' }} 
+          style={{ backgroundImage: "url('/background/header-bg.png')", backgroundColor: '#002C5F' }}
         />
 
-        <div className="relative z-10 max-w-6xl mx-auto px-4 pt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">   
-          
+        <div className="relative z-10 max-w-6xl mx-auto px-4 pt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+
           {/* KOLOM KIRI (INFO PRODUK & PANDUAN) */}
           <div className="lg:col-span-1 space-y-4">
             <div className="bg-white p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-900/10 border border-slate-100 sticky top-24">
               <div className="flex flex-col items-center text-center lg:items-start lg:text-left gap-4 mb-10">
                 <div className="relative w-full lg:w-fit flex justify-center">
                   <div className="absolute inset-0 bg-blue-500/10 blur-3xl rounded-full lg:block hidden" />
-                  <img 
-                    src={product.img} 
-                    className="relative w-full aspect-square sm:w-70 sm:h-70 lg:w-70 lg:h-70 rounded-3xl sm:rounded-4xl object-cover shadow-2xl border-4 border-white transition-all duration-500" 
-                    alt={product.name} 
+                  <img
+                    src={product.img}
+                    className="relative w-full aspect-square sm:w-70 sm:h-70 lg:w-70 lg:h-70 rounded-3xl sm:rounded-4xl object-cover shadow-2xl border-4 border-white transition-all duration-500"
+                    alt={product.name}
                   />
                 </div>
                 <div className="flex flex-col items-center lg:items-start gap-2 min-w-0">
@@ -298,7 +300,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-bold text-lg text-slate-800 border-b border-slate-50 pb-2 italic text-center lg:text-left">Panduan Top Up</h3>
+                <h3 className="font-bold text-lg text-slate-800 border-b border-slate-50 pb-2 italic text-center lg:text-left">{t("products.common.guideTopup")}</h3>
                 <ul className="space-y-3">
                     {steps.map((step, index) => (
                     <li key={index} className="flex items-start gap-3">
@@ -311,7 +313,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                         </div>
                     </li>
                     ))}
-                    
+
                     {isReadyToCheckout && (
                     <li className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-2xl animate-in fade-in shadow-sm list-none shadow-blue-100">
                         <div className="flex items-center gap-3">
@@ -319,8 +321,8 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                             <ShoppingCart size={18} className="animate-bounce" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-blue-700 uppercase leading-none mb-1">Siap Transaksi!</p>
-                            <p className="text-[11px] font-bold text-blue-600 italic leading-none">Silakan klik Beli Sekarang.</p>
+                            <p className="text-[10px] font-black text-blue-700 uppercase leading-none mb-1">{t("products.common.readyToTransact")}</p>
+                            <p className="text-[11px] font-bold text-blue-600 italic leading-none">{t("products.common.buyNowHint")}</p>
                         </div>
                         <ChevronRight size={16} className="ml-auto text-blue-400 animate-pulse" />
                         </div>
@@ -333,7 +335,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
 
           {/* KOLOM KANAN (FORM TRANSAKSI) */}
           <div className="lg:col-span-2 space-y-8">
-            
+
             {/* STEP 1: PILIH NOMINAL (STYLE INTERFACE GAME TERBARU) */}
             <section className="bg-white rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-[#B2DFDB]/40 overflow-hidden relative">
               <div className="flex items-stretch border-b border-[#E0F2F1] bg-[#F5FBFA]">
@@ -341,16 +343,16 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                   1
                 </div>
                 <div className="py-2 px-3 sm:py-2.5 sm:px-4 flex flex-col justify-center">
-                  <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">Pilih Nominal</h2>
-                  <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">Item tersedia untuk top-up instan</p>
+                  <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">{t("products.common.selectNominal")}</h2>
+                  <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">{t("products.common.instantTopupAvailable")}</p>
                 </div>
               </div>
 
 <div className="p-2 sm:p-8 space-y-5 sm:space-y-6">
-                
+
                 {/* PEMBUNGKUS TABS: Mengontrol jarak antara Main Tab & Sub Tab agar lebih rapat */}
                 <div className="flex flex-col gap-2 sm:gap-3">
-                  
+
                   {/* MAIN TABS (PULSA / DATA) */}
                   {!isPLN && (
                     <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 hide-scrollbar select-none scroll-smooth">
@@ -376,14 +378,14 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
 
                   {/* SUB TABS (PULSA BIASA, COMBO DATA, DLL) */}
                   <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 hide-scrollbar select-none scroll-smooth">
-                    {isPLN 
+                    {isPLN
                       ? availableSubBrands.map((tab: string) => (
                         <button
                           key={tab}
                           onClick={() => { setActiveTab(tab); setShowAllItems(false); }}
                           className={`px-2.5 sm:px-4 h-7 sm:h-10 flex items-center justify-center rounded-xl sm:rounded-2xl text-[9px] sm:text-[12px] font-black capitalize tracking-tight sm:tracking-normal transition-all border sm:border-2 shrink-0 whitespace-nowrap cursor-pointer ${
-                            activeTab === tab 
-                              ? "bg-[#64d1c4] border-[#63cdc1] text-white shadow-md sm:shadow-lg shadow-teal-900/20" 
+                            activeTab === tab
+                              ? "bg-[#64d1c4] border-[#63cdc1] text-white shadow-md sm:shadow-lg shadow-teal-900/20"
                               : "bg-white border-[#E0F2F1] text-slate-400 hover:border-[#80CBC4]"
                           }`}
                         >
@@ -395,8 +397,8 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                         key={tab}
                         onClick={() => { setActiveTab(tab); setShowAllItems(false); }}
                         className={`px-2.5 sm:px-4 h-7 sm:h-10 flex items-center justify-center rounded-xl sm:rounded-2xl text-[9px] sm:text-[12px] font-black capitalize tracking-tight sm:tracking-normal transition-all border sm:border-2 shrink-0 whitespace-nowrap cursor-pointer ${
-                          activeTab === tab 
-                            ? "bg-[#64d1c4] border-[#63cdc1] text-white shadow-md sm:shadow-lg shadow-teal-900/20" 
+                          activeTab === tab
+                            ? "bg-[#64d1c4] border-[#63cdc1] text-white shadow-md sm:shadow-lg shadow-teal-900/20"
                             : "bg-white border-[#E0F2F1] text-slate-400 hover:border-[#80CBC4]"
                         }`}
                       >
@@ -405,36 +407,36 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Grid Item Nominal - Layout dikembalikan agar proporsional di desktop */}
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-2 sm:gap-3 px-0">
                 {filteredItems.map((opt: any, index: number) => {
                     const isEnabled = opt.is_active ?? true;
                     const promoLabel = opt.promo_label;
-                    const discountPersen = opt.discount || 0; 
-                    
+                    const discountPersen = opt.discount || 0;
+
                     const hargaAsli = opt.price;
                     const nominalPotongan = Math.floor(hargaAsli * (discountPersen / 100));
                     const hargaSetelahDiskon = hargaAsli - nominalPotongan;
-                    
+
                     const itemCashback = opt.cashback || opt.estimasi_cashback || 0;
 
                     if (!showAllItems && index >= 8) return null;
 
                     let cleanLabel = opt.label
                       .replace(new RegExp(product.name, 'gi'), '')
-                      .replace(new RegExp(activeTab, 'gi'), '')    
-                      .replace(/pulsa/gi, '')                      
-                      .replace(/^[-_\s]+|[-_\s]+$/g, '')            
+                      .replace(new RegExp(activeTab, 'gi'), '')
+                      .replace(/pulsa/gi, '')
+                      .replace(/^[-_\s]+|[-_\s]+$/g, '')
                       .trim();
 
                     if (!cleanLabel) cleanLabel = opt.label;
 
                     return (
-                      <button 
-                        key={opt.id} 
-                        disabled={!isEnabled} 
-                        onClick={() => { setSelectedItemId(opt.id); scrollToNext(step2Ref); }} 
+                      <button
+                        key={opt.id}
+                        disabled={!isEnabled}
+                        onClick={() => { setSelectedItemId(opt.id); scrollToNext(step2Ref); }}
                         className="relative group h-auto sm:min-h-48 w-full text-left animate-in fade-in zoom-in cursor-pointer"
                       >
                         {discountPersen > 0 && (
@@ -451,10 +453,10 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                         )}
 
                         <div className={`relative w-full h-full rounded-2xl overflow-hidden border-2 flex flex-col justify-between transition-all duration-300 shadow-sm hover:shadow-xl ${
-                          !isEnabled 
-                            ? 'opacity-50 cursor-not-allowed border-slate-200 bg-slate-50 grayscale' 
-                            : selectedItemId === opt.id 
-                              ? 'border-[#00796B] bg-[#E0F2F1]/60 ring-4 ring-[#00796B]/10 transform scale-[1.02] shadow-teal-900/10' 
+                          !isEnabled
+                            ? 'opacity-50 cursor-not-allowed border-slate-200 bg-slate-50 grayscale'
+                            : selectedItemId === opt.id
+                              ? 'border-[#00796B] bg-[#E0F2F1]/60 ring-4 ring-[#00796B]/10 transform scale-[1.02] shadow-teal-900/10'
                               : 'border-[#E0F2F1] bg-white hover:border-[#80CBC4] hover:shadow-teal-100'
                         }`}>
 
@@ -477,12 +479,12 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                               }`}>
                                 {cleanLabel}
                               </h3>
-                              
+
                               <div className="absolute bottom-1 right-1 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded-md border border-slate-100 shadow-sm flex items-center gap-1 scale-95 sm:scale-110 origin-bottom-right">
                                 <Zap size={10} className="text-[#00796B] fill-[#00796B]" />
                                 <div className="flex flex-col items-start leading-[0.7]">
-                                  <span className="text-[#00796B] text-[5px] font-bold uppercase tracking-tighter">Proses</span>
-                                  <span className="text-[#00796B] text-[7px] font-black italic uppercase tracking-tighter">Instan</span>
+                                  <span className="text-[#00796B] text-[5px] font-bold uppercase tracking-tighter">{t("products.common.process")}</span>
+                                  <span className="text-[#00796B] text-[7px] font-black italic uppercase tracking-tighter">{t("products.common.instant")}</span>
                                 </div>
                               </div>
                             </div>
@@ -492,7 +494,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                             }`}>
                                 <div className="flex flex-col w-full">
                                    <div className="flex justify-between items-center mb-0.5">
-                                      <span className="text-slate-400 font-bold text-[7px] sm:text-[10px]">Harga</span>
+                                      <span className="text-slate-400 font-bold text-[7px] sm:text-[10px]">{t("products.common.price")}</span>
                                       {discountPersen > 0 && (
                                          <span className="text-[#D32F2F] font-bold text-[7px] sm:text-[10px] line-through decoration-[#D32F2F]/60">
                                             {formatRupiah(hargaAsli)}
@@ -512,7 +514,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                                    </div>
                                    <div className="flex items-center gap-0.5 sm:gap-1 leading-none overflow-hidden">
                                       <span className="text-[#025f54] font-bold text-[8px] sm:text-[10px] truncate" suppressHydrationWarning>
-                                        {isMounted ? `+${itemCashback.toLocaleString('id-ID')}` : ""} 
+                                        {isMounted ? `+${itemCashback.toLocaleString('id-ID')}` : ""}
                                       </span>
                                       <span className="font-black text-[8px] sm:text-[10px] italic shrink-0">
                                         <span className="text-[#F57F17]">Da</span><span className="text-blue-600">Pay</span>
@@ -531,21 +533,21 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                     <div className="bg-[#E0F2F1] p-5 rounded-full mb-4 shadow-sm">
                       <Info className="text-[#00796B]" size={40} />
                     </div>
-                    <h3 className="text-[#004D40] font-black text-lg uppercase italic leading-none">Layanan Sedang Dioptimasi</h3>
+                    <h3 className="text-[#004D40] font-black text-lg uppercase italic leading-none">{t("products.common.stockRefreshingTitle")}</h3>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2 max-w-62.5 leading-relaxed text-center">
-                      Stok otomatis untuk kategori ini sedang diperbarui. Silakan pilih layanan lain atau kembali nanti.
+                      {t("products.common.stockRefreshing")}
                     </p>
                   </div>
                 )}
 
                 {!showAllItems && filteredItems.length > 8 && (
-                  <button 
-                    onClick={() => setShowAllItems(true)}
-                    className="w-full py-3 sm:py-4 bg-[#F5FBFA] hover:bg-[#004D40] border-2 border-dashed border-[#B2DFDB] hover:border-[#004D40] rounded-3xl transition-all duration-300 group shadow-sm mt-1! sm:mt-4! cursor-pointer"
-                  >
+<button
+  onClick={() => setShowAllItems(true)}
+  className="w-full py-3 sm:py-4 bg-[#F5FBFA] hover:bg-[#004D40] border-2 border-dashed border-[#B2DFDB] hover:border-[#004D40] rounded-3xl transition-all duration-300 group shadow-sm mt-1! sm:mt-4! cursor-pointer"
+>
                     <div className="flex items-center justify-center">
                       <span className="font-black text-[11px] capitalize tracking-normal text-[#00796B] group-hover:text-white transition-colors">
-                        Lihat {filteredItems.length - 8} nominal lainnya
+                        {t("products.common.viewMoreNominals", { count: filteredItems.length - 8 })}
                       </span>
                       <ChevronRight size={16} className="text-[#4DB6AC] group-hover:text-white group-hover:translate-x-1 transition-all" />
                     </div>
@@ -562,11 +564,11 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                 </div>
                 <div className="py-2 px-3 sm:py-2.5 sm:px-4 flex flex-1 items-center justify-between">
                   <div className="flex flex-col justify-center">
-                    <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">Masukan Detail Akun</h2>
-                    <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">Pastikan data yang anda masukkan benar</p>
+                    <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">{t("products.common.enterAccountDetails")}</h2>
+                    <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">{t("products.common.accountDataMustBeCorrect")}</p>
                   </div>
                   <button className="hidden sm:flex items-center gap-1 bg-[#E0F2F1] text-[#00695C] px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-[#B2DFDB] transition-all border border-[#B2DFDB]">
-                    <Info size={12} /> Panduan
+                    <Info size={12} /> {t("products.common.guide")}
                   </button>
                 </div>
               </div>
@@ -590,26 +592,26 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                         </span>
                       )}
                     </label>
-                    
+
 <div className="relative">
   <div className="relative flex items-center">
     {detectedLogo && (
       <div className="absolute left-3 z-10 animate-in fade-in zoom-in duration-300 flex items-center">
-        <img 
-          src={detectedLogo} 
+        <img
+          src={detectedLogo}
           alt="Logo Operator"
           className="w-7 h-7 sm:w-8 sm:h-8 object-contain bg-white rounded-md p-0.5 shadow-sm border border-slate-100"
         />
       </div>
     )}
-    <input 
-      type="text" 
-      value={accId} 
+    <input
+      type="text"
+      value={accId}
       disabled={isInquiring}
-      onChange={(e) => { 
-        const val = e.target.value.replace(/\D/g, ''); 
-        setAccId(val); 
-        
+      onChange={(e) => {
+        const val = e.target.value.replace(/\D/g, '');
+        setAccId(val);
+
         const operatorMatch = getOperatorLogo(val);
         if (operatorMatch) {
            setDetectedLogo(operatorMatch.logoUrl);
@@ -630,25 +632,25 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
             for (const [op, prefixes] of Object.entries(OPERATOR_PREFIX)) {
               if (prefixes.includes(prefix)) detectedOp = op;
             }
-            const productNameClean = product.name.toUpperCase().replace(/\./g, ''); 
+            const productNameClean = product.name.toUpperCase().replace(/\./g, '');
             if (detectedOp && !productNameClean.includes(detectedOp) && activeTab.toUpperCase() !== 'UMUM' && activeTab.toUpperCase() !== 'DATA-UMUM') {
-              setErrorOp(`❌ Ini Nomor ${detectedOp}, Bos! Jangan salah lapak.`);
+              setErrorOp(t("products.ppob.operatorMismatch", { operator: detectedOp }));
             } else {
               setErrorOp("");
-              if(val.length >= 12) scrollToNext(step3Ref); 
+              if(val.length >= 12) scrollToNext(step3Ref);
             }
           } else {
             setErrorOp("");
           }
         }
       }}
-      placeholder={`Masukkan ${getDynamicLabel()}`} 
+      placeholder={t("products.game.enterUid", { label: getDynamicLabel() })}
       // PERBAIKAN PADA CLASSNAME DI BAWAH INI
       className={`w-full bg-[#F5FBFA] border-2 py-2.5 px-4 sm:py-3 sm:px-5 rounded-xl outline-none text-sm sm:text-base font-bold transition-all placeholder:text-slate-400 ${
         detectedLogo ? 'pl-12 sm:pl-14' : 'pl-4 sm:pl-5'
       } ${
         errorOp ? "border-rose-500 bg-rose-50 text-rose-700" : "border-[#E0F2F1] focus:border-[#00796B] text-slate-700"
-      }`} 
+      }`}
     />
   </div>
                       {isInquiring ? (
@@ -672,12 +674,12 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                           <CheckCircle2 size={12} />
                         </div>
                         <div>
-                          <p className="text-[9px] font-bold text-emerald-600 uppercase">Nama Pelanggan PLN</p>
+                          <p className="text-[9px] font-bold text-emerald-600 uppercase">{t("products.ppob.plnCustomerName")}</p>
                           <p className="text-sm font-black text-emerald-800">{customerName}</p>
                         </div>
                       </div>
                     )}
-                    
+
                     {errorOp && (
                       <p className="text-[10px] font-black text-rose-500 uppercase italic animate-in slide-in-from-top-1 mt-1">
                         {errorOp}
@@ -685,11 +687,11 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                     )}
                   </div>
                 </div>
-                
+
                 {/* 💡 CHIP RIWAYAT UI */}
                 {historyList.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 mt-2 sm:mt-4 pt-2 border-t border-slate-100 animate-in fade-in">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mr-1">Terakhir:</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mr-1">{t("products.common.lastUsed")}</span>
                     {historyList.map(h => (
                       <button
                         key={h}
@@ -709,7 +711,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                     ))}
                   </div>
                 )}
-                
+
               </div>
             </section>
 
@@ -751,7 +753,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
         </div> {/* END GRID 3 KOLOM */}
 
         {/* KOMPONEN STICKY DAN MODAL DI LUAR GRID */}
-        <StickyBottomBar 
+        <StickyBottomBar
           selectedItemId={selectedItemId}
           selectedItem={selectedItem}
           totalPrice={totalPrice}
@@ -768,7 +770,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
           onPreCheckout={onPreCheckout}
         />
 
-        <OrderConfirmationModal 
+        <OrderConfirmationModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           product={product}

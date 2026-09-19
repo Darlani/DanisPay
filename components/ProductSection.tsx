@@ -1,9 +1,10 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Flame, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useI18n } from '@/lib/i18n/context';
 
 export interface BrandItem {
   id: number | string;
@@ -27,6 +28,7 @@ export default function ProductSection({
   brands = [],
   isLoading = false
 }: ProductSectionProps) {
+  const { t, locale } = useI18n();
   const initialLimit = category === 'popular' ? 6 : 12;
   const [limit, setLimit] = useState(initialLimit);
 
@@ -62,8 +64,8 @@ export default function ProductSection({
           visibleProducts.map((product, index) => (
             <Link
               key={product.id || product.slug}
-              // Hapus /ProductSection/ agar langsung menembak ke URL pendek
-              href={`/${product.slug}`}
+              // Pertahankan prefix locale aktif: /en/:slug atau /:slug
+              href={locale === "en" ? `/en/${product.slug}` : `/${product.slug}`}
               className="group flex flex-col rounded-xl overflow-hidden border border-slate-700 hover:border-blue-500 transition-all duration-300 shadow-lg hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] bg-slate-900"
             >
               {/* Bagian Gambar (Atas) */}
@@ -102,7 +104,7 @@ export default function ProductSection({
             onClick={() => setLimit(limit === initialLimit ? brands.length : initialLimit)}
             className="px-8 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white hover:bg-slate-800 hover:border-blue-500 transition-all text-[12px] font-medium shadow-lg"
           >
-            {limit === initialLimit ? "Lihat Semua" : "Sembunyikan"}
+            {limit === initialLimit ? t("products.game.showAll") : t("products.game.showLess")}
           </button>
         </div>
       )}

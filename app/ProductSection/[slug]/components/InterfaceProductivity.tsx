@@ -1,7 +1,9 @@
 "use client";
 import { Briefcase } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function InterfaceProductivity({ product, selectedItemId, setSelectedItemId, accId, setAccId, formatRupiah }: any) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
       <div className="lg:col-span-1">
@@ -18,10 +20,10 @@ export default function InterfaceProductivity({ product, selectedItemId, setSele
 
       <div className="lg:col-span-2 space-y-6">
         <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
-          <h2 className="font-black text-xl italic mb-6 text-slate-800">Pilih Paket Langganan</h2>
+          <h2 className="font-black text-xl italic mb-6 text-slate-800">{t("products.minor.productivityPackage")}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {product.items.map((item: any) => (
-              <button 
+              <button
                 key={item.id}
                 onClick={() => setSelectedItemId(item.id)}
                 className={`p-6 rounded-3xl border-2 text-left transition-all ${
@@ -36,14 +38,14 @@ export default function InterfaceProductivity({ product, selectedItemId, setSele
         </section>
 
         <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
-          <h2 className="font-black text-xl italic mb-6 text-slate-800">Email Akun</h2>
-          <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Email yang akan di-upgrade</p>
-          <input 
-            type="email" 
-            value={accId} 
+          <h2 className="font-black text-xl italic mb-6 text-slate-800">{t("products.minor.productivityAccountEmail")}</h2>
+          <p className="text-[10px] font-black uppercase text-slate-400 mb-2">{t("products.minor.productivityEmailSubtitle")}</p>
+          <input
+            type="email"
+            value={accId}
             onChange={(e) => setAccId(e.target.value)}
-            placeholder="contoh: arlan@email.com" 
-            className="w-full bg-slate-50 p-5 rounded-2xl border-2 border-slate-100 outline-none focus:border-emerald-500 font-bold text-slate-700" 
+            placeholder={t("products.minor.productivityEmailPlaceholder")}
+            className="w-full bg-slate-50 p-5 rounded-2xl border-2 border-slate-100 outline-none focus:border-emerald-500 font-bold text-slate-700"
           />
         </section>
       </div>

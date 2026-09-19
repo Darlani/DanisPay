@@ -6,6 +6,7 @@ import { supabase } from "@/utils/supabaseClient";
 import BannerCarousel from '@/components/BannerCarousel';
 import ProductSection, { BrandItem } from '@/components/ProductSection';
 import CategoryShortcut from '../components/CategoryShortcut';
+import { useI18n } from "@/lib/i18n/context";
 
 interface CatalogSection {
   title: string;
@@ -55,6 +56,7 @@ import ContactModal from "@/components/ContactModal";
 
 // --- KOMPONEN BARU: BANNER PENDING DENGAN TIMER REALTIME & AUTO-SYNC ---
 function PendingPaymentBanner({ order, router, onResolved }: { order: any, router: any, onResolved: (status: string) => void }) {
+  const { t } = useI18n();
   const [timeLeft, setTimeLeft] = useState("");
   const [isExpired, setIsExpired] = useState(false);
   const [isResolved, setIsResolved] = useState(false);
@@ -147,7 +149,7 @@ function PendingPaymentBanner({ order, router, onResolved }: { order: any, route
             <Clock className="w-6 h-6 text-amber-400 relative z-10" />
           </div>
           <div>
-            <h3 className="text-amber-400 font-black text-sm md:text-lg uppercase tracking-wide">Menunggu Pembayaran</h3>
+            <h3 className="text-amber-400 font-black text-sm md:text-lg uppercase tracking-wide">{t("checkout.waitingPayment")}</h3>
             <p className="text-slate-300 text-[11px] md:text-sm mt-0.5">
               Selesaikan transaksi <span className="font-bold text-white uppercase">{order.product_name}</span> Anda.
             </p>
@@ -156,7 +158,7 @@ function PendingPaymentBanner({ order, router, onResolved }: { order: any, route
 
         <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-6 bg-slate-900/60 p-3 rounded-xl border border-white/5 shadow-inner">
           <div className="flex flex-col items-center min-w-17.5">
-            <span className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Sisa Waktu</span>
+            <span className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">{t("checkout.completeWithin")}</span>
             <span className="text-amber-400 font-black text-lg md:text-xl tracking-wider font-mono">
               {timeLeft || "00:00:00"}
             </span>
@@ -165,7 +167,7 @@ function PendingPaymentBanner({ order, router, onResolved }: { order: any, route
             onClick={() => router.push(`/checkout/pay/${order.order_id}`)}
             className="bg-amber-500 hover:bg-amber-400 text-slate-900 font-black py-2.5 px-5 md:px-6 rounded-lg text-xs md:text-sm transition-all active:scale-95 whitespace-nowrap shadow-md shadow-amber-500/20"
           >
-            Bayar Sekarang
+            {t("home.payNow")}
           </button>
         </div>
       </div>
@@ -174,6 +176,7 @@ function PendingPaymentBanner({ order, router, onResolved }: { order: any, route
 }
 
 export default function Home() {
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -230,7 +233,7 @@ export default function Home() {
         const popularBrands = validBrands.filter((b) => POPULAR_BRAND_SLUGS.includes(b.slug));
         if (popularBrands.length > 0) {
           builtSections.push({
-            title: 'Populer Sekarang',
+            title: t("home.popularTitle"),
             category: 'popular',
             id: 'popular',
             brands: popularBrands
@@ -399,7 +402,7 @@ export default function Home() {
         <section className="max-w-7xl mx-auto px-4 md:px-12 mb-6 mt-4 relative z-20">
           <div className="mb-3">
             <h2 className="text-white font-bold text-base sm:text-xl flex items-center gap-1.5">
-              Beli ini lagi, yuk <span className="text-base sm:text-xl">👇</span>
+              {t("home.buyAgainTitle")} <span className="text-base sm:text-xl">👇</span>
             </h2>
           </div>
 
@@ -509,10 +512,10 @@ export default function Home() {
                     </div>
 
                     <button
-                      onClick={() => router.push(`/ProductSection/${slug}`)}
+                      onClick={() => router.push(locale === "en" ? `/en/${slug}` : `/${slug}`)}
                       className="bg-blue-600 hover:bg-blue-500 text-white text-[8px] sm:text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md active:scale-95 transition-all"
                     >
-                      Beli lagi
+                      {t("home.buyAgainButton")}
                     </button>
                   </div>
                 </div>
@@ -524,7 +527,7 @@ export default function Home() {
 
       {/* --- PRODUCT SECTIONS (DYNAMIC CONSOLIDATED CATALOG) --- */}
       {catalogLoading ? (
-        <ProductSection title="Memuat Katalog..." category="popular" id="popular" brands={[]} isLoading={true} />
+        <ProductSection title={t("home.loadingCatalog")} category="popular" id="popular" brands={[]} isLoading={true} />
       ) : (
         catalogSections.map((sec) => (
           <ProductSection
@@ -546,7 +549,7 @@ export default function Home() {
         {isSupportMenuOpen && (
           <div className="mb-2 w-36 md:w-48 bg-[#2d2438] border border-slate-700 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-slate-700">
-              <span className="text-white font-bold text-[11px] md:text-sm">Hubungi CS</span>
+              <span className="text-white font-bold text-[11px] md:text-sm">{t("home.contactCs")}</span>
             </div>
             <div className="flex flex-col">
               <button
@@ -576,7 +579,7 @@ export default function Home() {
           className="flex items-center gap-1.5 md:gap-2 bg-[#5bc0de] hover:bg-[#46b8da] text-white px-3.5 py-2 md:px-5 md:py-3 rounded-lg md:rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 active:scale-95"
         >
           <Headset className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="font-bold text-[10px] md:text-sm tracking-wide">HUBUNGI CS</span>
+          <span className="font-bold text-[10px] md:text-sm tracking-wide">{t("home.contactCs").toUpperCase()}</span>
         </button>
       </div>
 

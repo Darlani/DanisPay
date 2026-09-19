@@ -1,7 +1,8 @@
-// @/app/ProductSection/[slug]/components/shared/OrderConfirmationModal.tsx
+﻿// @/app/ProductSection/[slug]/components/shared/OrderConfirmationModal.tsx
 "use client";
 
 import { Loader2, CheckCircle2, CircleDollarSign, Zap, ShieldCheck, RefreshCw } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 interface ModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ interface ModalProps {
 }
 
 export default function OrderConfirmationModal(props: ModalProps) {
+  const { t } = useI18n();
   const {
     isOpen, onClose, product, selectedItem, accId, selectedPayment,
     totalPrice, nominalHemat, usedCoinsAmount, estimasiCashback,
@@ -49,17 +51,17 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
       
       <div className="relative z-101 bg-white w-full max-w-md rounded-4xl shadow-2xl overflow-hidden animate-in zoom-in slide-in-from-bottom-8 duration-300 pointer-events-auto">
         <div className="p-5 sm:p-6 border-b border-slate-100 bg-white text-center sm:text-left">
-          <h3 className="text-xl font-bold text-slate-800 tracking-tight">Konfirmasi Pesanan</h3>
-          <p className="text-xs font-medium text-slate-500 mt-1">Mohon periksa kembali detail pesanan Anda</p>
+          <h3 className="text-xl font-bold text-slate-800 tracking-tight">{t("products.order.confirmOrder")}</h3>
+          <p className="text-xs font-medium text-slate-500 mt-1">{t("products.order.checkDetails")}</p>
         </div>
 
         <div className="p-5 sm:p-6 space-y-5">
           <div className="space-y-2">
             {[
-              { label: "Produk", val: product?.name },
-              { label: "Item", val: selectedItem?.label },
+              { label: t("products.order.product"), val: product?.name },
+              { label: t("products.order.item"), val: selectedItem?.label },
               { label: dynamicLabel, val: accId, blue: true },
-              { label: "Metode Pembayaran", val: selectedPayment }
+              { label: t("products.order.paymentMethod"), val: selectedPayment }
             ].map((row, idx) => (
               <div key={idx} className={`flex justify-between items-center py-3 px-4 rounded-xl border ${row.blue ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-slate-100'}`}>
                 <span className="text-xs font-semibold text-slate-500">{row.label}</span>
@@ -73,7 +75,7 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
                       onClick={onRefresh} 
                       disabled={isProcessing}
                       className="p-1.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-600 transition-all shrink-0 active:scale-95 disabled:opacity-50"
-                      title="Sinkronisasi Ulang Data"
+                      title={t("products.order.syncData")}
                     >
                       <RefreshCw size={14} className={isProcessing ? "animate-spin" : ""} />
                     </button>
@@ -85,8 +87,8 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
             {nominalHemat > 0 && (
               <div className="flex justify-between items-center p-4 rounded-xl border bg-orange-50 border-orange-100 animate-in slide-in-from-top-2">
                 <div className="flex flex-col">
-                  <span className="text-xs font-semibold text-orange-600 mb-0.5">Total Hemat</span>
-                  <span className="text-[10px] font-medium text-orange-500">Diskon + Kode Promo</span>
+                  <span className="text-xs font-semibold text-orange-600 mb-0.5">{t("products.financial.totalSavings")}</span>
+                  <span className="text-[10px] font-medium text-orange-500">{t("products.financial.discountsAndPromo")}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="bg-orange-500 text-white p-1 rounded-md"><CircleDollarSign size={14} /></div>
@@ -103,7 +105,7 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
                   <span className="text-xs font-semibold leading-none mb-1">
                     <span className="text-[#FFC107]">Da</span><span className="text-[#2962FF]">Pay</span>
                   </span>
-                  <span className="text-[10px] font-medium text-[#7c3aed]">Saldo dipakai untuk bayar</span>
+                  <span className="text-[10px] font-medium text-[#7c3aed]">{t("products.financial.coinsUsedForPayment")}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="bg-linear-to-br from-[#FFC107] to-[#FF9800] text-white p-1 rounded-md">
@@ -119,12 +121,12 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
             <div className={`flex justify-between items-center p-4 rounded-xl border transition-all ${memberType === "Special" ? 'bg-emerald-50/50 border-emerald-100' : 'bg-slate-50 border-slate-100 opacity-80'}`}>
               <div className="flex flex-col">
                 <span className={`text-xs font-semibold ${memberType === "Special" ? 'text-emerald-600' : 'text-slate-500'}`}>
-                  {memberType === "Special" ? "Cashback Anda" : "Potensi Cashback"}
+                  {memberType === "Special" ? t("products.financial.yourCashback") : t("products.financial.potentialCashback")}
                 </span>
                 {/* Detail yang dikembalikan agar sama persis 100% */}
                 {memberType !== "Special" && (
                   <span className="text-[10px] font-medium text-blue-500 underline cursor-pointer mt-0.5" onClick={() => window.location.href='/membership'}>
-                    Upgrade ke Special Member
+                    {t("products.order.upgradeToSpecial")}
                   </span>
                 )}
               </div>
@@ -146,7 +148,7 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
               {/* Rincian Transparansi Harga */}
               <div className="space-y-1 px-1 border-b border-dashed border-slate-200 pb-2 mb-2">
                 <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-slate-500 font-medium">Harga Produk</span>
+                  <span className="text-slate-500 font-medium">{t("products.financial.productPrice")}</span>
                   {/* 🚀 Harga asli sebelum dipotong koin */}
                   <span className="text-slate-700 font-bold">{isMounted ? formatRupiah(totalPrice + usedCoinsAmount) : "..."}</span>
                 </div>
@@ -154,13 +156,13 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
                 {/* 🚀 Baris tambahan khusus jika koin dipakai sebagian */}
                 {usedCoinsAmount > 0 && (
                   <div className="flex justify-between items-center text-[11px] animate-in slide-in-from-top-1">
-                    <span className="text-slate-500 font-medium">Sisa Tagihan</span>
+                    <span className="text-slate-500 font-medium">{t("products.financial.remainingBill")}</span>
                     <span className="text-slate-700 font-bold">{isMounted ? formatRupiah(totalPrice) : "..."}</span>
                   </div>
                 )}
 
               <div className="flex justify-between items-center text-[11px]">
-                <span className="text-slate-500 font-medium">Biaya Layanan</span>
+                <span className="text-slate-500 font-medium">{t("products.financial.serviceFee")}</span>
                 {uniqueCode > 0 ? (
                   <span className="text-blue-600 font-black italic animate-in zoom-in duration-300">
                     +{formatRupiah(uniqueCode)}
@@ -169,12 +171,12 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
                 // 🚀 REVISI: Tampilkan GRATIS hanya jika metode pembayaran adalah Koin DaPay
                 !isProcessing && !isLoading && selectedPayment === 'Koin DaPay' ? (
                   <span className="text-emerald-600 font-black italic animate-in fade-in">
-                    GRATIS (POTONG SALDO)
+                    {t("products.financial.freeBalanceDeduction")}
                   </span>
                 ) : (
                     <div className="flex items-center gap-1">
                       <Loader2 size={10} className="animate-spin text-blue-600" />
-                      <span className="text-blue-400 italic text-[9px] animate-pulse">Menghitung...</span>
+                      <span className="text-blue-400 italic text-[9px] animate-pulse">{t("products.financial.calculating")}</span>
                     </div>
                   )
                 )}
@@ -182,7 +184,7 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
               </div>
 
           <div>
-              <p className="text-xs font-semibold text-slate-500 mb-1 leading-none">Total Bayar</p>
+              <p className="text-xs font-semibold text-slate-500 mb-1 leading-none">{t("products.financial.totalPayment")}</p>
               <h4 className={`text-2xl font-bold text-blue-600 tracking-tight leading-none ${finalTotalAmount ? 'animate-in fade-in duration-500' : ''}`} suppressHydrationWarning>
                 {isMounted ? (
                   finalTotalAmount ? formatRupiah(finalTotalAmount) : "..."
@@ -193,14 +195,14 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
           ) : (
             <div className="pt-2 animate-in zoom-in duration-500">
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col items-center">
-                <p className="text-[10px] font-semibold text-emerald-600 mb-1 text-center w-full">Metode Pembayaran</p>
+                <p className="text-[10px] font-semibold text-emerald-600 mb-1 text-center w-full">{t("products.order.paymentMethod")}</p>
                 <div className="flex items-center gap-2">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                   </span>
                   <p className="text-lg font-bold text-emerald-700 leading-none">
-                    Lunas Pembayaran Koin
+                    {t("products.payment.paidWithCoins")}
                   </p>
                 </div>
               </div>
@@ -209,7 +211,7 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
         </div>
 
         <div className="p-5 sm:p-6 pt-0 grid grid-cols-2 gap-3">
-          <button type="button" onClick={onClose} className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-all active:scale-95 cursor-pointer">Batal</button>
+          <button type="button" onClick={onClose} className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-all active:scale-95 cursor-pointer">{t("products.order.cancel")}</button>
           <button 
             type="button" 
             disabled={isProcessing || isLoading || hasError || (!memberType && uniqueCode === 0 && selectedPayment !== 'Koin DaPay')} 
@@ -219,17 +221,17 @@ const finalTotalAmount = (uniqueCode > 0 || (!isLoading && memberType) || (!isLo
             {isProcessing ? (
               <>
                 <Loader2 className="animate-spin" size={16} /> 
-                Memproses Pesanan...
+                {t("products.order.processingOrder")}
               </>
             ) : isLoading || (!memberType && uniqueCode === 0 && selectedPayment !== 'Koin DaPay') ? (
               // 💡 UI Cerdas: Jika sedang menunggu kode unik atau cek nama, berikan info tunggu yang ramah
               <>
                 <Loader2 className="animate-spin" size={16} /> 
-                Mohon tunggu sebentar...
+                {t("products.order.pleaseWait")}
               </>
             ) : hasError ? (
-              "Periksa ID Anda" 
-            ) : "Konfirmasi Pesanan"}
+              t("products.order.checkYourId")
+            ) : t("products.order.confirmOrder")}
           </button>
         </div>
       </div>

@@ -6,12 +6,14 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   LogOut, Search, Loader2, X,
-  Globe, Newspaper, Tag, ReceiptText, UserCircle, Menu
+  Newspaper, Tag, ReceiptText, UserCircle, Menu
 } from "lucide-react";
 import TransactionHistoryModal from "@/components/TransactionHistoryModal";
 import { supabase } from "@/utils/supabaseClient";
 import { Turnstile } from "@marsidev/react-turnstile";
 import SandboxSessionControl from "@/components/sandbox/SandboxSessionControl";
+import { useI18n } from "@/lib/i18n/context";
+import { localizeHref, stripLocaleFromPathname } from "@/lib/i18n/config";
 
 interface NavbarProps {
   isSidebarOpen?: boolean;
@@ -43,6 +45,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
   const [suggestionText, setSuggestionText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const { locale, t } = useI18n();
 
   const isAdminPage = pathname.startsWith("/admin");
   const isLoginPage = pathname === "/login";
@@ -187,8 +190,16 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
     setShowDropdown(false);
   };
 
-  const isNewsActive = pathname === "/news";
-  const isPromoActive = pathname === "/promo";
+  const currentNormalizedPath = stripLocaleFromPathname(pathname);
+  const isNewsActive = currentNormalizedPath === "/news";
+  const isPromoActive = currentNormalizedPath === "/promo";
+
+  const handleToggleLanguage = () => {
+    const targetLocale = locale === "id" ? "en" : "id";
+    const searchStr = typeof window !== "undefined" ? window.location.search : "";
+    const targetPath = localizeHref(pathname, targetLocale);
+    router.push(`${targetPath}${searchStr}`);
+  };
 
   return (
     <>
@@ -208,7 +219,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
               </button>
             )}
 
-            <Link href="/" className="flex items-center shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-lg">
+            <Link href={locale === "en" ? "/en" : "/"} className="flex items-center shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-lg">
               <Image
                 src="/images/DaPay.svg"
                 alt="DanisPay Logo"
@@ -236,8 +247,8 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => searchQuery && setShowDropdown(true)}
-                placeholder="Cari produk digital atau game..."
-                aria-label="Cari produk digital atau game"
+                placeholder={t("search.placeholder")}
+                aria-label={t("search.placeholder")}
                 className="h-10 w-full bg-slate-950/60 border border-slate-700/80 text-white text-xs font-medium pl-9 sm:pl-10 pr-9 rounded-xl placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 transition-all"
               />
 
@@ -250,7 +261,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                   <button
                     type="button"
                     onClick={handleClearSearch}
-                    aria-label="Bersihkan pencarian"
+                    aria-label={t("common.clear")}
                     className="p-1 text-slate-400 hover:text-white rounded-md hover:bg-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
                   >
                     <X size={13} />
@@ -266,7 +277,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                   {isSearching ? (
                     <div className="p-4 text-center text-slate-400 text-xs font-medium flex items-center justify-center gap-2">
                       <Loader2 size={14} className="animate-spin text-blue-400" />
-                      <span>Mencari produk...</span>
+                      <span>{t("search.searching")}</span>
                     </div>
                   ) : searchResults.length > 0 ? (
                     <div className="py-2">
@@ -274,7 +285,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                         <div
                           key={idx}
                           onClick={() => {
-                            router.push(`/ProductSection/${item.slug}`);
+                            router.push(locale === "en" ? `/en/${item.slug}` : `/${item.slug}`);
                             setShowDropdown(false);
                             setSearchQuery("");
                           }}
@@ -305,7 +316,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                   ) : (
                     <div className="p-6 text-center">
                       <p className="text-slate-400 text-xs font-medium leading-relaxed">
-                        Produk yang Anda cari tidak ditemukan.
+                        {t("search.notFound")}
                       </p>
                       <button
                         type="button"
@@ -315,7 +326,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                         }}
                         className="text-blue-400 text-xs font-semibold hover:text-blue-300 hover:underline mt-2 inline-block transition-colors"
                       >
-                        Beri saran produk baru
+                        {t("search.suggestProduct")}
                       </button>
                     </div>
                   )}
@@ -326,19 +337,42 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
 
           {/* SISI KANAN: Navigasi Desktop & Auth/Sandbox */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-            {/* Locale Indicator */}
-            <span
-              className="flex items-center gap-1.5 text-slate-400 text-xs font-medium px-2 py-1 rounded-lg border border-slate-800/90 bg-slate-950/40 select-none"
-              aria-label="Bahasa: Indonesia"
+            {/* Language Switcher Button (Single-Click Direct Toggle with Flag) */}
+            <button
+              type="button"
+              onClick={handleToggleLanguage}
+              aria-label={locale === "id" ? t("language.switchToEnglish") : t("language.switchToIndonesian")}
+              title={locale === "id" ? t("language.switchToEnglish") : t("language.switchToIndonesian")}
+              className="flex items-center gap-1.5 text-slate-300 hover:text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-800/90 bg-slate-950/40 hover:bg-slate-800/80 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer shrink-0"
             >
-              <Globe size={14} className="text-slate-400" />
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-300">ID</span>
-            </span>
+              {locale === "id" ? (
+                <svg className="w-4 h-3 rounded-xs shrink-0 overflow-hidden shadow-xs" viewBox="0 0 3 2" aria-hidden="true">
+                  <rect width="3" height="1" fill="#e70011" />
+                  <rect width="3" height="1" y="1" fill="#ffffff" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-3 rounded-xs shrink-0 overflow-hidden shadow-xs" viewBox="0 0 60 30" aria-hidden="true">
+                  <clipPath id="uk-flag-clip-1">
+                    <path d="M0,0 v30 h60 v-30 z"/>
+                  </clipPath>
+                  <g clipPath="url(#uk-flag-clip-1)">
+                    <path d="M0,0 v30 h60 v-30 z" fill="#012169"/>
+                    <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" strokeWidth="6"/>
+                    <path d="M0,0 L60,30 M60,0 L0,30" clipPath="url(#uk-flag-clip-1)" stroke="#C8102E" strokeWidth="4"/>
+                    <path d="M30,0 v30 M0,15 h60" stroke="#fff" strokeWidth="10"/>
+                    <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" strokeWidth="6"/>
+                  </g>
+                </svg>
+              )}
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-200">
+                {locale.toUpperCase()}
+              </span>
+            </button>
 
             {/* Menu Navigasi Desktop */}
             <div className="hidden md:flex items-center gap-2 lg:gap-3 border-l border-slate-800 pl-3 lg:pl-4">
               <Link
-                href="/news"
+                href={locale === "en" ? "/en/news" : "/news"}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                   isNewsActive
                     ? "font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20"
@@ -346,11 +380,11 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                 }`}
               >
                 <Newspaper size={14} />
-                <span>News</span>
+                <span>{t("navigation.news")}</span>
               </Link>
 
               <Link
-                href="/promo"
+                href={locale === "en" ? "/en/promo" : "/promo"}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                   isPromoActive
                     ? "font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20"
@@ -358,7 +392,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                 }`}
               >
                 <Tag size={14} />
-                <span>Promo</span>
+                <span>{t("navigation.promo")}</span>
               </Link>
 
               <button
@@ -367,7 +401,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer"
               >
                  <ReceiptText size={14} />
-                 <span>Lacak Pesanan</span>
+                 <span>{t("navigation.trackOrder")}</span>
               </button>
 
               {/* State Autentikasi / Sandbox */}
@@ -384,13 +418,13 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                     className="flex items-center gap-1.5 bg-blue-500/10 text-blue-400 px-3.5 py-2 rounded-xl text-xs font-semibold border border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     <UserCircle size={15} />
-                    <span>Akun</span>
+                    <span>{t("navigation.account")}</span>
                   </Link>
 
                   <button
                     type="button"
                     onClick={handleLogout}
-                    aria-label="Keluar dari akun"
+                    aria-label={t("navigation.signOut")}
                     className="p-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-xl hover:bg-rose-600 hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
                   >
                     <LogOut size={15} />
@@ -402,7 +436,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                     href="/login"
                     className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-blue-500 transition-all shadow-md shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
-                    Sign In
+                    {t("navigation.signIn")}
                   </Link>
                 </div>
               )}

@@ -1,7 +1,9 @@
 "use client";
 import { MonitorPlay, Mail } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function InterfaceEntertainment({ product, selectedItemId, setSelectedItemId, accId, setAccId, formatRupiah }: any) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
       <div className="lg:col-span-1">
@@ -21,7 +23,7 @@ export default function InterfaceEntertainment({ product, selectedItemId, setSel
       {/* ... sisa kode ke bawah sama ... */}
       <div className="lg:col-span-2 space-y-6">
          <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
-            <h2 className="font-black text-xl italic mb-6">Pilih Durasi Langganan</h2>
+            <h2 className="font-black text-xl italic mb-6">{t("products.minor.entertainmentDuration")}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                {product.items.map((item: any) => (
                   <button key={item.id} onClick={() => setSelectedItemId(item.id)} className={`p-6 rounded-3xl border-2 flex items-center justify-between transition-all ${selectedItemId === item.id ? 'border-rose-500 bg-rose-50' : 'border-slate-50 bg-slate-50/50 hover:border-rose-200'}`}>

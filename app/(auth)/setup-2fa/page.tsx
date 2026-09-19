@@ -1,10 +1,12 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import { ShieldAlert, Loader2 } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function Setup2FAPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [factorId, setFactorId] = useState<string | null>(null);
@@ -135,8 +137,8 @@ export default function Setup2FAPage() {
           <div className="inline-flex p-3 bg-amber-500/10 border border-amber-500/20 rounded-3xl mb-4">
             <ShieldAlert className="text-amber-500" size={32} />
           </div>
-          <h1 className="text-2xl text-white font-black italic uppercase">SETUP KEAMANAN</h1>
-          <p className="text-slate-400 text-xs font-medium mt-1">Scan QR Code dengan Google Authenticator</p>
+          <h1 className="text-2xl text-white font-black italic uppercase">{t("auth.twoFaTitle")}</h1>
+          <p className="text-slate-400 text-xs font-medium mt-1">{t("auth.twoFaDesc")}</p>
         </div>
 
         {errorMsg && (
@@ -170,7 +172,7 @@ export default function Setup2FAPage() {
         <form onSubmit={handleVerifyPin} className="space-y-4">
           <div>
             <label className="text-[10px] text-amber-500 font-bold tracking-widest uppercase block text-center mb-2">
-              Input 6-Digit PIN dari Aplikasi
+              {t("auth.otpLabel")}
             </label>
             <input
               type="text"
@@ -178,7 +180,8 @@ export default function Setup2FAPage() {
               maxLength={6}
               required
               className="w-full bg-slate-900/50 border border-amber-500/30 text-white text-2xl tracking-[0.8em] text-center rounded-2xl focus:ring-2 focus:ring-amber-500 focus:border-transparent block p-4 outline-none font-black"
-              placeholder="••••••"
+              placeholder={t("auth.otpPlaceholder")}
+              aria-label={t("auth.otpLabel")}
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ""))}
             />
@@ -189,7 +192,7 @@ export default function Setup2FAPage() {
             disabled={loading || pin.length < 6}
             className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black italic uppercase py-4 rounded-2xl shadow-lg shadow-amber-500/30 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {loading ? <Loader2 className="animate-spin" size={20} /> : "AKTIFKAN 2FA SEKARANG"}
+            {loading ? <Loader2 className="animate-spin" size={20} /> : t("auth.activateTwoFa")}
           </button>
         </form>
 

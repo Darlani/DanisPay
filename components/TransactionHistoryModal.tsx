@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef } from "react";
 import { supabase } from "@/utils/supabaseClient";
@@ -10,8 +10,11 @@ import {
 import Link from "next/link";
 import { toPng } from "html-to-image";
 import { Turnstile } from '@marsidev/react-turnstile'; 
+import { useI18n } from "@/lib/i18n/context";
+import { formatRupiah } from "@/lib/i18n/formatters";
 
 export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+  const { t, locale } = useI18n();
   const [invoiceInput, setInvoiceInput] = useState("");
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -27,7 +30,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
     const isLocal = typeof window !== "undefined" && window.location.hostname === "localhost";
 
     if (!captchaToken && !isLocal) {
-      alert("Tolong selesaikan verifikasi keamanan dulu, Bos!");
+      alert(t("tracking.securityAlert"));
       return;
     }
 
@@ -98,9 +101,9 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
               <Search size={20} />
             </div>
             {/* PERBAIKAN: whitespace-nowrap agar teks tidak turun ke bawah */}
-            <h3 className="font-bold text-slate-800 text-lg whitespace-nowrap">Lacak Pesanan</h3>
+            <h3 className="font-bold text-slate-800 text-lg whitespace-nowrap">{t("tracking.modalTitle")}</h3>
           </div>
-          <button onClick={handleClose} className="w-10 h-10 flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-full transition-colors shrink-0">
+          <button onClick={handleClose} aria-label={t("common.close")} className="w-10 h-10 flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-full transition-colors shrink-0">
             <X size={20}/>
           </button>
         </div>
@@ -114,7 +117,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
                 type="text"
                 value={invoiceInput}
                 onChange={(e) => setInvoiceInput(e.target.value.toUpperCase())}
-                placeholder="Contoh: DANISH-0023212"
+                placeholder={t("tracking.placeholder")}
                 className="w-full bg-slate-50 border border-slate-200 p-3.5 pr-24 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 font-semibold placeholder:text-slate-400 transition-all text-sm"
               />
               <button 
@@ -123,7 +126,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
                 disabled={loading || !invoiceInput.trim() || (!captchaToken && !(typeof window !== "undefined" && window.location.hostname === "localhost"))}
                 className="absolute right-2 top-2 bottom-2 bg-blue-600 text-white px-5 rounded-xl font-bold text-sm hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:bg-blue-600"
               >
-                {loading ? <Loader2 className="animate-spin mx-auto" size={18} /> : "Cari"}
+                {loading ? <Loader2 className="animate-spin mx-auto" size={18} /> : t("tracking.searchButton")}
               </button>
             </div>
 
@@ -158,7 +161,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
 
                   <div className="space-y-4">
                     <div className="flex justify-between items-center border-b border-dashed border-slate-200 pb-4">
-                      <span className="text-xs font-semibold text-slate-500">Status Pesanan</span>
+                      <span className="text-xs font-semibold text-slate-500">{t("tracking.statusLabel")}</span>
                       <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide ${
                         order.status?.toLowerCase() === 'berhasil' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
                       }`}>
@@ -167,7 +170,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
                     </div>
 
                     <div className="space-y-2 py-2">
-                      <p className="text-xs font-semibold text-slate-500">Produk</p>
+                      <p className="text-xs font-semibold text-slate-500">{t("receipt.product")}</p>
                       <h4 className="text-lg font-bold text-slate-900 leading-tight">{order.item_label}</h4>
                       <div className="flex flex-col gap-1 text-sm mt-2">
                         <p className="font-medium text-slate-600"><span className="text-slate-400">ID Order:</span> {order.order_id}</p>
@@ -176,12 +179,12 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
                     </div>
 
                     <div className="pt-4 border-t border-slate-100">
-                      <p className="text-xs font-semibold text-slate-500 mb-1">Total Transaksi</p>
-                      <p className="text-xl font-bold text-blue-600">Rp {order.total_amount?.toLocaleString('id-ID')}</p>
+                      <p className="text-xs font-semibold text-slate-500 mb-1">{t("products.financial.totalPayment")}</p>
+                      <p className="text-xl font-bold text-blue-600">{formatRupiah(order.total_amount || 0, locale)}</p>
                     </div>
 
                     <div className="text-xs text-center text-slate-400 font-medium pt-4">
-                      {new Date(order.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+                      {new Date(order.created_at).toLocaleString(locale === 'en' ? 'en-US' : 'id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
                     </div>
                   </div>
                 </div>
@@ -192,14 +195,14 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
                     onClick={handleDownloadImage}
                     className="w-full flex items-center justify-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 py-3 rounded-xl font-bold text-xs hover:bg-slate-100 transition-all active:scale-[0.98]"
                   >
-                    <Download size={16} /> Simpan
+                    <Download size={16} /> {t("receipt.save")}
                   </button>
                   <Link 
-                    href={`/checkout/pay/${order.order_id}`}
+                    href={locale === "en" ? `/en/checkout/pay/${order.order_id}` : `/checkout/pay/${order.order_id}`}
                     onClick={onClose}
                     className="w-full flex items-center justify-center gap-1.5 bg-blue-600 text-white py-3 rounded-xl font-bold text-xs shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-[0.98]"
                   >
-                    Detail <ChevronRight size={16} />
+                    {t("tracking.openInvoice")} <ChevronRight size={16} />
                   </Link>
                 </div>
               </div>
@@ -211,7 +214,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
             ) : (
               <div className="text-center py-6 opacity-40">
                 <ReceiptText size={48} className="mx-auto text-slate-400 mb-3" strokeWidth={1.5} />
-                <p className="text-sm font-semibold text-slate-500">Masukkan invoice untuk melacak</p>
+                <p className="text-sm font-semibold text-slate-500">{t("tracking.emptyHint")}</p>
               </div>
             )}
           </div>

@@ -1,7 +1,9 @@
 "use client";
 import { TicketPercent, ShieldCheck, ChevronRight } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function InterfaceVoucher({ product, selectedItemId, setSelectedItemId, accId, setAccId, formatRupiah, waNumber, setWaNumber, handleCheckout, isReadyToCheckout }: any) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
       <div className="lg:col-span-1">
@@ -11,7 +13,7 @@ export default function InterfaceVoucher({ product, selectedItemId, setSelectedI
           </div>
           <h1 className="text-xl font-black italic uppercase text-slate-800">{product.name}</h1>
           <div className="mt-4 flex items-center justify-center gap-2 text-orange-600 font-black text-[9px] uppercase tracking-widest">
-            <ShieldCheck size={12} /> Kode Lisensi Resmi
+            <ShieldCheck size={12} /> {t("products.minor.voucherOfficialLicense")}
           </div>
         </div>
       </div>
@@ -19,10 +21,10 @@ export default function InterfaceVoucher({ product, selectedItemId, setSelectedI
       <div className="lg:col-span-2 space-y-6">
         {/* PILIH NOMINAL */}
         <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
-          <h2 className="font-black text-xl italic mb-6 text-slate-800">1. Pilih Nominal Voucher</h2>
+          <h2 className="font-black text-xl italic mb-6 text-slate-800">{t("products.minor.voucherSelectNominal")}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {product.items.map((item: any) => (
-              <button 
+              <button
                 key={item.id}
                 onClick={() => setSelectedItemId(item.id)}
                 className={`p-5 rounded-3xl border-2 transition-all flex justify-between items-center ${
@@ -38,16 +40,16 @@ export default function InterfaceVoucher({ product, selectedItemId, setSelectedI
 
         {/* INPUT KONTAK */}
         <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
-          <h2 className="font-black text-xl italic mb-4 text-slate-800">2. Kirim ke WhatsApp</h2>
+          <h2 className="font-black text-xl italic mb-4 text-slate-800">{t("products.minor.voucherSendToWhatsApp")}</h2>
           <p className="text-[10px] font-bold text-slate-400 uppercase mb-4 italic">
-            *Kode voucher akan dikirimkan otomatis ke nomor ini.
+            {t("products.minor.voucherAutoSendNotice")}
           </p>
-          <input 
-            type="text" 
-            value={waNumber} 
+          <input
+            type="text"
+            value={waNumber}
             onChange={(e) => setWaNumber(e.target.value)}
-            placeholder="Nomor WhatsApp (08xxx)" 
-            className="w-full bg-slate-50 p-5 rounded-2xl border-2 border-slate-100 outline-none focus:border-orange-500 font-bold text-slate-700" 
+            placeholder={t("products.minor.voucherWhatsappPlaceholder")}
+            className="w-full bg-slate-50 p-5 rounded-2xl border-2 border-slate-100 outline-none focus:border-orange-500 font-bold text-slate-700"
           />
         </section>
       </div>

@@ -1,7 +1,9 @@
 "use client";
 import { ThumbsUp, Link } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function InterfaceSosmed({ product, accId, setAccId, selectedItemId, setSelectedItemId, formatRupiah }: any) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-1">
@@ -13,7 +15,7 @@ export default function InterfaceSosmed({ product, accId, setAccId, selectedItem
       </div>
       <div className="lg:col-span-2 space-y-6">
         <section className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-          <h2 className="font-black text-xl italic mb-6 text-slate-800">1. Pilih Layanan</h2>
+          <h2 className="font-black text-xl italic mb-6 text-slate-800">{t("products.minor.sosmedStep1")}</h2>
           <div className="space-y-3">
             {product.items.map((item: any) => (
               <label key={item.id} className={`flex items-center justify-between p-5 rounded-3xl border-2 cursor-pointer transition-all ${
@@ -30,18 +32,18 @@ export default function InterfaceSosmed({ product, accId, setAccId, selectedItem
           </div>
         </section>
         <section className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-          <h2 className="font-black text-xl italic mb-6 text-slate-800">2. Link Target / Username</h2>
+          <h2 className="font-black text-xl italic mb-6 text-slate-800">{t("products.minor.sosmedStep2")}</h2>
           <div className="relative">
             <Link className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input 
-                type="text" 
-                value={accId} 
+            <input
+                type="text"
+                value={accId}
                 onChange={(e) => setAccId(e.target.value)}
-                placeholder="https://instagram.com/username..." 
-                className="w-full bg-slate-50 p-5 pl-14 rounded-2xl border-2 border-slate-100 focus:border-pink-500 outline-none font-medium" 
+                placeholder={t("products.minor.sosmedTargetPlaceholder")}
+                className="w-full bg-slate-50 p-5 pl-14 rounded-2xl border-2 border-slate-100 focus:border-pink-500 outline-none font-medium"
             />
           </div>
-          <p className="mt-2 text-[10px] text-slate-400 italic">*Pastikan akun TIDAK DI-PRIVATE saat proses berlangsung.</p>
+          <p className="mt-2 text-[10px] text-slate-400 italic">{t("products.minor.sosmedPrivateWarning")}</p>
         </section>
       </div>
     </div>

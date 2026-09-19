@@ -2,6 +2,7 @@
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic"; // Pakai dynamic import biar enteng
 import { STORE_CONFIG } from "@/utils/storeConfig";
+import { I18nProvider } from "@/lib/i18n/context";
 
 // Load Navbar, Footer, dan BottomNav cuma pas dibutuhin (Lazy Load)
 const Navbar = dynamic(() => import("./Navbar"), { ssr: false });
@@ -20,7 +21,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <>
+    <I18nProvider>
       <header className="sticky top-0 z-50 w-full">
         <SandboxTopBanner />
         {!isDashboardPage && <Navbar />}
@@ -35,6 +36,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
       {/* Tampilkan Bottom Navigasi khusus Mobile di Landing Page */}
       {!isDashboardPage && <BottomNav />}
-    </>
+    </I18nProvider>
   );
 }

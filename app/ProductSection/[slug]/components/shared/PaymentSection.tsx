@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { Zap, ChevronRight } from "lucide-react";
 import { isPaymentAllowed } from '@/utils/LogicPembayaran';
 import { useEffect } from "react";
+import { useI18n } from "@/lib/i18n/context";
 
 interface PaymentSectionProps {
   step3Ref: React.RefObject<HTMLDivElement | null>;
@@ -25,6 +26,7 @@ interface PaymentSectionProps {
 }
 
 export default function PaymentSection(props: PaymentSectionProps) {
+  const { t, locale } = useI18n();
   const {
     step3Ref, step4Ref, currentUser, useCoins, setUseCoins, usedCoinsAmount,
     userCoins, isMounted, formatRupiah, dbPayments, showAllPayment,
@@ -59,8 +61,8 @@ export default function PaymentSection(props: PaymentSectionProps) {
           3
         </div>
         <div className="py-2 px-3 sm:py-2.5 sm:px-4 flex flex-col justify-center">
-          <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">Pilih Metode Bayar</h2>
-          <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">Pilih metode pembayaran favoritmu</p>
+          <h2 className="font-black text-sm sm:text-base tracking-tight text-slate-800 leading-none">{t("products.payment.title")}</h2>
+          <p className="text-[9px] sm:text-[10px] font-medium text-slate-500 tracking-wide mt-1 lowercase first-letter:uppercase">{t("products.payment.subtitle")}</p>
         </div>
       </div>
       
@@ -70,19 +72,23 @@ export default function PaymentSection(props: PaymentSectionProps) {
           
 {/* Badge BEST PAYMENT versi mini & slim [cite: 2026-03-09] */}
           <div className="absolute top-0 right-0 bg-orange-500 text-white text-[7px] font-black px-2 py-0.5 rounded-bl-lg shadow-sm uppercase tracking-tight z-10 pointer-events-none">
-            BEST PAYMENT
+            {t("products.payment.bestPayment")}
           </div>
 
           {/* SISI KIRI: Info Judul & Saldo [cite: 2026-03-09] */}
           <div className="flex flex-col flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-black text-[15px] leading-none tracking-tight italic">
-                <span className="text-[#FFC107]">Da</span><span className="text-[#2962FF]">Pay</span> <span className="text-slate-700 not-italic ml-0.5">Coins</span>
+                <span className="text-[#FFC107]">Da</span><span className="text-[#2962FF]">Pay</span> <span className="text-slate-700 not-italic ml-0.5">{t("products.payment.coinsTitle").replace("DaPay ", "")}</span>
               </span>
             </div>
             <div className="flex items-center gap-2">
               <p className="text-slate-500 text-[11px] font-bold leading-none truncate" suppressHydrationWarning>
-                Sisa {isMounted ? `${(currentUser?.id ? userCoins : 0).toLocaleString('id-ID')} Koin (Setara ${formatRupiah(currentUser?.id ? userCoins : 0)})` : "0"}
+                {isMounted
+                  ? t("products.payment.remainingCoins")
+                      .replace("{coins}", (currentUser?.id ? userCoins : 0).toLocaleString(locale === "en" ? "en-US" : "id-ID"))
+                      .replace("{rupiah}", formatRupiah(currentUser?.id ? userCoins : 0))
+                  : "0"}
               </p>
               {currentUser?.id && useCoins && usedCoinsAmount > 0 && (
                 <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold animate-in fade-in shadow-sm shrink-0">
@@ -95,7 +101,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
           {/* SISI TENGAH: Badge Wajib Login [cite: 2026-03-09] */}
           {!currentUser?.id && (
             <div className="bg-white px-3 py-1 rounded-lg border-2 border-slate-200 shadow-[0_3px_0_0_#e2e8f0] animate-pulse cursor-pointer shrink-0">
-              <span className="text-rose-500 text-[9px] font-black uppercase tracking-tighter italic whitespace-nowrap">Wajib Login</span>
+              <span className="text-rose-500 text-[9px] font-black uppercase tracking-tighter italic whitespace-nowrap">{t("products.payment.mustLogin")}</span>
             </div>
           )}
           
@@ -120,7 +126,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
           const isAllowed = isPaymentAllowed(pay.name, productName, totalPrice, pay);
           return (
             <div key={pay.id} className="mb-6 space-y-3">
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">Metode Rekomendasi</p>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">{t("products.payment.recommendedMethod")}</p>
               <button 
                 disabled={!isAllowed || isMaintenance} 
                 onClick={() => { setSelectedPayment(pay.name); scrollToNext(step4Ref); }}
@@ -128,7 +134,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
               >
             {/* Badge BEST PAYMENT versi mini & slim */}
                 <div className="absolute top-0 right-0 bg-orange-500 text-white text-[7px] font-black px-2 py-0.5 rounded-bl-lg shadow-sm uppercase tracking-tight z-10 pointer-events-none">
-                  BEST PAYMENT
+                  {t("products.payment.bestPayment")}
                 </div>
 
                 <div className="w-20 h-12 sm:w-24 sm:h-14 rounded-xl bg-white border border-[#E0F2F1] flex items-center justify-center p-2 overflow-hidden shrink-0 shadow-sm">
@@ -137,7 +143,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
                 <div className="ml-4 sm:ml-5 text-left flex-1">
                   <p className={`text-sm font-black tracking-tight ${(!isAllowed || isMaintenance) ? 'text-slate-400' : selectedPayment === pay.name ? 'text-[#00796B]' : 'text-slate-800'}`}>{pay.name}</p>
                   <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mt-1">
-                    {isMaintenance ? '🛠️ MAINTENANCE' : 'Proses Instan & Otomatis'}
+                    {isMaintenance ? t("products.payment.maintenance") : t("products.payment.instantProcess")}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
@@ -149,7 +155,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
         })}
 
         <div className="space-y-4">
-          <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">E-Wallet</p>
+          <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">{t("products.payment.ewallet")}</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {sortActivePayments(dbPayments?.filter(p => {
               const n = p.name.toUpperCase();
@@ -202,7 +208,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
         {!showAllPayment && totalPrice > 0 && (
           <button onClick={() => setShowAllPayment(true)} className="w-full py-4 bg-[#F5FBFA] hover:bg-[#004D40] border-2 border-dashed border-[#B2DFDB] hover:border-[#004D40] rounded-3xl transition-all duration-300 group shadow-sm">
             <div className="flex items-center justify-center gap-3">
-              <span className="font-black text-[11px] capitalize tracking-normal text-[#00796B] group-hover:text-white transition-colors">Lihat semua metode pembayaran</span>
+              <span className="font-black text-[11px] capitalize tracking-normal text-[#00796B] group-hover:text-white transition-colors">{t("products.payment.viewAllMethods")}</span>
               <ChevronRight size={16} className="text-[#4DB6AC] group-hover:text-white group-hover:translate-x-1 transition-all" />
             </div>
           </button>
@@ -212,7 +218,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
           <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
             
             <div className="space-y-4">
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">Virtual Account</p>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">{t("products.payment.virtualAccount")}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {sortActivePayments(dbPayments?.filter(p => {
                   const n = p.name.toUpperCase();
@@ -239,7 +245,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
             </div>
 
             <div className="space-y-4">
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">Gerai Retail / OTC</p>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">{t("products.payment.retailOutlet")}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {sortActivePayments(dbPayments?.filter(p => {
                   const n = p.name.toUpperCase();
@@ -266,7 +272,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
             </div>
 
             <div className="space-y-4">
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">Manual Transfer & ATM</p>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">{t("products.payment.manualTransfer")}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {sortActivePayments(dbPayments?.filter(p => {
                   const n = p.name.toUpperCase();

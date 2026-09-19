@@ -1,13 +1,15 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, ArrowRight, Loader2, AlertCircle, Store, UserPlus, ShieldAlert, ChevronLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { Turnstile } from '@marsidev/react-turnstile'; 
+import { useI18n } from "@/lib/i18n/context";
 
 export default function LoginPage() {
-  const router = useRouter();
+  const { t } = useI18n();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -233,7 +235,7 @@ const [errorMsg, setErrorMsg] = useState("");
             DANISH <span className="text-blue-500">STORE</span>
           </h1>
           <p className="text-slate-400 text-xs font-medium tracking-widest uppercase">
-            {isPinStage ? "Verifikasi Keamanan" : "Masuk ke Dashboard"}
+            {isPinStage ? t("auth.securityVerificationPrompt") : t("auth.loginSubtitle")}
           </p>
         </div>
 
@@ -250,7 +252,7 @@ const [errorMsg, setErrorMsg] = useState("");
           <>
             <form onSubmit={handleLogin} className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="space-y-1">
-                <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase ml-3">Email Akses</label>
+                <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase ml-3">{t("auth.emailLabel")}</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Mail className="h-5 w-5 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
@@ -259,7 +261,7 @@ const [errorMsg, setErrorMsg] = useState("");
                     type="email"
                     required
                     className="w-full bg-slate-900/50 border border-white/10 text-white text-sm rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent block pl-12 p-4 placeholder-slate-600 transition-all outline-none font-medium"
-                    placeholder="email@anda.com"
+                    placeholder={t("auth.emailPlaceholder")}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -269,9 +271,9 @@ const [errorMsg, setErrorMsg] = useState("");
 <div className="space-y-1">
                 {/* Header Label & Lupa Password */}
                 <div className="flex justify-between items-end px-3">
-                  <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">Password</label>
+                  <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">{t("auth.passwordLabel")}</label>
                   <Link href="/forgot-password" className="text-[10px] font-bold tracking-widest uppercase text-slate-500 hover:text-blue-400 transition-colors">
-                    Lupa Password?
+                    {t("auth.forgotPasswordLink")}
                   </Link>
                 </div>
                 
@@ -285,7 +287,7 @@ const [errorMsg, setErrorMsg] = useState("");
                     required
                     // Tambahkan pr-12 agar teks tidak tertimpa ikon mata di sebelah kanan
                     className="w-full bg-slate-900/50 border border-white/10 text-white text-sm rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent block pl-12 pr-12 p-4 placeholder-slate-600 transition-all outline-none font-medium"
-                    placeholder="••••••••"
+                    placeholder={t("auth.passwordPlaceholder")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -294,6 +296,8 @@ const [errorMsg, setErrorMsg] = useState("");
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                    title={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                     className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-white transition-colors"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -322,9 +326,9 @@ const [errorMsg, setErrorMsg] = useState("");
                 {loading ? (
                   <Loader2 className="animate-spin" size={20} />
                 ) : !captchaToken ? (
-                  "Verifikasi Keamanan..."
+                  t("auth.verifying")
                 ) : (
-                  <>MASUK SEKARANG <ArrowRight size={20} /></>
+                  <>{t("auth.loginButton")} <ArrowRight size={20} /></>
                 )}
               </button>
             </form>
@@ -336,7 +340,7 @@ const [errorMsg, setErrorMsg] = useState("");
                   <div className="w-full border-t border-white/10"></div>
                 </div>
                 <div className="relative flex justify-center text-[10px] font-bold tracking-widest uppercase">
-                  <span className="bg-[#0B0E14] px-4 text-slate-500">Atau Masuk Lebih Cepat</span>
+                  <span className="bg-[#0B0E14] px-4 text-slate-500">{t("auth.orLoginFaster")}</span>
                 </div>
               </div>
               
@@ -372,18 +376,18 @@ const [errorMsg, setErrorMsg] = useState("");
               <p className="text-white text-xs font-black italic uppercase tracking-widest">
                 {tempProfile?.role} Detected
               </p>
-              <p className="text-slate-400 text-[10px] lowercase font-medium">Input pin keamanan anda</p>
+              <p className="text-slate-400 text-[10px] lowercase font-medium">{t("auth.enterPinPrompt")}</p>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] text-amber-500 font-bold tracking-widest uppercase block text-center mb-2">Input 6-Digit Pin</label>
+              <label className="text-[10px] text-amber-500 font-bold tracking-widest uppercase block text-center mb-2">{t("auth.enterOtpPrompt")}</label>
               <input
                 type="password"
                 maxLength={6}
                 required
                 autoFocus
                 className="w-full bg-slate-900/50 border border-amber-500/30 text-white text-2xl tracking-[0.8em] text-center rounded-2xl focus:ring-2 focus:ring-amber-500 focus:border-transparent block p-4 placeholder-slate-800 transition-all outline-none font-black"
-                placeholder="••••••"
+                placeholder={t("auth.otpPlaceholder")}
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
               />
@@ -394,7 +398,7 @@ const [errorMsg, setErrorMsg] = useState("");
               disabled={loading}
               className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black italic uppercase py-4 rounded-2xl shadow-lg shadow-amber-500/30 transition-all transform active:scale-95 flex items-center justify-center gap-2"
             >
-              {loading ? <Loader2 className="animate-spin" size={20} /> : "KONFIRMASI AKSES"}
+              {loading ? <Loader2 className="animate-spin" size={20} /> : t("auth.verifyOtpButton")}
             </button>
 
             <button 
@@ -402,7 +406,7 @@ const [errorMsg, setErrorMsg] = useState("");
               onClick={() => { setIsPinStage(false); setPin(""); setCaptchaToken(null); }}
               className="w-full text-slate-500 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-colors flex items-center justify-center gap-1"
             >
-              <ChevronLeft size={14}/> Kembali ke Login
+              <ChevronLeft size={14}/> {t("auth.backToLogin")}
             </button>
           </form>
         )}
@@ -410,9 +414,9 @@ const [errorMsg, setErrorMsg] = useState("");
         {/* FOOTER LINK: Hanya muncul di tahap login awal */}
         {!isPinStage && (
           <div className="mt-8 pt-6 border-t border-white/10 text-center">
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-3">Belum punya akun?</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-3">{t("auth.noAccount")}</p>
               <Link href="/register" className="inline-flex items-center gap-2 text-xs font-black text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-wider group">
-                  <UserPlus size={14} className="group-hover:scale-110 transition-transform"/> DAFTAR MEMBER BARU
+                  <UserPlus size={14} className="group-hover:scale-110 transition-transform"/> {t("auth.registerLink").toUpperCase()}
               </Link>
           </div>
         )}

@@ -73,3 +73,5 @@ repomix-output.txt
 
 # Supabase CLI local metadata
 /.supabase/
+# Local snapshot backups
+2026-*/

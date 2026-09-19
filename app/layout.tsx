@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import {
   Comfortaa,
   Poppins,
@@ -7,6 +8,7 @@ import {
 import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
 import GlobalErrorTracker from "@/components/GlobalErrorTracker";
+import { isValidLocale, DEFAULT_LOCALE } from "@/lib/i18n/config";
 
 const comfortaa = Comfortaa({
   subsets: ["latin"],
@@ -27,17 +29,17 @@ export const metadata: Metadata = {
   description: "Layanan Top Up Tercepat dan Terpercaya",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const headersList = await headers();
+  const headerLocale = headersList.get("x-dapay-locale");
+  const serverLocale = isValidLocale(headerLocale) ? headerLocale : DEFAULT_LOCALE;
+
   return (
-    <html
-      lang="id"
-      className="bg-[#0f172a]"
-      suppressHydrationWarning
-    >
+    <html lang={serverLocale} className="bg-[#0f172a]" suppressHydrationWarning>
       <head />
 
       <body

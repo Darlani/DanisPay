@@ -4,26 +4,31 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Calendar, Sparkles } from "lucide-react";
 import type { PublicContent } from "@/lib/cms/types";
+import { useI18n } from "@/lib/i18n/context";
+import { type Locale, localizeHref } from "@/lib/i18n/config";
 
 interface NewsHeroProps {
   content: PublicContent;
+  locale?: Locale;
 }
 
-function formatDate(dateStr: string | null) {
+function formatDate(dateStr: string | null, locale: Locale) {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   return Number.isNaN(d.getTime())
     ? null
-    : d.toLocaleDateString("id-ID", {
+    : d.toLocaleDateString(locale === "en" ? "en-US" : "id-ID", {
         day: "numeric",
         month: "long",
         year: "numeric",
       });
 }
 
-export default function NewsHero({ content }: NewsHeroProps) {
-  const formattedDate = formatDate(content.published_at);
-  const detailHref = `/news/${content.slug}`;
+export default function NewsHero({ content, locale: propLocale }: NewsHeroProps) {
+  const { locale: contextLocale, t } = useI18n();
+  const currentLocale = propLocale || contextLocale || "id";
+  const formattedDate = formatDate(content.published_at, currentLocale);
+  const detailHref = localizeHref(`/news/${content.slug}`, currentLocale);
 
   return (
     <article className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-linear-to-b from-slate-900/90 to-slate-950 p-6 md:p-10 shadow-2xl transition-all duration-300 hover:border-slate-700">
@@ -35,7 +40,7 @@ export default function NewsHero({ content }: NewsHeroProps) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-amber-400">
                 <Sparkles size={12} />
-                <span>Headline</span>
+                <span>{t("news.headline")}</span>
               </span>
               <span className="inline-flex items-center rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-blue-400">
                 {content.category || content.type}
@@ -72,7 +77,7 @@ export default function NewsHero({ content }: NewsHeroProps) {
               href={detailHref}
               className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-blue-600/25 transition-all duration-200 hover:bg-blue-500 hover:gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
-              <span>Baca Selengkapnya</span>
+              <span>{t("common.readMore")}</span>
               <ArrowRight size={14} />
             </Link>
           </div>
