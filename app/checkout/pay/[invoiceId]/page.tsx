@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, Suspense, useRef } from "react";
 import {
   Clock,
@@ -17,7 +17,8 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
 import { QRCodeSVG } from 'qrcode.react';
 import ReceiptPascabayar from "./ReceiptPascabayar";
-import ReceiptPrabayar from "./ReceiptPrabayar"; 
+import ReceiptPrabayar from "./ReceiptPrabayar";
+import { useI18n } from "@/lib/i18n/context";
 
 // Komponen Branding DaPay
 const DaPayText = () => (
@@ -29,6 +30,7 @@ const DaPayText = () => (
 import { useRouter } from "next/navigation"; // 🚀 Pastikan router terimport di atas
 
 function InvoiceContent() {
+  const { t, locale } = useI18n();
   const params = useParams();
   const router = useRouter(); // 🚀 Inisialisasi router untuk mengusir user saat lunas
   const invoiceId = params.invoiceId as string;
@@ -36,7 +38,7 @@ function InvoiceContent() {
   const [trx, setTrx] = useState<any>(null);
   const [dbStatus, setDbStatus] = useState("Pending");
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState(0); 
+  const [timeLeft, setTimeLeft] = useState(0);
   const [paymentAccounts, setPaymentAccounts] = useState<any[]>([]);
   const [qrisString, setQrisString] = useState<string>("");
   const [isTimeCalculated, setIsTimeCalculated] = useState(false);
@@ -53,14 +55,14 @@ function InvoiceContent() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Gagal melakukan simulasi bayar.");
+        alert(data.error || t("checkout.simulatePayFailed"));
         return;
       }
       setDbStatus(data.status || "Berhasil");
       setTrx((prev: Record<string, unknown> | null) => prev ? { ...prev, status: data.status || "Berhasil", sn: data.sn } : prev);
     } catch (e) {
       console.error("Simulate pay error:", e);
-      alert("Terjadi kesalahan saat simulasi pembayaran.");
+      alert(t("checkout.simulatePayError"));
     } finally {
       setSimulating(false);
     }
@@ -73,7 +75,7 @@ function InvoiceContent() {
       try {
         let history = JSON.parse(guestCache);
         const orderIndex = history.findIndex((o: any) => o.order_id === orderId);
-        
+       
         // Jika pesanan ketemu dan statusnya beda, timpa dengan status baru
         if (orderIndex !== -1 && history[orderIndex].status !== newStatus) {
           history[orderIndex].status = newStatus;
@@ -104,7 +106,7 @@ function InvoiceContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ order_id: invoiceId })
         });
-        
+
         const invoiceJson = await invoiceRes.json();
         const orderData = invoiceRes.ok ? invoiceJson.data : null;
 
@@ -112,12 +114,12 @@ function InvoiceContent() {
         const { data: accounts } = await supabase
           .from("payment_accounts")
           .select("name, account_no, account_name, logo_url, is_qr, method_key");
-        
+
         if (accounts) setPaymentAccounts(accounts);
 
         const serverTimeRes = await fetch('/api/system/time');
         if (!serverTimeRes.ok) throw new Error("Gagal ambil jam server");
-        
+
         const { serverNow } = await serverTimeRes.json();
         const nowTs = new Date(serverNow).getTime();
 
@@ -173,7 +175,7 @@ function InvoiceContent() {
             setTimeLeft(secondsLeft > 0 ? secondsLeft : 0);
             setIsTimeCalculated(true);
           } else {
-            setIsTimeCalculated(true); 
+            setIsTimeCalculated(true);
           }
         }
       } catch (err) {
@@ -192,16 +194,16 @@ fetchTransaction();
         .channel(`order-status-${invoiceId}`)
         .on(
           'postgres_changes',
-          { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'orders', 
-            filter: `order_id=eq.${invoiceId}` 
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'orders',
+            filter: `order_id=eq.${invoiceId}`
           },
           (payload) => {
             const newStatus = payload.new.status;
             const newSn = payload.new.sn;
-            
+
             // Jika statusnya berubah dari yang di state
             if (newStatus && newStatus !== dbStatus) {
               setDbStatus(newStatus);
@@ -262,7 +264,7 @@ fetchTransaction();
 
   useEffect(() => {
     if (trx && timeLeft === 0 && dbStatus === "Pending" && isTimeCalculated) {
-      setDbStatus("Gagal"); 
+      setDbStatus("Gagal");
     }
   }, [timeLeft, dbStatus, trx, isTimeCalculated]);
 
@@ -312,27 +314,27 @@ fetchTransaction();
     const account = paymentAccounts.find(acc => p.includes(acc.method_key.toLowerCase()));
 
     if (account) {
-      return { 
-        name: account.name, 
-        no: account.account_no, 
-        an: account.account_name, 
+      return {
+        name: account.name,
+        no: account.account_no,
+        an: account.account_name,
         logo: account.logo_url || "/payment/default.png",
-        isQR: account.is_qr 
+        isQR: account.is_qr
       };
     }
-    return { name: method || "Transfer", no: "-", an: "-", logo: "/payment/default.png", isQR: false }; 
+    return { name: method || "Transfer", no: "-", an: "-", logo: "/payment/default.png", isQR: false };
   };
 
   if (!trx) return (
     <div className="min-h-screen flex items-center justify-center font-bold text-slate-500 bg-slate-50 uppercase italic tracking-widest">
       <Loader2 className="mr-2 h-6 w-6 animate-spin text-blue-600" />
-      Memuat Invoice...
+      {t("checkout.loadingInvoice")}
     </div>
   );
 
-  const nominalString = trx.total_amount?.toString() || "0"; 
-  const formattedTotal = new Intl.NumberFormat("id-ID").format(trx.total_amount || 0);
-  
+  const nominalString = trx.total_amount?.toString() || "0";
+  const formattedTotal = new Intl.NumberFormat(locale === "en" ? "en-US" : "id-ID").format(trx.total_amount || 0);
+
   // 💡 LOGIKA AMAN: Cek apakah ini tamu atau member
   const hasUniqueCode = (trx.unique_code || 0) > 0;
 
@@ -346,7 +348,7 @@ fetchTransaction();
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-3 sm:p-6 font-sans tracking-tight">
       <div className="bg-white w-full max-w-md mx-auto rounded-4xl shadow-xl p-6 sm:p-8 space-y-5 text-center relative overflow-hidden border border-slate-100">
-        
+
         {isPending ? (
           <>
             {trx.total_amount <= 0 ? (
@@ -357,9 +359,9 @@ fetchTransaction();
                   </div>
                   <div className="space-y-1">
                     <h2 className="text-sm font-bold text-blue-600 flex items-center justify-center gap-1">
-                      Memproses <DaPayText />
+                      {t("checkout.processingDaPay")} <DaPayText />
                     </h2>
-                    <p className="text-xl font-bold text-slate-900 tracking-tight">Tunggu Sebentar...</p>
+                    <p className="text-xl font-bold text-slate-900 tracking-tight">{t("checkout.waitAMoment")}</p>
                   </div>
                 </div>
               </div>
@@ -368,7 +370,7 @@ fetchTransaction();
                 <div className="space-y-1">
                   <div className="flex items-center justify-center gap-1.5">
                     <Clock className="text-blue-600 animate-pulse" size={20} />
-                    <h1 className="text-lg font-bold text-slate-900">Menunggu Pembayaran</h1>
+                    <h1 className="text-lg font-bold text-slate-900">{t("checkout.waitingPayment")}</h1>
                   </div>
                   <p className="text-xs font-medium text-slate-400">ID: {trx.order_id}</p>
                 </div>
@@ -377,12 +379,12 @@ fetchTransaction();
                   <div className="rounded-2xl border border-amber-300/80 bg-amber-50/90 p-3.5 text-left space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="inline-flex items-center rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
-                        🧪 Sandbox Mode
+                        🧪 {t("checkout.sandboxMode")}
                       </span>
-                      <span className="text-[10px] font-semibold text-amber-600">Simulasi Pengujian</span>
+                      <span className="text-[10px] font-semibold text-amber-600">{t("checkout.simulationTesting")}</span>
                     </div>
                     <p className="text-[11px] leading-relaxed text-amber-700">
-                      Pesanan ini bertanda <strong>Sandbox</strong>. Anda tidak perlu mentransfer uang sungguhan.
+                      {t("checkout.sandboxNotice")}
                     </p>
                     <button
                       type="button"
@@ -393,12 +395,12 @@ fetchTransaction();
                       {simulating ? (
                         <>
                           <Loader2 size={14} className="animate-spin" />
-                          Memproses Simulasi...
+                          {t("checkout.processingSimulation")}
                         </>
                       ) : (
                         <>
                           <Zap size={14} />
-                          Simulasi Bayar Instan
+                          {t("checkout.instantSimulationPay")}
                         </>
                       )}
                     </button>
@@ -408,16 +410,16 @@ fetchTransaction();
                 {!isTimeCalculated ? (
                   <div className="py-12 flex flex-col items-center justify-center space-y-3">
                     <Loader2 className="animate-spin text-blue-600" size={32} />
-                    <p className="text-xs text-slate-500 font-medium animate-pulse">Menyiapkan pembayaran...</p>
+                    <p className="text-xs text-slate-500 font-medium animate-pulse">{t("checkout.preparingPayment")}</p>
                   </div>
                 ) : (
                   <>
                     <div className={`${timeLeft > 0 ? 'bg-blue-50 border-blue-100' : 'bg-rose-50 border-rose-100'} rounded-2xl p-3 border transition-colors`}>
                       <p className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${timeLeft > 0 ? 'text-blue-600' : 'text-rose-600'}`}>
-                        {timeLeft > 0 ? "Selesaikan dalam" : "Batas Waktu Habis"}
+                        {timeLeft > 0 ? t("checkout.completeWithin") : t("checkout.timeExpired")}
                       </p>
                       <p className={`text-2xl font-extrabold ${timeLeft > 0 ? 'text-blue-700' : 'text-rose-700'}`}>
-                        {timeLeft > 0 ? formatTimeLeft(timeLeft) : "EXPIRED"}
+                        {timeLeft > 0 ? formatTimeLeft(timeLeft) : t("checkout.expiredBadge")}
                       </p>
                     </div>
 
@@ -428,11 +430,11 @@ fetchTransaction();
                             <div className="bg-white p-4 rounded-3xl border-2 border-dashed border-blue-200 flex flex-col items-center shadow-sm relative">
                               <div id="qris-export-area" className="bg-white p-2 rounded-xl">
                                 {qrisString ? (
-                                  <QRCodeSVG 
-                          value={qrisString} 
-                          size={200} 
+                                  <QRCodeSVG
+                          value={qrisString}
+                          size={200}
                           level="H" // Ubah ke High biar logo nggak ganggu scan
-                          includeMargin={true} 
+                          includeMargin={true}
                           className="rounded-xl"
                         />
                                 ) : (
@@ -442,10 +444,10 @@ fetchTransaction();
                                 )}
                               </div>
                               <p className="text-[10px] font-black text-slate-400 mt-3 uppercase tracking-widest text-center">
-                                Scan & Bayar Rp {mainNominalPart}<span className="text-blue-600">{uniqueCodePart}</span>
+                                {t("checkout.scanAndPay", { amount: `Rp ${mainNominalPart}` })}<span className="text-blue-600">{uniqueCodePart}</span>
                               </p>
                               {qrisString && (
-                                <button 
+                                <button
                                   onClick={() => {
                                     const svg = document.querySelector('#qris-export-area svg') as SVGElement;
                                     if (svg) {
@@ -468,14 +470,14 @@ fetchTransaction();
                                   }}
                                   className="mt-3 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-blue-700 active:scale-95 transition-all shadow-md"
                                 >
-                                  <Download size={14} /> Unduh QRIS
+                                  <Download size={14} /> {t("checkout.downloadQris")}
                                 </button>
                               )}
                             </div>
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Total Transfer</p>
+                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">{t("checkout.totalTransfer")}</p>
                             <div className="flex items-center justify-center gap-2">
                           <h2 className="text-3xl font-bold text-slate-900 tracking-tighter">
                             Rp {mainNominalPart}
@@ -484,7 +486,7 @@ fetchTransaction();
                               {uniqueCodePart}
                             </span>
                           </h2>
-                              <button onClick={() => copyToClipboard(nominalString, "nominal")} className="bg-slate-100 p-2 rounded-xl active:scale-95 transition-all">
+                              <button onClick={() => copyToClipboard(nominalString, "nominal")} aria-label={copiedId === "nominal" ? t("checkout.copied") : t("checkout.copy")} title={copiedId === "nominal" ? t("checkout.copied") : t("checkout.copy")} className="bg-slate-100 p-2 rounded-xl active:scale-95 transition-all">
                                 {copiedId === "nominal" ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
                               </button>
                             </div>
@@ -495,13 +497,13 @@ fetchTransaction();
                           <div className="flex items-start gap-3 bg-blue-50 p-4 rounded-2xl text-left border border-blue-100">
                             <div className="bg-blue-600 text-white p-1 rounded-lg shrink-0 mt-0.5"><Check size={14} /></div>
                             <div className="space-y-1">
-                              <p className="text-[11px] font-bold text-blue-900 uppercase leading-none">Tutorial QRIS</p>
+                              <p className="text-[11px] font-bold text-blue-900 uppercase leading-none">{t("checkout.qrisTutorial")}</p>
                               <ol className="text-[10px] font-medium text-blue-800 list-decimal ml-3 leading-relaxed">
-                                <li>Klik tombol <b>Unduh QRIS</b> di atas.</li>
-                                <li>Buka aplikasi (GoPay, DANA, OVO, m-Banking).</li>
-                                <li>Pilih menu <b>Scan</b> lalu klik ikon Galeri.</li>
-                                <li>Pilih gambar QRIS (Hasil unduhan).</li>
-                                <li>Jangan tutup halaman ini.</li>
+                                <li>{t("checkout.qrisStep1")}</li>
+                                <li>{t("checkout.qrisStep2")}</li>
+                                <li>{t("checkout.qrisStep3")}</li>
+                                <li>{t("checkout.qrisStep4")}</li>
+                                <li>{t("checkout.qrisStep5")}</li>
                               </ol>
                             </div>
                           </div>
@@ -509,14 +511,14 @@ fetchTransaction();
                           <div className="flex items-start gap-2 bg-orange-50 p-3 rounded-xl text-left border border-orange-100">
                             <AlertTriangle size={18} className="text-orange-500 shrink-0 mt-0.5" />
                             <p className="text-[11px] font-medium text-orange-700 leading-tight">
-                              <strong>PENTING:</strong> Transfer nominal hingga <span className="underline">3 digit terakhir</span> agar otomatis valid.
+                              <strong>{t("checkout.transferWarningPrefix")}</strong> {t("checkout.transferWarningText")}
                             </p>
                           </div>
                         )}
 
                         {!payDetail.isQR && (
                           <div className="bg-blue-50 rounded-2xl p-4 space-y-3 text-left border border-blue-100">
-                            <div className="flex items-center gap-2 text-blue-800"><Landmark size={18} /><h3 className="text-sm font-bold">Tujuan Transfer</h3></div>
+                            <div className="flex items-center gap-2 text-blue-800"><Landmark size={18} /><h3 className="text-sm font-bold">{t("checkout.transferDestination")}</h3></div>
                             <div className="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm border border-blue-50">
                               <div className="flex items-center gap-3">
                                 <div className="w-12 h-8 bg-slate-50 rounded-md border border-slate-100 flex items-center justify-center p-1 shrink-0 overflow-hidden">
@@ -525,10 +527,10 @@ fetchTransaction();
                                 <div>
                                   <p className="text-[10px] font-semibold text-slate-400 uppercase">{payDetail.name}</p>
                                   <p className="text-lg font-bold text-slate-900 tracking-wider leading-none mt-0.5">{payDetail.no}</p>
-                                  <p className="text-[9px] font-medium text-slate-500 uppercase mt-1">A/N {payDetail.an}</p>
+                                  <p className="text-[9px] font-medium text-slate-500 uppercase mt-1">{t("checkout.accountName")} {payDetail.an}</p>
                                 </div>
                               </div>
-                              <button onClick={() => copyToClipboard(payDetail.no, "rekening")} className="bg-slate-100 p-2.5 rounded-xl active:scale-95 transition-all">
+                              <button onClick={() => copyToClipboard(payDetail.no, "rekening")} aria-label={copiedId === "rekening" ? t("checkout.copied") : t("checkout.copy")} title={copiedId === "rekening" ? t("checkout.copied") : t("checkout.copy")} className="bg-slate-100 p-2.5 rounded-xl active:scale-95 transition-all">
                                 {copiedId === "rekening" ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} className="text-slate-500" />}
                               </button>
                             </div>
@@ -538,8 +540,8 @@ fetchTransaction();
                     ) : (
                       <div className="py-6 space-y-4 animate-in zoom-in text-center">
                         <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto text-rose-600"><AlertTriangle size={32} /></div>
-                        <h3 className="text-lg font-bold text-slate-800">Kadaluarsa</h3>
-                        <Link href="/" className="block w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold text-[11px] uppercase shadow-lg">Buat Pesanan Baru</Link>
+                        <h3 className="text-lg font-bold text-slate-800">{t("checkout.timeExpired")}</h3>
+                        <Link href={locale === "en" ? "/en" : "/"} className="block w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold text-[11px] uppercase shadow-lg">{t("checkout.createNewOrder")}</Link>
                       </div>
                     )}
                   </>
@@ -556,36 +558,35 @@ fetchTransaction();
               </div>
             </div>
             <div className="space-y-2">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase italic">Pembayaran Diterima!</h2>
+              <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase italic">{t("checkout.paymentReceived")}</h2>
               <p className="text-[11px] text-slate-500 font-medium px-4 leading-relaxed">
-                Uang Bos sudah masuk dengan aman. <br/>
-                Sistem sedang <span className="font-bold text-blue-600">memproses pesanan</span> ke server...
+                {t("checkout.moneySafeProcessing")}
               </p>
             </div>
             <div className="bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-widest py-2 px-4 rounded-xl inline-block mt-2 animate-pulse">
-              Mohon Tunggu Sebentar
+              {t("checkout.pleaseWait")}
             </div>
           </div>
         ) : isGagal ? (
           <div className="space-y-5 py-6 animate-in zoom-in text-center">
             <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto shadow-inner"><XCircle size={32} className="text-rose-600" /></div>
         <div className="space-y-1.5">
-              <h2 className="text-2xl font-bold text-rose-600">Transaksi Gagal</h2>
-              <p className="text-[11px] text-slate-500 font-medium px-6">
-                {trx.user_id 
-                  ? "Saldo koin Bos sudah dikembalikan otomatis." 
-                  : "Uang Bos aman. Silakan klik tombol di bawah untuk refund manual ke Admin."}
+              <h2 className="text-2xl font-bold text-rose-600">{t("checkout.transactionFailed")}</h2>
+              <p className="text-[11px] text-slate-500 font-medium px-6">
+                {trx.user_id
+                  ? t("checkout.coinRefundNotice")
+                  : t("checkout.manualRefundNotice")}
               </p>
-            </div>
+            </div>
             {!trx.user_id && (
-              <a 
+              <a
                 href={`https://wa.me/6285545213952?text=Halo Admin, pesanan saya ${trx.order_id} GAGAL. Mohon bantu refund manual.`}
                 className="block w-full py-3.5 bg-emerald-500 text-white rounded-xl font-bold text-[11px] uppercase shadow-lg shadow-emerald-200"
               >
-                Hubungi Admin (Refund)
+                {t("checkout.contactAdminRefund")}
               </a>
             )}
-            <Link href="/" className="block w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold text-[11px] uppercase shadow-lg">Ke Beranda</Link>
+            <Link href={locale === "en" ? "/en" : "/"} className="block w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold text-[11px] uppercase shadow-lg">{t("checkout.backToHome")}</Link>
           </div>
         ) : (
           <div className="flex flex-col gap-4 animate-in zoom-in duration-500 w-full">
@@ -595,8 +596,8 @@ fetchTransaction();
                 <CheckCircle size={32} className="text-emerald-600" />
               </div>
               <div className="space-y-0.5">
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight uppercase italic">Pembayaran Sukses!</h2>
-                <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">Transaksi Berhasil Diproses</p>
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight uppercase italic">{t("checkout.paymentSuccess")}</h2>
+                <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">{t("checkout.transactionSuccessProcessed")}</p>
               </div>
             </div>
 
@@ -611,14 +612,14 @@ fetchTransaction();
 
             {/* 3. TOMBOL AKSI BAWAH */}
             <div className="pt-2 border-t border-slate-100 space-y-2 w-full max-w-md mx-auto">
-               <Link 
-                 href="/" 
+               <Link
+                 href={locale === "en" ? "/en" : "/"}
                  className="block w-full py-3 bg-slate-900 text-white rounded-xl font-black italic text-[11px] uppercase transition-all shadow-md hover:bg-blue-600 text-center tracking-widest active:scale-95"
                >
-                 BELANJA LAGI DI DANISPAY
+                 {t("checkout.shopAgain")}
                </Link>
                <p className="text-[8px] text-slate-400 font-bold text-center uppercase tracking-widest italic">
-                 Bukti otomatis tersimpan di riwayat
+                 {t("checkout.autoSavedHistory")}
                </p>
             </div>
           </div>
