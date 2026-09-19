@@ -124,7 +124,7 @@ export function setCachedSandboxSession(data: SandboxSessionData | null) {
 }
 
 interface SandboxSessionControlProps {
-  variant?: "navbar" | "sidebar" | "badge";
+  variant?: "navbar" | "sidebar" | "badge" | "rail";
   className?: string;
 }
 
@@ -324,7 +324,40 @@ export default function SandboxSessionControl({
         </button>
       )}
 
-      {/* 2. SIDEBAR WIDGET */}
+      {/* 2. RAIL / COLLAPSED TRIGGER */}
+      {variant === "rail" && (
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className={`relative flex flex-col items-center justify-center h-10 w-10 shrink-0 rounded-xl transition-all cursor-pointer shadow-sm select-none ${
+            data.isSandboxActive
+              ? "bg-linear-to-b from-amber-500 to-orange-500 text-white shadow-amber-500/25 ring-1 ring-amber-400/80 hover:brightness-105 active:scale-95"
+              : "border border-amber-500/30 bg-amber-500/10 text-amber-500 hover:border-amber-500/60 hover:bg-amber-500/20 active:scale-95"
+          } ${className}`}
+          title={
+            data.isSandboxActive
+              ? "Mode Sandbox: AKTIF (Klik untuk kelola)"
+              : "Mode Sandbox: NONAKTIF (Klik untuk kelola)"
+          }
+          aria-label={data.isSandboxActive ? "Mode Sandbox Aktif" : "Mode Sandbox Nonaktif"}
+        >
+          <FlaskConical
+            size={16}
+            className={data.isSandboxActive ? "animate-pulse text-white" : "text-amber-500"}
+          />
+          <span className="text-[7.5px] font-black uppercase tracking-tight leading-none mt-0.5">
+            {data.isSandboxActive ? "ON" : "OFF"}
+          </span>
+          {data.isSandboxActive && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+            </span>
+          )}
+        </button>
+      )}
+
+      {/* 3. SIDEBAR WIDGET */}
       {variant === "sidebar" && (
         <div
           className={`rounded-xl border p-3 transition-colors ${

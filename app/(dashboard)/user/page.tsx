@@ -636,6 +636,7 @@ function UserDashboardContent() {
   const syncSandboxSession = useCallback(async (force = false) => {
     const session = await fetchTesterSessionDeduplicated(force);
     setSandboxSession(session);
+    return session;
   }, []);
 
   const [sandboxOrders, setSandboxOrders] = useState<DashboardOrder[]>([]);
@@ -671,9 +672,11 @@ function UserDashboardContent() {
     const cached = getCachedSandboxSession();
     if (cached) {
       setSandboxSession(cached);
+      setIsSandboxInitialized(true);
     }
-    setIsSandboxInitialized(true);
-    void syncSandboxSession(true);
+    void syncSandboxSession(true).finally(() => {
+      setIsSandboxInitialized(true);
+    });
     const handleSync = () => {
       void syncSandboxSession(true);
       void fetchSandboxOrders();
@@ -689,6 +692,11 @@ function UserDashboardContent() {
   const isSandboxMode = Boolean(
     sandboxSession?.sandboxAccessState === "ACTIVE" && sandboxSession?.isSandboxActive
   );
+
+  const isSandboxModeRef = useRef(isSandboxMode);
+  useEffect(() => {
+    isSandboxModeRef.current = isSandboxMode;
+  }, [isSandboxMode]);
 
   useEffect(() => {
     if (isSandboxMode && activeMenu === "overview") {
@@ -819,13 +827,14 @@ function UserDashboardContent() {
     useState(false);
 
   /* ================================================================= */
-  /* FETCH DASHBOARD (WITH IN-FLIGHT REQUEST COALESCING)               */
+  /* FETCH DASHBOARD (WITH IN-FLIGHT REQUEST COALESCING & MODE GUARD)  */
   /* ================================================================= */
 
   const inFlightPromiseRef = useRef<Promise<void> | null>(null);
+  const dashboardRequestIdRef = useRef(0);
 
   const fetchDashboardData = useCallback(
-    async (initialLoad = false) => {
+    async (initialLoad = false, options?: { profileOnly?: boolean }) => {
       // If a dashboard request is already in-flight, reuse the same promise to prevent duplicate network calls
       if (inFlightPromiseRef.current) {
         return inFlightPromiseRef.current;
@@ -834,6 +843,10 @@ function UserDashboardContent() {
       if (initialLoad) {
         setIsInitialLoading(true);
       }
+
+      const currentRequestId = ++dashboardRequestIdRef.current;
+      const requestIsSandbox = isSandboxModeRef.current;
+      const profileOnly = options?.profileOnly ?? requestIsSandbox;
 
       const task = (async () => {
         try {
@@ -855,6 +868,9 @@ function UserDashboardContent() {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${session.access_token}`,
               },
+              body: JSON.stringify({
+                profileOnly,
+              }),
             },
           );
 
@@ -874,6 +890,14 @@ function UserDashboardContent() {
             );
           }
 
+          // Stale response guard: drop if request ID changed or workspace mode flipped in-flight
+          if (
+            currentRequestId !== dashboardRequestIdRef.current ||
+            requestIsSandbox !== isSandboxModeRef.current
+          ) {
+            return;
+          }
+
           const data = result.data;
           const profile = data?.profile;
 
@@ -882,6 +906,8 @@ function UserDashboardContent() {
             profile?.photo_url ||
             profile?.image ||
             null;
+
+          const inSandbox = isSandboxModeRef.current;
 
           setUserData((previous) => ({
             email:
@@ -897,9 +923,9 @@ function UserDashboardContent() {
               previous.refCode ||
               "",
             balance:
-              Number(profile?.balance || 0),
+              inSandbox ? 0 : Number(profile?.balance || 0),
             coinBalance:
-              Number(profile?.coin_balance || 0),
+              inSandbox ? 0 : Number(profile?.coin_balance || 0),
             avatarUrl:
               avatarUrl ||
               previous.avatarUrl ||
@@ -910,35 +936,29 @@ function UserDashboardContent() {
             profile?.member_type || "Reguler",
           );
 
-          setOrders(
-            Array.isArray(data?.orders)
-              ? data.orders
-              : [],
-          );
-
-          setDeposits(
-            Array.isArray(data?.deposits)
-              ? data.deposits
-              : [],
-          );
-
-          setWithdrawals(
-            Array.isArray(data?.withdrawals)
-              ? data.withdrawals
-              : [],
-          );
-
-          setBalanceLogs(
-            Array.isArray(data?.balanceLogs)
-              ? data.balanceLogs
-              : [],
-          );
-
-          setReferrals(
-            Array.isArray(data?.referrals)
-              ? data.referrals
-              : [],
-          );
+          if (inSandbox) {
+            setOrders([]);
+            setDeposits([]);
+            setWithdrawals([]);
+            setBalanceLogs([]);
+            setReferrals([]);
+          } else {
+            setOrders(
+              Array.isArray(data?.orders) ? data.orders : [],
+            );
+            setDeposits(
+              Array.isArray(data?.deposits) ? data.deposits : [],
+            );
+            setWithdrawals(
+              Array.isArray(data?.withdrawals) ? data.withdrawals : [],
+            );
+            setBalanceLogs(
+              Array.isArray(data?.balanceLogs) ? data.balanceLogs : [],
+            );
+            setReferrals(
+              Array.isArray(data?.referrals) ? data.referrals : [],
+            );
+          }
         } catch (error) {
           console.error(
             "UserDashboard:",
@@ -957,7 +977,7 @@ function UserDashboardContent() {
   );
 
   /* ================================================================= */
-  /* INITIALIZATION                                                   */
+  /* INITIAL AUTH & MAINTENANCE CHECK                                 */
   /* ================================================================= */
 
   useEffect(() => {
@@ -1001,6 +1021,67 @@ function UserDashboardContent() {
     };
 
     void checkMaintenance();
+  }, []);
+
+  /* ================================================================= */
+  /* WORKSPACE DATA FETCHING & SWITCHING LIFECYCLE                     */
+  /* ================================================================= */
+
+  const prevWorkspaceModeRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    // SANGAT PENTING: Jangan fetch sebelum workspace state ter-resolusi
+    if (!isSandboxInitialized) {
+      return;
+    }
+
+    const modeChanged = prevWorkspaceModeRef.current !== isSandboxMode;
+    prevWorkspaceModeRef.current = isSandboxMode;
+
+    if (modeChanged) {
+      // Invalidate in-flight requests from previous mode to prevent stale overwrite
+      dashboardRequestIdRef.current++;
+      inFlightPromiseRef.current = null;
+
+      if (isSandboxMode) {
+        // Purge LIVE state immediately when entering Sandbox
+        setOrders([]);
+        setDeposits([]);
+        setWithdrawals([]);
+        setBalanceLogs([]);
+        setReferrals([]);
+        // Fetch only profile for Sandbox workspace
+        void fetchDashboardData(true, { profileOnly: true });
+        void fetchSandboxOrders();
+      } else {
+        // Purge sandbox orders when entering LIVE and fetch full LIVE data
+        setSandboxOrders([]);
+        void fetchDashboardData(true);
+      }
+      return;
+    }
+
+    // Initial mount after workspace state is resolved
+    if (isSandboxMode) {
+      void fetchDashboardData(true, { profileOnly: true });
+    } else {
+      void fetchDashboardData(true);
+    }
+  }, [isSandboxInitialized, isSandboxMode, fetchDashboardData, fetchSandboxOrders]);
+
+  /* ================================================================= */
+  /* LIVE REALTIME SUBSCRIPTION LIFECYCLE                              */
+  /* ================================================================= */
+
+  useEffect(() => {
+    // SANGAT PENTING: Jangan subscribe realtime finansial LIVE saat Sandbox aktif
+    // atau sebelum workspace state ter-resolusi
+    if (!isSandboxInitialized || isSandboxMode) {
+      return;
+    }
+
+    const userEmail = localStorage.getItem("userEmail");
+    if (!userEmail) return;
 
     const channel = supabase
       .channel("user-dashboard-updates")
@@ -1013,13 +1094,14 @@ function UserDashboardContent() {
           filter: `email=eq.${userEmail}`,
         },
         (payload) => {
+          if (isSandboxModeRef.current) return;
           setUserData((previous) => ({
             ...previous,
             balance:
               Number(payload.new?.balance || 0),
           }));
 
-          void fetchDashboardData();
+          void fetchDashboardData(false);
         },
       )
       .on(
@@ -1031,7 +1113,7 @@ function UserDashboardContent() {
           filter: `user_email=eq.${userEmail}`,
         },
         () => {
-          void fetchDashboardData();
+          if (!isSandboxModeRef.current) void fetchDashboardData(false);
         },
       )
       .on(
@@ -1043,7 +1125,7 @@ function UserDashboardContent() {
           filter: `user_email=eq.${userEmail}`,
         },
         () => {
-          void fetchDashboardData();
+          if (!isSandboxModeRef.current) void fetchDashboardData(false);
         },
       )
       .on(
@@ -1055,25 +1137,30 @@ function UserDashboardContent() {
           filter: `user_email=eq.${userEmail}`,
         },
         () => {
-          void fetchDashboardData();
+          if (!isSandboxModeRef.current) void fetchDashboardData(false);
         },
       )
       .subscribe();
 
-    void fetchDashboardData(true);
-
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [fetchDashboardData]);
+  }, [isSandboxInitialized, isSandboxMode, fetchDashboardData]);
 
   const handleRefreshDashboard = useCallback(() => {
+    if (isSandboxMode) {
+      void syncSandboxSession(true);
+      void fetchSandboxOrders();
+      void fetchDashboardData(false, { profileOnly: true });
+      return;
+    }
     void fetchDashboardData(false);
-  }, [fetchDashboardData]);
+  }, [isSandboxMode, syncSandboxSession, fetchSandboxOrders, fetchDashboardData]);
 
   const handleRefreshOrders = useCallback(() => {
     if (isSandboxMode) {
       emitSandboxActivity("order_review");
+      return;
     }
     void fetchDashboardData(false);
   }, [isSandboxMode, emitSandboxActivity, fetchDashboardData]);
@@ -1113,6 +1200,9 @@ function UserDashboardContent() {
      * Tombol Upgrade pada sidebar membuka modal.
      */
     if (menu === "upgrade") {
+      if (isSandboxMode) {
+        return;
+      }
       setShowUpgradeModal(true);
       return;
     }
@@ -1203,7 +1293,7 @@ function UserDashboardContent() {
       activeMenu={activeMenu}
       userName={userData.name || "Member DaPay"}
       memberType={memberType}
-      balance={Number(userData.balance)}
+      balance={isSandboxMode ? (sandboxSession?.sandboxBalance ?? 1000000) : Number(userData.balance)}
       setActiveMenu={handleMenuNavigation}
       isSidebarExpanded={isSidebarExpanded}
       setIsSidebarExpanded={setIsSidebarExpanded}
@@ -1220,7 +1310,7 @@ function UserDashboardContent() {
           referrals={referrals}
           isSidebarExpanded={isSidebarExpanded}
           currentDomain={currentDomain}
-          isInitialLoading={isInitialLoading}
+          isInitialLoading={!isSandboxInitialized || isInitialLoading}
           isSandboxMode={isSandboxMode}
           sandboxBalance={sandboxSession?.sandboxBalance ?? 1000000}
           sandboxCoinBalance={sandboxSession?.sandboxCoinBalance ?? 0}
@@ -1240,10 +1330,11 @@ function UserDashboardContent() {
 
       {activeMenu === "orders" && (
         <OrdersViewUser
-          initialOrders={isSandboxMode ? [] : orders}
+          initialOrders={isSandboxInitialized && !isSandboxMode ? orders : []}
           isSidebarExpanded={isSidebarExpanded}
           onRefresh={handleRefreshOrders}
           isSandboxMode={isSandboxMode}
+          isWorkspaceResolved={isSandboxInitialized}
         />
       )}
 
@@ -1259,40 +1350,64 @@ function UserDashboardContent() {
       )}
 
       {activeMenu === "deposit" && (
-        <DepositViewUser
-          initialBalance={Number(userData.balance || 0)}
-          initialCoinBalance={Number(userData.coinBalance || 0)}
-          initialDeposits={deposits}
-          isSidebarExpanded={isSidebarExpanded}
-          onRefresh={handleRefreshDashboard}
-        />
+        isSandboxMode ? (
+          <SandboxFinancialNotice
+            type="deposit"
+            onGoToCatalog={() => handleMenuNavigation("catalog")}
+            onExitSandbox={handleExitSandbox}
+          />
+        ) : (
+          <DepositViewUser
+            initialBalance={Number(userData.balance || 0)}
+            initialCoinBalance={Number(userData.coinBalance || 0)}
+            initialDeposits={deposits}
+            isSidebarExpanded={isSidebarExpanded}
+            onRefresh={handleRefreshDashboard}
+          />
+        )
       )}
 
       {(activeMenu === "withdraw" || activeMenu === "withdrawal") && (
-        <WithdrawViewUser
-          initialBalance={Number(userData.balance || 0)}
-          initialCoinBalance={Number(userData.coinBalance || 0)}
-          initialWithdrawals={withdrawals}
-          isSidebarExpanded={isSidebarExpanded}
-          onRefresh={handleRefreshDashboard}
-        />
+        isSandboxMode ? (
+          <SandboxFinancialNotice
+            type="withdraw"
+            onGoToCatalog={() => handleMenuNavigation("catalog")}
+            onExitSandbox={handleExitSandbox}
+          />
+        ) : (
+          <WithdrawViewUser
+            initialBalance={Number(userData.balance || 0)}
+            initialCoinBalance={Number(userData.coinBalance || 0)}
+            initialWithdrawals={withdrawals}
+            isSidebarExpanded={isSidebarExpanded}
+            onRefresh={handleRefreshDashboard}
+          />
+        )
       )}
 
       {activeMenu === "affiliate" && (
-        <AffiliateViewUser
-          initialProfile={{
-            full_name: userData.name,
-            email: userData.email,
-            referral_code: userData.refCode,
-            balance: userData.balance,
-            member_type: memberType,
-            coin_balance: userData.coinBalance,
-          }}
-          initialReferrals={referrals}
-          initialBalanceLogs={balanceLogs}
-          isSidebarExpanded={isSidebarExpanded}
-          onRefresh={handleRefreshDashboard}
-        />
+        isSandboxMode ? (
+          <SandboxFinancialNotice
+            type="affiliate"
+            onGoToCatalog={() => handleMenuNavigation("catalog")}
+            onExitSandbox={handleExitSandbox}
+          />
+        ) : (
+          <AffiliateViewUser
+            initialProfile={{
+              full_name: userData.name,
+              email: userData.email,
+              referral_code: userData.refCode,
+              balance: userData.balance,
+              member_type: memberType,
+              coin_balance: userData.coinBalance,
+            }}
+            initialReferrals={referrals}
+            initialBalanceLogs={balanceLogs}
+            isSidebarExpanded={isSidebarExpanded}
+            onRefresh={handleRefreshDashboard}
+          />
+        )
       )}
 
       {(activeMenu === "settings" || activeMenu.startsWith("settings-")) && (
@@ -1319,7 +1434,7 @@ function UserDashboardContent() {
       {/* MODAL UPGRADE (GLOBAL PERSISTENT FOR ALL TABS)                */}
       {/* ============================================================ */}
 
-      {showUpgradeModal && (
+      {showUpgradeModal && !isSandboxMode && (
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-xs">
           <div className="relative w-full max-w-md rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl sm:p-7">
             <button
@@ -2397,6 +2512,79 @@ function OverviewContent({
 }
 
 /* ================================================================== */
+/* SANDBOX FINANCIAL NOTICE                                           */
+/* ================================================================== */
+
+function SandboxFinancialNotice({
+  type,
+  onGoToCatalog,
+  onExitSandbox,
+}: {
+  type: "deposit" | "withdraw" | "affiliate";
+  onGoToCatalog: () => void;
+  onExitSandbox?: () => void;
+}) {
+  const isDeposit = type === "deposit";
+  const isAffiliate = type === "affiliate";
+
+  const title = isAffiliate
+    ? "Program Afiliasi Hanya Tersedia di Mode LIVE"
+    : "Fitur Ini Hanya Tersedia di Mode LIVE";
+
+  const description = isAffiliate
+    ? "Data mitra dan komisi afiliasi terhubung ke akun riil DaPay. Transaksi di Sandbox tidak memengaruhi program afiliasi."
+    : isDeposit
+      ? "Deposit saldo menggunakan pembayaran dan saldo riil, sehingga tidak tersedia saat Anda berada di Mode Sandbox."
+      : "Tarik saldo menggunakan rekening bank atau e-wallet riil, sehingga tidak tersedia saat Anda berada di Mode Sandbox.";
+
+  const secondaryNote = isAffiliate
+    ? "Kembali ke Mode LIVE untuk mengelola mitra downline dan melihat perolehan komisi referral riil Anda."
+    : isDeposit
+      ? "Untuk menambah saldo virtual simulasi, Anda dapat menggunakan tombol Reset Saldo Rp 1.000.000 di menu Riwayat Saldo."
+      : "Saldo virtual simulasi bersifat dummy, tidak memiliki nilai riil, dan tidak dapat dicairkan.";
+
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl md:rounded-[28px] border border-amber-300/70 bg-linear-to-b from-amber-50/70 via-white to-amber-50/30 p-8 sm:p-12 text-center shadow-xs backdrop-blur-md">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 shadow-inner border border-amber-200 mb-4">
+        <FlaskConical size={32} />
+      </div>
+      <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-200/70 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-950">
+        <FlaskConical size={11} className="text-amber-700" />
+        Mode Sandbox Aktif
+      </span>
+      <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+        {title}
+      </h2>
+      <p className="mt-2 max-w-md text-xs sm:text-sm text-slate-500 leading-relaxed">
+        {description}
+      </p>
+      <p className="mt-1 text-[11px] text-amber-800 font-semibold max-w-md">
+        {secondaryNote}
+      </p>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={onGoToCatalog}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 px-5 text-xs font-bold text-white shadow-xs transition hover:from-amber-600 hover:to-orange-600 active:scale-95 cursor-pointer"
+        >
+          <ShoppingBag size={15} />
+          <span>Kembali ke Katalog Simulasi</span>
+        </button>
+        {onExitSandbox && (
+          <button
+            type="button"
+            onClick={onExitSandbox}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-xs font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50 active:scale-95 cursor-pointer"
+          >
+            <span>Kembali ke Mode LIVE</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
 /* DASHBOARD SHELL                                                    */
 /* ================================================================== */
 
@@ -2442,11 +2630,13 @@ function DashboardShell({
         ? "orders"
         : activeMenu === "wallet"
           ? "wallet"
-          : activeMenu === "deposit"
-            ? "deposit"
-            : activeMenu === "affiliate"
-              ? "affiliate"
-              : "overview";
+          : activeMenu === "catalog"
+            ? "catalog"
+            : activeMenu === "deposit"
+              ? "deposit"
+              : activeMenu === "affiliate"
+                ? "affiliate"
+                : "overview";
 
   const firstName =
     userName.trim().split(/\s+/)[0] || "Member";
@@ -2466,28 +2656,38 @@ function DashboardShell({
       subtitle: "Katalog produk retail terkurasi untuk simulasi transaksi digital.",
     },
     orders: {
-      title: "Riwayat Transaksi",
-      subtitle: "Semua transaksi digital yang pernah dilakukan.",
+      title: isSandboxMode ? "Riwayat Transaksi Simulasi" : "Riwayat Transaksi",
+      subtitle: isSandboxMode
+        ? "Semua transaksi digital simulasi yang pernah dilakukan."
+        : "Semua transaksi digital yang pernah dilakukan.",
     },
     wallet: {
       title: "Riwayat Saldo DaPay",
       subtitle: "Mutasi saldo masuk, keluar, cashback, dan referral.",
     },
     deposit: {
-      title: "Isi Saldo DaPay",
-      subtitle: "Pilih metode pembayaran untuk top up saldo.",
+      title: isSandboxMode ? "Deposit (Mode LIVE Saja)" : "Isi Saldo DaPay",
+      subtitle: isSandboxMode
+        ? "Fitur deposit saldo riil tidak tersedia di Mode Sandbox."
+        : "Pilih metode pembayaran untuk top up saldo.",
     },
     withdraw: {
-      title: "Tarik Saldo DaPay",
-      subtitle: "Tarik saldo ke rekening atau e-wallet terdaftar.",
+      title: isSandboxMode ? "Tarik Saldo (Mode LIVE Saja)" : "Tarik Saldo DaPay",
+      subtitle: isSandboxMode
+        ? "Fitur penarikan saldo riil tidak tersedia di Mode Sandbox."
+        : "Tarik saldo ke rekening atau e-wallet terdaftar.",
     },
     withdrawal: {
-      title: "Tarik Saldo DaPay",
-      subtitle: "Tarik saldo ke rekening atau e-wallet terdaftar.",
+      title: isSandboxMode ? "Tarik Saldo (Mode LIVE Saja)" : "Tarik Saldo DaPay",
+      subtitle: isSandboxMode
+        ? "Fitur penarikan saldo riil tidak tersedia di Mode Sandbox."
+        : "Tarik saldo ke rekening atau e-wallet terdaftar.",
     },
     affiliate: {
-      title: "Program Afiliasi DaPay",
-      subtitle: "Kelola mitra, komisi referral, dan tautan referral.",
+      title: isSandboxMode ? "Program Afiliasi (Mode LIVE Saja)" : "Program Afiliasi DaPay",
+      subtitle: isSandboxMode
+        ? "Fitur program afiliasi dan komisi mitra hanya tersedia di Mode LIVE."
+        : "Kelola mitra, komisi referral, dan tautan referral.",
     },
     settings: {
       title: "Pengaturan Akun",
@@ -2773,6 +2973,7 @@ function DashboardShell({
 
       <UserBottomNav
         active={bottomNavActive}
+        isSandboxMode={isSandboxMode}
       />
     </div>
   );

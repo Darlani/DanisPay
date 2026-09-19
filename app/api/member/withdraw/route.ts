@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { OrderEnvironmentResolutionError, resolveOrderEnvironment } from "@/lib/auth/tester";
 import { authenticateRequest, isManagementRole } from "@/utils/serverAuth";
 import { supabaseAdmin } from "@/utils/supabaseAdmin";
 
@@ -54,6 +55,24 @@ export async function POST(request: Request) {
       { error: authentication.message },
       { status: authentication.status },
     );
+  }
+
+  try {
+    const env = await resolveOrderEnvironment(request, authentication.user.id);
+    if (env.isSandbox) {
+      return NextResponse.json(
+        { error: "Tarik saldo tidak tersedia di Mode Sandbox. Kembali ke Mode LIVE untuk menggunakan saldo riil." },
+        { status: 403 },
+      );
+    }
+  } catch (error) {
+    if (error instanceof OrderEnvironmentResolutionError) {
+      return NextResponse.json(
+        { error: "Lingkungan transaksi tidak dapat diverifikasi. Silakan coba lagi." },
+        { status: 503 },
+      );
+    }
+    throw error;
   }
 
   const { data: profile } = await supabaseAdmin

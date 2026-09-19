@@ -35,6 +35,7 @@ import {
   Copy,
   CheckCheck,
   Receipt,
+  SlidersHorizontal,
 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
 import { fetchTesterSessionDeduplicated } from "@/components/sandbox/SandboxSessionControl";
@@ -216,6 +217,69 @@ export interface SandboxCounterCartItem {
   sellingPrice: number;          // Reseller selling price for margin calculation
   cashbackPerUnit: number;       // Reward Koin Sandbox per unit
   quantity: number;              // Transaction unit count (1-100)
+  isManualPrice?: boolean;       // Phase 8.7.4: Flag indicating whether user manually adjusted selling price
+}
+
+/**
+ * Phase 8.7.4: Global Reseller Selling-Price Markup Rule
+ */
+export interface SandboxGlobalPricingRule {
+  type: "nominal" | "percent";
+  value: number; // e.g. 1000 for +Rp1.000 nominal or 10 for +10%
+}
+
+export const DEFAULT_GLOBAL_PRICING_RULE: SandboxGlobalPricingRule = {
+  type: "nominal",
+  value: 1000,
+};
+
+export const GLOBAL_PRICING_STORAGE_KEY = "dapay_sandbox_global_pricing_rule";
+
+export function getStoredGlobalPricingRule(): SandboxGlobalPricingRule {
+  if (typeof window === "undefined") return DEFAULT_GLOBAL_PRICING_RULE;
+  try {
+    const raw = localStorage.getItem(GLOBAL_PRICING_STORAGE_KEY);
+    if (!raw) return DEFAULT_GLOBAL_PRICING_RULE;
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      (parsed.type === "nominal" || parsed.type === "percent") &&
+      typeof parsed.value === "number" &&
+      parsed.value >= 0 &&
+      Number.isFinite(parsed.value)
+    ) {
+      return {
+        type: parsed.type,
+        value: Math.round(parsed.value),
+      };
+    }
+  } catch {
+    // ignore storage read failure
+  }
+  return DEFAULT_GLOBAL_PRICING_RULE;
+}
+
+export function saveStoredGlobalPricingRule(rule: SandboxGlobalPricingRule): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(GLOBAL_PRICING_STORAGE_KEY, JSON.stringify(rule));
+  } catch {
+    // ignore storage write failure
+  }
+}
+
+export function calculateDefaultSellingPrice(
+  purchasePrice: number,
+  rule: SandboxGlobalPricingRule
+): number {
+  if (typeof purchasePrice !== "number" || purchasePrice <= 0) return 0;
+  let markup = 0;
+  if (rule.type === "nominal") {
+    markup = Math.max(0, rule.value);
+  } else if (rule.type === "percent") {
+    markup = Math.round((purchasePrice * Math.max(0, rule.value)) / 100);
+  }
+  return purchasePrice + markup;
 }
 
 /**
@@ -283,7 +347,7 @@ function generateWhatsAppReceiptText(receipt: CounterCartReceiptData): string {
       return `${idx + 1}. ${line.productName}
 Tujuan: ${line.customerNo}${qtyLine}
 SN Simulasi: ${line.simulatedSn}
-Harga Jual Simulasi: Rp${line.salesLineTotal.toLocaleString("id-ID")}
+Harga Jual: Rp${line.salesLineTotal.toLocaleString("id-ID")}
 Perkiraan Margin: ${lineFormattedMargin}`;
     })
     .join("\n\n────────────────────\n\n");
@@ -307,8 +371,8 @@ ${linesFormatted}
 
 ────────────────────
 
-Total Modal Simulasi: Rp${receipt.totalModal.toLocaleString("id-ID")}
-Total Penjualan Simulasi: Rp${receipt.totalSimulatedSales.toLocaleString("id-ID")}
+Total Harga Beli: Rp${receipt.totalModal.toLocaleString("id-ID")}
+Total Harga Jual: Rp${receipt.totalSimulatedSales.toLocaleString("id-ID")}
 Total Perkiraan Margin: ${formattedMargin}${cashbackSection}
 
 Simulasi Sandbox DaPay — Bukan transaksi riil.`;
@@ -356,6 +420,23 @@ export default function SandboxCatalogView({
 
   // Phase 7: Global Counter Cart State ("Keranjang Konter")
   const [cartItems, setCartItems] = useState<SandboxCounterCartItem[]>([]);
+
+  // Phase 8.7.4: Global Reseller Selling Price State
+  const [globalPricingRule, setGlobalPricingRule] = useState<SandboxGlobalPricingRule>(DEFAULT_GLOBAL_PRICING_RULE);
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState<boolean>(false);
+
+  // Phase 8.7.5: Reset Selection & Cart Confirmation State
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState<boolean>(false);
+
+  const manualOverrideCount = useMemo(
+    () => cartItems.filter((it) => it.isManualPrice).length,
+    [cartItems]
+  );
+
+  // Phase 8.7.4: Hydrate stored global pricing rule on client mount
+  useEffect(() => {
+    setGlobalPricingRule(getStoredGlobalPricingRule());
+  }, []);
 
   // Sub-Batch 7D: Struk Kasir & Receipt State
   const [counterCartReceipt, setCounterCartReceipt] = useState<CounterCartReceiptData | null>(null);
@@ -734,7 +815,7 @@ export default function SandboxCatalogView({
   ) => {
     const catKey = cat?.categoryKey || brand.categoryKey || "pulsa-data";
     const catName = cat?.displayName || "Pulsa & Data";
-    const defaultMarkup = variant.effectivePrice < 10000 ? 1500 : 2000;
+    const defaultSellingPrice = calculateDefaultSellingPrice(variant.effectivePrice, globalPricingRule);
     const newItem: SandboxCounterCartItem = {
       cartItemId: `cart_${variant.id}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       productId: variant.id,
@@ -746,7 +827,8 @@ export default function SandboxCatalogView({
       categoryDisplayName: catName,
       customerNo: resolveDefaultCustomerNo(catKey),
       unitPrice: variant.effectivePrice,
-      sellingPrice: variant.effectivePrice + defaultMarkup,
+      sellingPrice: defaultSellingPrice,
+      isManualPrice: false,
       cashbackPerUnit: variant.cashback || 0,
       quantity: 1,
     };
@@ -812,13 +894,62 @@ export default function SandboxCatalogView({
 
   const handleUpdateCartSellingPrice = (cartItemId: string, sellingPrice: number) => {
     setCartItems((prev) =>
-      prev.map((item) => (item.cartItemId === cartItemId ? { ...item, sellingPrice } : item))
+      prev.map((item) =>
+        item.cartItemId === cartItemId
+          ? { ...item, sellingPrice, isManualPrice: true }
+          : item
+      )
     );
   };
 
-  const handleClearCart = () => {
+  // Phase 8.7.3: Tambah Tujuan Baru untuk Varian Produk yang Sama
+  const handleAddDestinationForProduct = (sourceCartItemId: string) => {
+    setCartItems((prev) => {
+      if (prev.length >= 30) {
+        alert("Maksimal keranjang konter adalah 30 item transaksi.");
+        return prev;
+      }
+      const source = prev.find((it) => it.cartItemId === sourceCartItemId);
+      if (!source) return prev;
+
+      const newLine: SandboxCounterCartItem = {
+        ...source,
+        cartItemId: `cart_${source.productId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        customerNo: "", // Kosongkan agar pengguna memasukkan tujuan baru yang berbeda
+        quantity: 1,    // Kuantitas awal independen 1
+        sellingPrice: source.sellingPrice,
+        isManualPrice: source.isManualPrice,
+      };
+
+      const sourceIndex = prev.findIndex((it) => it.cartItemId === sourceCartItemId);
+      const next = [...prev];
+      if (sourceIndex >= 0) {
+        next.splice(sourceIndex + 1, 0, newLine);
+      } else {
+        next.push(newLine);
+      }
+      return next;
+    });
+  };
+
+  // Phase 8.7.5: Authoritative Reset for All Counter/Massal Selections & Temporary Cart State
+  const handleResetAllSelections = () => {
     setCartItems([]);
     setBulkQuantities({});
+    setBulkCustomerNo("081234567890");
+    setBulkError(null);
+    setBulkResult(null);
+    setTransactionError(null);
+    setTransactionResult(null);
+  };
+
+  const handleClearCart = () => {
+    handleResetAllSelections();
+  };
+
+  const handleConfirmReset = () => {
+    handleResetAllSelections();
+    setIsResetConfirmOpen(false);
   };
 
   // Phase 7 - Sub-Batch 7B: Check for duplicate product + destination combinations
@@ -982,7 +1113,7 @@ export default function SandboxCatalogView({
       if (index === -1) {
         const catKey = cat?.categoryKey || brand.categoryKey || "pulsa-data";
         const catName = cat?.displayName || "Pulsa & Data";
-        const defaultMarkup = variant.effectivePrice < 10000 ? 1500 : 2000;
+        const defaultSellingPrice = calculateDefaultSellingPrice(variant.effectivePrice, globalPricingRule);
         const newItem: SandboxCounterCartItem = {
           cartItemId: `cart_${variant.id}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           productId: variant.id,
@@ -994,7 +1125,8 @@ export default function SandboxCatalogView({
           categoryDisplayName: catName,
           customerNo: resolveDefaultCustomerNo(catKey),
           unitPrice: variant.effectivePrice,
-          sellingPrice: variant.effectivePrice + defaultMarkup,
+          sellingPrice: defaultSellingPrice,
+          isManualPrice: false,
           cashbackPerUnit: variant.cashback || 0,
           quantity: 1,
         };
@@ -1023,6 +1155,9 @@ export default function SandboxCatalogView({
       ? cartItems.reduce((acc, item) => acc + (item.cashbackPerUnit || 0) * item.quantity, 0)
       : 0;
 
+  // Phase 8.7.5: Active selections flag to enable/disable Reset action
+  const hasActiveSelections = cartLineCount > 0 || bulkSelectedCount > 0;
+
   const handleOpenVariant = (
     variant: DynamicCatalogVariant,
     brand: DynamicCatalogBrand,
@@ -1031,8 +1166,8 @@ export default function SandboxCatalogView({
     setActiveVariant(variant);
     setActiveBrandForModal(brand);
 
-    const defaultRetailMarkup = variant.effectivePrice < 10000 ? 1500 : 2000;
-    setCustomSellingPrice(variant.effectivePrice + defaultRetailMarkup);
+    const defaultSellingPrice = calculateDefaultSellingPrice(variant.effectivePrice, globalPricingRule);
+    setCustomSellingPrice(defaultSellingPrice);
     setTransactionResult(null);
     setTransactionError(null);
     setHasViewedMargin(true);
@@ -1059,10 +1194,41 @@ export default function SandboxCatalogView({
     setTransactionError(null);
   };
 
+  // Phase 8.7.4: Apply Global Selling-Price Rule to State, Storage, and Optional Cart/Modal Recalculation
+  const handleApplyGlobalPricingRule = (
+    newRule: SandboxGlobalPricingRule,
+    applyToCart: boolean,
+    overwriteManual: boolean
+  ) => {
+    setGlobalPricingRule(newRule);
+    saveStoredGlobalPricingRule(newRule);
+
+    if (applyToCart && cartItems.length > 0) {
+      setCartItems((prev) =>
+        prev.map((item) => {
+          if (item.isManualPrice && !overwriteManual) {
+            return item;
+          }
+          return {
+            ...item,
+            sellingPrice: calculateDefaultSellingPrice(item.unitPrice, newRule),
+            isManualPrice: false,
+          };
+        })
+      );
+    }
+
+    if (activeVariant) {
+      setCustomSellingPrice(calculateDefaultSellingPrice(activeVariant.effectivePrice, newRule));
+    }
+
+    setIsPricingModalOpen(false);
+  };
+
   // Margin Calculation for Active Product in Modal
   const isVariantPriceValid = activeVariant ? typeof activeVariant.effectivePrice === "number" && activeVariant.effectivePrice > 0 : false;
   const currentSellingPrice = activeVariant
-    ? customSellingPrice ?? (activeVariant.effectivePrice + 1500)
+    ? customSellingPrice ?? calculateDefaultSellingPrice(activeVariant.effectivePrice, globalPricingRule)
     : 0;
 
   const currentMargin = activeVariant && isVariantPriceValid
@@ -1137,6 +1303,7 @@ export default function SandboxCatalogView({
     // Prepare strictly clean payload without forbidden fields (price, subtotal, etc.)
     const itemsPayload = isCartActive
       ? cartItems.map((item) => ({
+          cartItemId: item.cartItemId,
           productId: item.productId,
           quantity: item.quantity,
           customerNo: item.customerNo.trim() || resolveDefaultCustomerNo(item.categoryKey),
@@ -1236,7 +1403,10 @@ export default function SandboxCatalogView({
                   },
                   idx: number
                 ) => {
-                  const matchedCartItem = cartItems.find((ci) => ci.productId === l.productId);
+                  const matchedCartItem =
+                    cartItems.find((ci) => ci.cartItemId === l.lineId) ||
+                    cartItems[idx] ||
+                    cartItems.find((ci) => ci.productId === l.productId);
                   const validSns = Array.isArray(l.simulatedSns) && l.simulatedSns.length > 0
                     ? l.simulatedSns
                     : (l.simulatedSn ? [l.simulatedSn] : []);
@@ -1324,35 +1494,40 @@ export default function SandboxCatalogView({
     <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
       {/* 1. Header Banner */}
       <div className="rounded-2xl border border-amber-300/80 bg-linear-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 p-4 sm:p-5 shadow-2xs backdrop-blur-md">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="space-y-1">
+        <div className="flex items-start justify-between gap-2.5 sm:gap-4">
+          <div className="space-y-1 min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-900 border border-amber-300">
                 <FlaskConical size={11} className="text-amber-700" />
                 SANDBOX • SIMULASI
               </span>
-              <span className="text-[10px] font-bold text-amber-800/80 uppercase tracking-wide">
+              <span className="hidden sm:inline text-[10px] font-bold text-amber-800/80 uppercase tracking-wide">
                 Katalog Dinamis & Simulasi
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
               Katalog Produk & Simulasi Transaksi Digital
             </h2>
-            <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+            <p className="hidden md:block text-xs text-slate-600 max-w-2xl leading-relaxed">
               Jelajahi produk retail digital DaPay secara dinamis. Simulasikan transaksi menggunakan saldo virtual sandbox yang 100% terisolasi dari sistem LIVE.
             </p>
           </div>
 
-          <div className="shrink-0 flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <div className="shrink-0 flex items-center gap-1.5 sm:gap-2">
+            {/* Phase 8.7.4: Pengaturan Harga Jual Global Button */}
             <button
               type="button"
-              onClick={() => void fetchCatalog(true)}
-              disabled={isLoading}
-              title="Perbarui data katalog dari server"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/90 border border-amber-200/90 text-xs font-semibold text-amber-900 shadow-2xs hover:bg-white transition cursor-pointer disabled:opacity-50"
+              onClick={() => setIsPricingModalOpen(true)}
+              title="Atur margin default harga jual reseller"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl bg-white/90 border border-amber-200/90 text-xs font-semibold text-amber-900 shadow-2xs hover:bg-white transition cursor-pointer"
             >
-              <RefreshCw size={13} className={`text-amber-700 ${isLoading ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              <SlidersHorizontal size={13} className="text-amber-700 shrink-0" />
+              <span className="hidden sm:inline">Harga Jual</span>
+              <span className="text-[10px] font-mono font-bold bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded-md border border-amber-200 shrink-0">
+                {globalPricingRule.type === "nominal"
+                  ? `+Rp${globalPricingRule.value.toLocaleString("id-ID")}`
+                  : `+${globalPricingRule.value}%`}
+              </span>
             </button>
 
             {/* Phase 7: Counter Cart Badge & Quick Trigger */}
@@ -1364,7 +1539,7 @@ export default function SandboxCatalogView({
                 setBulkResult(null);
               }}
               title="Buka Keranjang"
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition cursor-pointer shadow-2xs ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-xl border text-xs font-bold transition cursor-pointer shadow-2xs ${
                 cartLineCount > 0
                   ? "bg-slate-900 border-slate-900 text-white hover:bg-slate-800"
                   : "bg-white/90 border-amber-200/90 text-amber-950 hover:bg-white"
@@ -1390,13 +1565,13 @@ export default function SandboxCatalogView({
                 </span>
               )}
             </button>
-
-            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-amber-900 bg-white/80 px-3 py-2 rounded-xl border border-amber-200/80 shadow-2xs">
-              <TrendingUp size={15} className="text-emerald-600 shrink-0" />
-              <span>Simulasi Aktif</span>
-            </div>
           </div>
         </div>
+
+        {/* Mobile Description */}
+        <p className="md:hidden mt-2.5 text-xs text-slate-600 leading-relaxed">
+          Jelajahi produk retail digital DaPay secara dinamis. Simulasikan transaksi menggunakan saldo virtual sandbox yang 100% terisolasi dari sistem LIVE.
+        </p>
 
         {/* Persona Simulation Switcher */}
         <div className="mt-3.5 pt-3 border-t border-amber-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -1698,6 +1873,24 @@ export default function SandboxCatalogView({
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
+                    {/* Phase 8.7.5: Reset Counter/Massal Selections Button (Hanya tampil saat ada pilihan aktif, di samping Lihat Semua) */}
+                    {hasActiveSelections && (
+                      <button
+                        type="button"
+                        onClick={() => setIsResetConfirmOpen(true)}
+                        disabled={!hasActiveSelections}
+                        title={
+                          hasActiveSelections
+                            ? "Kosongkan semua pilihan dan keranjang simulasi"
+                            : "Keranjang dan pilihan produk masih kosong"
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-rose-200 bg-rose-50/90 text-rose-700 hover:bg-rose-100 hover:border-rose-300 text-[10px] font-bold transition shadow-2xs cursor-pointer"
+                      >
+                        <RotateCcw size={10} className="text-rose-600" />
+                        <span>Reset</span>
+                      </button>
+                    )}
+
                     {displayedVariants.length > 5 && (
                       <button
                         type="button"
@@ -1790,19 +1983,23 @@ export default function SandboxCatalogView({
                       return (
                         <div
                           key={variant.id}
-                          onClick={() => {
-                            if (!isPriceValid) return;
-                            if (isBulkMode) {
-                              handleToggleVariantInCart(variant, activeBrand, currentCategory);
-                            } else {
-                              handleOpenVariant(variant, activeBrand, currentCategory);
-                            }
-                          }}
-                          className={`flex items-center justify-between p-2.5 rounded-xl border transition cursor-pointer ${
+                          onClick={
+                            isBulkMode
+                              ? undefined
+                              : () => {
+                                  if (!isPriceValid) return;
+                                  handleOpenVariant(variant, activeBrand, currentCategory);
+                                }
+                          }
+                          className={`flex items-center justify-between p-2.5 rounded-xl border transition ${
+                            isBulkMode ? "cursor-default" : "cursor-pointer"
+                          } ${
                             isCurrentInModal
                               ? "border-amber-400 bg-amber-50/70 ring-1 ring-amber-300"
                               : isBulkMode && isSelectedInCart
                               ? "border-amber-500 bg-amber-50/30 ring-1 ring-amber-400/40"
+                              : isBulkMode
+                              ? "border-slate-100 bg-white"
                               : "border-slate-100 bg-white hover:border-amber-300/80 hover:bg-amber-50/30"
                           }`}
                         >
@@ -1842,11 +2039,6 @@ export default function SandboxCatalogView({
                               <p className="text-xs font-black text-slate-900 truncate">
                                 {variant.name}
                               </p>
-                              {isBulkMode && qtyInCart > 0 && (
-                                <span className="inline-block mt-0.5 text-[9.5px] font-mono font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded-sm border border-amber-200/80">
-                                  {qtyInCart} di keranjang
-                                </span>
-                              )}
                             </div>
                           </div>
 
@@ -1943,7 +2135,7 @@ export default function SandboxCatalogView({
                           </div>
 
                           <div className="flex items-baseline justify-between pt-1 border-t border-slate-800">
-                            <span className="text-[11px] text-slate-400">Total Biaya Modal:</span>
+                            <span className="text-[11px] text-slate-400">Total Harga Beli:</span>
                             <span className="text-xs sm:text-sm font-black text-amber-400 font-mono">
                               Rp {(cartLineCount > 0 ? cartTotalCost : bulkTotalCost).toLocaleString("id-ID")}
                             </span>
@@ -2018,7 +2210,7 @@ export default function SandboxCatalogView({
               onClick={handleCloseModal}
               disabled={isTransacting}
               className="absolute right-3.5 top-3.5 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition disabled:opacity-50 cursor-pointer"
-              aria-label="Tutup modal simulasi"
+              aria-label="Tutup dialog transaksi"
             >
               <X size={18} />
             </button>
@@ -2204,13 +2396,13 @@ export default function SandboxCatalogView({
                     </div>
                   </div>
 
-                  {/* SIMULASI PERKIRAAN MARGIN Card */}
+                  {/* PERKIRAAN MARGIN Card */}
                   {isVariantPriceValid && (
                     <div className="rounded-2xl border border-amber-300/80 bg-linear-to-br from-amber-50/90 via-orange-50/50 to-amber-100/40 p-3.5 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-black uppercase tracking-wide text-emerald-950 flex items-center gap-1.5">
                           <TrendingUp size={14} className="text-emerald-600" />
-                          SIMULASI PERKIRAAN MARGIN
+                          PERKIRAAN MARGIN
                         </span>
                         <span className="text-[10px] font-bold text-amber-800 bg-amber-200/60 px-2 py-0.5 rounded-full">
                           Ilustratif
@@ -2219,13 +2411,13 @@ export default function SandboxCatalogView({
 
                       <div className="grid grid-cols-3 gap-2 bg-white/90 p-2.5 rounded-xl border border-amber-200/80 text-center">
                         <div>
-                          <p className="text-[8.5px] font-bold text-slate-400 uppercase">MODAL DEMO</p>
+                          <p className="text-[8.5px] font-bold text-slate-400 uppercase">HARGA BELI</p>
                           <p className="text-xs font-black text-slate-900 font-mono mt-0.5">
                             Rp {activeVariant.effectivePrice.toLocaleString("id-ID")}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[8.5px] font-bold text-slate-400 uppercase">JUAL SIMULASI</p>
+                          <p className="text-[8.5px] font-bold text-slate-400 uppercase">HARGA JUAL</p>
                           <p className="text-xs font-black text-slate-900 font-mono mt-0.5">
                             Rp {currentSellingPrice.toLocaleString("id-ID")}
                           </p>
@@ -2243,7 +2435,7 @@ export default function SandboxCatalogView({
                           <span>Opsi Harga Jual:</span>
                           <button
                             type="button"
-                            onClick={() => setCustomSellingPrice(activeVariant.effectivePrice + 1500)}
+                            onClick={() => setCustomSellingPrice(calculateDefaultSellingPrice(activeVariant.effectivePrice, globalPricingRule))}
                             className="text-[9.5px] text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
                           >
                             <RotateCcw size={9} /> Reset
@@ -2625,7 +2817,7 @@ export default function SandboxCatalogView({
                 {/* Selected Products Table / List (Sub-Batch 7B: Counter Cart Lines) */}
                 {cartLineCount > 0 ? (
                   <div className="space-y-2.5">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
                           Daftar Transaksi ({cartLineCount} Baris):
@@ -2636,14 +2828,26 @@ export default function SandboxCatalogView({
                           </span>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleClearCart}
-                        disabled={isBulkTransacting}
-                        className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                      >
-                        <Trash2 size={12} /> Kosongkan Keranjang
-                      </button>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setIsPricingModalOpen(true)}
+                          disabled={isBulkTransacting}
+                          title="Ubah aturan margin harga jual global"
+                          className="text-[11px] font-bold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-200/80 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                        >
+                          <SlidersHorizontal size={11} className="text-amber-700" />
+                          <span>Aturan Harga: {globalPricingRule.type === "nominal" ? `+Rp${globalPricingRule.value.toLocaleString("id-ID")}` : `+${globalPricingRule.value}%`}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleClearCart}
+                          disabled={isBulkTransacting}
+                          className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                        >
+                          <Trash2 size={12} /> Kosongkan Keranjang
+                        </button>
+                      </div>
                     </div>
 
                     {/* Duplicate Line Warning Banner (Non-blocking educational warning) */}
@@ -2732,25 +2936,37 @@ export default function SandboxCatalogView({
                               </div>
                             </div>
 
-                            {/* Row 2: Destination Field with 'Contoh' Helper */}
+                            {/* Row 2: Destination Field with 'Contoh' Helper & '+ Tambah Tujuan' */}
                             <div className="space-y-1 bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/70">
-                              <div className="flex items-center justify-between gap-1">
+                              <div className="flex items-center justify-between gap-1.5 flex-wrap">
                                 <label
                                   htmlFor={`dest-${item.cartItemId}`}
                                   className="text-[10.5px] font-bold text-slate-700 truncate"
                                 >
                                   {destLabel}:
                                 </label>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateCartCustomerNo(item.cartItemId, destHelperVal)}
-                                  disabled={isBulkTransacting}
-                                  title={`Isi nomor contoh simulasi: ${destHelperVal}`}
-                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded-md border border-amber-300 transition cursor-pointer"
-                                >
-                                  <Sparkles size={10} className="text-amber-700" />
-                                  <span>Contoh</span>
-                                </button>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddDestinationForProduct(item.cartItemId)}
+                                    disabled={isBulkTransacting || cartItems.length >= 30}
+                                    title="Tambah tujuan baru untuk produk ini (baris transaksi baru)"
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded-md border border-amber-300 transition cursor-pointer disabled:opacity-40"
+                                  >
+                                    <Plus size={10} strokeWidth={3} className="text-amber-800" />
+                                    <span>Tambah Tujuan</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateCartCustomerNo(item.cartItemId, destHelperVal)}
+                                    disabled={isBulkTransacting}
+                                    title={`Isi nomor contoh simulasi: ${destHelperVal}`}
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-700 bg-white hover:bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 transition cursor-pointer"
+                                  >
+                                    <Sparkles size={10} className="text-amber-700" />
+                                    <span>Contoh</span>
+                                  </button>
+                                </div>
                               </div>
                               <input
                                 id={`dest-${item.cartItemId}`}
@@ -2768,10 +2984,10 @@ export default function SandboxCatalogView({
 
                             {/* Row 3: Financials & Stepper (Modal, Qty, Selling Price, Margin) */}
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-100 text-xs">
-                              {/* A. Modal Simulasi */}
+                              {/* A. Harga Beli */}
                               <div className="bg-slate-50/60 p-2 rounded-xl border border-slate-200/60 space-y-0.5">
                                 <span className="text-[10px] font-semibold text-slate-500 block">
-                                  Modal Simulasi
+                                  Harga Beli
                                 </span>
                                 <span className="font-mono font-bold text-slate-800 block text-xs">
                                   Rp {item.unitPrice.toLocaleString("id-ID")}
@@ -2811,13 +3027,13 @@ export default function SandboxCatalogView({
                                 </div>
                               </div>
 
-                              {/* C. Harga Jual Simulasi */}
+                              {/* C. Harga Jual */}
                               <div className="bg-slate-50/60 p-2 rounded-xl border border-slate-200/60 space-y-1">
                                 <label
                                   htmlFor={`price-${item.cartItemId}`}
                                   className="text-[10px] font-semibold text-slate-500 block truncate"
                                 >
-                                  Harga Jual Simulasi
+                                  Harga Jual
                                 </label>
                                 <div className="relative">
                                   <span className="absolute left-2 top-1.5 text-[10.5px] font-mono font-bold text-slate-400">
@@ -2981,20 +3197,20 @@ export default function SandboxCatalogView({
                   </div>
 
                   <div className="border-t border-amber-200/60 pt-2 space-y-1.5">
-                    {/* A. Modal Sandbox */}
+                    {/* A. Harga Beli Total */}
                     <div className="flex justify-between items-center text-slate-800">
                       <span className="font-semibold">
-                        Total Modal Simulasi ({cartLineCount > 0 ? cartTotalQuantity : bulkTotalQuantity} Item):
+                        Total Harga Beli ({cartLineCount > 0 ? cartTotalQuantity : bulkTotalQuantity} Item):
                       </span>
                       <span className="font-mono font-bold text-slate-900">
                         Rp {(cartLineCount > 0 ? cartTotalCost : bulkTotalCost).toLocaleString("id-ID")}
                       </span>
                     </div>
 
-                    {/* B. Educational Sales */}
+                    {/* B. Total Harga Jual */}
                     {cartLineCount > 0 && (
                       <div className="flex justify-between items-center text-slate-700">
-                        <span className="font-semibold">Total Penjualan Simulasi:</span>
+                        <span className="font-semibold">Total Harga Jual:</span>
                         <span className="font-mono font-bold text-slate-900">
                           Rp {cartTotalSellingPrice.toLocaleString("id-ID")}
                         </span>
@@ -3160,6 +3376,361 @@ export default function SandboxCatalogView({
         }}
         receipt={counterCartReceipt}
       />
+
+      {/* 10. PENGATURAN HARGA JUAL RESELLER GLOBAL (Phase 8.7.4) */}
+      {isPricingModalOpen && (
+        <SandboxPricingSettingsModal
+          isOpen={isPricingModalOpen}
+          onClose={() => setIsPricingModalOpen(false)}
+          currentRule={globalPricingRule}
+          cartItemCount={cartItems.length}
+          manualOverrideCount={manualOverrideCount}
+          onApply={handleApplyGlobalPricingRule}
+        />
+      )}
+
+      {/* 11. MODAL KONFIRMASI RESET SELEKSI / KERANJANG (Phase 8.7.5) */}
+      {isResetConfirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reset-confirm-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsResetConfirmOpen(false);
+          }}
+        >
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 p-5 space-y-4 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto shadow-xs">
+              <RotateCcw size={22} />
+            </div>
+            <div className="space-y-1">
+              <h3 id="reset-confirm-title" className="text-sm font-black text-slate-900">
+                Reset Pilihan & Keranjang?
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Semua pilihan produk dan nomor tujuan dalam keranjang akan dikosongkan.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsResetConfirmOpen(false)}
+                className="flex-1 rounded-xl border border-slate-300 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReset}
+                className="flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-xs font-bold text-white shadow-md shadow-rose-600/20 transition cursor-pointer"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Phase 8.7.4: Modal Pengaturan Harga Jual Reseller Global
+ */
+interface SandboxPricingSettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentRule: SandboxGlobalPricingRule;
+  cartItemCount: number;
+  manualOverrideCount: number;
+  onApply: (
+    newRule: SandboxGlobalPricingRule,
+    applyToCart: boolean,
+    overwriteManual: boolean
+  ) => void;
+}
+
+function SandboxPricingSettingsModal({
+  isOpen,
+  onClose,
+  currentRule,
+  cartItemCount,
+  manualOverrideCount,
+  onApply,
+}: SandboxPricingSettingsModalProps) {
+  const [ruleType, setRuleType] = useState<"nominal" | "percent">(currentRule.type);
+  const [ruleValue, setRuleValue] = useState<number>(currentRule.value);
+  const [applyToCart, setApplyToCart] = useState<boolean>(true);
+  const [overwriteManual, setOverwriteManual] = useState<boolean>(false);
+
+  if (!isOpen) return null;
+
+  // Calculate live preview using a realistic benchmark: Rp 17.700 (e.g. Pulsa 15K / MLBB 50 Diamonds)
+  const samplePurchase = 17700;
+  const sampleMarkup =
+    ruleType === "nominal"
+      ? Math.max(0, ruleValue)
+      : Math.round((samplePurchase * Math.max(0, ruleValue)) / 100);
+  const sampleSelling = samplePurchase + sampleMarkup;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onApply(
+      {
+        type: ruleType,
+        value: Math.max(0, ruleValue),
+      },
+      applyToCart,
+      overwriteManual
+    );
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pricing-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3.5 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden space-y-0">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-linear-to-r from-amber-50/90 via-orange-50/60 to-white">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 shrink-0">
+              <SlidersHorizontal size={16} />
+            </div>
+            <div>
+              <h3 id="pricing-modal-title" className="text-sm font-black text-slate-900 leading-tight">
+                Pengaturan Harga Jual
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Aturan margin default untuk seluruh katalog
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup pengaturan harga"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          {/* 1. Aturan Harga Default (Radio Cards) */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 block">
+              Aturan Margin Default:
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRuleType("nominal");
+                  if (ruleType !== "nominal") setRuleValue(1000);
+                }}
+                className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                  ruleType === "nominal"
+                    ? "border-amber-500 bg-amber-50/70 ring-1 ring-amber-400"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900">Harga Beli + Nominal</span>
+                  <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                    ruleType === "nominal" ? "border-amber-600 bg-amber-600" : "border-slate-300"
+                  }`}>
+                    {ruleType === "nominal" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-0.5">Tambah nominal rupiah tetap</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRuleType("percent");
+                  if (ruleType !== "percent") setRuleValue(10);
+                }}
+                className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                  ruleType === "percent"
+                    ? "border-amber-500 bg-amber-50/70 ring-1 ring-amber-400"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900">Harga Beli + Persentase</span>
+                  <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                    ruleType === "percent" ? "border-amber-600 bg-amber-600" : "border-slate-300"
+                  }`}>
+                    {ruleType === "percent" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-0.5">Tambah margin persentase (%)</p>
+              </button>
+            </div>
+          </div>
+
+          {/* 2. Value Input & Preset Quick Pills */}
+          <div className="space-y-1.5">
+            <label htmlFor="markup-rule-value-input" className="text-xs font-bold text-slate-700 block">
+              {ruleType === "nominal" ? "Nominal Markup Margin (Rp):" : "Persentase Markup Margin (%):"}
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-2.5 text-xs font-mono font-bold text-slate-400">
+                {ruleType === "nominal" ? "Rp" : "%"}
+              </span>
+              <input
+                id="markup-rule-value-input"
+                type="number"
+                min={0}
+                max={ruleType === "percent" ? 100 : 1_000_000}
+                step={ruleType === "nominal" ? 500 : 1}
+                value={ruleValue}
+                onChange={(e) => setRuleValue(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-300 bg-white text-slate-900 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-400"
+                placeholder={ruleType === "nominal" ? "1000" : "10"}
+              />
+            </div>
+
+            {/* Quick Pills */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span className="text-[10px] text-slate-400">Preset:</span>
+              {ruleType === "nominal" ? (
+                [500, 1000, 1500, 2000, 3000].map((val) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setRuleValue(val)}
+                    className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border transition cursor-pointer ${
+                      ruleValue === val
+                        ? "bg-slate-900 border-slate-900 text-white"
+                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    +Rp {val.toLocaleString("id-ID")}
+                  </button>
+                ))
+              ) : (
+                [5, 10, 15, 20].map((val) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setRuleValue(val)}
+                    className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border transition cursor-pointer ${
+                      ruleValue === val
+                        ? "bg-slate-900 border-slate-900 text-white"
+                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    +{val}%
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* 3. Live Benchmark Preview Card */}
+          <div className="p-3 rounded-xl border border-amber-200/80 bg-amber-50/40 space-y-1.5">
+            <div className="flex items-center justify-between text-[10.5px]">
+              <span className="font-bold text-amber-900 flex items-center gap-1">
+                <Sparkles size={12} className="text-amber-700" />
+                Simulasi Perhitungan Contoh:
+              </span>
+              <span className="text-slate-500 font-mono">Sampel Produk</span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 bg-white p-2 rounded-lg border border-amber-200/60 text-center font-mono">
+              <div>
+                <p className="text-[9px] font-bold text-slate-400">HARGA BELI</p>
+                <p className="text-xs font-bold text-slate-800 mt-0.5">Rp {samplePurchase.toLocaleString("id-ID")}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-400">HARGA JUAL</p>
+                <p className="text-xs font-black text-slate-950 mt-0.5">Rp {sampleSelling.toLocaleString("id-ID")}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-emerald-700">MARGIN</p>
+                <p className="text-xs font-black text-emerald-700 mt-0.5">+Rp {sampleMarkup.toLocaleString("id-ID")}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Cart Re-Application Options */}
+          {cartItemCount > 0 && (
+            <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={applyToCart}
+                  onChange={(e) => setApplyToCart(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <div className="text-[11px] leading-tight">
+                  <span className="font-bold text-slate-900">
+                    Terapkan juga ke {cartItemCount} baris di keranjang
+                  </span>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    Menghitung ulang harga jual seluruh item di keranjang mengikuti aturan baru.
+                  </p>
+                </div>
+              </label>
+
+              {applyToCart && manualOverrideCount > 0 && (
+                <div className="pl-5 pt-1 border-t border-slate-200/80 space-y-1">
+                  <div className="flex items-center gap-1 text-[10.5px] text-amber-800 font-semibold">
+                    <Info size={12} className="shrink-0" />
+                    <span>Ada {manualOverrideCount} baris dengan harga jual manual.</span>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={overwriteManual}
+                      onChange={(e) => setOverwriteManual(e.target.checked)}
+                      className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <span className="text-[10.5px] font-bold text-slate-800">
+                      Timpa juga harga jual yang sudah diedit manual
+                    </span>
+                  </label>
+                  {!overwriteManual && (
+                    <p className="text-[9.5px] text-slate-500 italic">
+                      (Default aman: harga manual tetap dipertahankan jika kotak ini tidak dicentang)
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <p className="text-[10px] text-slate-500 leading-relaxed">
+            Aturan ini otomatis menjadi harga jual default saat produk baru dimasukkan ke keranjang maupun pada simulasi transaksi satuan.
+          </p>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-xl border border-slate-300 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer text-center"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="flex-1 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 py-2 text-xs font-black text-slate-950 shadow-md shadow-amber-500/20 transition cursor-pointer text-center"
+            >
+              Terapkan ke Katalog
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

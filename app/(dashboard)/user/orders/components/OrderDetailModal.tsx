@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import React, { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   Check,
   Clock,
@@ -10,6 +11,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  FlaskConical,
   Package,
   Receipt,
   RotateCcw,
@@ -109,6 +111,7 @@ export default function OrderDetailModal({
   onClose,
   onCopy,
 }: OrderDetailModalProps) {
+  const router = useRouter();
   const counterCartSnapshot = parseCounterCartSnapshot(order.notes);
   const isCounterCart = counterCartSnapshot !== null;
   const currentOrderKey = order.order_id || order.id;
@@ -116,40 +119,79 @@ export default function OrderDetailModal({
   const isReceiptOpen = Boolean(receiptOpenOrderId && receiptOpenOrderId === currentOrderKey);
 
   const receiptData: CounterCartReceiptData | null = useMemo(() => {
-    if (!counterCartSnapshot) return null;
+    if (counterCartSnapshot) {
+      return {
+        orderId: order.order_id || order.id,
+        status: order.status || "Berhasil",
+        totalModal: counterCartSnapshot.totals?.grandTotalModal ?? toNumber(order.price),
+        totalSimulatedSales:
+          counterCartSnapshot.totals?.totalSimulatedSales ??
+          toNumber(order.total_amount ?? order.price),
+        totalEstimatedMargin: counterCartSnapshot.totals?.totalEstimatedMargin ?? 0,
+        totalCashbackCoin: counterCartSnapshot.totals?.totalCashbackCoin ?? toNumber(order.cashback),
+        lines: counterCartSnapshot.lines.map((l, idx) => ({
+          lineId: l.lineId || `line_${idx}`,
+          productId: l.productId,
+          sku: l.sku,
+          productName: l.productName,
+          customerNo: l.customerNo,
+          quantity: l.quantity,
+          modalUnitPrice: l.modalUnitPrice,
+          modalLineTotal: l.modalLineTotal,
+          sellingPrice: l.sellingPrice,
+          salesLineTotal: l.salesLineTotal,
+          estimatedMargin: l.estimatedMargin,
+          cashbackPerUnit: l.cashbackPerUnit,
+          lineCashback: l.lineCashback,
+          simulatedSn:
+            l.simulatedSn ||
+            (Array.isArray(l.simulatedSns) && l.simulatedSns.length > 0 ? l.simulatedSns[0] : "") ||
+            "",
+          simulatedSns: l.simulatedSns,
+        })),
+        resolvedAt: counterCartSnapshot.resolvedAt || order.created_at || undefined,
+        simulatedMemberType: counterCartSnapshot.simulatedMemberType,
+      };
+    }
 
-    return {
-      orderId: order.order_id || order.id,
-      status: order.status || "Berhasil",
-      totalModal: counterCartSnapshot.totals?.grandTotalModal ?? toNumber(order.price),
-      totalSimulatedSales:
-        counterCartSnapshot.totals?.totalSimulatedSales ??
-        toNumber(order.total_amount ?? order.price),
-      totalEstimatedMargin: counterCartSnapshot.totals?.totalEstimatedMargin ?? 0,
-      totalCashbackCoin: counterCartSnapshot.totals?.totalCashbackCoin ?? toNumber(order.cashback),
-      lines: counterCartSnapshot.lines.map((l, idx) => ({
-        lineId: l.lineId || `line_${idx}`,
-        productId: l.productId,
-        sku: l.sku,
-        productName: l.productName,
-        customerNo: l.customerNo,
-        quantity: l.quantity,
-        modalUnitPrice: l.modalUnitPrice,
-        modalLineTotal: l.modalLineTotal,
-        sellingPrice: l.sellingPrice,
-        salesLineTotal: l.salesLineTotal,
-        estimatedMargin: l.estimatedMargin,
-        cashbackPerUnit: l.cashbackPerUnit,
-        lineCashback: l.lineCashback,
-        simulatedSn:
-          l.simulatedSn ||
-          (Array.isArray(l.simulatedSns) && l.simulatedSns.length > 0 ? l.simulatedSns[0] : "") ||
-          "",
-        simulatedSns: l.simulatedSns,
-      })),
-      resolvedAt: counterCartSnapshot.resolvedAt || order.created_at || undefined,
-      simulatedMemberType: counterCartSnapshot.simulatedMemberType,
-    };
+    // Fallback: If it's a sandbox order without a snapshot (single item simulation)
+    if (order.is_sandbox) {
+      const modalPrice = toNumber(order.buy_price ?? order.price);
+      const sellingPrice = toNumber(order.total_amount ?? order.price);
+      const margin = Math.max(0, sellingPrice - modalPrice);
+      const cashback = toNumber(order.cashback);
+
+      return {
+        orderId: order.order_id || order.id,
+        status: order.status || "Berhasil",
+        totalModal: modalPrice,
+        totalSimulatedSales: sellingPrice,
+        totalEstimatedMargin: margin,
+        totalCashbackCoin: cashback,
+        lines: [
+          {
+            lineId: order.id,
+            productId: order.sku || order.id,
+            sku: order.sku || undefined,
+            productName: order.product_name || "Produk Digital (Simulasi)",
+            customerNo: order.customer_no || "-",
+            quantity: 1,
+            modalUnitPrice: modalPrice,
+            modalLineTotal: modalPrice,
+            sellingPrice: sellingPrice,
+            salesLineTotal: sellingPrice,
+            estimatedMargin: margin,
+            cashbackPerUnit: cashback,
+            lineCashback: cashback,
+            simulatedSn: order.sn || "",
+            simulatedSns: order.sn ? [order.sn] : [],
+          },
+        ],
+        resolvedAt: order.created_at || undefined,
+      };
+    }
+
+    return null;
   }, [counterCartSnapshot, order]);
 
   const [isTokenVisible, setIsTokenVisible] = useState(false);
@@ -207,6 +249,11 @@ export default function OrderDetailModal({
   };
 
   const handleBeliLagi = () => {
+    if (order.is_sandbox) {
+      onClose();
+      router.push("/user?tab=catalog");
+      return;
+    }
     const slug = getProductSlug(order.product_name, order.category);
     if (!slug) {
       window.open("/", "_blank");
@@ -225,6 +272,10 @@ export default function OrderDetailModal({
   };
 
   const handleOpenInvoice = () => {
+    if (order.is_sandbox) {
+      setReceiptOpenOrderId(currentOrderKey);
+      return;
+    }
     if (!order.order_id) return;
     window.open(`/checkout/pay/${encodeURIComponent(order.order_id)}`, "_blank");
   };
@@ -519,43 +570,70 @@ export default function OrderDetailModal({
               </button>
             )}
 
-            {/* Buka Struk Kasir (Counter Cart only) */}
-            {isCounterCart && (
-              <button
-                type="button"
-                onClick={() => setReceiptOpenOrderId(currentOrderKey)}
-                className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 sm:px-4 text-xs font-black text-amber-900 hover:bg-amber-100 transition active:scale-95 cursor-pointer shadow-2xs"
-              >
-                <Receipt size={14} className="text-amber-700" />
-                <span>Buka Struk Kasir</span>
-              </button>
+            {/* Action Buttons: Sandbox vs Live */}
+            {order.is_sandbox ? (
+              <>
+                {/* Buka Struk Kasir / Struk Simulasi */}
+                <button
+                  type="button"
+                  onClick={() => setReceiptOpenOrderId(currentOrderKey)}
+                  className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 sm:px-4 text-xs font-black text-amber-900 hover:bg-amber-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                >
+                  <Receipt size={14} className="text-amber-700" />
+                  <span>{isCounterCart ? "Buka Struk Kasir" : "Buka Struk Simulasi"}</span>
+                </button>
+
+                {/* Simulasi Lagi CTA */}
+                <button
+                  type="button"
+                  onClick={handleBeliLagi}
+                  className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 px-4 sm:px-5 text-xs font-black text-slate-950 shadow-sm transition active:scale-95 cursor-pointer"
+                >
+                  <FlaskConical size={14} />
+                  <span>Simulasi Lagi →</span>
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Buka Struk Kasir (Live Counter Cart only) */}
+                {isCounterCart && (
+                  <button
+                    type="button"
+                    onClick={() => setReceiptOpenOrderId(currentOrderKey)}
+                    className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 sm:px-4 text-xs font-black text-amber-900 hover:bg-amber-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                  >
+                    <Receipt size={14} className="text-amber-700" />
+                    <span>Buka Struk Kasir</span>
+                  </button>
+                )}
+
+                {/* 2. Download / Lihat Invoice Button (Live only) */}
+                <button
+                  type="button"
+                  onClick={handleOpenInvoice}
+                  className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/80 px-3 sm:px-4 text-xs font-bold text-blue-700 hover:bg-blue-100 transition active:scale-95 cursor-pointer shadow-2xs"
+                >
+                  <Download size={14} />
+                  <span>Lihat Struk / Invoice</span>
+                </button>
+
+                {/* 3. Beli Lagi CTA (Live only) */}
+                <button
+                  type="button"
+                  onClick={handleBeliLagi}
+                  className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 sm:px-5 text-xs font-black text-white hover:bg-blue-700 transition active:scale-95 cursor-pointer shadow-sm"
+                >
+                  <ShoppingBag size={14} />
+                  <span>Beli Lagi →</span>
+                </button>
+              </>
             )}
-
-            {/* 2. Download / Lihat Invoice Button */}
-            <button
-              type="button"
-              onClick={handleOpenInvoice}
-              className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/80 px-3 sm:px-4 text-xs font-bold text-blue-700 hover:bg-blue-100 transition active:scale-95 cursor-pointer shadow-2xs"
-            >
-              <Download size={14} />
-              <span>Lihat Struk / Invoice</span>
-            </button>
-
-            {/* 3. Beli Lagi CTA */}
-            <button
-              type="button"
-              onClick={handleBeliLagi}
-              className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 sm:px-5 text-xs font-black text-white hover:bg-blue-700 transition active:scale-95 cursor-pointer shadow-sm"
-            >
-              <ShoppingBag size={14} />
-              <span>Beli Lagi →</span>
-            </button>
           </div>
         </div>
       </div>
 
-      {/* Counter Cart Receipt Modal */}
-      {isCounterCart && receiptData && (
+      {/* Counter Cart / Sandbox Receipt Modal */}
+      {(isCounterCart || order.is_sandbox) && receiptData && (
         <CounterCartReceiptModal
           isOpen={isReceiptOpen}
           onClose={() => setReceiptOpenOrderId(null)}

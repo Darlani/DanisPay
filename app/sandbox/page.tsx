@@ -23,6 +23,8 @@ import {
 import { supabase } from "@/utils/supabaseClient";
 import PublicSandboxFaqAccordion from "@/components/sandbox/PublicSandboxFaqAccordion";
 import { CURATED_SANDBOX_PRODUCTS } from "@/lib/sandbox/curated-catalog";
+import { type Locale } from "@/lib/i18n/config";
+import { useI18n } from "@/lib/i18n/context";
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -48,14 +50,10 @@ function getOrCreateAnonymousId(): string {
   if (typeof document === "undefined") return "";
   const existing = getCookie("dapay_anon_id");
   if (existing && UUID_REGEX.test(existing)) {
-    return existing.toLowerCase();
+    return existing;
   }
-
   let newId: string;
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     newId = crypto.randomUUID();
   } else {
     newId = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -64,8 +62,6 @@ function getOrCreateAnonymousId(): string {
       return v.toString(16);
     });
   }
-
-  newId = newId.toLowerCase();
   setCookie("dapay_anon_id", newId, COOKIE_MAX_AGE_SECONDS);
   return newId;
 }
@@ -74,36 +70,42 @@ interface AttributionData {
   src: string;
   med: string;
   camp: string;
-  ref: string;
-  rfr: string;
+  ref?: string | null;
+  rfr?: string | null;
   ts: number;
-  first_src?: string | null;
-  first_ts?: number | null;
+  first_src?: string;
+  first_ts?: number;
 }
 
 function syncAttributionCookie(): void {
-  if (typeof window === "undefined" || typeof document === "undefined") return;
+  if (typeof window === "undefined") return;
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const utmSource = urlParams.get("utm_source")?.trim() || "";
-  const utmMedium = urlParams.get("utm_medium")?.trim() || "";
-  const utmCampaign = urlParams.get("utm_campaign")?.trim() || "";
-  const refParam = urlParams.get("ref")?.trim() || "";
+  const url = new URL(window.location.href);
+  const utmSource = url.searchParams.get("utm_source")?.slice(0, 100) || null;
+  const utmMedium = url.searchParams.get("utm_medium")?.slice(0, 100) || null;
+  const utmCampaign = url.searchParams.get("utm_campaign")?.slice(0, 100) || null;
 
-  // Safe referrer domain extraction (hostname only, no full URL/query parameters)
-  let referrerHost = "";
+  let refParam: string | null = null;
+  const rawRef = url.searchParams.get("ref");
+  if (rawRef) {
+    const trimmed = rawRef.trim();
+    if (UUID_REGEX.test(trimmed)) {
+      refParam = trimmed;
+    }
+  }
+
+  let referrerHost: string | null = null;
   if (document.referrer) {
     try {
       const refUrl = new URL(document.referrer);
-      if (refUrl.hostname && refUrl.hostname !== window.location.hostname) {
-        referrerHost = refUrl.hostname.slice(0, 128);
+      if (refUrl.hostname !== window.location.hostname) {
+        referrerHost = refUrl.hostname.slice(0, 255);
       }
     } catch {
       // ignore invalid referrer
     }
   }
 
-  // Check existing dapay_attr cookie
   const existingRaw = getCookie("dapay_attr");
   let existing: AttributionData | null = null;
   if (existingRaw) {
@@ -123,29 +125,28 @@ function syncAttributionCookie(): void {
     }
   }
 
-  const hasCampaignParams = Boolean(
-    utmSource || utmMedium || utmCampaign || refParam
-  );
+  const hasNewTouchpoint =
+    Boolean(utmSource) ||
+    Boolean(utmMedium) ||
+    Boolean(utmCampaign) ||
+    Boolean(refParam);
+
   const now = Date.now();
 
   if (existing) {
-    // Model: LAST-TOUCH WITH FIRST-TOUCH FALLBACK
-    if (!hasCampaignParams) {
-      return;
+    if (hasNewTouchpoint) {
+      const updated: AttributionData = {
+        src: utmSource || existing.src,
+        med: utmMedium || existing.med,
+        camp: utmCampaign || existing.camp,
+        ref: refParam || existing.ref || null,
+        rfr: referrerHost || existing.rfr || null,
+        ts: now,
+        first_src: existing.first_src || existing.src,
+        first_ts: existing.first_ts || existing.ts,
+      };
+      setCookie("dapay_attr", JSON.stringify(updated), COOKIE_MAX_AGE_SECONDS);
     }
-
-    const updated: AttributionData = {
-      src: utmSource || (referrerHost ? "referral" : existing.src || "direct"),
-      med: utmMedium || (referrerHost ? "referral" : existing.med || "none"),
-      camp: utmCampaign || "none",
-      ref: refParam || "",
-      rfr: referrerHost || existing.rfr || "",
-      ts: now,
-      first_src: existing.first_src || existing.src || "direct",
-      first_ts: existing.first_ts || existing.ts || now,
-    };
-
-    setCookie("dapay_attr", JSON.stringify(updated), COOKIE_MAX_AGE_SECONDS);
   } else {
     const currentSrc = utmSource || (referrerHost ? "referral" : "direct");
     const currentMed = utmMedium || (referrerHost ? "referral" : "none");
@@ -174,7 +175,13 @@ const TEASER_SKUS = [
   "SIM-DANA-20K",
 ];
 
-export default function PublicSandboxPage() {
+export interface PublicSandboxPageProps {
+  locale?: Locale;
+}
+
+export default function PublicSandboxPage({ locale }: PublicSandboxPageProps = {}) {
+  const { t, locale: contextLocale } = useI18n();
+  const currentLocale = locale || contextLocale;
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const hasFiredLandingRef = useRef(false);
@@ -188,7 +195,6 @@ export default function PublicSandboxPage() {
       const anonId = getOrCreateAnonymousId();
       syncAttributionCookie();
 
-      // Fire sandbox_landing_view non-blocking
       fetch("/api/tester/telemetry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -213,7 +219,6 @@ export default function PublicSandboxPage() {
       } = await supabase.auth.getSession();
       const targetHref = session ? "/user" : "/login";
 
-      // Best-effort telemetry dispatch before navigation
       try {
         const anonId = getOrCreateAnonymousId();
         await Promise.race([
@@ -272,39 +277,54 @@ export default function PublicSandboxPage() {
     }
   };
 
+  const getProductCategoryLabel = (category?: string, fallback?: string) => {
+    switch (category) {
+      case "pulsa":
+      case "data":
+      case "pulsa-data":
+        return t("sandbox.catPulsa");
+      case "pln":
+        return t("sandbox.catPln");
+      case "emoney":
+        return t("sandbox.catEmoney");
+      case "game":
+        return t("sandbox.catGame");
+      default:
+        return fallback || t("sandbox.catGame");
+    }
+  };
+
+  const numFormat = currentLocale === "en" ? "en-US" : "id-ID";
+
   return (
     <>
-      <title>Sandbox DaPay — Simulasi Bisnis Produk Digital</title>
-      <meta
-        name="description"
-        content="Pelajari alur transaksi dan perkiraan margin produk digital melalui Sandbox DaPay menggunakan saldo virtual yang terpisah dari saldo kas LIVE."
-      />
+      <title>{t("sandbox.metaTitle")}</title>
+      <meta name="description" content={t("sandbox.metaDesc")} />
 
       <div className="min-h-screen bg-[#0f172a] text-slate-200 selection:bg-amber-500/30 selection:text-amber-200">
         {/* ================================================================== */}
         {/* 1. HERO SECTION                                                    */}
         {/* ================================================================== */}
         <section className="relative overflow-hidden pt-8 sm:pt-14 pb-10 sm:pb-16 border-b border-slate-800/80">
-          {/* Subtle background glow */}
           <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-80 bg-linear-to-b from-amber-500/10 via-orange-500/5 to-transparent blur-3xl" />
 
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 md:px-12 text-center">
             {/* Prominent Badge */}
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-xs font-bold text-amber-400 mb-4 sm:mb-6 shadow-xs">
               <FlaskConical size={14} className="text-amber-400 shrink-0" />
-              <span>SANDBOX DAPAY • SIMULASI RESELLER DIGITAL</span>
+              <span>{t("sandbox.heroBadge")}</span>
             </div>
 
             {/* Headline & Subtitle */}
             <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight sm:leading-tight max-w-4xl mx-auto">
-              Coba Simulasi Jual Pulsa & Produk Digital{" "}
+              {t("sandbox.heroTitle1")}{" "}
               <span className="bg-linear-to-r from-amber-400 via-orange-400 to-amber-300 bg-clip-text text-transparent">
-                Tanpa Modal Riil
+                {t("sandbox.heroTitle2")}
               </span>
             </h1>
 
             <p className="mt-3.5 sm:mt-5 text-xs sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
-              Latihan transaksi pulsa, paket data, dan token PLN menggunakan Saldo Virtual Sandbox. Pahami alur transaksi dan perkiraan margin sebelum menggunakan modal riil.
+              {t("sandbox.heroSubtitle")}
             </p>
 
             {/* CTAs */}
@@ -313,14 +333,14 @@ export default function PublicSandboxPage() {
                 type="button"
                 onClick={() => handleCtaClick("hero")}
                 disabled={isLoading}
-                aria-label="Mulai Simulasi Gratis sekarang"
+                aria-label={t("sandbox.startFreeSim")}
                 className="w-full xs:flex-1 min-h-12 flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 px-5 py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-lg shadow-amber-500/20 hover:from-amber-400 hover:to-orange-400 transition-all cursor-pointer disabled:opacity-50 active:scale-98"
               >
                 {isLoading ? (
                   <Loader2 size={16} className="animate-spin text-slate-950" />
                 ) : (
                   <>
-                    <span>Mulai Simulasi Gratis</span>
+                    <span>{t("sandbox.startFreeSim")}</span>
                     <ArrowRight size={16} />
                   </>
                 )}
@@ -332,17 +352,17 @@ export default function PublicSandboxPage() {
                 className="w-full xs:flex-1 min-h-12 flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-5 py-3 text-xs sm:text-sm font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
               >
                 <BookOpen size={16} className="text-amber-400" />
-                <span>Pelajari Cara Kerja</span>
+                <span>{t("sandbox.learnHowItWorks")}</span>
               </button>
             </div>
 
-            {/* Supporting Micro-copy & Registration Expectation */}
+            {/* Supporting Micro-copy */}
             <div className="mt-3.5 space-y-1 text-center">
               <p className="text-[11px] font-semibold text-amber-400/90">
-                Simulasi gratis • Saldo LIVE tidak digunakan
+                {t("sandbox.heroMicroNote1")}
               </p>
               <p className="text-[10.5px] text-slate-400 max-w-md mx-auto leading-snug">
-                Daftar akun gratis untuk mengaktifkan Sandbox dan mendapatkan saldo virtual Rp 1.000.000.
+                {t("sandbox.heroMicroNote2")}
               </p>
             </div>
 
@@ -353,9 +373,11 @@ export default function PublicSandboxPage() {
                   <Sparkles size={16} />
                 </div>
                 <div>
-                  <h2 className="text-xs sm:text-sm font-bold text-white">Rp 1.000.000 Saldo Virtual</h2>
+                  <h2 className="text-xs sm:text-sm font-bold text-white">
+                    {t("sandbox.trustHighlight1Title")}
+                  </h2>
                   <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                    Disediakan gratis untuk berlatih simulasi transaksi produk.
+                    {t("sandbox.trustHighlight1Desc")}
                   </p>
                 </div>
               </div>
@@ -365,9 +387,11 @@ export default function PublicSandboxPage() {
                   <ShieldCheck size={16} />
                 </div>
                 <div>
-                  <h2 className="text-xs sm:text-sm font-bold text-white">Terisolasi 100%</h2>
+                  <h2 className="text-xs sm:text-sm font-bold text-white">
+                    {t("sandbox.trustHighlight2Title")}
+                  </h2>
                   <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                    Sandbox tidak menggunakan saldo kas LIVE Anda.
+                    {t("sandbox.trustHighlight2Desc")}
                   </p>
                 </div>
               </div>
@@ -377,9 +401,11 @@ export default function PublicSandboxPage() {
                   <TrendingUp size={16} />
                 </div>
                 <div>
-                  <h2 className="text-xs sm:text-sm font-bold text-white">Satu Akun Terpadu</h2>
+                  <h2 className="text-xs sm:text-sm font-bold text-white">
+                    {t("sandbox.trustHighlight3Title")}
+                  </h2>
                   <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                    Beralih ke LIVE kapan saja dengan identitas akun yang sama.
+                    {t("sandbox.trustHighlight3Desc")}
                   </p>
                 </div>
               </div>
@@ -394,13 +420,13 @@ export default function PublicSandboxPage() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-12">
             <div className="text-center max-w-2xl mx-auto mb-7 sm:mb-9">
               <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400">
-                Contoh Produk & Perkiraan Margin
+                {t("sandbox.previewBadge")}
               </span>
               <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
-                Produk Digital yang Bisa Anda Simulasikan
+                {t("sandbox.previewTitle")}
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-                Pelajari contoh harga modal simulasi dan perkiraan selisih harga jual di konter retail.
+                {t("sandbox.previewSubtitle")}
               </p>
             </div>
 
@@ -418,10 +444,10 @@ export default function PublicSandboxPage() {
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
                           {getProductCategoryIcon(prod.category)}
-                          {prod.categoryLabel}
+                          {getProductCategoryLabel(prod.category, prod.categoryLabel)}
                         </span>
                         <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-amber-400 border border-amber-500/20">
-                          Simulasi
+                          {t("sandbox.simLabel")}
                         </span>
                       </div>
 
@@ -432,21 +458,21 @@ export default function PublicSandboxPage() {
 
                     <div className="mt-3.5 pt-3 border-t border-slate-800/80 space-y-1.5 text-[11px]">
                       <div className="flex justify-between items-center text-slate-400">
-                        <span>Modal Simulasi:</span>
+                        <span>{t("sandbox.simCost")}</span>
                         <span className="font-mono text-slate-200">
-                          Rp {prod.demoPrice.toLocaleString("id-ID")}
+                          Rp {prod.demoPrice.toLocaleString(numFormat)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-slate-400">
-                        <span>Contoh Jual:</span>
+                        <span>{t("sandbox.sampleSelling")}</span>
                         <span className="font-mono text-slate-200">
-                          Rp {prod.suggestedSellingPrice.toLocaleString("id-ID")}
+                          Rp {prod.suggestedSellingPrice.toLocaleString(numFormat)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center pt-1 border-t border-slate-800 font-bold">
-                        <span className="text-emerald-400">Perkiraan Margin:</span>
+                        <span className="text-emerald-400">{t("sandbox.estMargin")}</span>
                         <span className="font-mono text-emerald-400">
-                          +Rp {margin.toLocaleString("id-ID")}
+                          +Rp {margin.toLocaleString(numFormat)}
                         </span>
                       </div>
                     </div>
@@ -460,17 +486,17 @@ export default function PublicSandboxPage() {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
                   <TrendingUp size={14} className="text-emerald-400" />
-                  Contoh Ilustrasi Perhitungan Margin
+                  {t("sandbox.marginIllustrationTitle")}
                 </span>
                 <span className="text-[9.5px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
-                  1 Transaksi
+                  {t("sandbox.oneTransaction")}
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Sebagai contoh, pada produk Telkomsel Pulsa 10K: Modal demo Rp 10.500 dengan contoh harga jual konter Rp 12.000 menghasilkan perkiraan margin +Rp 1.500 per transaksi simulasi.
+                {t("sandbox.marginIllustrationBody")}
               </p>
               <p className="mt-2 text-[10px] text-amber-300/80 italic">
-                *Perkiraan margin bersifat ilustratif untuk latihan bisnis, bukan jaminan keuntungan riil.
+                {t("sandbox.marginDisclaimer")}
               </p>
             </div>
           </div>
@@ -483,13 +509,13 @@ export default function PublicSandboxPage() {
           <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-12">
             <div className="text-center max-w-2xl mx-auto mb-7 sm:mb-9">
               <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400">
-                Alur Praktis 3 Langkah
+                {t("sandbox.workflowBadge")}
               </span>
               <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
-                Bagaimana Cara Kerja Sandbox?
+                {t("sandbox.workflowTitle")}
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-                Mulai dari aktivasi demo gratis hingga siap bertransaksi riil.
+                {t("sandbox.workflowSubtitle")}
               </p>
             </div>
 
@@ -503,9 +529,9 @@ export default function PublicSandboxPage() {
                     </span>
                     <ShoppingBag size={16} className="text-slate-500" />
                   </div>
-                  <h3 className="text-sm font-bold text-white">Daftar & Aktifkan Demo</h3>
+                  <h3 className="text-sm font-bold text-white">{t("sandbox.step1Title")}</h3>
                   <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                    Daftar akun gratis dalam 1 menit. Langsung terima Rp 1.000.000 saldo virtual untuk mencoba sistem tanpa deposit riil.
+                    {t("sandbox.step1Desc")}
                   </p>
                 </div>
               </div>
@@ -519,9 +545,9 @@ export default function PublicSandboxPage() {
                     </span>
                     <FlaskConical size={16} className="text-slate-500" />
                   </div>
-                  <h3 className="text-sm font-bold text-white">Latihan Transaksi & Margin</h3>
+                  <h3 className="text-sm font-bold text-white">{t("sandbox.step2Title")}</h3>
                   <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                    Praktekkan pembelian pulsa, paket data, dan token PLN ke nomor simulasi. Pelajari alur pesanan instan dan perkiraan marginnya.
+                    {t("sandbox.step2Desc")}
                   </p>
                 </div>
               </div>
@@ -535,9 +561,9 @@ export default function PublicSandboxPage() {
                     </span>
                     <CheckCircle2 size={16} className="text-amber-400" />
                   </div>
-                  <h3 className="text-sm font-bold text-amber-400">Siap? Beralih ke LIVE</h3>
+                  <h3 className="text-sm font-bold text-amber-400">{t("sandbox.step3Title")}</h3>
                   <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
-                    Setelah memahami sistem dan merasa cocok, Anda dapat langsung beralih ke Member LIVE menggunakan akun yang sama.
+                    {t("sandbox.step3Desc")}
                   </p>
                 </div>
               </div>
@@ -552,13 +578,13 @@ export default function PublicSandboxPage() {
           <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-12">
             <div className="text-center max-w-2xl mx-auto mb-7 sm:mb-9">
               <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400">
-                Manfaat Pembelajaran
+                {t("sandbox.learningBadge")}
               </span>
               <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
-                Apa yang Bisa Anda Pelajari?
+                {t("sandbox.learningTitle")}
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-                Membangun pemahaman operasional praktis sebelum melayani pembeli riil.
+                {t("sandbox.learningSubtitle")}
               </p>
             </div>
 
@@ -567,9 +593,9 @@ export default function PublicSandboxPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 mb-2.5">
                   <ShoppingBag size={16} />
                 </div>
-                <h3 className="text-xs sm:text-sm font-bold text-white">Eksplorasi Produk Reseller</h3>
+                <h3 className="text-xs sm:text-sm font-bold text-white">{t("sandbox.benefit1Title")}</h3>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Mengetahui ragam nominal pulsa, paket kuota, dan token PLN yang paling diminati pembeli konter di Indonesia.
+                  {t("sandbox.benefit1Desc")}
                 </p>
               </div>
 
@@ -577,9 +603,9 @@ export default function PublicSandboxPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 mb-2.5">
                   <TrendingUp size={16} />
                 </div>
-                <h3 className="text-xs sm:text-sm font-bold text-white">Kalkulasi Perkiraan Margin</h3>
+                <h3 className="text-xs sm:text-sm font-bold text-white">{t("sandbox.benefit2Title")}</h3>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Melihat gambaran selisih harga modal demo dengan contoh harga jual untuk menentukan perkiraan margin yang wajar.
+                  {t("sandbox.benefit2Desc")}
                 </p>
               </div>
 
@@ -587,9 +613,9 @@ export default function PublicSandboxPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 mb-2.5">
                   <ShieldCheck size={16} />
                 </div>
-                <h3 className="text-xs sm:text-sm font-bold text-white">Praktek Alur Tanpa Cemas</h3>
+                <h3 className="text-xs sm:text-sm font-bold text-white">{t("sandbox.benefit3Title")}</h3>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Membiasakan diri dengan langkah input nomor tujuan, pengecekan rincian produk, hingga verifikasi status pesanan berhasil.
+                  {t("sandbox.benefit3Desc")}
                 </p>
               </div>
 
@@ -597,9 +623,9 @@ export default function PublicSandboxPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 mb-2.5">
                   <Award size={16} />
                 </div>
-                <h3 className="text-xs sm:text-sm font-bold text-white">Pahami Manfaat Akun</h3>
+                <h3 className="text-xs sm:text-sm font-bold text-white">{t("sandbox.benefit4Title")}</h3>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Mencoba simulasi akun Reguler dan Spesial untuk memahami keuntungan cashback dan komisi jaringan referral secara langsung.
+                  {t("sandbox.benefit4Desc")}
                 </p>
               </div>
             </div>
@@ -608,7 +634,7 @@ export default function PublicSandboxPage() {
             <div className="mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 sm:p-4.5 flex items-start gap-3 text-xs text-amber-300/90 leading-relaxed">
               <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />
               <span>
-                <strong>Catatan Penting:</strong> DaPay Sandbox adalah sarana edukasi dan simulasi. Perkiraan margin bersifat ilustratif untuk latihan bisnis, bukan jaminan keuntungan riil di dunia nyata.
+                <strong>{t("sandbox.importantNotice")}</strong> {t("sandbox.importantNoticeBody")}
               </span>
             </div>
           </div>
@@ -621,13 +647,13 @@ export default function PublicSandboxPage() {
           <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-12">
             <div className="text-center max-w-2xl mx-auto mb-7 sm:mb-9">
               <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400">
-                Transparansi Manfaat Akun
+                {t("sandbox.comparisonBadge")}
               </span>
               <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
-                Perbandingan Member: Reguler vs Spesial
+                {t("sandbox.comparisonTitle")}
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-                Pahami perbedaan skema reward yang berlaku sesuai kebijakan bisnis DaPay.
+                {t("sandbox.comparisonSubtitle")}
               </p>
             </div>
 
@@ -638,86 +664,86 @@ export default function PublicSandboxPage() {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-slate-300 border border-slate-700">
-                      Standar
+                      {t("sandbox.standardBadge")}
                     </span>
-                    <span className="text-xs text-slate-400">Tipe Awal</span>
+                    <span className="text-xs text-slate-400">{t("sandbox.initialTier")}</span>
                   </div>
 
-                  <h3 className="text-base font-black text-white">Member Reguler</h3>
+                  <h3 className="text-base font-black text-white">{t("sandbox.regularTitle")}</h3>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                    Cocok untuk pemula yang ingin mulai bertransaksi tanpa syarat target bulanan.
+                    {t("sandbox.regularDesc")}
                   </p>
 
                   <div className="mt-4 space-y-2.5 pt-3.5 border-t border-slate-800 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-300">Harga Promo Produk</span>
+                      <span className="text-slate-300">{t("sandbox.featurePromoPrice")}</span>
                       <span className="flex items-center gap-1 font-bold text-emerald-400">
-                        <CheckCircle2 size={14} /> Termasuk
+                        <CheckCircle2 size={14} /> {t("sandbox.featureIncluded")}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-300">Komisi Referral Teman</span>
+                      <span className="text-slate-300">{t("sandbox.featureReferralCommission")}</span>
                       <span className="flex items-center gap-1 font-bold text-emerald-400">
-                        <CheckCircle2 size={14} /> Termasuk
+                        <CheckCircle2 size={14} /> {t("sandbox.featureIncluded")}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-300">Cashback Transaksi</span>
+                      <span className="text-slate-300">{t("sandbox.featureCashback")}</span>
                       <span className="flex items-center gap-1 font-bold text-slate-500">
-                        <XCircle size={14} /> Tidak Ada
+                        <XCircle size={14} /> {t("sandbox.featureNone")}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-5 pt-3 border-t border-slate-800 text-[11px] text-slate-400 text-center">
-                  Nikmati kemudahan transaksi dasar & peluang komisi referral.
+                  {t("sandbox.regularFooter")}
                 </div>
               </div>
 
               {/* Special Card */}
               <div className="rounded-2xl border border-amber-500/40 bg-linear-to-b from-amber-500/10 via-slate-900/80 to-slate-900/50 p-5 flex flex-col justify-between relative overflow-hidden">
                 <div className="absolute top-0 right-0 bg-linear-to-l from-amber-500 to-orange-500 px-3 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-950 rounded-bl-xl shadow-xs">
-                  Ekstra Keuntungan
+                  {t("sandbox.extraPerks")}
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-amber-400 border border-amber-500/30">
-                      Mitra Utama
+                      {t("sandbox.primePartner")}
                     </span>
-                    <span className="text-xs text-amber-400 font-semibold">Tipe Spesial</span>
+                    <span className="text-xs text-amber-400 font-semibold">{t("sandbox.specialTier")}</span>
                   </div>
 
-                  <h3 className="text-base font-black text-white">Member Spesial</h3>
+                  <h3 className="text-base font-black text-white">{t("sandbox.specialTitle")}</h3>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                    Dirancang untuk konter aktif yang menginginkan reward tambahan per transaksi.
+                    {t("sandbox.specialDesc")}
                   </p>
 
                   <div className="mt-4 space-y-2.5 pt-3.5 border-t border-slate-800 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-300">Harga Promo Produk</span>
+                      <span className="text-slate-300">{t("sandbox.featurePromoPrice")}</span>
                       <span className="flex items-center gap-1 font-bold text-emerald-400">
-                        <CheckCircle2 size={14} /> Termasuk
+                        <CheckCircle2 size={14} /> {t("sandbox.featureIncluded")}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-300">Komisi Referral Teman</span>
+                      <span className="text-slate-300">{t("sandbox.featureReferralCommission")}</span>
                       <span className="flex items-center gap-1 font-bold text-emerald-400">
-                        <CheckCircle2 size={14} /> Termasuk
+                        <CheckCircle2 size={14} /> {t("sandbox.featureIncluded")}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-300">Cashback Transaksi</span>
+                      <span className="text-slate-300">{t("sandbox.featureCashback")}</span>
                       <span className="flex items-center gap-1 font-bold text-amber-400">
-                        <CheckCircle2 size={14} /> Koin Sandbox
+                        <CheckCircle2 size={14} /> {t("sandbox.specialCashback")}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-5 pt-3 border-t border-slate-800 text-[11px] text-amber-300/80 text-center">
-                  Cashback transaksi diberikan dalam bentuk Koin reward.
+                  {t("sandbox.specialFooter")}
                 </div>
               </div>
             </div>
@@ -731,17 +757,17 @@ export default function PublicSandboxPage() {
           <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-12">
             <div className="text-center max-w-2xl mx-auto mb-7 sm:mb-9">
               <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400">
-                Pusat Bantuan & Informasi
+                {t("sandbox.faqBadge")}
               </span>
               <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
-                Pertanyaan yang Sering Diajukan
+                {t("sandbox.faqTitle")}
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-                Jawaban resmi seputar ketentuan, saldo virtual, dan operasional Sandbox DaPay.
+                {t("sandbox.faqSubtitle")}
               </p>
             </div>
 
-            <PublicSandboxFaqAccordion />
+            <PublicSandboxFaqAccordion locale={currentLocale} />
           </div>
         </section>
 
@@ -753,15 +779,15 @@ export default function PublicSandboxPage() {
             <div className="rounded-3xl border border-amber-500/30 bg-linear-to-b from-amber-500/15 via-slate-900/80 to-slate-900/60 p-6 sm:p-10 shadow-2xl relative overflow-hidden">
               <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-400 mb-4 border border-amber-500/30">
                 <Sparkles size={14} />
-                <span>Mulai Tanpa Modal Riil</span>
+                <span>{t("sandbox.bottomBadge")}</span>
               </div>
 
               <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight">
-                Siap Memulai Langkah Pertama Bisnis Digital Anda?
+                {t("sandbox.bottomTitle")}
               </h2>
 
               <p className="mt-3 text-xs sm:text-base text-slate-300 max-w-xl mx-auto leading-relaxed">
-                Simulasi gratis untuk mengenal cara kerja DaPay. Aktivasi menggunakan akun DaPay dan saldo virtual Sandbox.
+                {t("sandbox.bottomSubtitle")}
               </p>
 
               <div className="mt-6 sm:mt-8 flex justify-center">
@@ -775,7 +801,7 @@ export default function PublicSandboxPage() {
                     <Loader2 size={16} className="animate-spin text-slate-950" />
                   ) : (
                     <>
-                      <span>Mulai Simulasi Gratis</span>
+                      <span>{t("sandbox.bottomCta")}</span>
                       <ArrowRight size={16} />
                     </>
                   )}
@@ -783,7 +809,7 @@ export default function PublicSandboxPage() {
               </div>
 
               <p className="mt-4 text-[11px] text-slate-400">
-                Membutuhkan akun terdaftar dengan email terverifikasi. Bukan untuk akun Admin/Manager.
+                {t("sandbox.bottomDisclaimer")}
               </p>
             </div>
           </div>

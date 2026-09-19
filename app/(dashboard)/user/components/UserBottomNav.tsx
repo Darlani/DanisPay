@@ -7,6 +7,7 @@ import {
   ShoppingBag,
   CreditCard,
   Users,
+  History,
 } from "lucide-react";
 
 type BottomNavItem = {
@@ -15,12 +16,13 @@ type BottomNavItem = {
     | "orders"
     | "wallet"
     | "deposit"
+    | "catalog"
     | "affiliate";
   icon: typeof LayoutDashboard;
   label: string;
 };
 
-const items: BottomNavItem[] = [
+const LIVE_ITEMS: BottomNavItem[] = [
   {
     key: "overview",
     icon: LayoutDashboard,
@@ -48,19 +50,46 @@ const items: BottomNavItem[] = [
   },
 ];
 
+const SANDBOX_ITEMS: BottomNavItem[] = [
+  {
+    key: "overview",
+    icon: LayoutDashboard,
+    label: "Home",
+  },
+  {
+    key: "catalog",
+    icon: ShoppingBag,
+    label: "Katalog",
+  },
+  {
+    key: "orders",
+    icon: History,
+    label: "Simulasi",
+  },
+  {
+    key: "wallet",
+    icon: Wallet,
+    label: "Saldo",
+  },
+];
+
 type UserBottomNavProps = {
   active?: string;
+  isSandboxMode?: boolean;
 };
 
 export default function UserBottomNav({
   active = "overview",
+  isSandboxMode = false,
 }: UserBottomNavProps) {
+  const navItems = isSandboxMode ? SANDBOX_ITEMS : LIVE_ITEMS;
+
   return (
     <nav
       className="fixed bottom-2.5 xs:bottom-3 left-2.5 xs:left-3 right-2.5 xs:right-3 z-50 flex rounded-2xl xs:rounded-3xl border border-slate-200/90 bg-white/95 p-1.5 xs:p-2 shadow-[0_12px_32px_rgba(15,23,42,0.14)] backdrop-blur-md md:hidden sm:left-4 sm:right-4"
       aria-label="Navigasi member"
     >
-      {items.map((item) => {
+      {navItems.map((item) => {
         const Icon = item.icon;
         const selected =
           item.key === active;

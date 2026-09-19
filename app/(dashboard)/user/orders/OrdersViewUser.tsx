@@ -96,6 +96,7 @@ interface OrdersViewUserProps {
   isSidebarExpanded?: boolean;
   onRefresh?: () => void | Promise<void>;
   isSandboxMode?: boolean;
+  isWorkspaceResolved?: boolean;
 }
 
 export default function OrdersViewUser({
@@ -103,21 +104,25 @@ export default function OrdersViewUser({
   isSidebarExpanded = false,
   onRefresh,
   isSandboxMode = false,
+  isWorkspaceResolved = true,
 }: OrdersViewUserProps) {
   void onRefresh;
-  const hasInitialData = !isSandboxMode && Boolean(initialOrders && initialOrders.length > 0);
+  const hasInitialData =
+    isWorkspaceResolved &&
+    !isSandboxMode &&
+    Boolean(initialOrders && initialOrders.length > 0);
 
   const [orders, setOrders] = useState<Order[]>(() =>
     hasInitialData ? (initialOrders as Order[]) : [],
   );
   const [summary, setSummary] = useState<OrdersSummary>(() =>
-    computeInitialSummary(initialOrders),
+    hasInitialData ? computeInitialSummary(initialOrders) : INITIAL_SUMMARY,
   );
   const [pagination, setPagination] = useState<OrdersPaginationType>(() => ({
     page: 1,
     limit: 10,
-    total: initialOrders?.length || 0,
-    totalPages: Math.max(1, Math.ceil((initialOrders?.length || 0) / 10)),
+    total: hasInitialData ? initialOrders?.length || 0 : 0,
+    totalPages: Math.max(1, Math.ceil((hasInitialData ? initialOrders?.length || 0 : 0) / 10)),
   }));
   const [categories, setCategories] = useState<string[]>(() => {
     if (!hasInitialData) return [];
@@ -145,7 +150,9 @@ export default function OrdersViewUser({
 
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  const isFirstMountRef = useRef(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef<number>(0);
+  const prevModeRef = useRef(isSandboxMode);
 
   // Show floating toast notification
   const showToast = useCallback((message: string) => {
@@ -168,27 +175,62 @@ export default function OrdersViewUser({
     [showToast],
   );
 
-  // SWR: Synchronize when parent passes updated orders
+  // Cleanup on unmount
   useEffect(() => {
-    if (!isSandboxMode && initialOrders && initialOrders.length > 0) {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
+
+  // SWR: Synchronize when parent passes updated orders (only for LIVE when workspace is resolved)
+  useEffect(() => {
+    if (isWorkspaceResolved && !isSandboxMode && initialOrders && initialOrders.length > 0) {
       setOrders(initialOrders as Order[]);
       setSummary(computeInitialSummary(initialOrders));
     }
-  }, [initialOrders, isSandboxMode]);
+  }, [initialOrders, isSandboxMode, isWorkspaceResolved]);
 
   // ================================================================== //
-  // FETCH USER ORDERS (GET /api/user/orders)                            //
+  // FETCH USER ORDERS (GET /api/user/orders or /api/tester/orders)     //
   // ================================================================== //
   const fetchOrders = useCallback(
-    async (currentFilters: OrderFilters, isManual = false) => {
+    async (
+      currentFilters: OrderFilters,
+      isManual = false,
+      customController?: AbortController,
+    ) => {
+      if (!isWorkspaceResolved) {
+        return;
+      }
+
+      // Abort previous in-flight request if customController is not provided or different
+      if (abortControllerRef.current && abortControllerRef.current !== customController) {
+        abortControllerRef.current.abort();
+      }
+      const controller = customController || new AbortController();
+      abortControllerRef.current = controller;
+
+      const currentRequestId = ++requestIdRef.current;
+      const requestMode = isSandboxMode;
+
       if (isManual) {
         setRefreshing(true);
+      } else {
+        setLoading(true);
       }
 
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
+
+        if (controller.signal.aborted || currentRequestId !== requestIdRef.current) {
+          return;
+        }
 
         if (!session?.access_token) {
           window.location.href = "/login";
@@ -211,21 +253,26 @@ export default function OrdersViewUser({
           params.set("date", currentFilters.date);
         }
 
-        const endpoint = isSandboxMode ? "/api/tester/orders" : "/api/user/orders";
+        const endpoint = requestMode ? "/api/tester/orders" : "/api/user/orders";
         const response = await fetch(`${endpoint}?${params.toString()}`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
           credentials: "include",
+          signal: controller.signal,
         });
+
+        if (controller.signal.aborted || currentRequestId !== requestIdRef.current || requestMode !== isSandboxMode) {
+          return;
+        }
 
         if (response.status === 401) {
           window.location.href = "/login";
           return;
         }
 
-        if (response.status === 403 && isSandboxMode) {
+        if (response.status === 403 && requestMode) {
           if (typeof window !== "undefined") {
             try {
               sessionStorage.removeItem("dapay_tester_session_cache");
@@ -236,10 +283,15 @@ export default function OrdersViewUser({
           }
           setOrders([]);
           setSummary(INITIAL_SUMMARY);
+          setPagination(INITIAL_PAGINATION);
           return;
         }
 
         const result = (await response.json()) as OrdersApiResponse;
+
+        if (controller.signal.aborted || currentRequestId !== requestIdRef.current || requestMode !== isSandboxMode) {
+          return;
+        }
 
         if (!response.ok || !result.success || !result.data) {
           throw new Error(result.error || "Gagal memuat data transaksi.");
@@ -251,40 +303,74 @@ export default function OrdersViewUser({
         if (result.data.categories?.length) {
           setCategories(result.data.categories);
         }
-      } catch (error) {
+      } catch (error: unknown) {
+        if (
+          controller.signal.aborted ||
+          (error instanceof DOMException && error.name === "AbortError") ||
+          (error instanceof Error && error.name === "AbortError")
+        ) {
+          // Request was aborted cleanly, ignore
+          return;
+        }
+
+        if (currentRequestId !== requestIdRef.current || requestMode !== isSandboxMode) {
+          return;
+        }
+
         console.error("OrdersViewUser fetch error:", error);
+        // Error isolation: Never fallback to the other mode's data
+        setOrders([]);
+        setSummary(INITIAL_SUMMARY);
+        setPagination(INITIAL_PAGINATION);
+
         if (isManual) {
           showToast(
             error instanceof Error ? error.message : "Terjadi kesalahan saat memuat data.",
           );
         }
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (
+          !controller.signal.aborted &&
+          currentRequestId === requestIdRef.current &&
+          requestMode === isSandboxMode
+        ) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
-    [showToast, isSandboxMode],
+    [showToast, isSandboxMode, isWorkspaceResolved],
   );
 
-  // Initial load (SWR background sync only if memory is empty or sandbox mode)
+  // Data fetch effect: executes on mount, workspace resolution, or mode change
   useEffect(() => {
-    if (isFirstMountRef.current) {
-      isFirstMountRef.current = false;
-      if (!initialOrders || initialOrders.length === 0 || isSandboxMode) {
-        void fetchOrders(filters, false);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // When mode switches between LIVE and Sandbox, reset and refetch
-  useEffect(() => {
-    if (!isFirstMountRef.current) {
+    if (!isWorkspaceResolved) {
       setLoading(true);
-      void fetchOrders(filters, false);
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSandboxMode]);
+
+    const isModeSwitch = prevModeRef.current !== isSandboxMode;
+    if (isModeSwitch) {
+      prevModeRef.current = isSandboxMode;
+      // Hard purge previous mode state on mode toggle
+      setOrders([]);
+      setSummary(INITIAL_SUMMARY);
+      setPagination(INITIAL_PAGINATION);
+      setLoading(true);
+    }
+
+    // In LIVE mode, if initialOrders is provided by parent and this is not a mode switch, skip initial fetch
+    if (!isModeSwitch && hasInitialData) {
+      return;
+    }
+
+    const controller = new AbortController();
+    void fetchOrders(filters, false, controller);
+
+    return () => {
+      controller.abort();
+    };
+  }, [isWorkspaceResolved, isSandboxMode, hasInitialData, fetchOrders, filters]);
 
   // Handle filter changes (with debounce for search)
   const handleFilterChange = (updates: Partial<OrderFilters>) => {
@@ -368,7 +454,7 @@ export default function OrdersViewUser({
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => fetchOrders(filters, false)}
+              onClick={() => fetchOrders(filters, true)}
               disabled={refreshing}
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-slate-50/80 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer shadow-2xs"
               title="Refresh Data Transaksi"

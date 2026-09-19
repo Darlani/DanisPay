@@ -49,6 +49,8 @@ type MenuItem = {
   label: string;
   icon: typeof LayoutDashboard;
   subItems?: SubMenuItem[];
+  disabledInSandbox?: boolean;
+  badge?: string;
 };
 
 type MenuGroup = {
@@ -218,6 +220,32 @@ export default function UserSidebar({
             icon: ShoppingBag,
           });
         }
+        return { ...group, items };
+      }
+      if (group.label === "Balance") {
+        const items = group.items.map((item) => {
+          if (isSandboxMode && (item.id === "deposit" || item.id === "withdraw")) {
+            return {
+              ...item,
+              disabledInSandbox: true,
+              badge: "LIVE",
+            };
+          }
+          return item;
+        });
+        return { ...group, items };
+      }
+      if (group.label === "Referral") {
+        const items = group.items.map((item) => {
+          if (isSandboxMode && item.id === "affiliate") {
+            return {
+              ...item,
+              disabledInSandbox: true,
+              badge: "LIVE",
+            };
+          }
+          return item;
+        });
         return { ...group, items };
       }
       return group;
@@ -459,6 +487,37 @@ export default function UserSidebar({
                             </div>
                           )}
                         </button>
+                      ) : item.disabledInSandbox ? (
+                        <div
+                          title={`${item.label} hanya tersedia di Mode LIVE`}
+                          aria-disabled="true"
+                          className={[
+                            "group flex w-full items-center rounded-lg md:rounded-xl text-left cursor-not-allowed opacity-40 select-none",
+                            isOpen
+                              ? "gap-2 md:gap-3 px-2 py-1.5 md:px-3 md:py-2.5"
+                              : "justify-center px-2 py-3",
+                            "border border-transparent text-slate-400 bg-slate-50/40",
+                          ].join(" ")}
+                        >
+                          <Icon
+                            size={16}
+                            strokeWidth={1.8}
+                            className="shrink-0 text-slate-400 md:h-4.5 md:w-4.5"
+                          />
+
+                          {isOpen && (
+                            <div className="flex flex-1 items-center justify-between min-w-0">
+                              <span className="truncate text-[11px] md:text-[12px] font-medium text-slate-400">
+                                {item.label}
+                              </span>
+                              {item.badge && (
+                                <span className="inline-flex items-center rounded-md bg-slate-200/80 px-1.5 py-0.5 text-[8.5px] font-bold text-slate-500 uppercase tracking-wider">
+                                  {item.badge}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <Link
                           href={item.id === "overview" ? "/user" : `/user?tab=${item.id}`}
@@ -561,7 +620,7 @@ export default function UserSidebar({
           {isOpen ? (
             <>
               {/* UPGRADE */}
-              {memberType !== "Special" && memberType !== "Gold" && (
+              {memberType !== "Special" && memberType !== "Gold" && !isSandboxMode && (
                 <button
                   type="button"
                   onClick={() =>
@@ -626,12 +685,11 @@ export default function UserSidebar({
             </>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              <div className="mb-1">
-                <SandboxSessionControl variant="navbar" />
-                <SandboxAccessActions />
+              <div className="mb-1 flex justify-center w-full">
+                <SandboxSessionControl variant="rail" />
               </div>
 
-              {memberType !== "Special" && memberType !== "Gold" && (
+              {memberType !== "Special" && memberType !== "Gold" && !isSandboxMode && (
                 <button
                   type="button"
                   onClick={() =>
