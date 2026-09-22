@@ -47,8 +47,11 @@ next-env.d.ts
 /prisma/dev.db-journal
 /dev.db
 
-# Supabase files
-supabase/
+# Supabase CLI local workspace
+.supabase/
+supabase/.branches/
+supabase/.temp/
+supabase/.cache/
 
 # Repomix output
 repomix-output.xml
@@ -71,7 +74,6 @@ repomix-output.txt
 /gas.bat
 /cp.bat
 
-# Supabase CLI local metadata
-/.supabase/
+
 # Local snapshot backups
 2026-*/
