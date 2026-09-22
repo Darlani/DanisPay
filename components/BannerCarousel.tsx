@@ -83,11 +83,11 @@ const fetchBanners = async () => {
 // --- LOADING STATE: LOGO BRANDING (DIPERBESAR) ---
   if (banners.length === 0) {
     return (
-      <section className="max-w-7xl mx-auto px-6 py-10">
-        <div className="aspect-3/2 md:aspect-21/9 w-full flex flex-col items-center justify-center rounded-[40px] border border-white/5 bg-[#0B0E14]/50">
+      <section className="w-full max-w-full overflow-hidden py-4 md:py-6">
+        <div className="aspect-3/2 md:aspect-auto md:h-[270px] max-w-[625px] mx-auto w-full flex flex-col items-center justify-center rounded-[24px] md:rounded-[40px] border border-white/5 bg-[#0B0E14]/50">
            
            {/* Container Logo: Ukuran ditingkatkan ke w-64 md:w-96 */}
-           <div className="relative w-64 h-32 md:w-96 md:h-48 animate-pulse">
+           <div className="relative w-48 h-24 md:w-72 md:h-36 animate-pulse">
              <Image
                src="/images/logo-danish.png"
                alt="Loading DanisPay"
@@ -98,7 +98,7 @@ const fetchBanners = async () => {
              />
            </div>
 
-           <p className="mt-8 text-slate-500 text-[10px] md:text-xs font-black uppercase tracking-[0.4em] animate-pulse">
+           <p className="mt-4 md:mt-6 text-slate-500 text-[10px] md:text-xs font-black uppercase tracking-[0.4em] animate-pulse">
              Secure Transaction by DanisPay
            </p>
         </div>
@@ -108,7 +108,7 @@ const fetchBanners = async () => {
 
   // --- RENDER UTAMA ---
   return (
-    <section className="max-w-7xl mx-auto px-6 py-10 overflow-hidden">
+    <section className="w-full max-w-full overflow-hidden pt-2 pb-0.5 md:pt-3 md:pb-1">
       <style jsx global>{`
         .embla__container { display: flex; }
         .slide-inner-container { 
@@ -121,9 +121,31 @@ const fetchBanners = async () => {
         @keyframes shimmer {
           100% { transform: translateX(100%); }
         }
+
+        /* Banner Transforms */
+        .banner-slide-active {
+          transform: scale(1.05);
+          opacity: 1;
+        }
+        .banner-slide-prev {
+          transform: scale(0.85) translateX(80%);
+          opacity: 0.6;
+        }
+        .banner-slide-next {
+          transform: scale(0.85) translateX(-80%);
+          opacity: 0.6;
+        }
+        @media (min-width: 768px) {
+          .banner-slide-prev {
+            transform: translateX(calc(1.425 * 100% - 50vw)) scale(0.85);
+          }
+          .banner-slide-next {
+            transform: translateX(calc(-1.425 * 100% + 50vw)) scale(0.85);
+          }
+        }
       `}</style>
 
-      <div className="relative group/main flex flex-col items-center">
+      <div className="relative group/main flex flex-col items-center w-full">
         <div className="overflow-visible w-full" ref={emblaRef}>
           <div className="embla__container">
             {banners.map((banner, index) => { 
@@ -142,18 +164,18 @@ const fetchBanners = async () => {
               const isLinkActive = Boolean(targetHref);
               
               // Bungkus style dan class biar nggak ditulis dua kali
-              const wrapperClasses = `slide-inner-container block h-full w-full ${isActive ? (isLinkActive ? 'cursor-pointer' : 'cursor-default opacity-80') : 'cursor-default pointer-events-none'}`;
-              const wrapperStyle = {
-                transform: isActive 
-                  ? 'scale(1.05)' 
-                  : diff < 0 ? 'scale(0.85) translateX(80%)' : 'scale(0.85) translateX(-80%)',
-                opacity: isActive ? 1 : 0.6,
-              };
+              const slideTransformClass = isActive
+                ? 'banner-slide-active'
+                : diff < 0
+                  ? 'banner-slide-prev'
+                  : 'banner-slide-next';
+
+              const wrapperClasses = `slide-inner-container ${slideTransformClass} block h-full w-full ${isActive ? (isLinkActive ? 'cursor-pointer' : 'cursor-default opacity-80') : 'cursor-default pointer-events-none'}`;
 
               // Isi Visual Banner (Biar gak ketik ulang)
               const InnerBannerContent = (
                 <div className={`
-                  zoom-layer relative aspect-3/2 md:aspect-21/9 w-full rounded-[30px] md:rounded-[50px] overflow-hidden transition-transform duration-500
+                  zoom-layer relative aspect-3/2 md:aspect-auto md:h-[270px] w-full rounded-[24px] md:rounded-[40px] overflow-hidden transition-transform duration-500
                   ${isActive ? 'shadow-[0_40px_80px_-15px_rgba(0,0,0,0.8)] ring-2 ring-white/10' : 'shadow-none blur-[1px]'}
                 `}>
               <Image
@@ -161,10 +183,10 @@ const fetchBanners = async () => {
                 alt={banner.alt || "Banner"}
                 fill
                 // unoptimized dihapus biar Next.js yang kompres gambarnya
-                className="object-cover" 
+                className="object-cover"
                 priority={isActive || index === initialIndex}
                 // loading jangan pake "eager" kalau sudah pake priority, biar nggak bentrok
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px" 
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 60vw, 960px"
               />
                     
       {/* Badge cuma muncul kalau kolom promo ADA isinya dan BUKAN bertuliskan "EMPTY" */}
@@ -184,7 +206,7 @@ const fetchBanners = async () => {
 
               return (
                 <div 
-                  className={`flex-[0_0_90%] md:flex-[0_0_80%] min-w-0 relative ${isActive ? 'banner-wrapper' : ''}`}
+                  className={`flex-[0_0_90%] md:flex-[0_0_50%] min-w-0 relative ${isActive ? 'banner-wrapper' : ''}`}
                   key={banner.id}
                   style={{ zIndex: isActive ? 30 : 10 }}
                 >
@@ -193,12 +215,11 @@ const fetchBanners = async () => {
                     <Link
                       href={targetHref.startsWith("/") ? localizeHref(targetHref, locale) : targetHref}
                       className={wrapperClasses}
-                      style={wrapperStyle}
                     >
                       {InnerBannerContent}
                     </Link>
                   ) : (
-                    <div className={wrapperClasses} style={wrapperStyle}>
+                    <div className={wrapperClasses}>
                       {InnerBannerContent}
                     </div>
                   )}
@@ -218,7 +239,7 @@ const fetchBanners = async () => {
       </div>
 
       {/* Dots */}
-      <div className="flex justify-center items-center gap-3 mt-10 w-full">
+      <div className="flex justify-center items-center gap-2 mt-2 md:mt-2.5 w-full">
         {banners.map((_, index) => (
           <button
             key={index}

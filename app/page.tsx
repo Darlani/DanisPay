@@ -57,7 +57,7 @@ import { getWhatsAppUrl } from "@/utils/storeConfig";
 
 // --- KOMPONEN BARU: BANNER PENDING DENGAN TIMER REALTIME & AUTO-SYNC ---
 function PendingPaymentBanner({ order, router, onResolved }: { order: any, router: any, onResolved: (status: string) => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [timeLeft, setTimeLeft] = useState("");
   const [isExpired, setIsExpired] = useState(false);
   const [isResolved, setIsResolved] = useState(false);
@@ -142,37 +142,33 @@ function PendingPaymentBanner({ order, router, onResolved }: { order: any, route
   if (isExpired || isResolved) return null;
 
   return (
-    <section className="max-w-7xl mx-auto px-4 md:px-12 mt-6 relative z-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-linear-to-r from-amber-500/10 to-orange-500/5 border border-amber-500/30 rounded-2xl p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-5 shadow-lg shadow-amber-500/5 backdrop-blur-md">
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="bg-amber-500/20 p-3 rounded-full shrink-0 relative">
-            <div className="absolute inset-0 bg-amber-500/40 rounded-full animate-ping"></div>
-            <Clock className="w-6 h-6 text-amber-400 relative z-10" />
-          </div>
-          <div>
-            <h3 className="text-amber-400 font-black text-sm md:text-lg uppercase tracking-wide">{t("checkout.waitingPayment")}</h3>
-            <p className="text-slate-300 text-[11px] md:text-sm mt-0.5">
-              Selesaikan transaksi <span className="font-bold text-white uppercase">{order.product_name}</span> Anda.
-            </p>
-          </div>
+    <div className="fixed top-18 md:top-20 right-4 sm:right-6 z-50 animate-in fade-in slide-in-from-top-3 duration-300 max-w-[340px] sm:max-w-sm select-none">
+      <div className="backdrop-blur-2xl bg-slate-900/95 border border-amber-500/40 rounded-2xl p-2.5 sm:p-3 shadow-2xl shadow-black/80 flex items-center gap-3">
+        <div className="relative p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+          <div className="absolute inset-0 bg-amber-500/30 rounded-xl animate-ping" />
+          <Clock className="w-4 h-4 relative z-10" />
         </div>
-
-        <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-6 bg-slate-900/60 p-3 rounded-xl border border-white/5 shadow-inner">
-          <div className="flex flex-col items-center min-w-17.5">
-            <span className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">{t("checkout.completeWithin")}</span>
-            <span className="text-amber-400 font-black text-lg md:text-xl tracking-wider font-mono">
-              {timeLeft || "00:00:00"}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-amber-400 text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
+              {t("checkout.waitingPayment")}
+            </span>
+            <span className="text-amber-300/80 font-mono font-bold text-[10px]">
+              • {timeLeft || "00:00:00"}
             </span>
           </div>
-          <button
-            onClick={() => router.push(`/checkout/pay/${order.order_id}`)}
-            className="bg-amber-500 hover:bg-amber-400 text-slate-900 font-black py-2.5 px-5 md:px-6 rounded-lg text-xs md:text-sm transition-all active:scale-95 whitespace-nowrap shadow-md shadow-amber-500/20"
-          >
-            {t("home.payNow")}
-          </button>
+          <p className="text-white text-xs font-semibold truncate mt-0.5">
+            {order.product_name}
+          </p>
         </div>
+        <button
+          onClick={() => router.push(locale === "en" ? `/en/checkout/pay/${order.order_id}` : `/checkout/pay/${order.order_id}`)}
+          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] sm:text-xs px-3 py-1.5 rounded-lg shrink-0 transition-all active:scale-95 shadow-md shadow-amber-500/20 cursor-pointer"
+        >
+          {t("home.payNow")}
+        </button>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -371,6 +367,9 @@ export default function Home() {
     return 'text-rose-400';
   };
 
+  const popularSection = catalogSections.find((sec) => sec.category === 'popular');
+  const otherSections = catalogSections.filter((sec) => sec.category !== 'popular');
+
   return (
     <main className="min-h-screen bg-[#0f172a]">
       <BannerCarousel />
@@ -398,19 +397,19 @@ export default function Home() {
         />
       )}
 
-{/* --- FITUR QUICK RE-ORDER (COMPACT & PROPORTIONAL) --- */}
+      {/* --- FITUR QUICK RE-ORDER (BELI LAGI YUK) - DI ATAS POPULER SEKARANG (MINI CARD) --- */}
       {recentOrders.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 md:px-12 mb-6 mt-4 relative z-20">
-          <div className="mb-3">
-            <h2 className="text-white font-bold text-base sm:text-xl flex items-center gap-1.5">
-              {t("home.buyAgainTitle")} <span className="text-base sm:text-xl">👇</span>
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 mb-1 mt-0.5 sm:mt-1 relative z-20">
+          <div className="mb-1.5 flex items-center justify-between">
+            <h2 className="text-white font-bold text-xs sm:text-sm flex items-center gap-1.5">
+              {t("home.buyAgainTitle")} <span className="text-xs sm:text-sm">👇</span>
             </h2>
           </div>
 
-          <div className="flex gap-2.5 overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory">
-{recentOrders.map((order) => {
+          <div className="flex gap-2 overflow-x-auto pb-1.5 pt-0.5 custom-scrollbar snap-x snap-mandatory">
+            {recentOrders.map((order) => {
               // Logika Mapping Berdasarkan Kolom Category [cite: 2026-02-11]
-          const getSlug = (order: any) => {
+              const getSlug = (order: any) => {
                 // 0. Ambil kategori & nama produk dalam huruf kecil agar tidak sensitif huruf besar/kecil [cite: 2026-02-11]
                 const cat = order.category?.toLowerCase() || "";
                 const name = order.product_name?.toLowerCase() || "";
@@ -446,14 +445,14 @@ export default function Home() {
 
               const slug = getSlug(order);
 
-              // 1. SMART DETECTOR LOGO KATEGORI (UKURAN ICON JADI SIZE 14)
+              // 1. SMART DETECTOR LOGO KATEGORI (UKURAN ICON LEBIH COMPACT SIZE 12)
               const getCategoryIcon = (name: string) => {
                 const lowerName = name.toLowerCase();
-                if (lowerName.includes('pln') || lowerName.includes('listrik')) return <Zap size={14} className="text-yellow-400" />;
-                if (lowerName.includes('pulsa') || lowerName.includes('telkomsel') || lowerName.includes('indosat') || lowerName.includes('xl') || lowerName.includes('axis') || lowerName.includes('tri') || lowerName.includes('smartfren')) return <Smartphone size={14} className="text-blue-400" />;
-                if (lowerName.includes('data') || lowerName.includes('wifi') || lowerName.includes('internet')) return <Wifi size={14} className="text-emerald-400" />;
-                if (lowerName.includes('netflix') || lowerName.includes('spotify') || lowerName.includes('youtube')) return <MonitorPlay size={14} className="text-rose-400" />;
-                return <Gamepad2 size={14} className="text-purple-400" />;
+                if (lowerName.includes('pln') || lowerName.includes('listrik')) return <Zap size={12} className="text-yellow-400" />;
+                if (lowerName.includes('pulsa') || lowerName.includes('telkomsel') || lowerName.includes('indosat') || lowerName.includes('xl') || lowerName.includes('axis') || lowerName.includes('tri') || lowerName.includes('smartfren')) return <Smartphone size={12} className="text-blue-400" />;
+                if (lowerName.includes('data') || lowerName.includes('wifi') || lowerName.includes('internet')) return <Wifi size={12} className="text-emerald-400" />;
+                if (lowerName.includes('netflix') || lowerName.includes('spotify') || lowerName.includes('youtube')) return <MonitorPlay size={12} className="text-rose-400" />;
+                return <Gamepad2 size={12} className="text-purple-400" />;
               };
 
               const getPaymentLogo = (method: string) => {
@@ -476,45 +475,45 @@ export default function Home() {
               return (
                 <div
                   key={order.id}
-                  // UPDATE LEBAR: Dipangkas drastis ke w-[165px] di HP agar seimbang dengan grid produk
-                  className="group shrink-0 w-41.25 sm:w-55 bg-[#1e293b]/90 backdrop-blur-md border border-slate-700 p-2.5 rounded-2xl text-left hover:border-blue-500 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] transition-all snap-start flex flex-col justify-between"
+                  // KARTU MINI DIPERKECIL: w-36 sm:w-44 p-2 rounded-xl
+                  className="group shrink-0 w-36 sm:w-44 bg-[#1e293b]/90 backdrop-blur-md border border-slate-700/80 p-2 rounded-xl text-left hover:border-blue-500 hover:shadow-[0_0_12px_rgba(59,130,246,0.25)] transition-all snap-start flex flex-col justify-between"
                 >
                   {/* Bagian Atas: Logo & Info Produk */}
-                  <div className="flex gap-2 items-center mb-2">
+                  <div className="flex gap-1.5 items-center mb-1.5">
                     {/* Kotak Logo Diperkecil */}
-                    <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700 shadow-inner">
+                    <div className="w-6 h-6 rounded-md bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700/80 shadow-inner">
                       {getCategoryIcon(order.product_name)}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-slate-300 font-medium text-[9px] sm:text-[11px] truncate">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-slate-300 font-medium text-[9px] sm:text-[10px] truncate leading-tight">
                         {order.product_name}
                       </p>
-                      <p className="text-white font-bold text-[11px] sm:text-sm leading-none mt-0.5">
+                      <p className="text-white font-bold text-[10px] sm:text-xs leading-none mt-0.5">
                         Rp {(order.total_amount || 0).toLocaleString('id-ID')}
                       </p>
                     </div>
                   </div>
 
                   {/* Bagian Bawah: Payment & Tombol */}
-                  <div className="flex items-end justify-between mt-1 pt-1.5 border-t border-slate-700">
+                  <div className="flex items-end justify-between mt-0.5 pt-1 border-t border-slate-700/60">
                     <div className="flex flex-col justify-center">
-                      <div className="h-3 flex items-center mb-0.5">
+                      <div className="h-2.5 flex items-center mb-0.5">
                         {payLogo ? (
-                          <img src={payLogo} alt={order.payment_method} className="h-2.5 object-contain opacity-90" />
+                          <img src={payLogo} alt={order.payment_method} className="h-2 sm:h-2.5 object-contain opacity-90" />
                         ) : (
-                          <div className="bg-blue-600 text-white text-[7px] px-1 py-0.5 rounded font-bold uppercase">
+                          <div className="bg-blue-600 text-white text-[6.5px] px-1 py-0.2 rounded font-bold uppercase">
                             {order.payment_method || 'PAY'}
                           </div>
                         )}
                       </div>
-                      <p className="text-[7px] text-slate-500 italic leading-none">
+                      <p className="text-[6.5px] sm:text-[7px] text-slate-500 italic leading-none">
                         *harga terakhir
                       </p>
                     </div>
 
                     <button
                       onClick={() => router.push(locale === "en" ? `/en/${slug}` : `/${slug}`)}
-                      className="bg-blue-600 hover:bg-blue-500 text-white text-[8px] sm:text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md active:scale-95 transition-all"
+                      className="bg-blue-600 hover:bg-blue-500 text-white text-[7.5px] sm:text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs active:scale-95 transition-all"
                     >
                       {t("home.buyAgainButton")}
                     </button>
@@ -526,11 +525,27 @@ export default function Home() {
         </section>
       )}
 
-      {/* --- PRODUCT SECTIONS (DYNAMIC CONSOLIDATED CATALOG) --- */}
-      {catalogLoading ? (
-        <ProductSection title={t("home.loadingCatalog")} category="popular" id="popular" brands={[]} isLoading={true} />
-      ) : (
-        catalogSections.map((sec) => (
+      {/* --- SEKSI 1: POPULER SEKARANG (COMPACT APP-ICONS) --- */}
+      <div className={recentOrders.length > 0 ? "mt-0.5 sm:mt-1" : ""}>
+        {catalogLoading ? (
+          <ProductSection title={t("home.loadingCatalog")} category="popular" id="popular" brands={[]} isLoading={true} />
+        ) : (
+          popularSection && (
+            <ProductSection
+              key={popularSection.id}
+              title={popularSection.title}
+              category={popularSection.category}
+              id={popularSection.id}
+              brands={popularSection.brands}
+              isLoading={false}
+            />
+          )
+        )}
+      </div>
+
+      {/* --- SEKSI KATALOG PRODUK LAINNYA --- */}
+      {!catalogLoading &&
+        otherSections.map((sec) => (
           <ProductSection
             key={sec.id}
             title={sec.title}
@@ -539,8 +554,7 @@ export default function Home() {
             brands={sec.brands}
             isLoading={false}
           />
-        ))
-      )}
+        ))}
 
       {/* Floating Support Button & Menu */}
       <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-40 flex flex-col items-end">

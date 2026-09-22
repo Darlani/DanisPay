@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { Flame, LayoutGrid } from 'lucide-react';
@@ -29,7 +29,8 @@ export default function ProductSection({
   isLoading = false
 }: ProductSectionProps) {
   const { t, locale } = useI18n();
-  const initialLimit = category === 'popular' ? 6 : 12;
+  const isPopular = category === 'popular';
+  const initialLimit = isPopular ? 8 : 12;
   const [limit, setLimit] = useState(initialLimit);
 
   // Sembunyikan section total jika tidak loading dan tidak ada produk
@@ -40,62 +41,118 @@ export default function ProductSection({
   const visibleProducts = brands.slice(0, limit);
 
   return (
-    // Ubah py-8 menjadi pt-8 pb-4 agar jarak ke kategori bawahnya tidak dobel/terlalu jauh
-    <section id={id} className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 pb-4" style={{ scrollMarginTop: '120px' }}>
-      <div className="flex items-center justify-between mb-6 text-white">
+    // Section Populer Sekarang dibuat lebih ke atas agar langsung terlihat di bawah banner
+    <section
+      id={id}
+      className={`max-w-7xl mx-auto px-4 sm:px-6 ${isPopular ? '-mt-3 sm:-mt-5 pt-0 pb-2 sm:pb-3' : 'pt-6 pb-4'}`}
+      style={{ scrollMarginTop: '120px' }}
+    >
+      <div className={`flex items-center justify-between text-white ${isPopular ? 'mb-2 sm:mb-2.5' : 'mb-4 sm:mb-5'}`}>
         <div className="flex items-center gap-2">
-          <div className={`${category === 'popular' ? 'bg-orange-500' : 'bg-blue-600'} p-1.5 rounded-lg`}>
-            {category === 'popular' ? <Flame size={20} fill="currentColor" /> : <LayoutGrid size={20} />}
+          <div className={`${isPopular ? 'bg-orange-500' : 'bg-blue-600'} p-1.5 rounded-lg`}>
+            {isPopular ? <Flame size={20} fill="currentColor" /> : <LayoutGrid size={20} />}
           </div>
-          <h3 className="text-lg font-bold flex items-center gap-2">
+          <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
             {title}
             {isLoading && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />}
           </h3>
         </div>
       </div>
 
-      {/* UPDATE: Pakai grid-cols-3 di HP dengan jarak (gap) yang lebih rapat */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
-        {isLoading ? (
-          [...Array(6)].map((_, i) => (
-            <div key={`skel-${i}`} className="aspect-3/4 bg-slate-800 rounded-xl animate-pulse border border-slate-700" />
-          ))
-        ) : (
-          visibleProducts.map((product, index) => (
-            <Link
-              key={product.id || product.slug}
-              // Pertahankan prefix locale aktif: /en/:slug atau /:slug
-              href={locale === "en" ? `/en/${product.slug}` : `/${product.slug}`}
-              className="group flex flex-col rounded-xl overflow-hidden border border-slate-700 hover:border-blue-500 transition-all duration-300 shadow-lg hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] bg-slate-900"
-            >
-              {/* Bagian Gambar (Atas) */}
-              <div className="relative aspect-square w-full overflow-hidden bg-slate-900">
-                {product.image_url ? (
-                  <Image
-                    src={product.image_url}
-                    alt={product.name}
-                    fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-500"
-                    sizes="(max-width: 768px) 33vw, 15vw"
-                    priority={category === 'popular' || index < 6}
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-slate-800 text-slate-500 font-bold text-3xl">
-                    {product.name?.charAt(0)}
-                  </div>
-                )}
+      {isPopular ? (
+        /* App-Icon Grid seperti Mockup Kiosgamer */
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 sm:gap-4 md:gap-5 justify-items-center items-start">
+          {isLoading ? (
+            [...Array(8)].map((_, i) => (
+              <div key={`skel-pop-${i}`} className="flex flex-col items-center gap-2 animate-pulse w-full max-w-[88px]">
+                <div className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-2xl md:rounded-[22px] bg-slate-800 border border-slate-700/60" />
+                <div className="w-14 h-3 bg-slate-800 rounded" />
               </div>
+            ))
+          ) : (
+            visibleProducts.map((product, index) => (
+              <Link
+                key={product.id || product.slug}
+                href={locale === "en" ? `/en/${product.slug}` : `/${product.slug}`}
+                className="group flex flex-col items-center text-center transition-transform duration-300 w-full max-w-[88px] sm:max-w-[100px]"
+              >
+                {/* App-Icon Squircle */}
+                <div className="relative w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-2xl md:rounded-[22px] overflow-hidden bg-slate-900 border border-slate-700/80 group-hover:border-blue-400 group-hover:shadow-[0_8px_25px_rgba(59,130,246,0.35)] group-hover:scale-105 transition-all duration-300">
+                  {product.image_url ? (
+                    <Image
+                      src={product.image_url}
+                      alt={product.name}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 64px, (max-width: 768px) 72px, 80px"
+                      priority={index < 8}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-800 text-slate-400 font-bold text-xl">
+                      {product.name?.charAt(0)}
+                    </div>
+                  )}
 
-              {/* Bagian Teks (Bawah) - Center & Background Berbeda */}
-              <div className="p-2.5 sm:p-3 flex-1 flex flex-col justify-center items-center text-center bg-slate-800 border-t border-slate-700">
-                <p className="text-[10px] sm:text-xs font-bold text-slate-100 line-clamp-2 leading-snug group-hover:text-blue-400 transition-colors">
+                  {/* Badge HOT untuk produk teratas (index 0) seperti di mockup */}
+                  {index === 0 && (
+                    <div className="absolute top-1 left-1 bg-rose-600 text-[8px] font-black text-white px-1.5 py-0.5 rounded-full shadow-md leading-none uppercase tracking-wider">
+                      HOT
+                    </div>
+                  )}
+                </div>
+
+                {/* Judul di Bawah Icon */}
+                <p className="mt-2 text-[11px] sm:text-xs font-semibold text-slate-200 group-hover:text-blue-400 transition-colors line-clamp-2 leading-tight">
                   {product.name}
                 </p>
-              </div>
-            </Link>
-          ))
-        )}
-      </div>
+              </Link>
+            ))
+          )}
+        </div>
+      ) : (
+        /* Regular Category Grid */
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
+          {isLoading ? (
+            [...Array(6)].map((_, i) => (
+              <div key={`skel-${i}`} className="aspect-3/4 bg-slate-800 rounded-xl animate-pulse border border-slate-700" />
+            ))
+          ) : (
+            visibleProducts.map((product, index) => (
+              <Link
+                key={product.id || product.slug}
+                // Pertahankan prefix locale aktif: /en/:slug atau /:slug
+                href={locale === "en" ? `/en/${product.slug}` : `/${product.slug}`}
+                className="group flex flex-col rounded-xl overflow-hidden border border-slate-700 hover:border-blue-500 transition-all duration-300 shadow-lg hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] bg-slate-900"
+              >
+                {/* Bagian Gambar (Atas) */}
+                <div className="relative aspect-square w-full overflow-hidden bg-slate-900">
+                  {product.image_url ? (
+                    <Image
+                      src={product.image_url}
+                      alt={product.name}
+                      fill
+                      className="object-cover group-hover:scale-110 transition-transform duration-500"
+                      sizes="(max-width: 768px) 33vw, 15vw"
+                      priority={index < 6}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-800 text-slate-500 font-bold text-3xl">
+                      {product.name?.charAt(0)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bagian Teks (Bawah) - Center & Background Berbeda */}
+                <div className="p-2.5 sm:p-3 flex-1 flex flex-col justify-center items-center text-center bg-slate-800 border-t border-slate-700">
+                  <p className="text-[10px] sm:text-xs font-bold text-slate-100 line-clamp-2 leading-snug group-hover:text-blue-400 transition-colors">
+                    {product.name}
+                  </p>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+      )}
 
       {!isLoading && brands.length > initialLimit && (
         // Turunkan margin top dari mt-10 ke mt-6 agar serasi
