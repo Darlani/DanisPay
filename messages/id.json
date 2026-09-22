@@ -91,7 +91,7 @@
   "footer": {
     "tagline": "Platform top up game dan produk digital terpercaya di Indonesia.",
     "allRightsReserved": "Hak cipta dilindungi undang-undang.",
-    "brandDescription": "Platform top up game tercepat, termurah, dan terpercaya di Indonesia. Otomatis masuk dalam hitungan detik 24/7.",
+    "brandDescription": "Platform ekosistem pembayaran dan transaksi produk digital terintegrasi di Indonesia. Layanan top up game, voucher, pulsa, dan tagihan PPOB otomatis 24 jam dengan sistem keamanan terenkripsi.",
     "sitemapTitle": "Peta Situs",
     "sandboxLink": "Sandbox DaPay",
     "checkTransaction": "Cek Transaksi",
@@ -103,8 +103,17 @@
     "paymentMethods": "Metode Pembayaran",
     "transactionSecurity": "Keamanan Transaksi",
     "securityDescription": "Kami bekerja sama dengan payment gateway berlisensi untuk menjamin keamanan dana Anda.",
-    "copyrightText": "© 2026 Danishtopup. Hak cipta dilindungi undang-undang. Dibuat dengan ❤️ oleh Arlan.",
-    "poweredBy": "Didukung oleh Next.js & Midtrans"
+    "copyrightText": "© 2026 DaPay. Hak cipta dilindungi undang-undang.",
+    "poweredBy": "Infrastruktur Transaksi Digital Aman & Terpercaya",
+    "ctaTitle": "Butuh Bantuan atau Ada Kendala?",
+    "ctaDesc": "Tim customer care DaPay siap melayani 24/7. Hubungi kami via WhatsApp atau pantau pesanan Anda secara langsung.",
+    "ctaChatWa": "Chat WhatsApp CS",
+    "ctaTrack": "Lacak Pesanan",
+    "systemOperational": "Semua Sistem Normal",
+    "uptime247": "Operasional 24/7",
+    "newsLink": "Berita & Pembaruan",
+    "promoLink": "Promo Terkini",
+    "communityChannel": "Kanal & Medsos"
   },
   "products": {
     "common": {

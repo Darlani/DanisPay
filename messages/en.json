@@ -91,7 +91,7 @@
   "footer": {
     "tagline": "Trusted game top-up and digital services platform in Indonesia.",
     "allRightsReserved": "All rights reserved.",
-    "brandDescription": "The fastest, most affordable, and trusted game top-up platform in Indonesia. Processed automatically in seconds 24/7.",
+    "brandDescription": "Indonesia's integrated digital payment and product transaction platform. Automated 24/7 game top-ups, vouchers, prepaid credit, and PPOB bill settlements backed by enterprise-grade encryption.",
     "sitemapTitle": "Site Map",
     "sandboxLink": "DaPay Sandbox",
     "checkTransaction": "Check Transaction",
@@ -103,8 +103,17 @@
     "paymentMethods": "Payment Methods",
     "transactionSecurity": "Transaction Security",
     "securityDescription": "We partner with licensed payment gateways to ensure the security of your funds.",
-    "copyrightText": "© 2026 Danishtopup. All rights reserved. Made with ❤️ by Arlan.",
-    "poweredBy": "Powered by Next.js & Midtrans"
+    "copyrightText": "© 2026 DaPay. All rights reserved.",
+    "poweredBy": "Secure & Reliable Digital Transaction Infrastructure",
+    "ctaTitle": "Need Help or Have Questions?",
+    "ctaDesc": "DaPay customer support is available 24/7. Reach us via WhatsApp or track your order status directly.",
+    "ctaChatWa": "Chat WhatsApp Support",
+    "ctaTrack": "Track Order",
+    "systemOperational": "All Systems Operational",
+    "uptime247": "24/7 Operational",
+    "newsLink": "News & Updates",
+    "promoLink": "Active Promos",
+    "communityChannel": "Official Channels"
   },
   "products": {
     "common": {
