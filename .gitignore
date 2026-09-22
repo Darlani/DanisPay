@@ -66,8 +66,7 @@ repomix-output.txt
 /scratch/
 /.agents/workflows/
 
-# Internal DaPay documentation
-*.md
+
 
 # Local scripts / experiments
 /scripts/

@@ -3,25 +3,26 @@
  * Lokasi: utils/storeConfig.ts
  */
 export const STORE_CONFIG = {
-  name: "Danish Top Up",
-  tagline: "Proses Instan & Terverifikasi Aman",
-  description: "Platform Top Up Game Tercepat dan Terpercaya di Indonesia",
-  logo: "/logo.png",
-  adminNumber: "6281391171712",
+  name: "DaPay",
+  tagline: "Proses Cepat & Terverifikasi Aman",
+  description: "Platform Ekosistem Pembayaran & Produk Digital Terintegrasi di Indonesia",
+  logo: "/images/DaPay.svg",
+  adminNumber: process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "6285545213952",
   isMaintenanceMode: false,
   currency: "IDR",
 
   commissionPerTransaction: 300, 
   
   paymentAccounts: {
-    'DANA': { name: 'Danish Store', number: '081391171712' },
-    'GOPAY': { name: 'Danish Store', number: '081391171712' },
-    'BCA VA': { name: 'Danish Store', number: '1234567890' },
+    'DANA': { name: 'DaPay Store', number: '085545213952' },
+    'GOPAY': { name: 'DaPay Store', number: '085545213952' },
+    'BCA VA': { name: 'DaPay Store', number: '1234567890' },
   },
 
   socials: {
-    instagram: "https://instagram.com/danishtopup",
-    tiktok: "https://tiktok.com/@danishtopup",
+    instagram: "https://instagram.com/dapay.official",
+    telegram: "https://t.me/dapay_official",
+    tiktok: "https://tiktok.com/@dapay.official",
   },
 
   metadata: {
@@ -85,4 +86,13 @@ export const STORE_CONFIG = {
       qr: null
     };
   }
+};
+
+/**
+ * Helper canonical untuk URL WhatsApp Customer Service
+ */
+export const getWhatsAppUrl = (customText?: string) => {
+  const number = STORE_CONFIG.adminNumber;
+  const text = customText ? encodeURIComponent(customText) : encodeURIComponent("Halo CS DaPay, saya butuh bantuan");
+  return `https://wa.me/${number}?text=${text}`;
 };

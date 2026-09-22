@@ -53,6 +53,7 @@ import MaintenancePage from "@/utils/MaintenancePage";
 import { Loader2, Settings, Clock, Zap, Smartphone, Gamepad2, Wifi, MonitorPlay, Headset, CheckCircle2, XCircle } from "lucide-react";
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import ContactModal from "@/components/ContactModal";
+import { getWhatsAppUrl } from "@/utils/storeConfig";
 
 // --- KOMPONEN BARU: BANNER PENDING DENGAN TIMER REALTIME & AUTO-SYNC ---
 function PendingPaymentBanner({ order, router, onResolved }: { order: any, router: any, onResolved: (status: string) => void }) {
@@ -541,45 +542,46 @@ export default function Home() {
         ))
       )}
 
-{/* Floating Support Button & Menu */}
-{/* Kita pakai bottom-[72px] biar pas nempel sejajar di atas menu bawah HP.
-          Kalau dirasa kurang turun/naik, bos tinggal ubah angka 72px itu (misal 65px atau 80px) */}
-      <div className="fixed bottom-18 md:bottom-6 right-4 md:right-6 z-40 flex flex-col items-end">
-{/* Menu Dropup (Ukurannya dikecilkan di HP, normal di Desktop) */}
+      {/* Floating Support Button & Menu */}
+      <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-40 flex flex-col items-end">
+        {/* Menu Dropup */}
         {isSupportMenuOpen && (
-          <div className="mb-2 w-36 md:w-48 bg-[#2d2438] border border-slate-700 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-slate-700">
+          <div className="mb-2 w-36 md:w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="px-3 md:px-4 py-2.5 md:py-3 border-b border-slate-800 bg-slate-950/60">
               <span className="text-white font-bold text-[11px] md:text-sm">{t("home.contactCs")}</span>
             </div>
             <div className="flex flex-col">
               <button
+                type="button"
                 onClick={() => {
-                  setIsSupportMenuOpen(false); // Tutup menu
-                  setIsModalOpen(true); // Buka modal
+                  setIsSupportMenuOpen(false);
+                  setIsModalOpen(true);
                 }}
-                className="px-3 md:px-4 py-2.5 md:py-3 text-left text-slate-200 hover:bg-slate-700 transition-colors text-[11px] md:text-sm border-b border-slate-700/50"
+                className="px-3 md:px-4 py-2.5 md:py-3 text-left text-slate-300 hover:text-white hover:bg-slate-800 transition-colors text-[11px] md:text-sm border-b border-slate-800"
               >
                 Email
               </button>
               <a
-                href="https://wa.me/6285545213952" // JANGAN LUPA GANTI NOMOR WA BOS DI SINI!
+                href={getWhatsAppUrl()}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 md:px-4 py-2.5 md:py-3 text-left text-slate-200 hover:bg-slate-700 transition-colors text-[11px] md:text-sm"
+                className="px-3 md:px-4 py-2.5 md:py-3 text-left text-slate-300 hover:text-emerald-400 hover:bg-slate-800 transition-colors text-[11px] md:text-sm"
               >
-                Whatsapp
+                WhatsApp
               </a>
             </div>
           </div>
         )}
 
-        {/* Tombol Utama (Padding dan Teks lebih compact di HP) */}
+        {/* Tombol Utama Harmonized DaPay */}
         <button
+          type="button"
           onClick={() => setIsSupportMenuOpen(!isSupportMenuOpen)}
-          className="flex items-center gap-1.5 md:gap-2 bg-[#5bc0de] hover:bg-[#46b8da] text-white px-3.5 py-2 md:px-5 md:py-3 rounded-lg md:rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 active:scale-95"
+          className="flex items-center gap-1.5 md:gap-2 bg-slate-900/95 hover:bg-slate-800 text-white border border-blue-500/40 px-3.5 py-2 md:px-4 md:py-2.5 rounded-xl shadow-xl shadow-black/40 transition-all duration-200 active:scale-95"
+          aria-label={t("home.contactCs")}
         >
-          <Headset className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="font-bold text-[10px] md:text-sm tracking-wide">{t("home.contactCs").toUpperCase()}</span>
+          <Headset className="w-4 h-4 md:w-5 md:h-5 text-blue-400" />
+          <span className="font-bold text-[10px] md:text-xs tracking-wider">{t("home.contactCs").toUpperCase()}</span>
         </button>
       </div>
 
