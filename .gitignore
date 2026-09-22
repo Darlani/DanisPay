@@ -47,8 +47,8 @@ next-env.d.ts
 /prisma/dev.db-journal
 /dev.db
 
-# Supabase temp files
-supabase/.temp/
+# Supabase files
+supabase/
 
 # Repomix output
 repomix-output.xml
