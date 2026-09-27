@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { WalletFilters } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface WalletFilterBarProps {
   filters: WalletFilters;
@@ -30,6 +31,7 @@ export default function WalletFilterBar({
   isSidebarExpanded = false,
   isSandboxMode = false,
 }: WalletFilterBarProps) {
+  const { t } = useI18n();
   const desktopDateInputRef = useRef<HTMLInputElement>(null);
   const mobileDateInputRef = useRef<HTMLInputElement>(null);
   const tabletDateInputRef = useRef<HTMLInputElement>(null);
@@ -112,7 +114,7 @@ export default function WalletFilterBar({
             }`}
           >
             <WalletCards size={13} />
-            <span>Semua</span>
+            <span>{t("dashboard.wallet.tabAll")}</span>
           </button>
           <button
             type="button"
@@ -124,7 +126,7 @@ export default function WalletFilterBar({
             }`}
           >
             <CircleDollarSign size={13} />
-            <span>{isSandboxMode ? "Saldo Virtual" : "Saldo"}</span>
+            <span>{isSandboxMode ? t("dashboard.wallet.tabVirtualBalance") : t("dashboard.wallet.tabBalance")}</span>
           </button>
           <button
             type="button"
@@ -136,7 +138,7 @@ export default function WalletFilterBar({
             }`}
           >
             <Coins size={13} />
-            <span>{isSandboxMode ? "Koin Sandbox" : "Koin"}</span>
+            <span>{isSandboxMode ? t("dashboard.wallet.tabSandboxCoin") : t("dashboard.wallet.tabCoin")}</span>
           </button>
         </div>
 
@@ -145,14 +147,14 @@ export default function WalletFilterBar({
           <select
             value={filters.type}
             onChange={(e) => onFilterChange({ type: e.target.value, page: 1 })}
-            aria-label="Filter Jenis Transaksi"
+            aria-label={t("dashboard.wallet.filterTypeAria")}
             className={`h-9 w-full appearance-none rounded-xl border px-3.5 pr-8 text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
               filters.type !== "Semua"
                 ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                 : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
             }`}
           >
-            <option value="Semua">Semua Jenis</option>
+            <option value="Semua">{t("dashboard.wallet.typeAll")}</option>
             {types.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -172,16 +174,16 @@ export default function WalletFilterBar({
           <select
             value={filters.flow}
             onChange={(e) => onFilterChange({ flow: e.target.value as "Semua" | "Masuk" | "Keluar", page: 1 })}
-            aria-label="Filter Arus Mutasi"
+            aria-label={t("dashboard.wallet.filterFlowAria")}
             className={`h-9 w-full appearance-none rounded-xl border px-3.5 pr-8 text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
               filters.flow !== "Semua"
                 ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                 : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
             }`}
           >
-            <option value="Semua">Semua Arus</option>
-            <option value="Masuk">Masuk</option>
-            <option value="Keluar">Keluar</option>
+            <option value="Semua">{t("dashboard.wallet.flowAll")}</option>
+            <option value="Masuk">{t("dashboard.wallet.flowIncome")}</option>
+            <option value="Keluar">{t("dashboard.wallet.flowExpense")}</option>
           </select>
           <ChevronDown
             size={13}
@@ -201,7 +203,7 @@ export default function WalletFilterBar({
             type="text"
             value={filters.search}
             onChange={(e) => onFilterChange({ search: e.target.value, page: 1 })}
-            placeholder="Cari deskripsi, ID, atau tipe mutasi..."
+            placeholder={t("dashboard.wallet.searchPlaceholder")}
             className="h-9 w-full rounded-xl border border-slate-200/90 bg-slate-50/70 pl-9 pr-8 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition-all duration-200 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10 shadow-2xs"
           />
           {filters.search && (
@@ -209,7 +211,7 @@ export default function WalletFilterBar({
               type="button"
               onClick={() => onFilterChange({ search: "", page: 1 })}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
-              title="Hapus kata kunci"
+              title={t("dashboard.wallet.clearKeyword")}
             >
               <X size={13} />
             </button>
@@ -221,8 +223,8 @@ export default function WalletFilterBar({
           <button
             type="button"
             onClick={() => handleDateIconClick("desktop")}
-            aria-label="Filter Tanggal"
-            title={filters.date ? `Filter Tanggal: ${filters.date}` : "Pilih Tanggal"}
+            aria-label={t("dashboard.wallet.filterDateAria")}
+            title={filters.date ? t("dashboard.wallet.dateFilterActive", { date: filters.date }) : t("dashboard.wallet.dateFilterTitle")}
             className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
               filters.date
                 ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
@@ -254,10 +256,10 @@ export default function WalletFilterBar({
             type="button"
             onClick={onReset}
             className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-rose-200/90 bg-rose-50/90 px-3 text-xs font-bold text-rose-700 hover:border-rose-300 hover:bg-rose-100 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs"
-            title="Reset Filter"
+            title={t("dashboard.wallet.resetTitle")}
           >
             <RotateCcw size={12} />
-            <span>Reset</span>
+            <span>{t("dashboard.wallet.reset")}</span>
           </button>
         )}
       </div>
@@ -282,7 +284,7 @@ export default function WalletFilterBar({
                 }`}
               >
                 <WalletCards size={12} />
-                <span>Semua</span>
+                <span>{t("dashboard.wallet.tabAll")}</span>
               </button>
               <button
                 type="button"
@@ -294,7 +296,7 @@ export default function WalletFilterBar({
                 }`}
               >
                 <CircleDollarSign size={12} />
-                <span>{isSandboxMode ? "Saldo Virtual" : "Saldo"}</span>
+                <span>{isSandboxMode ? t("dashboard.wallet.tabVirtualBalance") : t("dashboard.wallet.tabBalance")}</span>
               </button>
               <button
                 type="button"
@@ -306,7 +308,7 @@ export default function WalletFilterBar({
                 }`}
               >
                 <Coins size={12} />
-                <span>{isSandboxMode ? "Koin Sandbox" : "Koin"}</span>
+                <span>{isSandboxMode ? t("dashboard.wallet.tabSandboxCoin") : t("dashboard.wallet.tabCoin")}</span>
               </button>
             </div>
           ) : (
@@ -320,16 +322,16 @@ export default function WalletFilterBar({
                     page: 1,
                   })
                 }
-                aria-label="Filter Aset"
+                aria-label={t("dashboard.wallet.filterAssetAria")}
                 className={`h-9 w-full appearance-none rounded-xl border px-3 pr-7 text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
                   filters.asset !== "Semua"
                     ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                     : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
                 }`}
               >
-                <option value="Semua">Semua</option>
-                <option value="Saldo">{isSandboxMode ? "Saldo Virtual" : "Saldo"}</option>
-                <option value="Koin">{isSandboxMode ? "Koin Sandbox" : "Koin"}</option>
+                <option value="Semua">{t("dashboard.wallet.tabAll")}</option>
+                <option value="Saldo">{isSandboxMode ? t("dashboard.wallet.tabVirtualBalance") : t("dashboard.wallet.tabBalance")}</option>
+                <option value="Koin">{isSandboxMode ? t("dashboard.wallet.tabSandboxCoin") : t("dashboard.wallet.tabCoin")}</option>
               </select>
               <ChevronDown
                 size={12}
@@ -345,7 +347,7 @@ export default function WalletFilterBar({
             <select
               value={filters.type}
               onChange={(e) => onFilterChange({ type: e.target.value, page: 1 })}
-              aria-label="Filter Jenis Transaksi"
+              aria-label={t("dashboard.wallet.filterTypeAria")}
               className={`h-9 w-full appearance-none rounded-xl border px-3 pr-7 text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
                 filters.type !== "Semua"
                   ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
@@ -353,7 +355,7 @@ export default function WalletFilterBar({
               }`}
             >
               <option value="Semua">
-                {isSidebarExpanded ? "Jenis" : "Semua Jenis"}
+                {isSidebarExpanded ? t("dashboard.wallet.typeShort") : t("dashboard.wallet.typeAll")}
               </option>
               {types.map((t) => (
                 <option key={t} value={t}>
@@ -379,7 +381,7 @@ export default function WalletFilterBar({
                   page: 1,
                 })
               }
-              aria-label="Filter Arus Mutasi"
+              aria-label={t("dashboard.wallet.filterFlowAria")}
               className={`h-9 w-full appearance-none rounded-xl border px-3 pr-7 text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
                 filters.flow !== "Semua"
                   ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
@@ -387,10 +389,10 @@ export default function WalletFilterBar({
               }`}
             >
               <option value="Semua">
-                {isSidebarExpanded ? "Arus" : "Semua Arus"}
+                {isSidebarExpanded ? t("dashboard.wallet.flowShort") : t("dashboard.wallet.flowAll")}
               </option>
-              <option value="Masuk">Masuk</option>
-              <option value="Keluar">Keluar</option>
+              <option value="Masuk">{t("dashboard.wallet.flowIncome")}</option>
+              <option value="Keluar">{t("dashboard.wallet.flowExpense")}</option>
             </select>
             <ChevronDown
               size={12}
@@ -406,8 +408,8 @@ export default function WalletFilterBar({
             <button
               type="button"
               onClick={handleToggleTabletSearch}
-              aria-label="Pencarian Mutasi"
-              title={isTabletSearchOpen ? "Tutup Pencarian" : "Buka Pencarian"}
+              aria-label={t("dashboard.wallet.searchAria")}
+              title={isTabletSearchOpen ? t("dashboard.wallet.closeSearch") : t("dashboard.wallet.openSearch")}
               className={`relative inline-flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
                 isTabletSearchOpen || Boolean(filters.search)
                   ? "border-blue-400 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20 font-bold"
@@ -427,8 +429,8 @@ export default function WalletFilterBar({
               <button
                 type="button"
                 onClick={() => handleDateIconClick("tablet")}
-                aria-label="Filter Tanggal"
-                title={filters.date ? `Tanggal: ${filters.date}` : "Filter Tanggal"}
+                aria-label={t("dashboard.wallet.filterDateAria")}
+                title={filters.date ? t("dashboard.wallet.dateFilterActive", { date: filters.date }) : t("dashboard.wallet.dateFilterTitle")}
                 className={`relative inline-flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
                   filters.date
                     ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20 font-bold"
@@ -459,10 +461,10 @@ export default function WalletFilterBar({
                 type="button"
                 onClick={onReset}
                 className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl border border-rose-200/90 bg-rose-50/90 px-2.5 text-xs font-bold text-rose-700 hover:border-rose-300 hover:bg-rose-100 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
-                title="Reset Filter"
+                title={t("dashboard.wallet.resetTitle")}
               >
                 <RotateCcw size={12} />
-                <span>Reset</span>
+                <span>{t("dashboard.wallet.reset")}</span>
               </button>
             )}
           </div>
@@ -480,7 +482,7 @@ export default function WalletFilterBar({
               type="text"
               value={filters.search}
               onChange={(e) => onFilterChange({ search: e.target.value, page: 1 })}
-              placeholder="Cari deskripsi, ID, atau tipe mutasi..."
+              placeholder={t("dashboard.wallet.searchPlaceholder")}
               className="h-9 w-full rounded-xl border border-blue-400 bg-blue-50/30 pl-9 pr-8 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
             />
             {filters.search && (
@@ -488,7 +490,7 @@ export default function WalletFilterBar({
                 type="button"
                 onClick={() => onFilterChange({ search: "", page: 1 })}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer mt-1"
-                title="Hapus kata kunci"
+                title={t("dashboard.wallet.clearKeyword")}
               >
                 <X size={13} />
               </button>
@@ -513,16 +515,16 @@ export default function WalletFilterBar({
                   page: 1,
                 })
               }
-              aria-label="Filter Aset"
+              aria-label={t("dashboard.wallet.filterAssetAria")}
               className={`h-8.5 xs:h-9 w-full appearance-none rounded-xl border px-1.5 xs:px-2 text-center text-[10.5px] xs:text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
                 filters.asset !== "Semua"
                   ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                   : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 focus:border-blue-500 focus:bg-white"
               }`}
             >
-              <option value="Semua">Semua</option>
-              <option value="Saldo">{isSandboxMode ? "Saldo Virtual" : "Saldo"}</option>
-              <option value="Koin">{isSandboxMode ? "Koin Sandbox" : "Koin"}</option>
+              <option value="Semua">{t("dashboard.wallet.tabAll")}</option>
+              <option value="Saldo">{isSandboxMode ? t("dashboard.wallet.tabVirtualBalance") : t("dashboard.wallet.tabBalance")}</option>
+              <option value="Koin">{isSandboxMode ? t("dashboard.wallet.tabSandboxCoin") : t("dashboard.wallet.tabCoin")}</option>
             </select>
           </div>
 
@@ -531,14 +533,14 @@ export default function WalletFilterBar({
             <select
               value={filters.type}
               onChange={(e) => onFilterChange({ type: e.target.value, page: 1 })}
-              aria-label="Filter Jenis Transaksi"
+              aria-label={t("dashboard.wallet.filterTypeAria")}
               className={`h-8.5 xs:h-9 w-full appearance-none rounded-xl border px-1.5 xs:px-2 text-center text-[10.5px] xs:text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
                 filters.type !== "Semua"
                   ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                   : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 focus:border-blue-500 focus:bg-white"
               }`}
             >
-              <option value="Semua">Jenis</option>
+              <option value="Semua">{t("dashboard.wallet.typeShort")}</option>
               {types.map((t) => (
                 <option key={t} value={t}>
                   {t}
@@ -557,16 +559,16 @@ export default function WalletFilterBar({
                   page: 1,
                 })
               }
-              aria-label="Filter Arus Mutasi"
+              aria-label={t("dashboard.wallet.filterFlowAria")}
               className={`h-8.5 xs:h-9 w-full appearance-none rounded-xl border px-1.5 xs:px-2 text-center text-[10.5px] xs:text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
                 filters.flow !== "Semua"
                   ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                   : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 focus:border-blue-500 focus:bg-white"
               }`}
             >
-              <option value="Semua">Arus</option>
-              <option value="Masuk">Masuk</option>
-              <option value="Keluar">Keluar</option>
+              <option value="Semua">{t("dashboard.wallet.flowShort")}</option>
+              <option value="Masuk">{t("dashboard.wallet.flowIncome")}</option>
+              <option value="Keluar">{t("dashboard.wallet.flowExpense")}</option>
             </select>
           </div>
 
@@ -576,8 +578,8 @@ export default function WalletFilterBar({
             <button
               type="button"
               onClick={handleToggleMobileSearch}
-              aria-label="Pencarian Mutasi"
-              title={isMobileSearchOpen ? "Tutup Pencarian" : "Buka Pencarian"}
+              aria-label={t("dashboard.wallet.searchAria")}
+              title={isMobileSearchOpen ? t("dashboard.wallet.closeSearch") : t("dashboard.wallet.openSearch")}
               className={`relative inline-flex h-8.5 w-8.5 xs:h-9 xs:w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
                 isMobileSearchOpen || Boolean(filters.search)
                   ? "border-blue-400 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20 font-bold"
@@ -597,8 +599,8 @@ export default function WalletFilterBar({
               <button
                 type="button"
                 onClick={() => handleDateIconClick("mobile")}
-                aria-label="Pilih Tanggal"
-                title={filters.date ? `Tanggal: ${filters.date}` : "Filter Tanggal"}
+                aria-label={t("dashboard.wallet.filterDateAria")}
+                title={filters.date ? t("dashboard.wallet.dateFilterActive", { date: filters.date }) : t("dashboard.wallet.dateFilterTitle")}
                 className={`relative inline-flex h-8.5 w-8.5 xs:h-9 xs:w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
                   filters.date
                     ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20 font-bold"
@@ -629,10 +631,10 @@ export default function WalletFilterBar({
                 type="button"
                 onClick={onReset}
                 className="inline-flex h-8.5 xs:h-9 shrink-0 items-center gap-1 rounded-xl border border-rose-200/90 bg-rose-50/90 px-2 text-[10.5px] xs:text-xs font-bold text-rose-700 hover:border-rose-300 hover:bg-rose-100 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
-                title="Reset Filter"
+                title={t("dashboard.wallet.resetTitle")}
               >
                 <RotateCcw size={11} />
-                <span>Reset</span>
+                <span>{t("dashboard.wallet.reset")}</span>
               </button>
             )}
           </div>
@@ -650,7 +652,7 @@ export default function WalletFilterBar({
               type="text"
               value={filters.search}
               onChange={(e) => onFilterChange({ search: e.target.value, page: 1 })}
-              placeholder="Cari mutasi..."
+              placeholder={t("dashboard.wallet.searchPlaceholderMobile")}
               className="h-8.5 xs:h-9 w-full rounded-xl border border-blue-400 bg-blue-50/30 pl-8 pr-7 text-[11px] xs:text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
             />
             {filters.search && (
@@ -658,7 +660,7 @@ export default function WalletFilterBar({
                 type="button"
                 onClick={() => onFilterChange({ search: "", page: 1 })}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer mt-0.5"
-                title="Hapus kata kunci"
+                title={t("dashboard.wallet.clearKeyword")}
               >
                 <X size={12} />
               </button>

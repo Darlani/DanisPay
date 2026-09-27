@@ -3,6 +3,7 @@
 import React from "react";
 import { Coins, Crown, RefreshCw, ShieldCheck, Wallet } from "lucide-react";
 import { formatMemberType, formatRupiah, getInitial, UserProfile } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface SettingsHeroCardProps {
   profile: UserProfile;
@@ -15,6 +16,7 @@ export default function SettingsHeroCard({
   isRefreshing,
   onRefresh,
 }: SettingsHeroCardProps) {
+  const { t } = useI18n();
   const memberLabel = formatMemberType(profile.member_type);
   const initialLetter = getInitial(profile.full_name, profile.email);
   const isSpecialOrGold =
@@ -68,7 +70,7 @@ export default function SettingsHeroCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="truncate text-base xs:text-lg sm:text-xl md:text-2xl font-black tracking-tight text-white leading-tight">
-                {profile.full_name || "Member DaPay"}
+                {profile.full_name || t("dashboard.settings.defaultUserName")}
               </h1>
 
               {/* Authoritative Membership Badge */}
@@ -85,7 +87,7 @@ export default function SettingsHeroCard({
             </div>
 
             <p className="mt-0.5 truncate text-xs sm:text-sm font-medium text-indigo-100/80">
-              {profile.email || "Email akun terverifikasi"}
+              {profile.email || t("dashboard.settings.verifiedEmail")}
             </p>
           </div>
         </div>
@@ -99,7 +101,7 @@ export default function SettingsHeroCard({
             </div>
             <div className="min-w-0">
               <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-indigo-100/75">
-                Saldo DaPay
+                {t("dashboard.settings.labelBalance")}
               </p>
               <p className="truncate text-xs xs:text-sm font-black text-white font-mono">
                 {formatRupiah(profile.balance)}
@@ -115,7 +117,7 @@ export default function SettingsHeroCard({
               </div>
               <div className="min-w-0">
                 <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-indigo-100/75">
-                  Koin DaPay
+                  {t("dashboard.settings.labelCoins")}
                 </p>
                 <p className="truncate text-xs xs:text-sm font-black text-white font-mono">
                   {Number(profile.coin_balance || 0).toLocaleString("id-ID")}
@@ -129,8 +131,8 @@ export default function SettingsHeroCard({
             type="button"
             onClick={onRefresh}
             disabled={isRefreshing}
-            title="Sinkronkan data pengaturan"
-            aria-label="Sinkronkan data pengaturan"
+            title={t("dashboard.settings.syncAria")}
+            aria-label={t("dashboard.settings.syncAria")}
             className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl border border-white/25 bg-white/15 text-white shadow-2xs transition hover:bg-white/25 active:scale-95 disabled:opacity-50 cursor-pointer backdrop-blur-md"
           >
             <RefreshCw size={15} className={isRefreshing ? "animate-spin" : ""} />

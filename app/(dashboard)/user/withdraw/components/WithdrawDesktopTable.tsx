@@ -20,6 +20,7 @@ import {
   normalizeWithdrawalStatus,
   toNumber,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface WithdrawDesktopTableProps {
   withdrawals: Withdrawal[];
@@ -34,6 +35,23 @@ export default function WithdrawDesktopTable({
   onCopy,
   isSidebarExpanded = false,
 }: WithdrawDesktopTableProps) {
+  const { t } = useI18n();
+
+  const getStatusLabel = (status: string, fallback: string) => {
+    switch (status) {
+      case "Pending":
+        return t("dashboard.withdraw.statusPendingLabel");
+      case "Berhasil":
+        return t("dashboard.withdraw.statusSuccessLabel");
+      case "Gagal":
+        return t("dashboard.withdraw.statusFailedLabel");
+      case "Dibatalkan":
+        return t("dashboard.withdraw.statusCancelledLabel");
+      default:
+        return fallback;
+    }
+  };
+
   // TABLET EXPANDED SIDEBAR: 3-COLUMN COMPACT TABLE
   if (isSidebarExpanded) {
     return (
@@ -45,17 +63,17 @@ export default function WithdrawDesktopTable({
               <tr className="border-b border-slate-200/80 bg-slate-50/75 text-[10px] sm:text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
                 {/* 1. TUJUAN & REKENING */}
                 <th className="py-3.5 pl-3.5 pr-2 whitespace-nowrap">
-                  Tujuan & Rekening
+                  {t("dashboard.withdraw.colDestinationAcc")}
                 </th>
 
                 {/* 2. NOMINAL & DANA DITAHAN */}
                 <th className="px-2.5 py-3.5 text-right whitespace-nowrap">
-                  Nominal & Dana Ditahan
+                  {t("dashboard.withdraw.colAmountHeld")}
                 </th>
 
                 {/* 3. STATUS & AKSI */}
                 <th className="py-3.5 pl-2 pr-3.5 text-center whitespace-nowrap">
-                  Status & Aksi
+                  {t("dashboard.withdraw.colStatusAction")}
                 </th>
               </tr>
             </thead>
@@ -111,9 +129,9 @@ export default function WithdrawDesktopTable({
                             {w.account_number && (
                               <button
                                 type="button"
-                                onClick={() => onCopy(w.account_number || "", "Nomor Rekening")}
-                                title="Salin Nomor Rekening"
-                                aria-label="Salin Nomor Rekening"
+                                onClick={() => onCopy(w.account_number || "", t("dashboard.withdraw.accNoLabel"))}
+                                title={t("dashboard.withdraw.copyAccNo")}
+                                aria-label={t("dashboard.withdraw.copyAccNo")}
                                 className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-slate-400 opacity-70 transition hover:bg-slate-200 hover:text-slate-700 group-hover:opacity-100 cursor-pointer"
                               >
                                 <Copy size={9} />
@@ -130,7 +148,7 @@ export default function WithdrawDesktopTable({
                         {formatRupiah(amount)}
                       </p>
                       <p className="text-[10px] font-bold text-indigo-700 mt-0.5">
-                        Ditahan: {formatRupiah(heldAmount)}
+                        {t("dashboard.withdraw.heldPrefix")}{formatRupiah(heldAmount)}
                       </p>
                       <p className="text-[9.5px] font-medium text-slate-400 mt-0.5">
                         {formatDate(w.created_at)}
@@ -146,18 +164,18 @@ export default function WithdrawDesktopTable({
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`}
                           />
-                          {statusStyle.label}
+                          {getStatusLabel(status, statusStyle.label)}
                         </span>
 
                         <button
                           type="button"
                           onClick={() => onSelectWithdrawal(w)}
-                          title="Lihat Detail Penarikan"
-                          aria-label="Lihat Detail Penarikan"
+                          title={t("dashboard.withdraw.viewDetail")}
+                          aria-label={t("dashboard.withdraw.viewDetail")}
                           className="inline-flex h-6.5 items-center justify-center gap-1 rounded-md border border-slate-200/90 bg-white px-2 text-[10px] font-bold text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:border-slate-300 hover:bg-slate-50"
                         >
                           <Eye size={11} />
-                          <span>Detail</span>
+                          <span>{t("dashboard.withdraw.btnDetail")}</span>
                         </button>
                       </div>
                     </td>
@@ -181,39 +199,39 @@ export default function WithdrawDesktopTable({
             <tr className="border-b border-slate-200/80 bg-slate-50/75 text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
               {/* 1. TUJUAN PENARIKAN */}
               <th className="py-3.5 pl-3.5 pr-2 sm:pl-4 lg:pr-3 whitespace-nowrap">
-                <span className="lg:hidden">Tujuan & Rekening</span>
-                <span className="hidden lg:inline">Tujuan Penarikan</span>
+                <span className="lg:hidden">{t("dashboard.withdraw.colDestinationAcc")}</span>
+                <span className="hidden lg:inline">{t("dashboard.withdraw.colDestination")}</span>
               </th>
 
               {/* 2. WAKTU PENGAJUAN */}
               <th className="px-2.5 sm:px-3 py-3.5 whitespace-nowrap">
-                Waktu
+                {t("dashboard.withdraw.colTime")}
               </th>
 
               {/* 3. NOMINAL */}
               <th className="px-2.5 sm:px-3 py-3.5 text-right whitespace-nowrap">
-                <span className="lg:hidden">Nominal & Fee</span>
-                <span className="hidden lg:inline">Nominal</span>
+                <span className="lg:hidden">{t("dashboard.withdraw.colAmountFee")}</span>
+                <span className="hidden lg:inline">{t("dashboard.withdraw.colAmount")}</span>
               </th>
 
               {/* 4. BIAYA ADMIN (DESKTOP ONLY ≥1024px) */}
               <th className="hidden lg:table-cell px-2.5 sm:px-3 py-3.5 text-right whitespace-nowrap">
-                Biaya Admin
+                {t("dashboard.withdraw.colFee")}
               </th>
 
               {/* 5. DANA DITAHAN */}
               <th className="px-2.5 sm:px-3 py-3.5 text-right whitespace-nowrap">
-                Dana Ditahan
+                {t("dashboard.withdraw.colHeld")}
               </th>
 
               {/* 6. STATUS */}
               <th className="px-2.5 sm:px-3 py-3.5 text-center whitespace-nowrap">
-                Status
+                {t("dashboard.withdraw.colStatus")}
               </th>
 
               {/* 7. AKSI (DESKTOP ONLY ≥1024px) */}
               <th className="hidden lg:table-cell py-3.5 pl-3 pr-4 text-center sm:pr-5 whitespace-nowrap">
-                Aksi
+                {t("dashboard.withdraw.colAction")}
               </th>
             </tr>
           </thead>
@@ -269,9 +287,9 @@ export default function WithdrawDesktopTable({
                           {w.account_number && (
                             <button
                               type="button"
-                              onClick={() => onCopy(w.account_number || "", "Nomor Rekening")}
-                              title="Salin Nomor Rekening"
-                              aria-label="Salin Nomor Rekening"
+                              onClick={() => onCopy(w.account_number || "", t("dashboard.withdraw.accNoLabel"))}
+                              title={t("dashboard.withdraw.copyAccNo")}
+                              aria-label={t("dashboard.withdraw.copyAccNo")}
                               className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-slate-400 opacity-70 transition hover:bg-slate-200 hover:text-slate-700 group-hover:opacity-100 cursor-pointer"
                             >
                               <Copy size={9} />
@@ -296,7 +314,7 @@ export default function WithdrawDesktopTable({
                       {formatRupiah(amount)}
                     </p>
                     <span className="lg:hidden text-[9.5px] font-semibold text-slate-400">
-                      Fee: {formatRupiah(fee)}
+                      {t("dashboard.withdraw.feePrefix")}{formatRupiah(fee)}
                     </span>
                   </td>
 
@@ -319,18 +337,18 @@ export default function WithdrawDesktopTable({
                         <span
                           className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`}
                         />
-                        {statusStyle.label}
+                        {getStatusLabel(status, statusStyle.label)}
                       </span>
 
                       {/* Detail button on Tablet (<1024px) */}
                       <button
                         type="button"
                         onClick={() => onSelectWithdrawal(w)}
-                        title="Lihat Detail Penarikan"
-                        aria-label="Lihat Detail Penarikan"
+                        title={t("dashboard.withdraw.viewDetail")}
+                        aria-label={t("dashboard.withdraw.viewDetail")}
                         className="inline-flex lg:hidden h-6 items-center justify-center rounded-md border border-slate-200/90 bg-white px-2 text-[10px] font-bold text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:border-slate-300 hover:bg-slate-50"
                       >
-                        Detail
+                        {t("dashboard.withdraw.btnDetail")}
                       </button>
                     </div>
                   </td>
@@ -340,12 +358,12 @@ export default function WithdrawDesktopTable({
                     <button
                       type="button"
                       onClick={() => onSelectWithdrawal(w)}
-                      title="Lihat Detail Penarikan"
-                      aria-label="Lihat Detail Penarikan"
+                      title={t("dashboard.withdraw.viewDetail")}
+                      aria-label={t("dashboard.withdraw.viewDetail")}
                       className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-slate-200/90 bg-white px-2.5 text-[11px] font-bold text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:border-slate-300 hover:bg-slate-50"
                     >
                       <Eye size={12} />
-                      <span>Detail</span>
+                      <span>{t("dashboard.withdraw.btnDetail")}</span>
                     </button>
                   </td>
                 </tr>

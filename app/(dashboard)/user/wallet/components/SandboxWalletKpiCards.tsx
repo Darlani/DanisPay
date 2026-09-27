@@ -10,6 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { formatRupiah, formatCoins, WalletSummary } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface SandboxWalletKpiCardsProps {
   sandboxBalance: number;
@@ -26,6 +27,7 @@ export default function SandboxWalletKpiCards({
   onReset,
   isResetting,
 }: SandboxWalletKpiCardsProps) {
+  const { t } = useI18n();
   return (
     <section className="mb-4 sm:mb-5 grid grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-2.5 sm:gap-3.5 md:gap-4 xl:gap-5">
       {/* ============================================================ */}
@@ -43,7 +45,7 @@ export default function SandboxWalletKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-white/20 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-amber-100 backdrop-blur-xs ring-1 ring-white/25">
               <FlaskConical size={9} className="shrink-0 text-yellow-300" />
-              <span className="truncate">Saldo Virtual Sandbox</span>
+              <span className="truncate">{t("dashboard.wallet.kpiSimBalance")}</span>
             </span>
           </div>
 
@@ -55,7 +57,7 @@ export default function SandboxWalletKpiCards({
               void onReset();
             }}
             disabled={isResetting}
-            title="Reset Saldo Virtual ke Rp 1.000.000"
+            title={t("dashboard.wallet.kpiSimResetTitle")}
             className="flex items-center gap-1 px-2 py-1 rounded-lg xs:rounded-xl border border-white/30 bg-white/20 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-md hover:bg-white/30 active:scale-95 transition-all duration-200 cursor-pointer text-[9px] xs:text-[10px] font-bold disabled:opacity-50"
           >
             {isResetting ? (
@@ -63,7 +65,7 @@ export default function SandboxWalletKpiCards({
             ) : (
               <RotateCcw className="h-3 w-3 text-yellow-200" />
             )}
-            <span className="hidden xs:inline">Reset</span>
+            <span className="hidden xs:inline">{t("dashboard.wallet.kpiSimReset")}</span>
           </button>
         </div>
 
@@ -72,7 +74,7 @@ export default function SandboxWalletKpiCards({
             {formatRupiah(sandboxBalance)}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-medium text-amber-100/90">
-            Saldo simulasi transaksi virtual
+            {t("dashboard.wallet.kpiSimBalanceNote")}
           </p>
         </div>
       </div>
@@ -85,7 +87,7 @@ export default function SandboxWalletKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-emerald-100/80 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-800">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-              <span className="truncate">Saldo Masuk (Virtual)</span>
+              <span className="truncate">{t("dashboard.wallet.kpiSimIncome")}</span>
             </span>
           </div>
 
@@ -99,7 +101,7 @@ export default function SandboxWalletKpiCards({
             {formatRupiah(summary.totalIncome)}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-emerald-700">
-            Reset & simulasi masuk
+            {t("dashboard.wallet.kpiSimIncomeNote")}
           </p>
         </div>
       </div>
@@ -112,7 +114,7 @@ export default function SandboxWalletKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-rose-100/80 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-rose-800">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
-              <span className="truncate">Saldo Keluar (Virtual)</span>
+              <span className="truncate">{t("dashboard.wallet.kpiSimExpense")}</span>
             </span>
           </div>
 
@@ -126,7 +128,7 @@ export default function SandboxWalletKpiCards({
             {formatRupiah(summary.totalExpense)}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-rose-700">
-            Simulasi belanja digital
+            {t("dashboard.wallet.kpiSimExpenseNote")}
           </p>
         </div>
       </div>
@@ -139,7 +141,7 @@ export default function SandboxWalletKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-violet-100/90 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-violet-800">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
-              <span className="truncate">Koin Sandbox</span>
+              <span className="truncate">{t("dashboard.wallet.kpiSimCoins")}</span>
             </span>
           </div>
 
@@ -153,7 +155,7 @@ export default function SandboxWalletKpiCards({
             {formatCoins(sandboxCoinBalance)}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-violet-700">
-            Reward cashback simulasi
+            {t("dashboard.wallet.kpiSimCoinsNote")}
           </p>
         </div>
       </div>

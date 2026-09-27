@@ -8,6 +8,7 @@ import {
   Copy,
   Package,
 } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 import {
   Order,
   displayOrderId,
@@ -30,6 +31,7 @@ export default function OrderMobileCardList({
   onSelectOrder,
   onCopy,
 }: OrderMobileCardListProps) {
+  const { t } = useI18n();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopy = async (e: React.MouseEvent, orderId?: string | null) => {
@@ -60,7 +62,7 @@ export default function OrderMobileCardList({
                 <div className="flex h-9 w-9 xs:h-10 xs:w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-1 shadow-2xs">
                   <img
                     src={productImg}
-                    alt={order.product_name || "Produk"}
+                    alt={order.product_name || t("dashboard.orders.colProduct")}
                     className="h-full w-full object-contain"
                   />
                 </div>
@@ -72,13 +74,13 @@ export default function OrderMobileCardList({
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[11.5px] xs:text-xs sm:text-sm font-bold text-slate-900 leading-tight">
-                  {order.product_name || "Produk Digital"}
+                  {order.product_name || (order.is_sandbox ? t("dashboard.orders.digitalProductSim") : t("dashboard.orders.digitalProduct"))}
                 </p>
                 {(() => {
                   const custName = resolveCustomerName(order);
                   return (
                     <p className="truncate text-[9.5px] xs:text-[10px] sm:text-[11px] font-medium text-slate-500 mt-0.5">
-                      {order.item_label || order.category || "Item Layanan"}
+                      {order.item_label || order.category || t("dashboard.orders.serviceItem")}
                       {custName ? ` • ${custName}` : order.customer_no ? ` • ${order.customer_no}` : ""}
                     </p>
                   );
@@ -96,7 +98,7 @@ export default function OrderMobileCardList({
                     type="button"
                     onClick={(e) => handleCopy(e, orderRef)}
                     className="inline-flex items-center justify-center text-slate-400 hover:text-slate-700"
-                    title="Salin Order ID"
+                    title={t("dashboard.orders.copyOrderId")}
                   >
                     {copiedId === orderRef ? (
                       <Check size={11} className="text-emerald-600" />

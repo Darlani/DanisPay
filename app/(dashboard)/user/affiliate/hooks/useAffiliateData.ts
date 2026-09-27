@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/lib/i18n/context";
 import {
   AffiliateSummary,
   BalanceLog,
@@ -22,6 +23,7 @@ export function useAffiliateData({
   initialReferrals = [],
   initialBalanceLogs = [],
 }: UseAffiliateDataProps) {
+  const { t } = useI18n();
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [referrals, setReferrals] = useState<Referral[]>(initialReferrals);
   const [balanceLogs, setBalanceLogs] = useState<BalanceLog[]>(initialBalanceLogs);
@@ -110,18 +112,19 @@ export function useAffiliateData({
       setBalanceLogs(data.balanceLogs);
     } catch (err: unknown) {
       if (err instanceof Error && err.message === "UNAUTHORIZED") {
-        window.location.href = "/login";
+        const isEn = typeof window !== "undefined" && window.location.pathname.startsWith("/en");
+        window.location.href = isEn ? "/en/login" : "/login";
         return;
       }
       console.error("Fetch affiliate error:", err);
       setError(
-        err instanceof Error ? err.message : "Gagal memuat data afiliasi terbaru.",
+        err instanceof Error ? err.message : t("dashboard.affiliate.errLoadData"),
       );
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   // Synchronize when initial props change from Root
   useEffect(() => {

@@ -9,6 +9,7 @@ import {
   Eye,
   Package,
 } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 import {
   Order,
   displayOrderId,
@@ -33,6 +34,7 @@ export default function OrderDesktopTable({
   onSelectOrder,
   onCopy,
 }: OrderDesktopTableProps) {
+  const { t } = useI18n();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopy = async (orderId?: string | null) => {
@@ -48,26 +50,26 @@ export default function OrderDesktopTable({
         <thead className="border-b border-slate-100 bg-slate-50/70 text-[9.5px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">
           <tr>
             <th className="py-2.5 sm:py-3.5 pl-3 sm:pl-4 pr-1 sm:pr-2 lg:pr-3 font-bold">
-              Produk & Layanan
+              {t("dashboard.orders.colProduct")}
             </th>
             <th className="px-1.5 sm:px-2.5 lg:px-3 py-2.5 sm:py-3.5 font-bold">
-              ID Pesanan & Waktu
+              {t("dashboard.orders.colOrderIdTime")}
             </th>
             <th className="px-1.5 sm:px-2.5 lg:px-3 py-2.5 sm:py-3.5 font-bold">
-              Tujuan
+              {t("dashboard.orders.colTarget")}
             </th>
             <th className="px-1.5 sm:px-2.5 lg:px-3 py-2.5 sm:py-3.5 font-bold text-center">
-              Pembayaran
+              {t("dashboard.orders.colPayment")}
             </th>
             <th className="px-1.5 sm:px-2.5 lg:px-3 pr-3.5 sm:pr-4 lg:pr-3 py-2.5 sm:py-3.5 font-bold text-right">
-              <span className="lg:hidden">Total & Status</span>
-              <span className="hidden lg:inline">Total</span>
+              <span className="lg:hidden">{t("dashboard.orders.colTotalStatus")}</span>
+              <span className="hidden lg:inline">{t("dashboard.orders.colTotal")}</span>
             </th>
             <th className="hidden lg:table-cell px-3 py-3.5 font-bold text-center">
-              Status
+              {t("dashboard.orders.colStatus")}
             </th>
             <th className="hidden lg:table-cell py-3.5 pl-2 pr-4 font-bold text-center">
-              Aksi
+              {t("dashboard.orders.colAction")}
             </th>
           </tr>
         </thead>
@@ -94,7 +96,7 @@ export default function OrderDesktopTable({
                       <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-0.5 shadow-2xs">
                         <img
                           src={productImg}
-                          alt={order.product_name || "Produk"}
+                          alt={order.product_name || t("dashboard.orders.colProduct")}
                           className="h-full w-full object-contain"
                         />
                       </div>
@@ -105,10 +107,10 @@ export default function OrderDesktopTable({
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[11px] sm:text-xs font-bold text-slate-900 leading-snug">
-                        {order.product_name || "Produk Digital"}
+                        {order.product_name || (order.is_sandbox ? t("dashboard.orders.digitalProductSim") : t("dashboard.orders.digitalProduct"))}
                       </p>
                       <p className="truncate text-[9.5px] sm:text-[10px] font-medium text-slate-400">
-                        {order.item_label || order.category || "Item Layanan"}
+                        {order.item_label || order.category || t("dashboard.orders.serviceItem")}
                       </p>
                     </div>
                   </div>
@@ -133,7 +135,7 @@ export default function OrderDesktopTable({
                         type="button"
                         onClick={() => handleCopy(orderRef)}
                         className="inline-flex h-4.5 w-4.5 sm:h-5 sm:w-5 items-center justify-center rounded text-slate-400 hover:text-slate-600 transition cursor-pointer"
-                        title="Salin ID Pesanan"
+                        title={t("dashboard.orders.copyOrderId")}
                       >
                         {copiedId === orderRef ? (
                           <Check size={12} className="text-emerald-600" />
@@ -216,7 +218,7 @@ export default function OrderDesktopTable({
                       onSelectOrder(order);
                     }}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition active:scale-95 cursor-pointer shadow-2xs"
-                    title="Lihat Detail Transaksi"
+                    title={t("dashboard.orders.viewDetail")}
                   >
                     <Eye size={14} />
                   </button>

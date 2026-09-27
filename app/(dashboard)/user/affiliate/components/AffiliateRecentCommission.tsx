@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useI18n } from "@/lib/i18n/context";
 import { CircleDollarSign, Clock3 } from "lucide-react";
 import { CommissionEntry, formatDateTime, formatRupiah } from "../types";
 
@@ -11,6 +12,8 @@ interface AffiliateRecentCommissionProps {
 export default function AffiliateRecentCommission({
   commissions,
 }: AffiliateRecentCommissionProps) {
+  const { t } = useI18n();
+
   return (
     <section className="mb-4 sm:mb-5 lg:mb-6 overflow-hidden rounded-2xl md:rounded-[22px] border border-slate-200/80 bg-white/95 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60">
       {/* HEADER */}
@@ -21,10 +24,10 @@ export default function AffiliateRecentCommission({
           </div>
           <div>
             <h3 className="text-xs sm:text-sm font-black tracking-tight text-slate-900">
-              Komisi Referral Terbaru
+              {t("dashboard.affiliate.recentTitle")}
             </h3>
             <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium">
-              Semua komisi referral langsung dikreditkan ke Saldo DaPay.
+              {t("dashboard.affiliate.recentSubtitle")}
             </p>
           </div>
         </div>
@@ -37,10 +40,10 @@ export default function AffiliateRecentCommission({
             <CircleDollarSign size={20} />
           </div>
           <h3 className="mt-3.5 text-sm font-bold text-slate-800">
-            Belum ada komisi referral
+            {t("dashboard.affiliate.recentEmptyTitle")}
           </h3>
           <p className="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
-            Bagikan link referral Anda untuk mulai membangun jaringan dan mendapatkan komisi.
+            {t("dashboard.affiliate.recentEmptyDesc")}
           </p>
         </div>
       ) : (
@@ -56,7 +59,7 @@ export default function AffiliateRecentCommission({
                 </div>
                 <div className="min-w-0">
                   <p className="font-bold text-slate-900 truncate">
-                    {entry.log.description || "Komisi referral"}
+                    {entry.log.description || t("dashboard.affiliate.recentFallback")}
                   </p>
                   <div className="flex items-center gap-1 text-[10px] text-slate-400 font-medium mt-0.5">
                     <Clock3 size={10} />
@@ -70,7 +73,7 @@ export default function AffiliateRecentCommission({
                   +{formatRupiah(entry.amount)}
                 </p>
                 <span className="inline-block rounded-md bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.2 text-[8.5px] font-black uppercase tracking-wider text-emerald-700">
-                  Saldo
+                  {t("dashboard.affiliate.assetSaldo")}
                 </span>
               </div>
             </div>

@@ -11,7 +11,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowUpRight,
   Bell,
@@ -54,6 +54,8 @@ import HelpViewUser from "./help/HelpViewUser";
 
 import { supabase } from "@/utils/supabaseClient";
 import MaintenancePage from "@/utils/MaintenancePage";
+import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 
 /* ================================================================== */
 /* TYPES                                                              */
@@ -568,10 +570,26 @@ function UserDashboardContent() {
   /* NAVIGATION (URL IS SOURCE OF TRUTH)                              */
   /* ---------------------------------------------------------------- */
 
+  const { t, locale } = useI18n();
+  const localeRef = useRef(locale);
+  const tRef = useRef(t);
+  useEffect(() => {
+    localeRef.current = locale;
+    tRef.current = t;
+  }, [locale, t]);
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const rawTab = searchParams.get("tab")?.toLowerCase().trim();
-  const activeMenu = (rawTab && VALID_USER_TABS[rawTab]) || "overview";
+  const pathSubSegment = useMemo(() => {
+    if (!pathname) return null;
+    const match = pathname.match(/^\/(?:en\/)?user\/([^/?#]+)/i);
+    return match ? match[1].toLowerCase().trim() : null;
+  }, [pathname]);
+  const activeMenu =
+    (rawTab && VALID_USER_TABS[rawTab]) ||
+    (pathSubSegment && VALID_USER_TABS[pathSubSegment]) ||
+    "overview";
 
   /* ---------------------------------------------------------------- */
   /* USER DATA                                                        */
@@ -775,7 +793,7 @@ function UserDashboardContent() {
       if (nextData) broadcastSandboxSync(nextData);
       window.dispatchEvent(new Event("sandboxSessionChanged"));
       if (activeMenu === "catalog") {
-        router.push("/user", { scroll: false });
+        router.push(localizeHref("/user", locale), { scroll: false });
       }
     } catch {
       // ignore
@@ -785,12 +803,12 @@ function UserDashboardContent() {
   // Redirect to overview if non-sandbox user visits catalog tab (only after sandbox session check initializes)
   useEffect(() => {
     if (isSandboxInitialized && !isSandboxMode && activeMenu === "catalog") {
-      router.replace("/user", { scroll: false });
+      router.replace(localizeHref("/user", locale), { scroll: false });
     }
-  }, [isSandboxInitialized, isSandboxMode, activeMenu, router]);
+  }, [isSandboxInitialized, isSandboxMode, activeMenu, router, locale]);
 
   const handleResetSandbox = async () => {
-    if (!confirm("Reset saldo virtual sandbox ke Rp 1.000.000?")) return;
+    if (!confirm(t("sandbox.session.confirmReset"))) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -856,7 +874,7 @@ function UserDashboardContent() {
 
           if (!session?.access_token) {
             localStorage.clear();
-            window.location.href = "/login";
+            window.location.href = localizeHref("/login", localeRef.current);
             return;
           }
 
@@ -876,7 +894,7 @@ function UserDashboardContent() {
 
           if (response.status === 401) {
             localStorage.clear();
-            window.location.href = "/login";
+            window.location.href = localizeHref("/login", localeRef.current);
             return;
           }
 
@@ -886,7 +904,7 @@ function UserDashboardContent() {
           if (!response.ok || !result.success) {
             throw new Error(
               result.error ||
-                "Gagal memuat dashboard.",
+                tRef.current("dashboard.overview.errLoadDashboard"),
             );
           }
 
@@ -988,7 +1006,7 @@ function UserDashboardContent() {
       localStorage.getItem("isUser");
 
     if (isUser !== "true" || !userEmail) {
-      window.location.href = "/login";
+      window.location.href = localizeHref("/login", localeRef.current);
       return;
     }
 
@@ -1207,7 +1225,10 @@ function UserDashboardContent() {
       return;
     }
 
-    const targetUrl = menu === "overview" ? "/user" : `/user?tab=${menu}`;
+    const targetUrl =
+      menu === "overview"
+        ? localizeHref("/user", locale)
+        : `${localizeHref("/user", locale)}?tab=${menu}`;
     router.push(targetUrl, { scroll: false });
   };
 
@@ -1239,12 +1260,12 @@ function UserDashboardContent() {
         if (!response.ok) {
           throw new Error(
             result.error ||
-              "Terjadi kesalahan sistem.",
+              t("dashboard.upgradeModal.errorAlert"),
           );
         }
 
         alert(
-          "SELAMAT! Anda sekarang adalah SPECIAL MEMBER.",
+          t("dashboard.upgradeModal.successAlert"),
         );
 
         setMemberType("Special");
@@ -1256,7 +1277,7 @@ function UserDashboardContent() {
         alert(
           error instanceof Error
             ? error.message
-            : "Gagal proses upgrade.",
+            : t("dashboard.upgradeModal.errorAlert"),
         );
       } finally {
         setIsUpgrading(false);
@@ -1442,28 +1463,28 @@ function UserDashboardContent() {
               onClick={() => setShowUpgradeModal(false)}
               disabled={isUpgrading}
               className="absolute right-6 top-6 inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 disabled:opacity-50"
-              aria-label="Tutup upgrade"
+              aria-label={t("dashboard.upgradeModal.closeAria")}
             >
               <X size={18} />
             </button>
 
             <div className="pr-10">
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-600">
-                Membership
+                {t("dashboard.upgradeModal.membership")}
               </p>
 
               <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
-                Upgrade ke Special Member
+                {t("dashboard.upgradeModal.title")}
               </h2>
 
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Dapatkan benefit member yang lebih tinggi sesuai program DaPay.
+                {t("dashboard.upgradeModal.desc")}
               </p>
             </div>
 
             <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center">
               <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-amber-600">
-                Biaya Upgrade
+                {t("dashboard.upgradeModal.cost")}
               </p>
 
               <p className="mt-2 text-3xl font-black text-slate-950">
@@ -1472,10 +1493,10 @@ function UserDashboardContent() {
             </div>
 
             <div className="mt-4 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-              <BenefitRow>Cashback lebih besar</BenefitRow>
-              <BenefitRow>Komisi referral lebih tinggi</BenefitRow>
-              <BenefitRow>Promo eksklusif</BenefitRow>
-              <BenefitRow>Layanan prioritas</BenefitRow>
+              <BenefitRow>{t("dashboard.nav.cashbackBigger")}</BenefitRow>
+              <BenefitRow>{t("dashboard.nav.commissionHigher")}</BenefitRow>
+              <BenefitRow>{t("dashboard.nav.exclusivePromo")}</BenefitRow>
+              <BenefitRow>{t("dashboard.nav.priorityService")}</BenefitRow>
             </div>
 
             <button
@@ -1487,10 +1508,10 @@ function UserDashboardContent() {
               {isUpgrading ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Memproses...
+                  {t("dashboard.upgradeModal.processing")}
                 </>
               ) : (
-                "Upgrade Sekarang"
+                t("dashboard.upgradeModal.upgradeCta")
               )}
             </button>
 
@@ -1500,7 +1521,7 @@ function UserDashboardContent() {
               disabled={isUpgrading}
               className="mt-3 w-full py-2 text-xs font-bold text-slate-400"
             >
-              Tutup
+              {t("dashboard.upgradeModal.close")}
             </button>
           </div>
         </div>
@@ -1553,6 +1574,8 @@ function OverviewContent({
   sandboxOrders?: DashboardOrder[];
   sandboxQuota?: SandboxQuotaData | null;
 }) {
+  const { t, locale } = useI18n();
+
   // Sandbox Calculations (Strictly isolated from LIVE data)
   const remainingSimulations = useMemo(() => {
     if (!sandboxQuota) return 20;
@@ -1711,15 +1734,15 @@ function OverviewContent({
 
   const copyReferralLink = async () => {
     if (!referralLink) {
-      alert("Link referral belum tersedia.");
+      alert(t("dashboard.overview.alertLinkNotAvailable"));
       return;
     }
 
     try {
       await navigator.clipboard.writeText(referralLink);
-      alert("Link referral berhasil disalin.");
+      alert(t("dashboard.overview.alertLinkCopied"));
     } catch {
-      alert("Gagal menyalin link referral.");
+      alert(t("dashboard.overview.alertLinkCopyFailed"));
     }
   };
 
@@ -1746,31 +1769,31 @@ function OverviewContent({
             <div className="relative z-10 flex h-full flex-col justify-between">
               <div className="flex items-start justify-between gap-1 xs:gap-1.5 md:gap-3">
                 <div className="flex items-center gap-1.5 xs:gap-2 md:gap-3 min-w-0">
-                  <div className="flex h-7 w-7 xs:h-8 xs:w-8 md:h-10 md:w-10 lg:h-11 lg:w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl md:rounded-2xl border border-white/25 bg-white/15 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_20px_rgba(0,0,0,0.15)] backdrop-blur-md">
+                  <div className="flex h-7 w-7 xs:h-8 xs:w-8 md:h-10 md:h-10 lg:h-11 lg:w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl md:rounded-2xl border border-white/25 bg-white/15 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_20px_rgba(0,0,0,0.15)] backdrop-blur-md">
                     <FlaskConical size={14} className="xs:h-4 xs:w-4 md:h-4.5 md:w-4.5 text-amber-300" strokeWidth={2.2} />
                   </div>
                   <div className="min-w-0">
                     <h2 className="text-[12px] xs:text-[13px] sm:text-[15px] md:text-sm lg:text-base font-bold tracking-tight text-white leading-tight truncate">
-                      Saldo Virtual Sandbox
+                      {t("dashboard.overview.sandboxBalanceTitle")}
                     </h2>
                     <p className="hidden md:block text-[10px] lg:text-[11px] font-medium text-amber-200/80 leading-tight">
-                      Simulasi Tanpa Risiko
+                      {t("dashboard.overview.sandboxBalanceSubtitle")}
                     </p>
                   </div>
                 </div>
                 <span className={"hidden " + (!isSidebarExpanded ? "md:inline-flex" : "lg:inline-flex") + " items-center gap-1.5 rounded-full border border-amber-300/40 bg-amber-400/20 px-2 xs:px-2.5 py-0.5 text-[9px] md:text-[9.5px] font-black uppercase tracking-[0.14em] text-amber-200 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-amber-300/20 whitespace-nowrap"}>
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(251,191,36,0.8)]" aria-hidden="true" />
-                  Sandbox Aktif
+                  {t("dashboard.overview.sandboxActive")}
                 </span>
               </div>
               <div className="my-2 xs:my-2.5 md:my-4 lg:my-5 xl:my-6">
                 <div className="flex items-center justify-between">
                   <p className="text-[8.5px] xs:text-[9.5px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-[0.18em] text-amber-200/70">
-                    Saldo Virtual Tersedia
+                    {t("dashboard.overview.sandboxAvailable")}
                   </p>
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold text-amber-100 backdrop-blur-xs">
                     <DaPayCoin size={11} />
-                    {sandboxCoinBalance.toLocaleString("id-ID")} KOIN
+                    {t("dashboard.overview.sandboxCoins", { count: sandboxCoinBalance.toLocaleString("id-ID") })}
                   </span>
                 </div>
                 <p className="mt-0.5 md:mt-1 truncate text-[13px] xs:text-[15px] sm:text-[17px] md:text-[clamp(15px,1.9vw,22px)] lg:text-2xl xl:text-3xl 2xl:text-4xl font-black tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.25)] leading-none font-mono">
@@ -1780,12 +1803,12 @@ function OverviewContent({
               <div>
                 <div className={"grid grid-cols-1 " + (!isSidebarExpanded ? "md:grid-cols-2" : "lg:grid-cols-2") + " gap-1 xs:gap-1.5 md:gap-2 lg:gap-2.5 w-full"}>
                   <Link
-                    href="/user?tab=wallet"
+                    href={`${localizeHref("/user", locale)}?tab=wallet`}
                     scroll={false}
                     className="inline-flex w-full h-6.5 xs:h-7.5 sm:h-8.5 md:h-9 lg:h-10 xl:h-10.5 items-center justify-center gap-1 xs:gap-1.5 md:gap-1.5 rounded-md xs:rounded-lg md:rounded-xl bg-white px-1.5 xs:px-2 md:px-2.5 lg:px-4 text-[10px] xs:text-[11px] md:text-xs font-bold text-amber-950 shadow-[0_4px_14px_rgba(0,0,0,0.15)] transition-all duration-200 hover:bg-amber-50 active:scale-95 cursor-pointer whitespace-nowrap"
                   >
                     <History size={11} className="xs:h-3 xs:w-3 md:h-3.5 md:w-3.5 shrink-0 text-amber-800" />
-                    <span className="truncate">Mutasi Sandbox</span>
+                    <span className="truncate">{t("dashboard.overview.sandboxMutation")}</span>
                   </Link>
                   <button
                     type="button"
@@ -1793,7 +1816,7 @@ function OverviewContent({
                     className="inline-flex w-full h-6.5 xs:h-7.5 sm:h-8.5 md:h-9 lg:h-10 xl:h-10.5 items-center justify-center gap-1 xs:gap-1.5 md:gap-1.5 rounded-md xs:rounded-lg md:rounded-xl border border-white/30 bg-white/15 px-1.5 xs:px-2 md:px-2.5 lg:px-4 text-[10px] xs:text-[11px] md:text-xs font-bold text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-200 hover:bg-white/25 hover:border-white/45 active:scale-95 cursor-pointer whitespace-nowrap"
                   >
                     <RefreshCw size={11} className="xs:h-3 xs:w-3 md:h-3.5 md:w-3.5 shrink-0" />
-                    <span className="truncate">Reset Rp 1 Juta</span>
+                    <span className="truncate">{t("dashboard.overview.resetMillion")}</span>
                   </button>
                 </div>
               </div>
@@ -1823,24 +1846,24 @@ function OverviewContent({
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-[12px] xs:text-[13px] sm:text-[15px] md:text-sm lg:text-base font-bold tracking-tight text-white leading-tight truncate">
-                    Saldo DaPay
+                    {t("dashboard.overview.liveBalanceTitle")}
                   </h2>
                   <p className="hidden md:block text-[10px] lg:text-[11px] font-medium text-blue-200/80 leading-tight">
-                    Aset Utama (Likuid)
+                    {t("dashboard.overview.liveBalanceSubtitle")}
                   </p>
                 </div>
               </div>
 
               <span className={`hidden ${!isSidebarExpanded ? "md:inline-flex" : "lg:inline-flex"} items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-500/20 px-2 xs:px-2.5 py-0.5 text-[9px] md:text-[9.5px] font-bold text-emerald-200 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-emerald-300/20 whitespace-nowrap`}>
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" aria-hidden="true" />
-                Bisa Ditarik
+                {t("dashboard.overview.withdrawable")}
               </span>
             </div>
 
             {/* Nominal Area */}
             <div className="my-2 xs:my-2.5 md:my-4 lg:my-5 xl:my-6">
               <p className="text-[8.5px] xs:text-[9.5px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-[0.18em] text-blue-200/70">
-                Saldo Tersedia
+                {t("dashboard.overview.liveBalanceAvailable")}
               </p>
               {isInitialLoading ? (
                 <div className="h-6 xs:h-7 sm:h-8 md:h-9 lg:h-10 w-32 xs:w-40 sm:w-48 md:w-56 rounded-xl bg-white/20 animate-pulse my-1" />
@@ -1855,21 +1878,21 @@ function OverviewContent({
             <div>
               <div className={`grid grid-cols-1 ${!isSidebarExpanded ? "md:grid-cols-2" : "lg:grid-cols-2"} gap-1 xs:gap-1.5 md:gap-2 lg:gap-2.5 w-full`}>
                 <Link
-                  href="/user?tab=deposit"
+                  href={`${localizeHref("/user", locale)}?tab=deposit`}
                   scroll={false}
                   className="inline-flex w-full h-6.5 xs:h-7.5 sm:h-8.5 md:h-9 lg:h-10 xl:h-10.5 items-center justify-center gap-1 xs:gap-1.5 md:gap-1.5 rounded-md xs:rounded-lg md:rounded-xl bg-white px-1.5 xs:px-2 md:px-2.5 lg:px-4 text-[10px] xs:text-[11px] md:text-xs font-bold text-blue-900 shadow-[0_4px_14px_rgba(0,0,0,0.15)] transition-all duration-200 hover:bg-blue-50 hover:shadow-[0_6px_20px_rgba(255,255,255,0.25)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white active:scale-95 cursor-pointer whitespace-nowrap"
                 >
                   <PlusCircle size={11} className="xs:h-3 xs:w-3 md:h-3.5 md:w-3.5 shrink-0" />
-                  <span className="truncate">Isi Saldo</span>
+                  <span className="truncate">{t("dashboard.overview.topUpCta")}</span>
                 </Link>
 
                 <Link
-                  href="/user?tab=withdraw"
+                  href={`${localizeHref("/user", locale)}?tab=withdraw`}
                   scroll={false}
                   className="inline-flex w-full h-6.5 xs:h-7.5 sm:h-8.5 md:h-9 lg:h-10 xl:h-10.5 items-center justify-center gap-1 xs:gap-1.5 md:gap-1.5 rounded-md xs:rounded-lg md:rounded-xl border border-white/30 bg-white/15 px-1.5 xs:px-2 md:px-2.5 lg:px-4 text-[10px] xs:text-[11px] md:text-xs font-bold text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-200 hover:bg-white/25 hover:border-white/45 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white active:scale-95 cursor-pointer whitespace-nowrap"
                 >
                   <ArrowUpRight size={11} className="xs:h-3 xs:w-3 md:h-3.5 md:w-3.5 shrink-0" />
-                  <span className="truncate">Tarik Saldo</span>
+                  <span className="truncate">{t("dashboard.overview.withdrawCta")}</span>
                 </Link>
               </div>
             </div>
@@ -1899,31 +1922,31 @@ function OverviewContent({
                   </div>
                   <div className="min-w-0">
                     <h2 className="text-[12px] xs:text-[13px] sm:text-[15px] md:text-sm lg:text-base font-black tracking-tight text-slate-900 leading-tight truncate">
-                      Status Kuota Sandbox
+                      {t("dashboard.overview.quotaTitle")}
                     </h2>
                     <p className="hidden md:block text-[10px] font-semibold text-amber-700 leading-tight">
-                      Sesi &amp; Batas Simulasi
+                      {t("dashboard.overview.quotaSubtitle")}
                     </p>
                   </div>
                 </div>
 
                 <span className={`hidden ${!isSidebarExpanded ? "md:inline-flex" : "lg:inline-flex"} items-center gap-1.5 rounded-full border border-amber-200/90 bg-white/70 px-2 xs:px-2.5 py-0.5 text-[9px] md:text-[9.5px] font-black uppercase tracking-[0.14em] text-amber-800 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60 whitespace-nowrap`}>
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" aria-hidden="true" />
-                  Aktif
+                  {t("dashboard.overview.quotaActive")}
                 </span>
               </div>
 
               {/* Nominal Area */}
               <div className="my-2 xs:my-2.5 md:my-4 lg:my-5 xl:my-6">
                 <p className="text-[8.5px] xs:text-[9.5px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-[0.18em] text-amber-900/70">
-                  Sisa Kuota Hari Ini
+                  {t("dashboard.overview.remainingQuotaToday")}
                 </p>
                 <div className="mt-0.5 md:mt-1 flex items-baseline gap-1 md:gap-1.5">
                   <span className="truncate text-[13px] xs:text-[15px] sm:text-[17px] md:text-[clamp(16px,2vw,24px)] lg:text-3xl xl:text-4xl font-black tracking-tight text-slate-950 leading-none">
                     {remainingSimulations}
                   </span>
                   <span className="text-[10px] xs:text-[11px] sm:text-[13px] md:text-sm lg:text-lg font-black tracking-tight text-amber-700">
-                    / {dailySimulationLimit} TRANSAKSI
+                    {t("dashboard.overview.quotaLimitFormat", { limit: dailySimulationLimit })}
                   </span>
                 </div>
               </div>
@@ -1936,10 +1959,10 @@ function OverviewContent({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[9px] xs:text-[10.5px] sm:text-[12px] md:text-xs font-bold text-slate-900 leading-tight truncate">
-                      Simulasi aman • Koin Sandbox: {sandboxCoinBalance.toLocaleString("id-ID")}
+                      {t("dashboard.overview.quotaCalloutTitle", { coins: sandboxCoinBalance.toLocaleString("id-ID") })}
                     </p>
                     <p className="hidden md:block mt-0.5 text-[10px] lg:text-xs text-slate-500 leading-tight">
-                      Sesi terkunci otomatis setelah 1 jam tidak aktif.
+                      {t("dashboard.overview.quotaCalloutDesc")}
                     </p>
                   </div>
                 </div>
@@ -2013,24 +2036,24 @@ function OverviewContent({
 
                   <div className="min-w-0">
                     <h2 className="text-[12px] xs:text-[13px] sm:text-[15px] md:text-sm lg:text-base font-black tracking-tight text-slate-900 leading-tight truncate">
-                      Koin DaPay
+                      {t("dashboard.overview.coinsTitle")}
                     </h2>
                     <p className="hidden md:block text-[10px] font-semibold text-purple-600 leading-tight">
-                      Loyalty Reward (Non-Likuid)
+                      {t("dashboard.overview.coinsSubtitle")}
                     </p>
                   </div>
                 </div>
 
                 <span className={`hidden ${!isSidebarExpanded ? "md:inline-flex" : "lg:inline-flex"} items-center gap-1.5 rounded-full border border-purple-200/90 bg-white/70 px-2 xs:px-2.5 py-0.5 text-[9px] md:text-[9.5px] font-black uppercase tracking-[0.14em] text-purple-700 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60 whitespace-nowrap`}>
                   <span className="text-[10px] xs:text-[11px] text-purple-600 leading-none" aria-hidden="true">✦</span>
-                  Reward
+                  {t("dashboard.overview.rewardPill")}
                 </span>
               </div>
 
               {/* Nominal Area */}
               <div className="my-2 xs:my-2.5 md:my-4 lg:my-5 xl:my-6">
                 <p className="text-[8.5px] xs:text-[9.5px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-[0.18em] text-purple-900/60">
-                  Total Reward Koin
+                  {t("dashboard.overview.totalCoins")}
                 </p>
                 {isInitialLoading ? (
                   <div className="h-6 xs:h-7 sm:h-8 md:h-9 lg:h-10 w-28 xs:w-36 sm:w-44 md:w-48 rounded-xl bg-purple-200/50 animate-pulse my-1" />
@@ -2040,7 +2063,7 @@ function OverviewContent({
                       {coinBalance.toLocaleString("id-ID")}
                     </span>
                     <span className="text-[10px] xs:text-[11px] sm:text-[13px] md:text-sm lg:text-lg font-black tracking-tight text-violet-700">
-                      KOIN
+                      {t("dashboard.overview.coinsUnit")}
                     </span>
                   </div>
                 )}
@@ -2054,10 +2077,10 @@ function OverviewContent({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[9px] xs:text-[10.5px] sm:text-[12px] md:text-xs font-bold text-slate-900 leading-tight">
-                      Gunakan Koin DaPay saat checkout
+                      {t("dashboard.overview.coinsCalloutTitle")}
                     </p>
                     <p className="hidden md:block mt-0.5 text-[10px] lg:text-xs text-slate-500 leading-tight">
-                      untuk potongan harga langsung.
+                      {t("dashboard.overview.coinsCalloutDesc")}
                     </p>
                   </div>
                 </div>
@@ -2075,9 +2098,9 @@ function OverviewContent({
         <section className="mb-5 sm:mb-6 grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3.5 md:grid-cols-2 md:gap-3.5 lg:grid-cols-4 lg:gap-4 xl:gap-5">
           <KpiCard
             icon={<ShoppingBag size={17} />}
-            label="Total Simulasi"
+            label={t("dashboard.kpi.totalSimulations")}
             value={sandboxOrders.length.toLocaleString("id-ID")}
-            note="Pesanan simulasi"
+            note={t("dashboard.kpi.simulatedOrders")}
             tone="amber"
             sparkline={sandboxOrdersSparkline}
             isLoading={isInitialLoading}
@@ -2085,12 +2108,12 @@ function OverviewContent({
 
           <KpiCard
             icon={<CheckCircle2 size={17} />}
-            label="Simulasi Berhasil"
+            label={t("dashboard.kpi.successfulSimulations")}
             value={successfulSandboxOrdersCount.toLocaleString("id-ID")}
             note={
               sandboxOrders.length > 0
-                ? `${Math.round((successfulSandboxOrdersCount / sandboxOrders.length) * 100)}% berhasil`
-                : "Simulasi berhasil"
+                ? t("dashboard.kpi.successRate", { percent: Math.round((successfulSandboxOrdersCount / sandboxOrders.length) * 100) })
+                : t("dashboard.kpi.simulationSuccessful")
             }
             tone="emerald"
             sparkline={sandboxOrdersSparkline}
@@ -2099,18 +2122,18 @@ function OverviewContent({
 
           <KpiCard
             icon={<Clock size={17} />}
-            label="Sisa Kuota"
+            label={t("dashboard.kpi.remainingQuota")}
             value={`${remainingSimulations}`}
-            note={`Dari limit ${dailySimulationLimit}/hari`}
+            note={t("dashboard.kpi.fromLimit", { limit: dailySimulationLimit })}
             tone="purple"
             isLoading={isInitialLoading}
           />
 
           <KpiCard
             icon={<Wallet size={17} />}
-            label="Nilai Transaksi Simulasi"
+            label={t("dashboard.kpi.simulatedTransactionValue")}
             value={formatRupiah(totalSimulatedValue)}
-            note="Nilai transaksi virtual"
+            note={t("dashboard.kpi.virtualTransactionValue")}
             tone="blue"
             isLoading={isInitialLoading}
           />
@@ -2119,9 +2142,9 @@ function OverviewContent({
         <section className="mb-5 sm:mb-6 grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3.5 md:grid-cols-2 md:gap-3.5 lg:grid-cols-4 lg:gap-4 xl:gap-5">
           <KpiCard
             icon={<ArrowUpRight size={17} />}
-            label="Komisi Referral"
+            label={t("dashboard.kpi.referralCommission")}
             value={formatRupiah(totalReferralCommission)}
-            note="Masuk ke Saldo DaPay"
+            note={t("dashboard.kpi.creditedToBalance")}
             tone="purple"
             sparkline={referralSparkline}
             isLoading={isInitialLoading}
@@ -2129,12 +2152,12 @@ function OverviewContent({
 
           <KpiCard
             icon={<ArrowUpRight size={17} />}
-            label="Total Penarikan"
+            label={t("dashboard.kpi.totalWithdrawals")}
             value={formatRupiah(totalWithdrawn)}
             note={
               pendingWithdrawAmount > 0
-                ? `Pending ${formatRupiah(pendingWithdrawAmount)}`
-                : "Penarikan berhasil"
+                ? t("dashboard.kpi.pendingAmount", { amount: formatRupiah(pendingWithdrawAmount) })
+                : t("dashboard.kpi.withdrawalSuccessful")
             }
             tone="emerald"
             sparkline={withdrawalSparkline}
@@ -2143,9 +2166,9 @@ function OverviewContent({
 
           <KpiCard
             icon={<CreditCard size={17} />}
-            label="Total Deposit"
+            label={t("dashboard.kpi.totalDeposits")}
             value={formatRupiah(totalDeposit)}
-            note="Deposit berhasil"
+            note={t("dashboard.kpi.depositSuccessful")}
             tone="blue"
             sparkline={depositSparkline}
             isLoading={isInitialLoading}
@@ -2153,9 +2176,9 @@ function OverviewContent({
 
           <KpiCard
             icon={<ShoppingBag size={17} />}
-            label="Total Transaksi"
+            label={t("dashboard.kpi.totalTransactions")}
             value={orders.length.toLocaleString("id-ID")}
-            note="Total pesanan"
+            note={t("dashboard.kpi.totalOrders")}
             tone="amber"
             sparkline={ordersSparkline}
             isLoading={isInitialLoading}
@@ -2181,20 +2204,20 @@ function OverviewContent({
               </div>
               <div className="min-w-0">
                 <h2 className="text-[11px] xs:text-xs font-black text-slate-900 sm:text-sm truncate">
-                  {isSandboxMode ? "Transaksi Terbaru (Simulasi)" : "Transaksi Terbaru"}
+                  {isSandboxMode ? t("dashboard.overview.recentOrdersSimTitle") : t("dashboard.overview.recentOrdersTitle")}
                 </h2>
                 <p className="hidden xs:block text-[10px] font-medium text-slate-400 truncate">
-                  {isSandboxMode ? "Aktivitas pesanan digital simulasi" : "Aktivitas pesanan digital terkini"}
+                  {isSandboxMode ? t("dashboard.overview.recentOrdersSimSubtitle") : t("dashboard.overview.recentOrdersSubtitle")}
                 </p>
               </div>
             </div>
 
             <Link
-              href="/user?tab=orders"
+              href={`${localizeHref("/user", locale)}?tab=orders`}
               scroll={false}
               className="inline-flex shrink-0 items-center gap-0.5 text-[10px] xs:text-[11px] font-bold text-blue-600 transition hover:text-blue-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500"
             >
-              <span>Lihat Semua →</span>
+              <span>{t("dashboard.overview.viewAllOrders")}</span>
             </Link>
           </div>
 
@@ -2211,21 +2234,21 @@ function OverviewContent({
                 <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-amber-200 bg-amber-50/40 px-4 py-8 text-center">
                   <FlaskConical size={28} className="text-amber-500 mb-2" />
                   <p className="text-xs font-semibold text-slate-700">
-                    Belum ada transaksi simulasi.
+                    {t("dashboard.overview.emptySimOrdersTitle")}
                   </p>
                   <p className="mt-1 text-[11px] text-slate-400 max-w-xs">
-                    Uji coba transaksi produk digital tanpa memotong saldo riil di katalog simulasi.
+                    {t("dashboard.overview.emptySimOrdersDesc")}
                   </p>
                   <Link
-                    href="/user?tab=catalog"
+                    href={`${localizeHref("/user", locale)}?tab=catalog`}
                     scroll={false}
                     className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition active:scale-95 cursor-pointer"
                   >
-                    <span>Mulai Simulasi di Katalog →</span>
+                    <span>{t("dashboard.overview.startSimCatalog")}</span>
                   </Link>
                 </div>
               ) : (
-                <EmptyDashboard text="Belum ada transaksi pesanan tercatat." />
+                <EmptyDashboard text={t("dashboard.overview.emptyOrders")} />
               )
             ) : (
               <>
@@ -2234,11 +2257,11 @@ function OverviewContent({
                   <table className="h-full w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        <th className="pb-2.5 pl-1 pr-3 font-bold">Produk & Layanan</th>
-                        <th className="px-3 pb-2.5 font-bold">ID Pesanan</th>
-                        <th className="px-3 pb-2.5 font-bold">Waktu</th>
-                        <th className="px-3 pb-2.5 font-bold text-center">Status</th>
-                        <th className="pb-2.5 pl-3 pr-1 font-bold text-right">Harga</th>
+                        <th className="pb-2.5 pl-1 pr-3 font-bold">{t("dashboard.overview.colProduct")}</th>
+                        <th className="px-3 pb-2.5 font-bold">{t("dashboard.overview.colOrderId")}</th>
+                        <th className="px-3 pb-2.5 font-bold">{t("dashboard.overview.colTime")}</th>
+                        <th className="px-3 pb-2.5 font-bold text-center">{t("dashboard.overview.colStatus")}</th>
+                        <th className="pb-2.5 pl-3 pr-1 font-bold text-right">{t("dashboard.overview.colPrice")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -2247,6 +2270,7 @@ function OverviewContent({
                         const style = getStatusClasses(status);
                         const orderRef = order.order_id || order.id;
                         const productImg = getProductImage(order.product_name);
+                        const defaultProductName = t("dashboard.overview.digitalProduct");
 
                         return (
                           <tr
@@ -2260,14 +2284,14 @@ function OverviewContent({
                                   <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-slate-50">
                                     <img
                                       src={productImg}
-                                      alt={order.product_name || "Produk"}
+                                      alt={order.product_name || defaultProductName}
                                       className="h-full w-full object-cover"
                                     />
                                   </div>
                                 )}
                                 <div className="min-w-0">
                                   <p className="truncate text-xs font-bold text-slate-900">
-                                    {order.product_name || "Produk Digital"}
+                                    {order.product_name || defaultProductName}
                                   </p>
                                   {order.item_label && (
                                     <p className="truncate text-[10px] text-slate-400">
@@ -2316,6 +2340,7 @@ function OverviewContent({
                     const style = getStatusClasses(status);
                     const orderRef = order.order_id || order.id;
                     const productImg = getProductImage(order.product_name);
+                    const defaultProductName = t("dashboard.overview.digitalProduct");
 
                     return (
                       <div
@@ -2328,7 +2353,7 @@ function OverviewContent({
                             <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-1 shadow-2xs">
                               <img
                                 src={productImg}
-                                alt={order.product_name || "Produk"}
+                                alt={order.product_name || defaultProductName}
                                 className="h-full w-full object-contain"
                               />
                             </div>
@@ -2340,7 +2365,7 @@ function OverviewContent({
 
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-xs sm:text-sm font-bold text-slate-900 leading-tight">
-                              {order.product_name || "Produk Digital"}
+                              {order.product_name || defaultProductName}
                             </p>
                             <div className="mt-1 flex items-center gap-1.5 text-[10px] sm:text-xs text-slate-400 font-semibold truncate">
                               <span className="font-mono text-slate-500 font-bold">
@@ -2387,20 +2412,20 @@ function OverviewContent({
                   </div>
                   <div className="min-w-0">
                     <h2 className="text-[11px] xs:text-xs font-black text-slate-900 sm:text-sm truncate">
-                      Statistik Afiliasi
+                      {t("dashboard.overview.affiliateStatsTitle")}
                     </h2>
                     <p className="hidden xs:block text-[10px] font-medium text-slate-400 truncate">
-                      Performa mitra & pendapatan
+                      {t("dashboard.overview.affiliateStatsSubtitle")}
                     </p>
                   </div>
                 </div>
 
                 <Link
-                  href="/user?tab=affiliate"
+                  href={`${localizeHref("/user", locale)}?tab=affiliate`}
                   scroll={false}
                   className="inline-flex shrink-0 items-center text-[10px] xs:text-[11px] font-bold text-purple-600 transition hover:text-purple-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-purple-500"
                 >
-                  <span>Lihat Detail →</span>
+                  <span>{t("dashboard.overview.viewDetail")}</span>
                 </Link>
               </div>
 
@@ -2408,20 +2433,20 @@ function OverviewContent({
               <div className="grid grid-cols-2 gap-1.5 xs:gap-2">
                 <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-2 xs:p-2.5 min-w-0">
                   <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate">
-                    Total Mitra
+                    {t("dashboard.overview.totalPartners")}
                   </p>
                   {isInitialLoading ? (
                     <div className="h-4.5 xs:h-5 sm:h-6 w-14 xs:w-16 rounded bg-slate-200/70 animate-pulse mt-0.5" />
                   ) : (
                     <p className="mt-0.5 text-xs xs:text-sm sm:text-base font-black text-slate-950 truncate">
-                      {referrals.length} <span className="text-[9px] xs:text-[10px] font-semibold text-slate-500">Orang</span>
+                      {referrals.length} <span className="text-[9px] xs:text-[10px] font-semibold text-slate-500">{t("dashboard.overview.peopleUnit")}</span>
                     </p>
                   )}
                 </div>
 
                 <div className="rounded-xl border border-purple-100 bg-purple-50/80 p-2 xs:p-2.5 min-w-0">
                   <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-purple-700 truncate">
-                    Komisi Referral
+                    {t("dashboard.kpi.referralCommission")}
                   </p>
                   {isInitialLoading ? (
                     <div className="h-4.5 xs:h-5 sm:h-6 w-18 xs:w-20 rounded bg-purple-200/60 animate-pulse mt-0.5" />
@@ -2437,7 +2462,7 @@ function OverviewContent({
               <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2 xs:p-2.5 min-w-0">
                 <div className="flex items-center justify-between gap-1 text-[9.5px] xs:text-[10px]">
                   <span className="font-bold text-slate-700 truncate">
-                    Progress: {monthlyReferrals.length}/25 Mitra
+                    {t("dashboard.overview.referralProgress", { count: monthlyReferrals.length })}
                   </span>
                   <span className="shrink-0 rounded-md bg-purple-100/80 px-1.5 py-0.2 font-mono text-[8.5px] xs:text-[9px] font-black text-purple-700">
                     {Math.min(Math.round((monthlyReferrals.length / 25) * 100), 100)}%
@@ -2465,7 +2490,7 @@ function OverviewContent({
                     <Wallet size={10} className="xs:h-2.5 xs:w-2.5" />
                   </div>
                   <p className="text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-purple-900 truncate">
-                    Komisi Bulan Ini
+                    {t("dashboard.overview.monthlyCommission")}
                   </p>
                 </div>
 
@@ -2478,7 +2503,7 @@ function OverviewContent({
                 )}
 
                 <p className="mt-0.5 text-[9px] xs:text-[10px] leading-tight text-slate-500">
-                  Otomatis masuk ke <strong className="font-bold text-slate-700">Saldo DaPay</strong> dari transaksi mitra.
+                  {t("dashboard.overview.monthlyCommissionNote")}
                 </p>
               </div>
             </div>
@@ -2486,11 +2511,11 @@ function OverviewContent({
             {/* Referral Link & Copy Container */}
             <div className="mt-2.5 xs:mt-3 border-t border-slate-100 pt-2 xs:pt-2.5 min-w-0">
               <p className="mb-1 text-[8.5px] xs:text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                Tautan Referral Anda
+                {t("dashboard.overview.yourReferralLink")}
               </p>
               <div className="flex items-center gap-1 xs:gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50 p-1 shadow-2xs min-w-0">
                 <code className="min-w-0 flex-1 truncate px-1.5 xs:px-2 font-mono text-[9px] xs:text-[10px] font-semibold text-slate-700">
-                  {referralLink || "Link belum tersedia"}
+                  {referralLink || t("dashboard.overview.linkNotAvailable")}
                 </code>
 
                 <button
@@ -2500,7 +2525,7 @@ function OverviewContent({
                   className="inline-flex h-6.5 xs:h-7 shrink-0 items-center justify-center gap-1 rounded-lg bg-purple-600 px-2 xs:px-2.5 text-[10px] xs:text-[11px] font-bold text-white transition hover:bg-purple-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
                 >
                   <Copy size={10} className="xs:h-2.5 xs:w-2.5" />
-                  <span>Salin</span>
+                  <span>{t("dashboard.overview.copyLink")}</span>
                 </button>
               </div>
             </div>
@@ -2524,24 +2549,25 @@ function SandboxFinancialNotice({
   onGoToCatalog: () => void;
   onExitSandbox?: () => void;
 }) {
+  const { t } = useI18n();
   const isDeposit = type === "deposit";
   const isAffiliate = type === "affiliate";
 
   const title = isAffiliate
-    ? "Program Afiliasi Hanya Tersedia di Mode LIVE"
-    : "Fitur Ini Hanya Tersedia di Mode LIVE";
+    ? t("dashboard.sandboxNotice.affiliateTitle")
+    : t("dashboard.sandboxNotice.liveOnlyTitle");
 
   const description = isAffiliate
-    ? "Data mitra dan komisi afiliasi terhubung ke akun riil DaPay. Transaksi di Sandbox tidak memengaruhi program afiliasi."
+    ? t("dashboard.sandboxNotice.affiliateDesc")
     : isDeposit
-      ? "Deposit saldo menggunakan pembayaran dan saldo riil, sehingga tidak tersedia saat Anda berada di Mode Sandbox."
-      : "Tarik saldo menggunakan rekening bank atau e-wallet riil, sehingga tidak tersedia saat Anda berada di Mode Sandbox.";
+      ? t("dashboard.sandboxNotice.depositDesc")
+      : t("dashboard.sandboxNotice.withdrawDesc");
 
   const secondaryNote = isAffiliate
-    ? "Kembali ke Mode LIVE untuk mengelola mitra downline dan melihat perolehan komisi referral riil Anda."
+    ? t("dashboard.sandboxNotice.affiliateNote")
     : isDeposit
-      ? "Untuk menambah saldo virtual simulasi, Anda dapat menggunakan tombol Reset Saldo Rp 1.000.000 di menu Riwayat Saldo."
-      : "Saldo virtual simulasi bersifat dummy, tidak memiliki nilai riil, dan tidak dapat dicairkan.";
+      ? t("dashboard.sandboxNotice.depositNote")
+      : t("dashboard.sandboxNotice.withdrawNote");
 
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl md:rounded-[28px] border border-amber-300/70 bg-linear-to-b from-amber-50/70 via-white to-amber-50/30 p-8 sm:p-12 text-center shadow-xs backdrop-blur-md">
@@ -2550,7 +2576,7 @@ function SandboxFinancialNotice({
       </div>
       <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-200/70 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-950">
         <FlaskConical size={11} className="text-amber-700" />
-        Mode Sandbox Aktif
+        {t("dashboard.sandbox.topBanner")}
       </span>
       <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
         {title}
@@ -2568,7 +2594,7 @@ function SandboxFinancialNotice({
           className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 px-5 text-xs font-bold text-white shadow-xs transition hover:from-amber-600 hover:to-orange-600 active:scale-95 cursor-pointer"
         >
           <ShoppingBag size={15} />
-          <span>Kembali ke Katalog Simulasi</span>
+          <span>{t("dashboard.sandboxNotice.goToCatalog")}</span>
         </button>
         {onExitSandbox && (
           <button
@@ -2576,7 +2602,7 @@ function SandboxFinancialNotice({
             onClick={onExitSandbox}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-xs font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50 active:scale-95 cursor-pointer"
           >
-            <span>Kembali ke Mode LIVE</span>
+            <span>{t("dashboard.sandboxNotice.backToLive")}</span>
           </button>
         )}
       </div>
@@ -2588,12 +2614,12 @@ function SandboxFinancialNotice({
 /* DASHBOARD SHELL                                                    */
 /* ================================================================== */
 
-function getTimeGreeting(): string {
+function getTimeGreeting(t: (key: string) => string): string {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 11) return "Selamat pagi";
-  if (hour >= 11 && hour < 15) return "Selamat siang";
-  if (hour >= 15 && hour < 19) return "Selamat sore";
-  return "Selamat malam";
+  if (hour >= 5 && hour < 11) return t("dashboard.overview.morning");
+  if (hour >= 11 && hour < 15) return t("dashboard.overview.afternoon");
+  if (hour >= 15 && hour < 19) return t("dashboard.overview.evening");
+  return t("dashboard.overview.night");
 }
 
 function DashboardShell({
@@ -2623,6 +2649,7 @@ function DashboardShell({
   avatarUrl?: string | null;
   onRefresh?: () => void;
 }) {
+  const { t, locale } = useI18n();
   const bottomNavActive =
     activeMenu === "overview"
       ? "overview"
@@ -2648,66 +2675,66 @@ function DashboardShell({
         ? "Gold Member"
         : "Regular Member";
 
-  const greeting = getTimeGreeting();
+  const greeting = getTimeGreeting(t);
 
   const PAGE_META: Record<string, { title: string; subtitle: string }> = {
     catalog: {
-      title: "Katalog Produk Sandbox",
-      subtitle: "Katalog produk retail terkurasi untuk simulasi transaksi digital.",
+      title: t("dashboard.meta.catalogTitle"),
+      subtitle: t("dashboard.meta.catalogSubtitle"),
     },
     orders: {
-      title: isSandboxMode ? "Riwayat Transaksi Simulasi" : "Riwayat Transaksi",
+      title: isSandboxMode ? t("dashboard.meta.ordersTitleSim") : t("dashboard.meta.ordersTitle"),
       subtitle: isSandboxMode
-        ? "Semua transaksi digital simulasi yang pernah dilakukan."
-        : "Semua transaksi digital yang pernah dilakukan.",
+        ? t("dashboard.meta.ordersSubtitleSim")
+        : t("dashboard.meta.ordersSubtitle"),
     },
     wallet: {
-      title: "Riwayat Saldo DaPay",
-      subtitle: "Mutasi saldo masuk, keluar, cashback, dan referral.",
+      title: t("dashboard.meta.walletTitle"),
+      subtitle: t("dashboard.meta.walletSubtitle"),
     },
     deposit: {
-      title: isSandboxMode ? "Deposit (Mode LIVE Saja)" : "Isi Saldo DaPay",
+      title: isSandboxMode ? t("dashboard.meta.depositTitleLiveOnly") : t("dashboard.meta.depositTitle"),
       subtitle: isSandboxMode
-        ? "Fitur deposit saldo riil tidak tersedia di Mode Sandbox."
-        : "Pilih metode pembayaran untuk top up saldo.",
+        ? t("dashboard.meta.depositSubtitleLiveOnly")
+        : t("dashboard.meta.depositSubtitle"),
     },
     withdraw: {
-      title: isSandboxMode ? "Tarik Saldo (Mode LIVE Saja)" : "Tarik Saldo DaPay",
+      title: isSandboxMode ? t("dashboard.meta.withdrawTitleLiveOnly") : t("dashboard.meta.withdrawTitle"),
       subtitle: isSandboxMode
-        ? "Fitur penarikan saldo riil tidak tersedia di Mode Sandbox."
-        : "Tarik saldo ke rekening atau e-wallet terdaftar.",
+        ? t("dashboard.meta.withdrawSubtitleLiveOnly")
+        : t("dashboard.meta.withdrawSubtitle"),
     },
     withdrawal: {
-      title: isSandboxMode ? "Tarik Saldo (Mode LIVE Saja)" : "Tarik Saldo DaPay",
+      title: isSandboxMode ? t("dashboard.meta.withdrawTitleLiveOnly") : t("dashboard.meta.withdrawTitle"),
       subtitle: isSandboxMode
-        ? "Fitur penarikan saldo riil tidak tersedia di Mode Sandbox."
-        : "Tarik saldo ke rekening atau e-wallet terdaftar.",
+        ? t("dashboard.meta.withdrawSubtitleLiveOnly")
+        : t("dashboard.meta.withdrawSubtitle"),
     },
     affiliate: {
-      title: isSandboxMode ? "Program Afiliasi (Mode LIVE Saja)" : "Program Afiliasi DaPay",
+      title: isSandboxMode ? t("dashboard.meta.affiliateTitleLiveOnly") : t("dashboard.meta.affiliateTitle"),
       subtitle: isSandboxMode
-        ? "Fitur program afiliasi dan komisi mitra hanya tersedia di Mode LIVE."
-        : "Kelola mitra, komisi referral, dan tautan referral.",
+        ? t("dashboard.meta.affiliateSubtitleLiveOnly")
+        : t("dashboard.meta.affiliateSubtitle"),
     },
     settings: {
-      title: "Pengaturan Akun",
-      subtitle: "Profil, keamanan, autentikasi, dan preferensi akun.",
+      title: t("dashboard.meta.settingsTitle"),
+      subtitle: t("dashboard.meta.settingsSubtitle"),
     },
     "settings-profile": {
-      title: "Profil Pengguna",
-      subtitle: "Informasi dasar akun member dan data terdaftar.",
+      title: t("dashboard.meta.profileTitle"),
+      subtitle: t("dashboard.meta.profileSubtitle"),
     },
     "settings-security": {
-      title: "Keamanan Akun",
-      subtitle: "Perbarui password dan proteksi otentikasi akun.",
+      title: t("dashboard.meta.securityTitle"),
+      subtitle: t("dashboard.meta.securitySubtitle"),
     },
     "settings-notifications": {
-      title: "Preferensi Notifikasi",
-      subtitle: "Kelola pemberitahuan transaksi, saldo, dan promo.",
+      title: t("dashboard.meta.notificationsTitle"),
+      subtitle: t("dashboard.meta.notificationsSubtitle"),
     },
     help: {
-      title: "Pusat Bantuan",
-      subtitle: "FAQ, tiket bantuan, dan hubungi tim DaPay.",
+      title: t("dashboard.meta.helpTitle"),
+      subtitle: t("dashboard.meta.helpSubtitle"),
     },
   };
 
@@ -2739,10 +2766,10 @@ function DashboardShell({
                 <div className="flex items-center gap-2 xs:gap-2.5 min-w-0">
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/90 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-950 border border-amber-300 shrink-0">
                     <FlaskConical size={11} className="text-amber-700" />
-                    SANDBOX • SIMULASI
+                    {t("dashboard.sandbox.badge")}
                   </span>
                   <p className="truncate text-[11px] font-semibold text-amber-900 hidden sm:inline">
-                    Workspace Simulasi Aktif — Transaksi &amp; saldo bersifat virtual (bebas risiko modal riil).
+                    {t("dashboard.sandbox.bannerDesc")}
                   </p>
                 </div>
                 {onExitSandbox && (
@@ -2751,7 +2778,7 @@ function DashboardShell({
                     onClick={onExitSandbox}
                     className="inline-flex items-center gap-1 rounded-lg border border-amber-500/80 bg-linear-to-r from-amber-500 to-orange-500 px-2.5 xs:px-3 py-1.5 text-[10.5px] font-bold text-white shadow-2xs hover:from-amber-600 hover:to-orange-600 active:scale-95 transition cursor-pointer shrink-0"
                   >
-                    <span>Kembali ke LIVE →</span>
+                    <span>{t("dashboard.sandbox.backToLive")}</span>
                   </button>
                 )}
               </div>
@@ -2770,7 +2797,7 @@ function DashboardShell({
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent("open-user-sidebar"));
                   }}
-                  aria-label="Buka navigasi sidebar"
+                  aria-label={t("dashboard.nav.openSidebar")}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
                 >
                   <Menu size={18} strokeWidth={2} />
@@ -2778,10 +2805,10 @@ function DashboardShell({
 
                 {/* 2. NOTIFICATION BELL WITH BADGE */}
                 <Link
-                  href="/user?tab=settings-notifications"
+                  href={`${localizeHref("/user", locale)}?tab=settings-notifications`}
                   scroll={false}
-                  title="Pusat Notifikasi"
-                  aria-label="Pusat Notifikasi (3 Notifikasi Baru)"
+                  title={t("dashboard.overview.notificationCenter")}
+                  aria-label={t("dashboard.overview.notificationCenterAria", { count: 3 })}
                   className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
                 >
                   <Bell size={16} className="text-slate-700" />
@@ -2792,10 +2819,10 @@ function DashboardShell({
 
                 {/* 3. USER PROFILE PILL */}
                 <Link
-                  href="/user?tab=settings-profile"
+                  href={`${localizeHref("/user", locale)}?tab=settings-profile`}
                   scroll={false}
-                  title={`Profil: ${userName} (${displayMemberType})`}
-                  aria-label="Profil Pengguna"
+                  title={t("dashboard.overview.profileTitle", { name: userName, memberType: displayMemberType })}
+                  aria-label={t("dashboard.nav.profileAria")}
                   className="group flex flex-1 min-w-0 items-center justify-between gap-1.5 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2.5 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -2828,8 +2855,8 @@ function DashboardShell({
                 <button
                   type="button"
                   onClick={onRefresh}
-                  title="Muat ulang data"
-                  aria-label="Muat ulang data"
+                  title={t("dashboard.overview.refreshData")}
+                  aria-label={t("dashboard.overview.refreshData")}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-600 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50"
                 >
                   <RefreshCw size={14} />
@@ -2858,7 +2885,7 @@ function DashboardShell({
                         )}
                       </h1>
                       <p className="mt-0.5 text-[9.5px] xs:text-[10.5px] font-medium text-slate-400 truncate">
-                        Ringkasan saldo, transaksi, koin & aktivitas akun.
+                        {t("dashboard.overview.subtitleMobile")}
                       </p>
                     </>
                   ) : (
@@ -2889,7 +2916,7 @@ function DashboardShell({
                         {greeting}, {firstName} 👋
                       </h1>
                       <p className={`hidden ${!isSidebarExpanded ? "md:block" : "lg:block"} mt-0.5 text-[clamp(12px,1.35vw,14.5px)] lg:text-xs text-slate-500 font-medium leading-snug truncate`}>
-                        Ringkasan saldo, transaksi, koin, dan aktivitas akun.
+                        {t("dashboard.overview.subtitle")}
                       </p>
                     </>
                   ) : (
@@ -2908,10 +2935,10 @@ function DashboardShell({
                 <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 shrink-0 ml-auto">
                   {/* 1. NOTIFICATION BELL */}
                   <Link
-                    href="/user?tab=settings-notifications"
+                    href={`${localizeHref("/user", locale)}?tab=settings-notifications`}
                     scroll={false}
-                    title="Pusat Notifikasi"
-                    aria-label="Pusat Notifikasi (3 Notifikasi Baru)"
+                    title={t("dashboard.overview.notificationCenter")}
+                    aria-label={t("dashboard.overview.notificationCenterAria", { count: 3 })}
                     className="relative flex h-8 w-8 md:h-8.5 md:w-8.5 lg:h-9.5 lg:w-9.5 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-700 shadow-2xs transition-all duration-200 hover:bg-slate-50 hover:text-blue-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer"
                   >
                     <Bell size={15} className="text-slate-700" />
@@ -2922,10 +2949,10 @@ function DashboardShell({
 
                   {/* 2. USER AVATAR PILL */}
                   <Link
-                    href="/user?tab=settings-profile"
+                    href={`${localizeHref("/user", locale)}?tab=settings-profile`}
                     scroll={false}
-                    title={`Profil: ${userName} (${displayMemberType})`}
-                    aria-label="Profil Pengguna"
+                    title={t("dashboard.overview.profileTitle", { name: userName, memberType: displayMemberType })}
+                    aria-label={t("dashboard.nav.profileAria")}
                     className="group flex items-center gap-1.5 md:gap-2 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-2.5 md:pr-3 lg:pr-4 shadow-2xs transition-all duration-200 hover:border-slate-300 hover:bg-slate-50/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer min-w-0 max-w-31.25 md:max-w-38.75 lg:max-w-46.25"
                   >
                     <div className="flex h-6.5 w-6.5 md:h-7 md:w-7 lg:h-8 lg:w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-blue-600 via-indigo-600 to-violet-600 text-white font-black text-[10px] md:text-[11px] lg:text-xs shadow-xs ring-1 ring-white">
@@ -2956,8 +2983,8 @@ function DashboardShell({
                   <button
                     type="button"
                     onClick={onRefresh}
-                    title="Muat ulang data"
-                    aria-label="Muat ulang data"
+                    title={t("dashboard.overview.refreshData")}
+                    aria-label={t("dashboard.overview.refreshData")}
                     className="flex h-8 w-8 md:h-8.5 md:w-8.5 lg:h-9.5 lg:w-9.5 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-600 shadow-2xs transition-all duration-200 hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 active:scale-95 cursor-pointer"
                   >
                     <RefreshCw size={13} />

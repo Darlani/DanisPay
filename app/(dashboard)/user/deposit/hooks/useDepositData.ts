@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
+import { useI18n } from "@/lib/i18n/context";
 import {
   Deposit,
   DepositFilters,
@@ -30,6 +31,7 @@ export function useDepositData({
   filters,
   debouncedSearch,
 }: UseDepositDataProps) {
+  const { t } = useI18n();
   // Local state override for background / manual revalidations
   const [localDeposits, setLocalDeposits] = useState<Deposit[] | null>(null);
   const [localBalance, setLocalBalance] = useState<number | null>(null);
@@ -60,7 +62,8 @@ export function useDepositData({
         } = await supabase.auth.getSession();
 
         if (!session?.access_token) {
-          window.location.href = "/login";
+          const isEn = typeof window !== "undefined" && window.location.pathname.startsWith("/en");
+          window.location.href = isEn ? "/en/login" : "/login";
           return;
         }
 
@@ -86,14 +89,14 @@ export function useDepositData({
           setError(
             err instanceof Error
               ? err.message
-              : "Gagal menyegarkan data deposit.",
+              : t("dashboard.deposit.errLoadHistory"),
           );
         }
       } finally {
         setRefreshing(false);
       }
     },
-    [],
+    [t],
   );
 
   // Extract unique payment method options

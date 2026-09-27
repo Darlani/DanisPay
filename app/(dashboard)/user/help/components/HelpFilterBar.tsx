@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { CATEGORY_DEFINITIONS, CategoryCounts, HelpCategory } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface HelpFilterBarProps {
   category: HelpCategory;
@@ -31,6 +32,26 @@ export default function HelpFilterBar({
   categoryCounts,
   liveAnnouncement,
 }: HelpFilterBarProps) {
+  const { t } = useI18n();
+
+  const getCategoryLabel = (id: HelpCategory) => {
+    switch (id) {
+      case "all":
+        return t("dashboard.help.categoryAll");
+      case "account":
+        return t("dashboard.help.categoryAccount");
+      case "transaction":
+        return t("dashboard.help.categoryTransaction");
+      case "balance":
+        return t("dashboard.help.categoryBalance");
+      case "coin":
+        return t("dashboard.help.categoryCoin");
+      case "referral":
+        return t("dashboard.help.categoryReferral");
+      default:
+        return id;
+    }
+  };
   const getCategoryIcon = (iconName: string, active: boolean) => {
     const size = 14;
     const iconClass = active ? "text-blue-600" : "text-slate-400";
@@ -71,15 +92,15 @@ export default function HelpFilterBar({
             type="search"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Cari pertanyaan bantuan..."
-            aria-label="Cari pertanyaan atau topik bantuan"
+            placeholder={t("dashboard.help.searchPlaceholder")}
+            aria-label={t("dashboard.help.searchAria")}
             className="h-10 sm:h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/70 pl-8.5 xs:pl-10 pr-8 xs:pr-9 text-xs sm:text-sm font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
           />
           {search && (
             <button
               type="button"
               onClick={() => onSearchChange("")}
-              aria-label="Hapus kata kunci pencarian"
+              aria-label={t("dashboard.help.clearSearchAria")}
               className="absolute right-2 xs:right-2.5 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition cursor-pointer"
             >
               <X size={13} />
@@ -94,13 +115,14 @@ export default function HelpFilterBar({
             onSelectCategory={onSelectCategory}
             categoryCounts={categoryCounts}
             getCategoryIcon={getCategoryIcon}
+            getCategoryLabel={getCategoryLabel}
           />
         </div>
 
         {/* 3. DESKTOP VIEWPORT (≥1024px): FULL HORIZONTAL CATEGORY PILLS */}
         <div
           role="tablist"
-          aria-label="Kategori Bantuan"
+          aria-label={t("dashboard.help.tablistAria")}
           className="hidden lg:flex items-center gap-1.5 shrink-0"
         >
           {CATEGORY_DEFINITIONS.map((cat) => {
@@ -121,7 +143,7 @@ export default function HelpFilterBar({
                 }`}
               >
                 {getCategoryIcon(cat.iconName, isActive)}
-                <span>{cat.label}</span>
+                <span>{getCategoryLabel(cat.id)}</span>
                 <span
                   className={`inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.5 text-[10px] font-black ${
                     isActive
@@ -148,11 +170,13 @@ function CategoryDropdown({
   onSelectCategory,
   categoryCounts,
   getCategoryIcon,
+  getCategoryLabel,
 }: {
   category: HelpCategory;
   onSelectCategory: (cat: HelpCategory) => void;
   categoryCounts: CategoryCounts;
   getCategoryIcon: (iconName: string, active: boolean) => React.ReactNode;
+  getCategoryLabel: (id: HelpCategory) => string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -187,7 +211,7 @@ function CategoryDropdown({
       >
         <div className="flex items-center gap-1.5 sm:gap-2">
           {getCategoryIcon(activeDef.iconName, true)}
-          <span>{activeDef.label}</span>
+          <span>{getCategoryLabel(activeDef.id)}</span>
           <span className="inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-[10px] font-black text-white">
             {activeCount}
           </span>
@@ -223,7 +247,7 @@ function CategoryDropdown({
                 >
                   <div className="flex items-center gap-2">
                     {getCategoryIcon(cat.iconName, isSelected)}
-                    <span>{cat.label}</span>
+                    <span>{getCategoryLabel(cat.id)}</span>
                   </div>
                   <span
                     className={`inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.5 text-[10px] font-black ${

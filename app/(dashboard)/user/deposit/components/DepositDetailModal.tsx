@@ -22,6 +22,7 @@ import {
   normalizePaymentName,
   toNumber,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface DepositDetailModalProps {
   deposit: Deposit | null;
@@ -36,6 +37,23 @@ export default function DepositDetailModal({
   onOpenInstruction,
   onCopy,
 }: DepositDetailModalProps) {
+  const { t } = useI18n();
+
+  const getStatusLabel = (status: string, fallback: string) => {
+    switch (status) {
+      case "Pending":
+        return t("dashboard.deposit.statusPendingLabel");
+      case "Berhasil":
+        return t("dashboard.deposit.statusSuccessLabel");
+      case "Gagal":
+        return t("dashboard.deposit.statusFailedLabel");
+      case "Dibatalkan":
+        return t("dashboard.deposit.statusCancelledLabel");
+      default:
+        return fallback;
+    }
+  };
+
   // ESC key and body scroll lock
   useEffect(() => {
     if (!deposit) return;
@@ -88,10 +106,10 @@ export default function DepositDetailModal({
                 id="deposit-detail-title"
                 className="text-base sm:text-lg font-black tracking-tight text-slate-950 truncate"
               >
-                Rincian Deposit
+                {t("dashboard.deposit.detailTitle")}
               </h2>
               <p className="text-[10px] sm:text-[11px] font-medium text-slate-400 truncate">
-                Informasi lengkap transaksi deposit.
+                {t("dashboard.deposit.detailSubtitle")}
               </p>
             </div>
           </div>
@@ -99,7 +117,7 @@ export default function DepositDetailModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Tutup Rincian Deposit"
+            aria-label={t("dashboard.deposit.closeDetailAria")}
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition active:scale-95 cursor-pointer"
           >
             <X size={18} />
@@ -116,14 +134,14 @@ export default function DepositDetailModal({
               <span
                 className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`}
               />
-              {statusStyle.label}
+              {getStatusLabel(status, statusStyle.label)}
             </span>
 
             <p className="mt-2 text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
               {formatRupiah(totalAmount)}
             </p>
             <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-              Nominal Saldo:{" "}
+              {t("dashboard.deposit.colAmount")}:{" "}
               <strong className="font-bold text-slate-700">
                 {formatRupiah(amount)}
               </strong>
@@ -134,15 +152,15 @@ export default function DepositDetailModal({
           <div className="space-y-2.5 rounded-xl border border-slate-200/80 bg-white p-3.5 text-xs">
             {/* 1. DEPOSIT ID */}
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-              <span className="text-slate-500 font-medium">ID Deposit</span>
+              <span className="text-slate-500 font-medium">{t("dashboard.deposit.fieldDepositId")}</span>
               <div className="flex items-center gap-1 font-mono font-bold text-slate-900">
                 <span className="truncate max-w-40">{depositId}</span>
                 {depositId !== "-" && (
                   <button
                     type="button"
-                    onClick={() => onCopy(depositId, "ID Deposit")}
-                    title="Salin ID Deposit"
-                    aria-label="Salin ID Deposit"
+                    onClick={() => onCopy(depositId, t("dashboard.deposit.fieldDepositId"))}
+                    title={t("dashboard.deposit.copyDepositId")}
+                    aria-label={t("dashboard.deposit.copyDepositId")}
                     className="flex h-5 w-5 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
                   >
                     <Copy size={11} />
@@ -153,7 +171,7 @@ export default function DepositDetailModal({
 
             {/* 2. METODE PEMBAYARAN (IMAGE LOGO FROM PUBLIC) */}
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-              <span className="text-slate-500 font-medium">Metode</span>
+              <span className="text-slate-500 font-medium">{t("dashboard.deposit.fieldMethod")}</span>
               <div className="flex items-center gap-2 font-bold text-slate-900">
                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-200/80 bg-white p-0.5 shadow-2xs overflow-hidden">
                   {logoUrl ? (
@@ -175,7 +193,7 @@ export default function DepositDetailModal({
             {/* 3. BIAYA LAYANAN (Catatan: Di database/backend kolom ini adalah `unique_code` / kode unik verifikasi) */}
             {deposit.unique_code && Number(deposit.unique_code) > 0 && (
               <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                <span className="text-slate-500 font-medium">Biaya Layanan</span>
+                <span className="text-slate-500 font-medium">{t("dashboard.deposit.fieldServiceFee")}</span>
                 <span className="font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded-md border border-amber-200/80">
                   +{deposit.unique_code}
                 </span>
@@ -184,7 +202,7 @@ export default function DepositDetailModal({
 
             {/* 4. WAKTU TRANSAKSI */}
             <div className="flex items-center justify-between gap-2">
-              <span className="text-slate-500 font-medium">Waktu</span>
+              <span className="text-slate-500 font-medium">{t("dashboard.deposit.fieldTime")}</span>
               <span className="font-semibold text-slate-700">
                 {formatDate(deposit.created_at)}
               </span>
@@ -202,7 +220,7 @@ export default function DepositDetailModal({
                 }}
                 className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-xs font-bold text-white shadow-2xs hover:bg-emerald-700 transition active:scale-95 cursor-pointer"
               >
-                <span>Lanjutkan Pembayaran</span>
+                <span>{t("dashboard.deposit.continuePayment")}</span>
                 <ExternalLink size={13} />
               </button>
             )}
@@ -212,7 +230,7 @@ export default function DepositDetailModal({
               onClick={onClose}
               className="flex h-10 w-full items-center justify-center rounded-xl border border-slate-200/90 bg-slate-50 text-xs font-bold text-slate-700 hover:bg-slate-100 transition active:scale-95 cursor-pointer"
             >
-              Tutup
+              {t("dashboard.deposit.closeModal")}
             </button>
           </div>
         </div>

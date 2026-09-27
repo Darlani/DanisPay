@@ -19,6 +19,7 @@ import {
   normalizeWithdrawalStatus,
   toNumber,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface WithdrawMobileCardListProps {
   withdrawals: Withdrawal[];
@@ -29,6 +30,23 @@ export default function WithdrawMobileCardList({
   withdrawals,
   onSelectWithdrawal,
 }: WithdrawMobileCardListProps) {
+  const { t } = useI18n();
+
+  const getStatusLabel = (status: string, fallback: string) => {
+    switch (status) {
+      case "Pending":
+        return t("dashboard.withdraw.statusPendingLabel");
+      case "Berhasil":
+        return t("dashboard.withdraw.statusSuccessLabel");
+      case "Gagal":
+        return t("dashboard.withdraw.statusFailedLabel");
+      case "Dibatalkan":
+        return t("dashboard.withdraw.statusCancelledLabel");
+      default:
+        return fallback;
+    }
+  };
+
   return (
     <div className="space-y-2.5 sm:space-y-3">
       {withdrawals.map((w) => {
@@ -83,7 +101,7 @@ export default function WithdrawMobileCardList({
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`}
                 />
-                {statusStyle.label}
+                {getStatusLabel(status, statusStyle.label)}
               </span>
             </div>
 
@@ -91,7 +109,7 @@ export default function WithdrawMobileCardList({
             <div className="my-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50/80 p-2.5 border border-slate-100">
               <div>
                 <p className="text-[9px] xs:text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
-                  Nominal Penarikan
+                  {t("dashboard.withdraw.amountLabel")}
                 </p>
                 <p className="mt-0.5 text-xs xs:text-sm font-black text-slate-950 truncate">
                   {formatRupiah(amount)}
@@ -100,7 +118,7 @@ export default function WithdrawMobileCardList({
 
               <div className="text-right">
                 <p className="text-[9px] xs:text-[9.5px] font-bold uppercase tracking-wider text-indigo-600">
-                  Dana Ditahan
+                  {t("dashboard.withdraw.colHeld")}
                 </p>
                 <p className="mt-0.5 text-xs xs:text-sm font-black text-indigo-700 truncate">
                   {formatRupiah(heldAmount)}
@@ -113,7 +131,7 @@ export default function WithdrawMobileCardList({
               <span>{formatDate(w.created_at)}</span>
 
               <div className="flex items-center gap-1.5 font-bold text-slate-600">
-                <span>Fee: {formatRupiah(fee)}</span>
+                <span>{t("dashboard.withdraw.feePrefix")}{formatRupiah(fee)}</span>
                 <ChevronRight size={13} className="text-slate-400 group-hover:text-rose-600 transition" />
               </div>
             </div>

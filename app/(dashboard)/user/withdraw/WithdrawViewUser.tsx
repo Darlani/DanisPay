@@ -10,6 +10,7 @@ import {
 import {
   Withdrawal,
 } from "./types";
+import { useI18n } from "@/lib/i18n/context";
 import { useWithdrawData } from "./hooks/useWithdrawData";
 import { useWithdrawFilters } from "./hooks/useWithdrawFilters";
 import WithdrawKpiCards from "./components/WithdrawKpiCards";
@@ -35,6 +36,8 @@ export default function WithdrawViewUser({
   isSidebarExpanded = false,
   onRefresh,
 }: WithdrawViewUserProps) {
+  const { t } = useI18n();
+
   // SWR DATA HOOK
   const {
     withdrawals,
@@ -73,11 +76,11 @@ export default function WithdrawViewUser({
     if (!text || text === "-") return;
     try {
       await navigator.clipboard.writeText(text);
-      setToastMessage(`${label} berhasil disalin!`);
+      setToastMessage(t("dashboard.withdraw.toastCopied", { label }));
       setTimeout(() => setToastMessage(null), 2500);
     } catch {
       // Fallback
-      setToastMessage(`${label}: ${text}`);
+      setToastMessage(t("dashboard.withdraw.toastCopied", { label }));
       setTimeout(() => setToastMessage(null), 2500);
     }
   };
@@ -91,11 +94,11 @@ export default function WithdrawViewUser({
         <button
           type="button"
           onClick={() => setIsCreateOpen(true)}
-          aria-label="Tarik Saldo DaPay"
+          aria-label={t("dashboard.withdraw.withdrawAria")}
           className="inline-flex h-8 xs:h-8.5 sm:h-9 items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3 sm:px-4 text-xs font-bold text-white shadow-2xs transition active:scale-95 cursor-pointer hover:bg-rose-700 hover:shadow-xs"
         >
           <ArrowUpFromLine size={14} />
-          <span>Tarik Saldo</span>
+          <span>{t("dashboard.withdraw.withdraw")}</span>
         </button>
       </div>
 
@@ -117,7 +120,7 @@ export default function WithdrawViewUser({
             className="flex items-center gap-1 font-bold text-rose-800 underline hover:no-underline"
           >
             <RotateCcw size={12} />
-            <span>Coba Lagi</span>
+            <span>{t("dashboard.withdraw.retry")}</span>
           </button>
         </div>
       )}
@@ -143,13 +146,13 @@ export default function WithdrawViewUser({
           </div>
           <h3 className="mt-3.5 text-sm font-bold text-slate-800">
             {isFiltered
-              ? "Tidak ditemukan pengajuan yang sesuai"
-              : "Belum ada riwayat penarikan saldo"}
+              ? t("dashboard.withdraw.emptyFilteredTitle")
+              : t("dashboard.withdraw.emptyTitle")}
           </h3>
           <p className="mt-1 text-xs text-slate-400 max-w-sm">
             {isFiltered
-              ? "Coba ubah kata kunci pencarian, status, atau filter tanggal Anda."
-              : "Ajukan penarikan Saldo DaPay ke rekening bank atau e-wallet Anda."}
+              ? t("dashboard.withdraw.emptyFilteredDesc")
+              : t("dashboard.withdraw.emptyDesc")}
           </p>
           <div className="mt-4 flex items-center gap-2">
             {isFiltered ? (
@@ -159,7 +162,7 @@ export default function WithdrawViewUser({
                 className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 active:scale-95 cursor-pointer"
               >
                 <RotateCcw size={12} />
-                <span>Reset Filter</span>
+                <span>{t("dashboard.withdraw.resetFilter")}</span>
               </button>
             ) : (
               <button
@@ -168,7 +171,7 @@ export default function WithdrawViewUser({
                 className="inline-flex h-8 items-center gap-1 rounded-lg bg-rose-600 px-3 text-xs font-bold text-white shadow-2xs hover:bg-rose-700 active:scale-95 cursor-pointer"
               >
                 <ArrowUpFromLine size={12} />
-                <span>Tarik Saldo Sekarang</span>
+                <span>{t("dashboard.withdraw.withdrawNow")}</span>
               </button>
             )}
           </div>
@@ -225,7 +228,7 @@ export default function WithdrawViewUser({
           } else {
             void refetch(false);
           }
-          setToastMessage("Pengajuan tarik saldo berhasil dibuat!");
+          setToastMessage(t("dashboard.withdraw.toastWithdrawSuccess"));
           setTimeout(() => setToastMessage(null), 3000);
         }}
       />

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useI18n } from "@/lib/i18n/context";
 import { ChevronRight } from "lucide-react";
 import { Referral, formatDate, getInitial, maskEmail } from "../types";
 
@@ -13,10 +14,12 @@ export default function AffiliateMobileCardList({
   referrals,
   onSelectReferral,
 }: AffiliateMobileCardListProps) {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-2.5 sm:space-y-3">
       {referrals.map((referral, idx) => {
-        const name = referral.full_name || "Member Baru";
+        const name = referral.full_name || t("dashboard.affiliate.defaultMemberName");
         const initial = getInitial(name);
         const masked = maskEmail(referral.email);
 
@@ -45,16 +48,16 @@ export default function AffiliateMobileCardList({
 
               <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] xs:text-[10px] font-bold text-emerald-700">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Terdaftar
+                {t("dashboard.affiliate.statusRegistered")}
               </span>
             </div>
 
             {/* BOTTOM ROW: JOIN DATE & DETAIL LINK */}
             <div className="mt-3 flex items-center justify-between border-t border-slate-100/90 pt-2 text-[10px] xs:text-[11px] text-slate-400">
-              <span>Bergabung: <strong className="font-semibold text-slate-600">{formatDate(referral.created_at)}</strong></span>
+              <span>{t("dashboard.affiliate.cardJoined")}<strong className="font-semibold text-slate-600">{formatDate(referral.created_at)}</strong></span>
 
               <div className="flex items-center gap-1 font-bold text-amber-600 group-hover:text-amber-700">
-                <span>Detail</span>
+                <span>{t("dashboard.affiliate.btnDetail")}</span>
                 <ChevronRight size={13} />
               </div>
             </div>

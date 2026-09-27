@@ -7,6 +7,7 @@ import {
   NotificationPreferences,
   UserProfile,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface UseSettingsDataProps {
   initialProfile?: UserProfile | null;
@@ -17,6 +18,8 @@ export function useSettingsData({
   initialProfile,
   onRefresh,
 }: UseSettingsDataProps = {}) {
+  const { t } = useI18n();
+
   // SWR State: Instant Initial Render from initialProfile
   const [profile, setProfile] = useState<UserProfile>(() => {
     return initialProfile || {};
@@ -83,7 +86,7 @@ export function useSettingsData({
       }
 
       if (!response.ok) {
-        throw new Error("Gagal menyinkronkan data pengaturan terbaru.");
+        throw new Error(t("dashboard.settings.errSync"));
       }
 
       const result = await response.json();
@@ -96,7 +99,7 @@ export function useSettingsData({
         }));
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Terjadi kesalahan saat memuat data.";
+      const msg = err instanceof Error ? err.message : t("dashboard.settings.errLoad");
       if (isManualRefresh) {
         setError(msg);
         showToast("error", msg);
@@ -104,7 +107,7 @@ export function useSettingsData({
     } finally {
       setIsRefreshing(false);
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   // Load notification preferences from client session on mount
   useEffect(() => {
@@ -144,11 +147,11 @@ export function useSettingsData({
     async (fullName: string): Promise<boolean> => {
       const trimmed = fullName.trim();
       if (!trimmed) {
-        showToast("error", "Nama lengkap tidak boleh kosong.");
+        showToast("error", t("dashboard.settings.valNameEmpty"));
         return false;
       }
       if (trimmed.length < 2) {
-        showToast("error", "Nama lengkap minimal 2 karakter.");
+        showToast("error", t("dashboard.settings.valNameMin"));
         return false;
       }
 
@@ -158,7 +161,7 @@ export function useSettingsData({
         } = await supabase.auth.getSession();
 
         if (!session?.access_token) {
-          showToast("error", "Sesi login telah berakhir. Silakan login kembali.");
+          showToast("error", t("dashboard.settings.errSessionExpired"));
           return false;
         }
 
@@ -174,42 +177,42 @@ export function useSettingsData({
         const result = await response.json();
 
         if (!response.ok || !result.success) {
-          throw new Error(result.error || "Gagal memperbarui nama profil.");
+          throw new Error(result.error || t("dashboard.settings.errSaveProfile"));
         }
 
         // Optimistically update local profile state
         setProfile((prev) => ({ ...prev, full_name: trimmed }));
-        showToast("success", "Profil berhasil diperbarui!");
+        showToast("success", t("dashboard.settings.toastProfileSaved"));
         if (onRefresh) {
           void onRefresh();
         }
         return true;
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Gagal memperbarui nama profil.";
+        const msg = err instanceof Error ? err.message : t("dashboard.settings.errSaveProfile");
         showToast("error", msg);
         return false;
       }
     },
-    [onRefresh, showToast]
+    [onRefresh, showToast, t]
   );
 
   // Update Password with Secure Cryptographic Re-Authentication
   const updatePassword = useCallback(
     async (currentPassword: string, newPassword: string, confirmPassword: string): Promise<boolean> => {
       if (!currentPassword) {
-        showToast("error", "Masukkan password saat ini untuk verifikasi keamanan.");
+        showToast("error", t("dashboard.settings.valCurrentPwdRequired"));
         return false;
       }
       if (!newPassword || newPassword.length < 8) {
-        showToast("error", "Password baru minimal 8 karakter.");
+        showToast("error", t("dashboard.settings.valNewPwdMin"));
         return false;
       }
       if (newPassword !== confirmPassword) {
-        showToast("error", "Konfirmasi password baru tidak cocok.");
+        showToast("error", t("dashboard.settings.valPwdMatch"));
         return false;
       }
       if (newPassword === currentPassword) {
-        showToast("error", "Password baru harus berbeda dari password saat ini.");
+        showToast("error", t("dashboard.settings.valPwdDifferent"));
         return false;
       }
 
@@ -219,7 +222,7 @@ export function useSettingsData({
         } = await supabase.auth.getSession();
 
         if (!session?.user?.email) {
-          showToast("error", "Sesi login tidak ditemukan. Silakan login kembali.");
+          showToast("error", t("dashboard.settings.errSessionNotFound"));
           return false;
         }
 
@@ -230,7 +233,7 @@ export function useSettingsData({
         });
 
         if (reAuthError || !signInData.session) {
-          showToast("error", "Password saat ini salah. Verifikasi keamanan gagal.");
+          showToast("error", t("dashboard.settings.errWrongCurrentPwd"));
           return false;
         }
 
@@ -243,15 +246,15 @@ export function useSettingsData({
           throw updateError;
         }
 
-        showToast("success", "Password akun Anda berhasil diperbarui!");
+        showToast("success", t("dashboard.settings.toastPasswordUpdated"));
         return true;
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Gagal memperbarui password akun.";
+        const msg = err instanceof Error ? err.message : t("dashboard.settings.errUpdatePassword");
         showToast("error", msg);
         return false;
       }
     },
-    [showToast]
+    [showToast, t]
   );
 
   // Save Notification Preferences with rollback protection
@@ -273,15 +276,15 @@ export function useSettingsData({
           throw updateError;
         }
 
-        showToast("success", "Preferensi notifikasi berhasil disimpan.");
+        showToast("success", t("dashboard.settings.toastNotifSaved"));
       } catch (err: unknown) {
         // Rollback on failure
         setNotifications((prev) => ({ ...prev, [key]: previousValue }));
-        const msg = err instanceof Error ? err.message : "Gagal menyimpan preferensi notifikasi.";
+        const msg = err instanceof Error ? err.message : t("dashboard.settings.errSaveNotif");
         showToast("error", msg);
       }
     },
-    [notifications, showToast]
+    [notifications, showToast, t]
   );
 
   return {

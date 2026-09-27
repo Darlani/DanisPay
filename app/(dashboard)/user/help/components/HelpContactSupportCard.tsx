@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { Check, Copy, ExternalLink, ShieldCheck } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 interface HelpContactSupportCardProps {
   onOpenWhatsApp: () => void;
@@ -16,8 +17,9 @@ const HelpContactSupportCard = React.forwardRef<HTMLDivElement, HelpContactSuppo
     { onOpenWhatsApp, onCopyTemplate, copied, isWhatsappAvailable },
     ref
   ) {
+    const { t } = useI18n();
     const [templateText, setTemplateText] = useState(
-      "Halo Admin DaPay, saya ingin meminta bantuan terkait [jelaskan masalah Anda]. Terima kasih."
+      () => t("dashboard.help.defaultTemplate")
     );
 
     return (
@@ -29,10 +31,10 @@ const HelpContactSupportCard = React.forwardRef<HTMLDivElement, HelpContactSuppo
           {/* Header */}
           <div className="mb-3.5 pb-3 border-b border-slate-100">
             <h2 className="text-sm xs:text-base font-black tracking-tight text-slate-900 leading-tight">
-              Masih butuh bantuan?
+              {t("dashboard.help.supportTitle")}
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              Tim support kami siap membantu Anda
+              {t("dashboard.help.supportSubtitle")}
             </p>
           </div>
 
@@ -43,10 +45,10 @@ const HelpContactSupportCard = React.forwardRef<HTMLDivElement, HelpContactSuppo
             </div>
             <div className="min-w-0">
               <p className="font-bold leading-tight">
-                Jaga Keamanan Akun Anda
+                {t("dashboard.help.securityNoticeTitle")}
               </p>
               <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-800/90">
-                Jangan pernah membagikan OTP, PIN, Password, atau kode verifikasi kepada siapapun termasuk pihak yang mengaku dari DaPay.
+                {t("dashboard.help.securityNoticeDesc")}
               </p>
             </div>
           </div>
@@ -58,9 +60,9 @@ const HelpContactSupportCard = React.forwardRef<HTMLDivElement, HelpContactSuppo
                 htmlFor="support-template-textarea"
                 className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-600"
               >
-                Template Pesan (Opsional)
+                {t("dashboard.help.templateLabel")}
               </label>
-              <span className="text-[10px] text-slate-400 font-medium">Bisa diedit</span>
+              <span className="text-[10px] text-slate-400 font-medium">{t("dashboard.help.templateEditable")}</span>
             </div>
 
             <textarea
@@ -68,7 +70,7 @@ const HelpContactSupportCard = React.forwardRef<HTMLDivElement, HelpContactSuppo
               rows={2}
               value={templateText}
               onChange={(e) => setTemplateText(e.target.value)}
-              placeholder="Tulis pesan bantuan..."
+              placeholder={t("dashboard.help.templatePlaceholder")}
               className="w-full resize-none rounded-xl border border-slate-200/90 bg-slate-50/80 p-2 sm:p-2.5 text-xs sm:text-[13px] font-medium text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 min-h-14 sm:min-h-18"
             />
           </div>
@@ -84,12 +86,12 @@ const HelpContactSupportCard = React.forwardRef<HTMLDivElement, HelpContactSuppo
               {copied ? (
                 <>
                   <Check size={14} className="text-emerald-600" />
-                  <span className="text-emerald-600">Tersalin</span>
+                  <span className="text-emerald-600">{t("dashboard.help.copied")}</span>
                 </>
               ) : (
                 <>
                   <Copy size={14} className="text-slate-500" />
-                  <span>Salin Template</span>
+                  <span>{t("dashboard.help.copyTemplate")}</span>
                 </>
               )}
             </button>
@@ -111,7 +113,7 @@ const HelpContactSupportCard = React.forwardRef<HTMLDivElement, HelpContactSuppo
                 height={18}
                 className="h-4 sm:h-4.5 w-4 sm:w-4.5 shrink-0 object-contain"
               />
-              <span className="truncate">Hubungi Admin</span>
+              <span className="truncate">{t("dashboard.help.contactAdmin")}</span>
               <ExternalLink size={12} className="opacity-75 shrink-0" />
             </button>
           </div>
@@ -120,7 +122,7 @@ const HelpContactSupportCard = React.forwardRef<HTMLDivElement, HelpContactSuppo
         {/* 4. FOOTER OPERATIONAL HOURS */}
         <div className="mt-3.5 pt-2.5 border-t border-slate-100 text-center">
           <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium">
-            Jam operasional: Senin - Minggu, 08.00 - 22.00 WIB
+            {t("dashboard.help.operationalHours")}
           </p>
         </div>
       </div>

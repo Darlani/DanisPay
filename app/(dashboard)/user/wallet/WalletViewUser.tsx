@@ -32,6 +32,8 @@ import WalletMobileCardList from "./components/WalletMobileCardList";
 import WalletDetailModal from "./components/WalletDetailModal";
 import WalletPagination from "./components/WalletPagination";
 import { fetchTesterSessionDeduplicated } from "@/components/sandbox/SandboxSessionControl";
+import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 
 interface WalletViewUserProps {
   initialBalance?: number | string | null;
@@ -109,6 +111,12 @@ export default function WalletViewUser({
   onRefresh,
   isSandboxMode = false,
 }: WalletViewUserProps) {
+  const { t, locale } = useI18n();
+  const localeRef = useRef(locale);
+  useEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
+
   // Local state override for manual refresh
   const [localLogs, setLocalLogs] = useState<BalanceLog[] | null>(null);
   const [localBalance, setLocalBalance] = useState<number | null>(null);
@@ -169,12 +177,12 @@ export default function WalletViewUser({
     async (text: string, label: string) => {
       try {
         await navigator.clipboard.writeText(text);
-        showToast(`${label} berhasil disalin ke clipboard!`);
+        showToast(t("dashboard.wallet.copiedSuccess", { label }));
       } catch {
-        showToast(`Gagal menyalin ${label}.`);
+        showToast(t("dashboard.wallet.copyFailed", { label }));
       }
     },
-    [showToast],
+    [showToast, t],
   );
 
   // ================================================================== //
@@ -203,7 +211,7 @@ export default function WalletViewUser({
             showToast(
               error instanceof Error
                 ? error.message
-                : "Terjadi kesalahan saat memuat data.",
+                : t("dashboard.wallet.fetchError"),
             );
           }
         } finally {
@@ -218,7 +226,7 @@ export default function WalletViewUser({
         } = await supabase.auth.getSession();
 
         if (!session?.access_token) {
-          window.location.href = "/login";
+          window.location.href = localizeHref("/login", localeRef.current);
           return;
         }
 
@@ -231,14 +239,14 @@ export default function WalletViewUser({
         });
 
         if (response.status === 401) {
-          window.location.href = "/login";
+          window.location.href = localizeHref("/login", localeRef.current);
           return;
         }
 
         const result = (await response.json()) as DashboardResponse;
 
         if (!response.ok || !result.success || !result.data) {
-          throw new Error(result.error || "Gagal memuat data keuangan.");
+          throw new Error(result.error || t("dashboard.wallet.fetchError"));
         }
 
         setLocalBalance(toNumber(result.data.profile?.balance));
@@ -256,14 +264,14 @@ export default function WalletViewUser({
           showToast(
             error instanceof Error
               ? error.message
-              : "Terjadi kesalahan saat memuat data.",
+              : t("dashboard.wallet.fetchError"),
           );
         }
       } finally {
         setRefreshing(false);
       }
     },
-    [showToast, isSandboxMode],
+    [showToast, isSandboxMode, t],
   );
 
   // Fetch sandbox wallet data from /api/tester/wallet
@@ -290,20 +298,20 @@ export default function WalletViewUser({
           }));
           setSandboxLogs(mappedLogs);
           if (showToastNotice) {
-            showToast("Data dompet sandbox berhasil disegarkan!");
+            showToast(t("dashboard.wallet.sandboxRefreshed"));
           }
         }
       }
     } catch (err) {
       console.error("fetchSandboxWallet error:", err);
       if (showToastNotice) {
-        showToast("Gagal memuat data dompet sandbox.");
+        showToast(t("dashboard.wallet.sandboxFetchFailed"));
       }
     } finally {
       isFetchingSandboxRef.current = false;
       setSandboxLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   // SWR: Initial mount data fetching depending on active workspace mode
   useEffect(() => {
@@ -366,18 +374,18 @@ export default function WalletViewUser({
         body: JSON.stringify({ targetAmount: 1000000 }),
       });
       if (res.ok) {
-        showToast("Saldo virtual sandbox berhasil direset ke Rp 1.000.000!");
+        showToast(t("dashboard.wallet.sandboxResetSuccess"));
         await fetchSandboxWallet();
       } else {
         const err = await res.json();
-        showToast(err.error || "Gagal mereset saldo virtual.");
+        showToast(err.error || t("dashboard.wallet.sandboxResetFailed"));
       }
     } catch {
-      showToast("Gagal menghubungi server reset.");
+      showToast(t("dashboard.wallet.sandboxResetServerErr"));
     } finally {
       setIsResettingSandbox(false);
     }
-  }, [fetchSandboxWallet, showToast]);
+  }, [fetchSandboxWallet, showToast, t]);
 
   const activeLogs = walletMode === "sandbox" ? sandboxLogs : logs;
   const activeBalance = walletMode === "sandbox" ? sandboxBalance : balance;
@@ -486,41 +494,41 @@ export default function WalletViewUser({
     if (walletMode === "sandbox") {
       // 0a. Tab Koin (Koin Virtual Sandbox)
       if (filters.asset === "Koin") {
-        if (filters.flow === "Masuk") return "Mutasi Koin Masuk (Sandbox)";
-        if (filters.flow === "Keluar") return "Mutasi Koin Keluar (Sandbox)";
+        if (filters.flow === "Masuk") return t("dashboard.wallet.ledgerTitleSimCoinIncome");
+        if (filters.flow === "Keluar") return t("dashboard.wallet.ledgerTitleSimCoinExpense");
         if (filters.type && filters.type !== "Semua") {
-          return `Mutasi Koin Virtual ${filters.type} (Sandbox)`;
+          return t("dashboard.wallet.ledgerTitleSimCoinType", { type: filters.type });
         }
-        return "Mutasi Koin Virtual (Sandbox)";
+        return t("dashboard.wallet.ledgerTitleSimCoin");
       }
 
       // 0b. Tab Saldo (Saldo Virtual Sandbox)
       if (filters.asset === "Saldo") {
-        if (filters.flow === "Masuk") return "Mutasi Saldo Masuk (Sandbox)";
-        if (filters.flow === "Keluar") return "Mutasi Saldo Keluar (Sandbox)";
+        if (filters.flow === "Masuk") return t("dashboard.wallet.ledgerTitleSimVirtualIncome");
+        if (filters.flow === "Keluar") return t("dashboard.wallet.ledgerTitleSimVirtualExpense");
         if (filters.type && filters.type !== "Semua") {
-          return `Mutasi Saldo Virtual ${filters.type} (Sandbox)`;
+          return t("dashboard.wallet.ledgerTitleSimVirtualType", { type: filters.type });
         }
-        return "Mutasi Saldo Virtual (Sandbox)";
+        return t("dashboard.wallet.ledgerTitleSimVirtual");
       }
 
       // 0c. Tab Semua
-      if (filters.flow === "Masuk") return "Mutasi Saldo & Koin Masuk (Sandbox)";
-      if (filters.flow === "Keluar") return "Mutasi Saldo & Koin Keluar (Sandbox)";
+      if (filters.flow === "Masuk") return t("dashboard.wallet.ledgerTitleSimAllIncome");
+      if (filters.flow === "Keluar") return t("dashboard.wallet.ledgerTitleSimAllExpense");
       if (filters.type && filters.type !== "Semua") {
-        return `Mutasi Sandbox ${filters.type}`;
+        return t("dashboard.wallet.ledgerTitleSimAllType", { type: filters.type });
       }
-      return "Mutasi Saldo Virtual (Sandbox)";
+      return t("dashboard.wallet.ledgerTitleSimVirtual");
     }
 
     // 1. Tab Koin
     if (filters.asset === "Koin") {
       // Prioritas Filter Arus: jika arus Masuk atau Keluar dipilih
       if (filters.flow === "Masuk") {
-        return "Mutasi Koin Masuk";
+        return t("dashboard.wallet.ledgerTitleCoinIncome");
       }
       if (filters.flow === "Keluar") {
-        return "Mutasi Koin Keluar";
+        return t("dashboard.wallet.ledgerTitleCoinExpense");
       }
 
       // Jika arus "Semua", tapi filter jenis dipilih
@@ -532,53 +540,53 @@ export default function WalletViewUser({
           typeLower.includes("tarik") ||
           typeLower.includes("penarikan")
         ) {
-          return "Mutasi Koin";
+          return t("dashboard.wallet.ledgerTitleCoin");
         }
         if (typeLower.includes("admin") || typeLower.includes("adjustment")) {
-          return "Mutasi Koin Admin Adjustment";
+          return t("dashboard.wallet.ledgerTitleCoinAdminAdj");
         }
         if (typeLower.includes("refund")) {
-          return "Mutasi Koin Refund";
+          return t("dashboard.wallet.ledgerTitleCoinRefund");
         }
-        return `Mutasi Koin ${filters.type}`;
+        return t("dashboard.wallet.ledgerTitleCoinType", { type: filters.type });
       }
 
       // Default Tab Koin tanpa filter jenis/arus
-      return "Mutasi Koin";
+      return t("dashboard.wallet.ledgerTitleCoin");
     }
 
     // 2. Tab Saldo
     if (filters.asset === "Saldo") {
       // Prioritas Filter Arus: jika arus Masuk atau Keluar dipilih, abaikan filter jenis
       if (filters.flow === "Masuk") {
-        return "Mutasi Saldo Masuk";
+        return t("dashboard.wallet.ledgerTitleBalanceIncome");
       }
       if (filters.flow === "Keluar") {
-        return "Mutasi Saldo Keluar";
+        return t("dashboard.wallet.ledgerTitleBalanceExpense");
       }
       // Jika arus "Semua", tapi filter jenis dipilih (Deposit, Withdraw, Admin Adjustment, Refund, dll.)
       if (filters.type && filters.type !== "Semua") {
-        return `Mutasi Saldo ${filters.type}`;
+        return t("dashboard.wallet.ledgerTitleBalanceType", { type: filters.type });
       }
-      return "Mutasi Saldo";
+      return t("dashboard.wallet.ledgerTitleBalance");
     }
 
     // 3. Tab Semua (filters.asset === "Semua")
     // Prioritas Filter Arus
     if (filters.flow === "Masuk") {
-      return "Mutasi Saldo & Koin Masuk";
+      return t("dashboard.wallet.ledgerTitleAllIncome");
     }
     if (filters.flow === "Keluar") {
-      return "Mutasi Saldo & Koin Keluar";
+      return t("dashboard.wallet.ledgerTitleAllExpense");
     }
     // Jika arus "Semua", tapi filter jenis dipilih
     if (filters.type && filters.type !== "Semua") {
-      return `Mutasi Saldo & Koin ${filters.type}`;
+      return t("dashboard.wallet.ledgerTitleAllType", { type: filters.type });
     }
 
     // Default ketika tab Semua dipilih dan tanpa filter
-    return "Mutasi Saldo & Koin";
-  }, [walletMode, filters.asset, filters.flow, filters.type]);
+    return t("dashboard.wallet.ledgerTitleAll");
+  }, [walletMode, filters.asset, filters.flow, filters.type, t]);
 
   // Dynamic header icon based on asset
   const HeaderIcon =
@@ -616,10 +624,10 @@ export default function WalletViewUser({
           </div>
           <div className="min-w-0 flex-1 text-xs">
             <p className="font-black text-amber-950">
-              Dompet Virtual Sandbox Aktif
+              {t("dashboard.wallet.sandboxDisclaimerTitle")}
             </p>
             <p className="mt-0.5 text-amber-800 leading-relaxed font-medium">
-              Saldo virtual dan riwayat mutasi di halaman ini adalah simulasi pengujian. Mutasi tidak memotong saldo akun riil Anda dan tidak bernilai finansial nyata.
+              {t("dashboard.wallet.sandboxDisclaimerDesc")}
             </p>
           </div>
         </div>
@@ -667,7 +675,10 @@ export default function WalletViewUser({
                 {ledgerTitle}
               </h2>
               <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">
-                Menampilkan {visibleEntries.length} dari {filteredEntries.length} mutasi
+                {t("dashboard.wallet.showingCount", {
+                  count: visibleEntries.length,
+                  total: filteredEntries.length,
+                })}
               </p>
             </div>
           </div>
@@ -684,13 +695,13 @@ export default function WalletViewUser({
               }}
               disabled={refreshing || sandboxLoading}
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-slate-50/80 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer shadow-2xs"
-              title="Refresh Data Keuangan"
+              title={t("dashboard.wallet.refreshTitle")}
             >
               <RefreshCw
                 size={12}
                 className={(refreshing || sandboxLoading) ? "animate-spin text-blue-600" : "text-slate-500"}
               />
-              <span className="hidden sm:inline">Segarkan</span>
+              <span className="hidden sm:inline">{t("dashboard.wallet.refresh")}</span>
             </button>
           </div>
         </div>
@@ -704,10 +715,10 @@ export default function WalletViewUser({
             </div>
             <div>
               <p className="text-sm font-bold text-slate-800">
-                Tidak ada riwayat mutasi ditemukan
+                {t("dashboard.wallet.emptyTitle")}
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
-                Coba ubah filter atau kata kunci pencarian Anda.
+                {t("dashboard.wallet.emptyDesc")}
               </p>
             </div>
             {(filters.search ||
@@ -720,7 +731,7 @@ export default function WalletViewUser({
                 onClick={handleResetFilters}
                 className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
               >
-                Reset Filter
+                {t("dashboard.wallet.resetFilter")}
               </button>
             )}
           </div>

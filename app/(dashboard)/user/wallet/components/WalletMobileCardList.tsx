@@ -16,6 +16,7 @@ import {
   getEntryMeta,
   toNumber,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface WalletMobileCardListProps {
   entries: WalletEntry[];
@@ -30,10 +31,11 @@ export default function WalletMobileCardList({
   onCopy,
   isSandboxMode = false,
 }: WalletMobileCardListProps) {
+  const { t } = useI18n();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopy = async (id: string) => {
-    await onCopy(id, "ID Mutasi");
+    await onCopy(id, t("dashboard.wallet.fieldMutationId"));
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -92,15 +94,15 @@ export default function WalletMobileCardList({
                     </span>
                     {isCoin ? (
                       <span className="rounded-md bg-violet-100 px-1.5 py-0.5 text-[8px] font-extrabold text-violet-700">
-                        {isSandboxMode ? "KOIN SANDBOX" : "KOIN"}
+                        {isSandboxMode ? t("dashboard.wallet.coinSandboxBadge") : t("dashboard.wallet.coinBadge")}
                       </span>
                     ) : isSandboxMode ? (
                       <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[8px] font-extrabold text-amber-800">
-                        SALDO VIRTUAL
+                        {t("dashboard.wallet.virtualBalanceBadge")}
                       </span>
                     ) : (
                       <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[8px] font-extrabold text-blue-700">
-                        SALDO
+                        {t("dashboard.wallet.balanceBadge")}
                       </span>
                     )}
                   </div>
@@ -132,7 +134,7 @@ export default function WalletMobileCardList({
             {/* ROW 2: DESCRIPTION */}
             <div className="mt-2 pl-10">
               <p className="text-xs font-semibold text-slate-800 line-clamp-2">
-                {entry.description || "Aktivitas Keuangan"}
+                {entry.description || t("dashboard.wallet.financialActivity")}
               </p>
             </div>
 
@@ -174,7 +176,8 @@ export default function WalletMobileCardList({
                     type="button"
                     onClick={() => handleCopy(log.id)}
                     className="inline-flex h-4 w-4 items-center justify-center rounded text-slate-400 hover:text-slate-600 transition cursor-pointer"
-                    title="Salin ID Mutasi"
+                    title={t("dashboard.wallet.copyMutationId")}
+                    aria-label={t("dashboard.wallet.copyMutationId")}
                   >
                     {copiedId === log.id ? (
                       <Check size={10} className="text-emerald-600" />

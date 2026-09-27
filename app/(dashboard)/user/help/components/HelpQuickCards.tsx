@@ -4,6 +4,7 @@ import React from "react";
 import Image from "next/image";
 import { ArrowLeftRight, ArrowRight, Coins, Wallet } from "lucide-react";
 import { HelpCategory } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface HelpQuickCardsProps {
   onOpenWhatsApp: () => void;
@@ -14,6 +15,8 @@ export default function HelpQuickCards({
   onOpenWhatsApp,
   onSelectCategory,
 }: HelpQuickCardsProps) {
+  const { t } = useI18n();
+
   return (
     <section className="mb-4 sm:mb-5 hidden sm:grid sm:grid-cols-4 gap-2.5 sm:gap-3 lg:gap-3.5">
       {/* 1. HUBUNGI ADMIN (WHATSAPP ICON) */}
@@ -27,8 +30,8 @@ export default function HelpQuickCards({
             className="h-6 w-6 object-contain"
           />
         }
-        title="Hubungi Admin"
-        description="Chat langsung dengan tim support DaPay"
+        title={t("dashboard.help.quickContactTitle")}
+        description={t("dashboard.help.quickContactDesc")}
         accentColor="green"
         onClick={onOpenWhatsApp}
       />
@@ -36,8 +39,8 @@ export default function HelpQuickCards({
       {/* 2. MASALAH TRANSAKSI */}
       <QuickCard
         icon={<ArrowLeftRight size={20} />}
-        title="Masalah Transaksi"
-        description="Bantuan seputar deposit, penarikan & status transaksi"
+        title={t("dashboard.help.quickTransactionTitle")}
+        description={t("dashboard.help.quickTransactionDesc")}
         accentColor="blue"
         onClick={() => onSelectCategory("transaction", true)}
       />
@@ -45,8 +48,8 @@ export default function HelpQuickCards({
       {/* 3. SALDO DAPAY */}
       <QuickCard
         icon={<Wallet size={20} />}
-        title="Saldo DaPay"
-        description="Informasi saldo, deposit dan penarikan"
+        title={t("dashboard.help.quickBalanceTitle")}
+        description={t("dashboard.help.quickBalanceDesc")}
         accentColor="amber"
         onClick={() => onSelectCategory("balance", true)}
       />
@@ -54,8 +57,8 @@ export default function HelpQuickCards({
       {/* 4. KOIN DAPAY */}
       <QuickCard
         icon={<Coins size={20} />}
-        title="Koin DaPay"
-        description="Informasi cashback, reward & penggunaan koin"
+        title={t("dashboard.help.quickCoinTitle")}
+        description={t("dashboard.help.quickCoinDesc")}
         accentColor="purple"
         onClick={() => onSelectCategory("coin", true)}
       />

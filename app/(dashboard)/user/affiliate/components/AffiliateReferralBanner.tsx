@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useI18n } from "@/lib/i18n/context";
 import { Check, Copy, Share2 } from "lucide-react";
 
 interface AffiliateReferralBannerProps {
@@ -13,11 +14,12 @@ export default function AffiliateReferralBanner({
   referralLink,
   onCopy,
 }: AffiliateReferralBannerProps) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState<boolean>(false);
 
   const handleCopyLink = () => {
     if (!referralLink) return;
-    onCopy(referralLink, "Link Referral");
+    onCopy(referralLink, t("dashboard.affiliate.linkReferral"));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -28,8 +30,8 @@ export default function AffiliateReferralBanner({
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({
-          title: "DaPay - Program Afiliasi",
-          text: "Gabung DaPay melalui link referral saya untuk transaksi produk digital terpercaya.",
+          title: t("dashboard.affiliate.shareTitle"),
+          text: t("dashboard.affiliate.shareText"),
           url: referralLink,
         });
         return;
@@ -64,12 +66,13 @@ export default function AffiliateReferralBanner({
         {/* LEFT COLUMN: TITLE & DESCRIPTION */}
         <div className="max-w-xl">
           <h2 className="text-sm xs:text-base md:text-[clamp(16px,1.8vw,20px)] lg:text-2xl font-black tracking-tight text-white leading-tight drop-shadow-xs">
-            Ajak Member & Dapatkan Komisi
+            {t("dashboard.affiliate.bannerTitle")}
           </h2>
 
           <p className="hidden sm:block mt-1 sm:mt-1.5 text-[9.5px] xs:text-[10.5px] md:text-[clamp(12px,1.35vw,14.5px)] lg:text-xs text-indigo-100/90 leading-relaxed font-medium">
-            Bagikan link referral Anda kepada mitra atau pelanggan. Komisi referral otomatis masuk ke{" "}
-            <strong className="text-emerald-300 font-bold">Saldo DaPay</strong> dan dapat langsung ditarik.
+            {t("dashboard.affiliate.bannerDesc", {
+              balanceTag: t("dashboard.affiliate.balanceTagText"),
+            })}
           </p>
         </div>
 
@@ -78,7 +81,7 @@ export default function AffiliateReferralBanner({
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-xl sm:rounded-2xl border border-white/20 bg-black/15 sm:bg-white/15 p-1.5 sm:p-2 backdrop-blur-none sm:backdrop-blur-md shadow-none sm:shadow-inner">
             <div className="min-w-0 flex-1 px-2.5 py-1">
               <p className="truncate text-xs font-semibold text-indigo-50 font-mono">
-                {referralLink || "Memuat link referral..."}
+                {referralLink || t("dashboard.affiliate.loadingLink")}
               </p>
             </div>
 
@@ -87,18 +90,18 @@ export default function AffiliateReferralBanner({
                 type="button"
                 onClick={handleCopyLink}
                 disabled={!referralLink}
-                aria-label="Salin Link Referral"
+                aria-label={t("dashboard.affiliate.copyLinkAria")}
                 className="flex-1 sm:flex-initial inline-flex h-8.5 sm:h-9 items-center justify-center gap-1.5 rounded-xl bg-white px-3 sm:px-3.5 text-xs font-bold text-indigo-950 shadow-2xs transition sm:hover:bg-indigo-50 active:bg-indigo-100 sm:active:scale-95 disabled:opacity-50 cursor-pointer"
               >
                 {copied ? (
                   <>
                     <Check size={14} className="text-emerald-600" />
-                    <span>Tersalin</span>
+                    <span>{t("dashboard.affiliate.copied")}</span>
                   </>
                 ) : (
                   <>
                     <Copy size={14} />
-                    <span>Salin</span>
+                    <span>{t("dashboard.affiliate.copy")}</span>
                   </>
                 )}
               </button>
@@ -107,11 +110,11 @@ export default function AffiliateReferralBanner({
                 type="button"
                 onClick={handleShareLink}
                 disabled={!referralLink}
-                aria-label="Bagikan Link Referral"
+                aria-label={t("dashboard.affiliate.shareLinkAria")}
                 className="flex-1 sm:flex-initial inline-flex h-8.5 sm:h-9 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 sm:px-3.5 text-xs font-bold text-white shadow-2xs transition sm:hover:bg-blue-500 active:bg-blue-700 sm:active:scale-95 disabled:opacity-50 cursor-pointer"
               >
                 <Share2 size={14} />
-                <span>Bagikan</span>
+                <span>{t("dashboard.affiliate.share")}</span>
               </button>
             </div>
           </div>

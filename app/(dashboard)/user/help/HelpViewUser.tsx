@@ -8,6 +8,7 @@ import HelpFaqAccordion from "./components/HelpFaqAccordion";
 import HelpFilterBar from "./components/HelpFilterBar";
 import HelpQuickCards from "./components/HelpQuickCards";
 import { useHelpSearch } from "./hooks/useHelpSearch";
+import { useI18n } from "@/lib/i18n/context";
 
 interface HelpViewUserProps {
   isSidebarExpanded?: boolean;
@@ -18,6 +19,7 @@ export default function HelpViewUser({
 }: HelpViewUserProps) {
   void isSidebarExpanded;
 
+  const { t } = useI18n();
   const supportCardRef = useRef<HTMLDivElement>(null);
   const [supportCardHeight, setSupportCardHeight] = useState<number | undefined>(undefined);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -98,7 +100,7 @@ export default function HelpViewUser({
           <button
             type="button"
             onClick={dismissToast}
-            aria-label="Tutup notifikasi"
+            aria-label={t("dashboard.help.toastDismissAria")}
             className="ml-2 text-slate-400 hover:text-white transition cursor-pointer"
           >
             <X size={14} />
@@ -155,7 +157,7 @@ export default function HelpViewUser({
       {/* 6. SUBTLE FOOTER TEXT */}
       <div className="mt-8 pb-4 text-center">
         <p className="text-[11px] font-medium text-slate-400">
-          Konten bantuan diperbarui secara berkala untuk memberikan informasi terbaik bagi Anda.
+          {t("dashboard.help.footerNotice")}
         </p>
       </div>
     </section>

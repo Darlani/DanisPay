@@ -3,6 +3,7 @@
 import React, { useRef, useState } from "react";
 import { CalendarDays, ChevronDown, RotateCcw, Search, X } from "lucide-react";
 import { STATUS_OPTIONS, WithdrawalFilters, WithdrawalStatusCounts } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface WithdrawFilterBarProps {
   filters: WithdrawalFilters;
@@ -23,11 +24,29 @@ export default function WithdrawFilterBar({
   onDateChange,
   onResetFilters,
 }: WithdrawFilterBarProps) {
+  const { t } = useI18n();
   const desktopDateInputRef = useRef<HTMLInputElement>(null);
   const mobileDateInputRef = useRef<HTMLInputElement>(null);
 
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+
+  const getStatusOptionLabel = (value: string, defaultLabel: string) => {
+    switch (value) {
+      case "Semua":
+        return t("dashboard.withdraw.statusAll");
+      case "Pending":
+        return t("dashboard.withdraw.statusPending");
+      case "Berhasil":
+        return t("dashboard.withdraw.statusSuccess");
+      case "Gagal":
+        return t("dashboard.withdraw.statusFailed");
+      case "Dibatalkan":
+        return t("dashboard.withdraw.statusCancelled");
+      default:
+        return defaultLabel;
+    }
+  };
 
   const handleToggleMobileSearch = () => {
     const nextState = !isMobileSearchOpen;
@@ -62,12 +81,12 @@ export default function WithdrawFilterBar({
             <select
               value={filters.status}
               onChange={(e) => onStatusChange(e.target.value)}
-              aria-label="Filter status penarikan"
+              aria-label={t("dashboard.withdraw.statusAria")}
               className="h-8.5 w-full appearance-none rounded-xl border border-slate-200/90 bg-slate-50/90 px-2.5 pr-7 text-[11px] font-bold text-slate-700 outline-none transition hover:bg-slate-100/80 focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100 cursor-pointer truncate"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label} ({statusCounts[opt.countKey]})
+                  {getStatusOptionLabel(opt.value, opt.label)} ({statusCounts[opt.countKey]})
                 </option>
               ))}
             </select>
@@ -81,7 +100,7 @@ export default function WithdrawFilterBar({
           <button
             type="button"
             onClick={handleToggleMobileSearch}
-            aria-label="Buka Pencarian Penarikan"
+            aria-label={t("dashboard.withdraw.searchToggleAria")}
             className={`flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-xl border transition active:scale-95 cursor-pointer ${
               filters.search || isMobileSearchOpen
                 ? "border-rose-400 bg-rose-50 text-rose-600 shadow-2xs"
@@ -98,15 +117,15 @@ export default function WithdrawFilterBar({
               type="date"
               value={filters.date}
               onChange={(e) => onDateChange(e.target.value)}
-              aria-label="Pilih tanggal transaksi"
+              aria-label={t("dashboard.withdraw.dateSelectAria")}
               className="sr-only"
               tabIndex={-1}
             />
             <button
               type="button"
               onClick={() => handleDateIconClick("mobile")}
-              title={filters.date ? `Tanggal: ${filters.date}` : "Filter Tanggal"}
-              aria-label={filters.date ? `Tanggal terpilih ${filters.date}` : "Filter Tanggal"}
+              title={filters.date ? t("dashboard.withdraw.dateActiveTitle", { date: filters.date }) : t("dashboard.withdraw.dateAria")}
+              aria-label={filters.date ? t("dashboard.withdraw.dateSelectedAria", { date: filters.date }) : t("dashboard.withdraw.dateAria")}
               className={`relative flex h-8.5 w-8.5 items-center justify-center rounded-xl border transition active:scale-95 cursor-pointer shadow-2xs ${
                 filters.date
                   ? "border-rose-400 bg-rose-50 text-rose-600 font-bold ring-2 ring-rose-500/20"
@@ -125,8 +144,8 @@ export default function WithdrawFilterBar({
             <button
               type="button"
               onClick={onResetFilters}
-              title="Reset Filter"
-              aria-label="Reset Filter"
+              title={t("dashboard.withdraw.resetAria")}
+              aria-label={t("dashboard.withdraw.resetAria")}
               className="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-red-100"
             >
               <RotateCcw size={12} />
@@ -146,8 +165,8 @@ export default function WithdrawFilterBar({
               type="search"
               value={filters.search}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Cari bank, rekening, atau nominal..."
-              aria-label="Cari transaksi penarikan saldo"
+              placeholder={t("dashboard.withdraw.searchPlaceholder")}
+              aria-label={t("dashboard.withdraw.searchAria")}
               className="h-8.5 w-full rounded-xl border border-rose-200 bg-rose-50/40 pl-8.5 pr-8 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none transition focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
             />
             <button
@@ -156,7 +175,7 @@ export default function WithdrawFilterBar({
                 onSearchChange("");
                 setIsMobileSearchOpen(false);
               }}
-              aria-label="Tutup pencarian"
+              aria-label={t("dashboard.withdraw.closeSearchAria")}
               className="absolute right-2.5 flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-700 cursor-pointer"
             >
               <X size={12} />
@@ -174,12 +193,12 @@ export default function WithdrawFilterBar({
           <select
             value={filters.status}
             onChange={(e) => onStatusChange(e.target.value)}
-            aria-label="Filter status penarikan"
+            aria-label={t("dashboard.withdraw.statusAria")}
             className="h-9.5 w-full appearance-none rounded-xl border border-slate-200/90 bg-slate-50/90 pl-3 pr-8 text-xs font-bold text-slate-700 outline-none transition hover:bg-slate-100/80 focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100 cursor-pointer truncate"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {opt.label} ({statusCounts[opt.countKey]})
+                {getStatusOptionLabel(opt.value, opt.label)} ({statusCounts[opt.countKey]})
               </option>
             ))}
           </select>
@@ -199,15 +218,15 @@ export default function WithdrawFilterBar({
             type="search"
             value={filters.search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Cari bank, rekening, atau nominal..."
-            aria-label="Cari transaksi penarikan saldo"
+            placeholder={t("dashboard.withdraw.searchPlaceholder")}
+            aria-label={t("dashboard.withdraw.searchAria")}
             className="h-9.5 w-full rounded-xl border border-slate-200/90 bg-slate-50/80 pl-8.5 pr-8 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none transition focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
           />
           {filters.search && (
             <button
               type="button"
               onClick={() => onSearchChange("")}
-              aria-label="Hapus pencarian"
+              aria-label={t("dashboard.withdraw.clearSearchAria")}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
             >
               <X size={13} />
@@ -222,15 +241,15 @@ export default function WithdrawFilterBar({
             type="date"
             value={filters.date}
             onChange={(e) => onDateChange(e.target.value)}
-            aria-label="Pilih tanggal transaksi"
+            aria-label={t("dashboard.withdraw.dateSelectAria")}
             className="sr-only"
             tabIndex={-1}
           />
           <button
             type="button"
             onClick={() => handleDateIconClick("desktop")}
-            title={filters.date ? `Tanggal: ${filters.date}` : "Filter Tanggal"}
-            aria-label={filters.date ? `Tanggal terpilih ${filters.date}` : "Filter Tanggal"}
+            title={filters.date ? t("dashboard.withdraw.dateActiveTitle", { date: filters.date }) : t("dashboard.withdraw.dateAria")}
+            aria-label={filters.date ? t("dashboard.withdraw.dateSelectedAria", { date: filters.date }) : t("dashboard.withdraw.dateAria")}
             className={`relative flex h-9.5 w-9.5 items-center justify-center rounded-xl border transition active:scale-95 cursor-pointer shadow-2xs ${
               filters.date
                 ? "border-rose-400 bg-rose-50 text-rose-600 font-bold ring-2 ring-rose-500/20"
@@ -249,12 +268,12 @@ export default function WithdrawFilterBar({
           <button
             type="button"
             onClick={onResetFilters}
-            title="Reset Filter"
-            aria-label="Reset Filter"
+            title={t("dashboard.withdraw.resetAria")}
+            aria-label={t("dashboard.withdraw.resetAria")}
             className="flex h-9.5 shrink-0 items-center gap-1.5 rounded-xl border border-red-200 bg-red-50/80 px-3 text-xs font-bold text-red-600 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-red-100"
           >
             <RotateCcw size={12} />
-            <span className="hidden xs:inline">Reset</span>
+            <span className="hidden xs:inline">{t("dashboard.withdraw.resetBtn")}</span>
           </button>
         )}
       </div>

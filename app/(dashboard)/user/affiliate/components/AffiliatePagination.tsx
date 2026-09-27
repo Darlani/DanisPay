@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useI18n } from "@/lib/i18n/context";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface AffiliatePaginationProps {
@@ -18,6 +19,8 @@ export default function AffiliatePagination({
   pageSize,
   onPageChange,
 }: AffiliatePaginationProps) {
+  const { t } = useI18n();
+
   if (totalItems === 0) return null;
 
   const start = (page - 1) * pageSize + 1;
@@ -42,9 +45,11 @@ export default function AffiliatePagination({
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs">
       <p className="text-slate-500 font-medium text-[11px] sm:text-xs text-center sm:text-left">
-        Menampilkan <strong className="font-bold text-slate-800">{start}</strong> -{" "}
-        <strong className="font-bold text-slate-800">{end}</strong> dari{" "}
-        <strong className="font-bold text-slate-800">{totalItems}</strong> member
+        {t("dashboard.affiliate.paginationShowing", {
+          start: totalItems > 0 ? start : 0,
+          end: totalItems > 0 ? end : 0,
+          total: totalItems,
+        })}
       </p>
 
       <div className="flex items-center gap-1.5">
@@ -53,7 +58,7 @@ export default function AffiliatePagination({
           type="button"
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
-          aria-label="Halaman sebelumnya"
+          aria-label={t("dashboard.affiliate.prevPage")}
           className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-2xs transition hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-95"
         >
           <ChevronLeft size={14} />
@@ -75,7 +80,7 @@ export default function AffiliatePagination({
                 type="button"
                 onClick={() => onPageChange(Number(p))}
                 aria-current={p === page ? "page" : undefined}
-                aria-label={`Ke halaman ${p}`}
+                aria-label={t("dashboard.affiliate.toPage", { page: p })}
                 className={`flex h-8 min-w-8 items-center justify-center rounded-xl px-2 text-xs font-bold transition active:scale-95 cursor-pointer ${
                   p === page
                     ? "bg-amber-600 text-white shadow-2xs"
@@ -93,7 +98,7 @@ export default function AffiliatePagination({
           type="button"
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
-          aria-label="Halaman berikutnya"
+          aria-label={t("dashboard.affiliate.nextPage")}
           className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-2xs transition hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-95"
         >
           <ChevronRight size={14} />

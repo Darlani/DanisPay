@@ -17,6 +17,7 @@ import {
   MIN_WITHDRAWAL,
   formatRupiah,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 import { withdrawService } from "../services/withdrawService";
 
 interface WithdrawCreateModalProps {
@@ -34,6 +35,7 @@ export default function WithdrawCreateModal({
   availableBalance,
   onSuccess,
 }: WithdrawCreateModalProps) {
+  const { t, locale } = useI18n();
   const [selectedBankCode, setSelectedBankCode] = useState<string>("bca");
   const [customBankName, setCustomBankName] = useState<string>("");
   const [amountInput, setAmountInput] = useState<string>("");
@@ -90,29 +92,27 @@ export default function WithdrawCreateModal({
 
     // Client-side validations
     if (numericAmount < MIN_WITHDRAWAL) {
-      setErrorMessage(`Minimal penarikan adalah ${formatRupiah(MIN_WITHDRAWAL)}.`);
+      setErrorMessage(t("dashboard.withdraw.valMin", { min: formatRupiah(MIN_WITHDRAWAL) }));
       return;
     }
 
     if (numericAmount > availableBalance) {
-      setErrorMessage(
-        "Saldo DaPay Anda tidak mencukupi. Koin DaPay tidak dapat digunakan untuk penarikan.",
-      );
+      setErrorMessage(t("dashboard.withdraw.valInsufficient"));
       return;
     }
 
     if (!effectiveBankName) {
-      setErrorMessage("Silakan pilih atau masukkan nama Bank / E-Wallet tujuan.");
+      setErrorMessage(t("dashboard.withdraw.valSelectBank"));
       return;
     }
 
     if (!accountNumber.trim()) {
-      setErrorMessage("Nomor rekening atau nomor akun wajib diisi.");
+      setErrorMessage(t("dashboard.withdraw.valAccNoRequired"));
       return;
     }
 
     if (!accountName.trim()) {
-      setErrorMessage("Nama pemilik rekening wajib diisi.");
+      setErrorMessage(t("dashboard.withdraw.valAccNameRequired"));
       return;
     }
 
@@ -133,7 +133,7 @@ export default function WithdrawCreateModal({
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : "Gagal memproses penarikan saldo. Silakan coba lagi.",
+          : t("dashboard.withdraw.errSubmit"),
       );
     } finally {
       setIsSubmitting(false);
@@ -159,10 +159,10 @@ export default function WithdrawCreateModal({
                 id="withdraw-create-title"
                 className="text-base sm:text-lg font-black tracking-tight text-slate-950 truncate"
               >
-                Tarik Saldo DaPay
+                {t("dashboard.withdraw.createTitle")}
               </h2>
               <p className="text-[10px] sm:text-[11px] font-medium text-slate-400 truncate">
-                Pencairan dana ke rekening bank atau e-wallet.
+                {t("dashboard.withdraw.createSubtitle")}
               </p>
             </div>
           </div>
@@ -171,7 +171,7 @@ export default function WithdrawCreateModal({
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            aria-label="Tutup Form Tarik Saldo"
+            aria-label={t("dashboard.withdraw.closeAria")}
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <X size={18} />
@@ -189,7 +189,7 @@ export default function WithdrawCreateModal({
                 </div>
                 <div>
                   <p className="text-[9.5px] font-extrabold uppercase tracking-wider text-rose-100">
-                    Saldo DaPay Tersedia
+                    {t("dashboard.withdraw.balanceAvailable")}
                   </p>
                   <p className="text-base font-black tracking-tight text-white leading-tight">
                     {formatRupiah(availableBalance)}
@@ -198,7 +198,7 @@ export default function WithdrawCreateModal({
               </div>
 
               <span className="inline-flex items-center rounded-full bg-white/20 border border-white/30 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
-                Bisa Ditarik
+                {t("dashboard.withdraw.withdrawableBadge")}
               </span>
             </div>
           </div>
@@ -214,7 +214,7 @@ export default function WithdrawCreateModal({
           {/* BANK / E-WALLET SELECTION */}
           <div>
             <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-2">
-              Pilih Bank / E-Wallet Tujuan
+              {t("dashboard.withdraw.selectBankLabel")}
             </label>
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
               {BANK_PRESETS.map((bank) => {
@@ -251,7 +251,7 @@ export default function WithdrawCreateModal({
                         isSelected ? "text-rose-700" : "text-slate-700"
                       }`}
                     >
-                      {bank.name}
+                      {bank.code === "other" ? (locale === "en" ? "Other Bank" : "Bank Lainnya") : bank.name}
                     </span>
                   </button>
                 );
@@ -264,7 +264,7 @@ export default function WithdrawCreateModal({
                   type="text"
                   value={customBankName}
                   onChange={(e) => setCustomBankName(e.target.value)}
-                  placeholder="Ketik nama bank (misal: Bank Mega / Jago / Seabank)"
+                  placeholder={t("dashboard.withdraw.otherBankPlaceholder")}
                   className="h-10 w-full rounded-xl border border-slate-200/90 bg-white px-3.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
                 />
               </div>
@@ -277,7 +277,7 @@ export default function WithdrawCreateModal({
               htmlFor="withdraw-amount-input"
               className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5"
             >
-              Nominal Penarikan
+              {t("dashboard.withdraw.amountLabel")}
             </label>
 
             <div className="relative">
@@ -315,7 +315,7 @@ export default function WithdrawCreateModal({
                 onClick={handleWithdrawAll}
                 className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10.5px] font-bold text-rose-700 transition hover:bg-rose-100 active:scale-95 cursor-pointer"
               >
-                Tarik Semua
+                {t("dashboard.withdraw.withdrawAll")}
               </button>
             </div>
           </div>
@@ -327,7 +327,7 @@ export default function WithdrawCreateModal({
                 htmlFor="withdraw-account-number"
                 className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5"
               >
-                Nomor Rekening / Akun
+                {t("dashboard.withdraw.accNoLabel")}
               </label>
               <input
                 id="withdraw-account-number"
@@ -338,7 +338,7 @@ export default function WithdrawCreateModal({
                   setAccountNumber(e.target.value);
                   setErrorMessage(null);
                 }}
-                placeholder="Contoh: 1234567890"
+                placeholder={t("dashboard.withdraw.accNoPlaceholder")}
                 className="h-10 w-full rounded-xl border border-slate-200/90 bg-white px-3.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
               />
             </div>
@@ -348,7 +348,7 @@ export default function WithdrawCreateModal({
                 htmlFor="withdraw-account-name"
                 className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5"
               >
-                Nama Pemilik Rekening
+                {t("dashboard.withdraw.accNameLabel")}
               </label>
               <input
                 id="withdraw-account-name"
@@ -358,7 +358,7 @@ export default function WithdrawCreateModal({
                   setAccountName(e.target.value);
                   setErrorMessage(null);
                 }}
-                placeholder="Nama sesuai buku tabungan"
+                placeholder={t("dashboard.withdraw.accNamePlaceholder")}
                 className="h-10 w-full rounded-xl border border-slate-200/90 bg-white px-3.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
               />
             </div>
@@ -367,19 +367,19 @@ export default function WithdrawCreateModal({
           {/* ESTIMATION SUMMARY BOX */}
           <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 space-y-1.5 text-xs">
             <div className="flex items-center justify-between text-slate-600">
-              <span>Tujuan Penarikan:</span>
+              <span>{t("dashboard.withdraw.destinationSummary")}</span>
               <span className="font-bold text-slate-900">
                 {effectiveBankName || "-"}
               </span>
             </div>
             <div className="flex items-center justify-between text-slate-600">
-              <span>Nominal Penarikan:</span>
+              <span>{t("dashboard.withdraw.amountSummary")}</span>
               <span className="font-black text-slate-900">
                 {formatRupiah(numericAmount)}
               </span>
             </div>
             <div className="border-t border-slate-200/80 pt-1.5 flex items-center justify-between font-bold">
-              <span className="text-slate-700">Estimasi Sisa Saldo:</span>
+              <span className="text-slate-700">{t("dashboard.withdraw.remainingSummary")}</span>
               <span className="font-mono text-emerald-700 font-bold">
                 {formatRupiah(remainingBalance)}
               </span>
@@ -402,12 +402,12 @@ export default function WithdrawCreateModal({
             {isSubmitting ? (
               <>
                 <Loader2 size={15} className="animate-spin" />
-                <span>Memproses Pengajuan...</span>
+                <span>{t("dashboard.withdraw.submitting")}</span>
               </>
             ) : (
               <>
                 <ArrowUpFromLine size={15} />
-                <span>Ajukan Penarikan Saldo</span>
+                <span>{t("dashboard.withdraw.submitBtn")}</span>
               </>
             )}
           </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/lib/i18n/context";
 import {
   Withdrawal,
   WithdrawalStatusCounts,
@@ -21,6 +22,7 @@ export function useWithdrawData({
   initialCoinBalance = 0,
   initialWithdrawals = [],
 }: UseWithdrawDataProps = {}) {
+  const { t } = useI18n();
   // 1. INSTANT INITIAL RENDER: Seed immediately from server-passed props
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>(initialWithdrawals);
   const [balance, setBalance] = useState<number>(initialBalance);
@@ -62,16 +64,17 @@ export function useWithdrawData({
       setWithdrawals(data.withdrawals);
     } catch (err: unknown) {
       if (err instanceof Error && err.message === "UNAUTHORIZED") {
-        window.location.href = "/login";
+        const isEn = typeof window !== "undefined" && window.location.pathname.startsWith("/en");
+        window.location.href = isEn ? "/en/login" : "/login";
         return;
       }
       console.error("useWithdrawData refetch error:", err);
-      setError(err instanceof Error ? err.message : "Gagal memuat data penarikan.");
+      setError(err instanceof Error ? err.message : t("dashboard.withdraw.errLoadData"));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   // 3. STATUS COUNTS PER CATEGORY
   const statusCounts = useMemo<WithdrawalStatusCounts>(() => {

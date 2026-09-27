@@ -8,6 +8,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { WithdrawalSummary, formatRupiah } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface WithdrawKpiCardsProps {
   summary: WithdrawalSummary;
@@ -16,6 +17,8 @@ interface WithdrawKpiCardsProps {
 export default function WithdrawKpiCards({
   summary,
 }: WithdrawKpiCardsProps) {
+  const { t } = useI18n();
+
   return (
     <section className="mb-4 sm:mb-5 lg:mb-6">
       <div className="grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3 md:grid-cols-2 lg:grid-cols-4 lg:gap-3.5 xl:gap-4 items-stretch">
@@ -37,10 +40,10 @@ export default function WithdrawKpiCards({
           <div className="relative z-10 flex items-start justify-between gap-1.5">
             <div className="min-w-0">
               <p className="truncate text-[8.5px] xs:text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider text-rose-100">
-                Saldo DaPay
+                {t("dashboard.withdraw.kpiBalance")}
               </p>
               <p className="hidden xs:block text-[8px] sm:text-[9.5px] font-medium text-rose-100/75 leading-tight">
-                Saldo Siap Ditarik
+                {t("dashboard.withdraw.kpiBalanceSub")}
               </p>
             </div>
 
@@ -55,7 +58,7 @@ export default function WithdrawKpiCards({
             </p>
             <div className="mt-1 flex items-center gap-1 text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-rose-100">
               <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-              <span className="truncate">Withdrawable</span>
+              <span className="truncate">{t("dashboard.withdraw.kpiBalanceNote")}</span>
             </div>
           </div>
         </div>
@@ -72,10 +75,10 @@ export default function WithdrawKpiCards({
           <div className="relative z-10 flex items-start justify-between gap-1.5">
             <div className="min-w-0">
               <p className="truncate text-[8.5px] xs:text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
-                Tarik Berhasil
+                {t("dashboard.withdraw.kpiSuccess")}
               </p>
               <p className="hidden xs:block text-[8px] sm:text-[9.5px] font-medium text-emerald-600/80 leading-tight">
-                Total Dana Keluar
+                {t("dashboard.withdraw.kpiSuccessSub")}
               </p>
             </div>
 
@@ -90,7 +93,7 @@ export default function WithdrawKpiCards({
             </p>
             <div className="mt-1 flex items-center gap-1 text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-emerald-700">
               <span className="rounded-md bg-emerald-100/80 px-1 py-0.2 font-mono text-[8px] xs:text-[9px] font-bold text-emerald-800">
-                {summary.successfulCount} Transaksi
+                {t("dashboard.withdraw.kpiSuccessCount", { count: summary.successfulCount })}
               </span>
             </div>
           </div>
@@ -108,10 +111,10 @@ export default function WithdrawKpiCards({
           <div className="relative z-10 flex items-start justify-between gap-1.5">
             <div className="min-w-0">
               <p className="truncate text-[8.5px] xs:text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
-                Sedang Diproses
+                {t("dashboard.withdraw.kpiProcessing")}
               </p>
               <p className="hidden xs:block text-[8px] sm:text-[9.5px] font-medium text-amber-600/80 leading-tight">
-                Permintaan Pending
+                {t("dashboard.withdraw.kpiProcessingSub")}
               </p>
             </div>
 
@@ -126,7 +129,7 @@ export default function WithdrawKpiCards({
             </p>
             <div className="mt-1 flex items-center gap-1 text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-amber-700">
               <span className="rounded-md bg-amber-100/80 px-1 py-0.2 font-mono text-[8px] xs:text-[9px] font-bold text-amber-800">
-                {summary.pendingCount} Pending
+                {t("dashboard.withdraw.kpiProcessingCount", { count: summary.pendingCount })}
               </span>
             </div>
           </div>
@@ -144,10 +147,10 @@ export default function WithdrawKpiCards({
           <div className="relative z-10 flex items-start justify-between gap-1.5">
             <div className="min-w-0">
               <p className="truncate text-[8.5px] xs:text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
-                Dana Ditahan
+                {t("dashboard.withdraw.kpiHeld")}
               </p>
               <p className="hidden xs:block text-[8px] sm:text-[9.5px] font-medium text-indigo-600/80 leading-tight">
-                Nominal & Biaya Admin
+                {t("dashboard.withdraw.kpiHeldSub")}
               </p>
             </div>
 
@@ -162,7 +165,7 @@ export default function WithdrawKpiCards({
             </p>
             <div className="mt-1 flex items-center gap-1 text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-indigo-700">
               <span className="rounded-md bg-indigo-100/80 px-1 py-0.2 font-mono text-[8px] xs:text-[9px] font-bold text-indigo-800">
-                Ditahan Sementara
+                {t("dashboard.withdraw.kpiHeldNote")}
               </span>
             </div>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 import {
   OrderFilters,
   SortOption,
@@ -25,38 +26,6 @@ interface OrderFilterBarProps {
   isSidebarExpanded?: boolean;
 }
 
-const STATUS_CONFIG: {
-  key: string;
-  label: string;
-  countKey: keyof StatusCounts;
-}[] = [
-  { key: "Semua", label: "Semua Status", countKey: "semua" },
-  { key: "Pending", label: "Pending", countKey: "pending" },
-  { key: "Expired", label: "Expired", countKey: "expired" },
-  { key: "Proses", label: "Proses", countKey: "proses" },
-  { key: "Berhasil", label: "Berhasil", countKey: "berhasil" },
-  { key: "Gagal", label: "Gagal", countKey: "gagal" },
-];
-
-const PAYMENT_OPTIONS = [
-  { value: "Semua", label: "Semua Metode" },
-  { value: "Saldo", label: "Saldo DaPay" },
-  { value: "Koin", label: "Koin DaPay" },
-  { value: "mixed", label: "Saldo + Koin" },
-  { value: "QRIS", label: "QRIS" },
-  { value: "DANA", label: "DANA" },
-  { value: "GOPAY", label: "GoPay" },
-  { value: "OVO", label: "OVO" },
-  { value: "SHOPEEPAY", label: "ShopeePay" },
-];
-
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: "newest", label: "Terbaru" },
-  { value: "oldest", label: "Terlama" },
-  { value: "highest_amount", label: "Nominal Tertinggi" },
-  { value: "lowest_amount", label: "Nominal Terendah" },
-];
-
 export default function OrderFilterBar({
   filters,
   categories,
@@ -65,6 +34,35 @@ export default function OrderFilterBar({
   onReset,
   isSidebarExpanded = false,
 }: OrderFilterBarProps) {
+  const { t } = useI18n();
+
+  const statusConfig = useMemo(() => [
+    { key: "Semua", label: t("dashboard.orders.statusAll"), countKey: "semua" as keyof StatusCounts },
+    { key: "Pending", label: t("dashboard.orders.statusPending"), countKey: "pending" as keyof StatusCounts },
+    { key: "Expired", label: t("dashboard.orders.statusExpired"), countKey: "expired" as keyof StatusCounts },
+    { key: "Proses", label: t("dashboard.orders.statusProcessing"), countKey: "proses" as keyof StatusCounts },
+    { key: "Berhasil", label: t("dashboard.orders.statusSuccess"), countKey: "berhasil" as keyof StatusCounts },
+    { key: "Gagal", label: t("dashboard.orders.statusFailed"), countKey: "gagal" as keyof StatusCounts },
+  ], [t]);
+
+  const paymentOptions = useMemo(() => [
+    { value: "Semua", label: t("dashboard.orders.paymentAll") },
+    { value: "Saldo", label: t("dashboard.orders.paymentSaldo") },
+    { value: "Koin", label: t("dashboard.orders.paymentKoin") },
+    { value: "mixed", label: t("dashboard.orders.paymentMixed") },
+    { value: "QRIS", label: "QRIS" },
+    { value: "DANA", label: "DANA" },
+    { value: "GOPAY", label: "GoPay" },
+    { value: "OVO", label: "OVO" },
+    { value: "SHOPEEPAY", label: "ShopeePay" },
+  ], [t]);
+
+  const sortOptions: { value: SortOption; label: string }[] = useMemo(() => [
+    { value: "newest", label: t("dashboard.orders.sortNewest") },
+    { value: "oldest", label: t("dashboard.orders.sortOldest") },
+    { value: "highest_amount", label: t("dashboard.orders.sortHighest") },
+    { value: "lowest_amount", label: t("dashboard.orders.sortLowest") },
+  ], [t]);
   const desktopDateInputRef = useRef<HTMLInputElement>(null);
   const tabletDateInputRef = useRef<HTMLInputElement>(null);
   const mobileDateInputRef = useRef<HTMLInputElement>(null);
@@ -141,14 +139,14 @@ export default function OrderFilterBar({
           <select
             value={filters.status}
             onChange={(e) => onFilterChange({ status: e.target.value, page: 1 })}
-            aria-label="Filter Status"
+            aria-label={t("dashboard.orders.filterStatusAria")}
             className={`h-9 w-full appearance-none rounded-xl border px-3.5 pr-8 text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
               filters.status !== "Semua"
                 ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                 : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
             }`}
           >
-            {STATUS_CONFIG.map((st) => {
+            {statusConfig.map((st) => {
               const countVal = counts[st.countKey] ?? 0;
               return (
                 <option key={st.key} value={st.key}>
@@ -170,14 +168,14 @@ export default function OrderFilterBar({
           <select
             value={filters.category}
             onChange={(e) => onFilterChange({ category: e.target.value, page: 1 })}
-            aria-label="Filter Kategori"
+            aria-label={t("dashboard.orders.filterCategoryAria")}
             className={`h-9 w-full appearance-none rounded-xl border px-3.5 pr-8 text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
               filters.category !== "Semua"
                 ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                 : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
             }`}
           >
-            <option value="Semua">Semua Kategori</option>
+            <option value="Semua">{t("dashboard.orders.categoryAll")}</option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
@@ -197,14 +195,14 @@ export default function OrderFilterBar({
           <select
             value={filters.paymentMethod}
             onChange={(e) => onFilterChange({ paymentMethod: e.target.value, page: 1 })}
-            aria-label="Filter Pembayaran"
+            aria-label={t("dashboard.orders.filterPaymentAria")}
             className={`h-9 w-full appearance-none rounded-xl border px-3.5 pr-8 text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
               filters.paymentMethod !== "Semua"
                 ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                 : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
             }`}
           >
-            {PAYMENT_OPTIONS.map((opt) => (
+            {paymentOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -223,14 +221,14 @@ export default function OrderFilterBar({
           <select
             value={filters.sort}
             onChange={(e) => onFilterChange({ sort: e.target.value as SortOption, page: 1 })}
-            aria-label="Urutan Transaksi"
+            aria-label={t("dashboard.orders.sortOrderAria")}
             className={`h-9 w-full appearance-none rounded-xl border px-3.5 pr-8 text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
               filters.sort !== "newest"
                 ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                 : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
             }`}
           >
-            {SORT_OPTIONS.map((opt) => (
+            {sortOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -254,7 +252,7 @@ export default function OrderFilterBar({
             type="text"
             value={filters.search}
             onChange={(e) => onFilterChange({ search: e.target.value, page: 1 })}
-            placeholder="Cari Order ID, Produk, Pelanggan..."
+            placeholder={t("dashboard.orders.searchPlaceholder")}
             className="h-9 w-full rounded-xl border border-slate-200/90 bg-slate-50/70 pl-8.5 pr-8 text-xs font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10 shadow-2xs"
           />
           {filters.search && (
@@ -262,7 +260,7 @@ export default function OrderFilterBar({
               type="button"
               onClick={() => onFilterChange({ search: "", page: 1 })}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
-              aria-label="Hapus kata kunci"
+              aria-label={t("dashboard.orders.clearKeyword")}
             >
               <X size={13} />
             </button>
@@ -283,10 +281,10 @@ export default function OrderFilterBar({
               }`}
               title={
                 filters.date
-                  ? `Tanggal: ${formatDateOnly(filters.date)} (Klik untuk ubah)`
-                  : "Filter Tanggal Transaksi"
+                  ? t("dashboard.orders.dateFilterActive", { date: formatDateOnly(filters.date) })
+                  : t("dashboard.orders.dateFilterTitle")
               }
-              aria-label="Filter Tanggal"
+              aria-label={t("dashboard.orders.filterDateAria")}
             >
               <CalendarDays size={15} />
               {filters.date && (
@@ -312,10 +310,10 @@ export default function OrderFilterBar({
               type="button"
               onClick={onReset}
               className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-rose-200/90 bg-rose-50/90 px-3 text-xs font-bold text-rose-700 hover:border-rose-300 hover:bg-rose-100 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
-              title="Reset Semua Filter"
+              title={t("dashboard.orders.resetAria")}
             >
               <RotateCcw size={13} />
-              <span>Reset</span>
+              <span>{t("dashboard.orders.reset")}</span>
             </button>
           )}
         </div>
@@ -336,7 +334,7 @@ export default function OrderFilterBar({
             <select
               value={filters.status}
               onChange={(e) => onFilterChange({ status: e.target.value, page: 1 })}
-              aria-label="Filter Status"
+              aria-label={t("dashboard.orders.filterStatusAria")}
               className={`h-9 w-full appearance-none rounded-xl border ${
                 !isSidebarExpanded ? "px-2.5 pr-7" : "px-2 text-center"
               } text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
@@ -345,13 +343,13 @@ export default function OrderFilterBar({
                   : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
               }`}
             >
-              {STATUS_CONFIG.map((st) => {
+              {statusConfig.map((st) => {
                 const countVal = counts[st.countKey] ?? 0;
                 const labelText =
                   st.key === "Semua"
                     ? !isSidebarExpanded
-                      ? `Semua Status (${countVal})`
-                      : `Status (${countVal})`
+                      ? `${t("dashboard.orders.statusAll")} (${countVal})`
+                      : `${t("dashboard.orders.statusShort")} (${countVal})`
                     : `${st.label} (${countVal})`;
                 return (
                   <option key={st.key} value={st.key}>
@@ -379,7 +377,7 @@ export default function OrderFilterBar({
             <select
               value={filters.category}
               onChange={(e) => onFilterChange({ category: e.target.value, page: 1 })}
-              aria-label="Filter Kategori"
+              aria-label={t("dashboard.orders.filterCategoryAria")}
               className={`h-9 w-full appearance-none rounded-xl border ${
                 !isSidebarExpanded ? "px-2.5 pr-7" : "px-2 text-center"
               } text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
@@ -389,7 +387,7 @@ export default function OrderFilterBar({
               }`}
             >
               <option value="Semua">
-                {!isSidebarExpanded ? "Semua Kategori" : "Kategori"}
+                {!isSidebarExpanded ? t("dashboard.orders.categoryAll") : t("dashboard.orders.categoryShort")}
               </option>
               {categories.map((cat) => (
                 <option key={cat} value={cat}>
@@ -416,7 +414,7 @@ export default function OrderFilterBar({
             <select
               value={filters.paymentMethod}
               onChange={(e) => onFilterChange({ paymentMethod: e.target.value, page: 1 })}
-              aria-label="Filter Pembayaran"
+              aria-label={t("dashboard.orders.filterPaymentAria")}
               className={`h-9 w-full appearance-none rounded-xl border ${
                 !isSidebarExpanded ? "px-2.5 pr-7" : "px-2 text-center"
               } text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
@@ -425,12 +423,12 @@ export default function OrderFilterBar({
                   : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
               }`}
             >
-              {PAYMENT_OPTIONS.map((opt) => (
+              {paymentOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.value === "Semua"
                     ? !isSidebarExpanded
-                      ? "Semua Metode"
-                      : "Metode"
+                      ? t("dashboard.orders.paymentAll")
+                      : t("dashboard.orders.paymentShort")
                     : opt.label}
                 </option>
               ))}
@@ -454,7 +452,7 @@ export default function OrderFilterBar({
             <select
               value={filters.sort}
               onChange={(e) => onFilterChange({ sort: e.target.value as SortOption, page: 1 })}
-              aria-label="Urutan Transaksi"
+              aria-label={t("dashboard.orders.sortOrderAria")}
               className={`h-9 w-full appearance-none rounded-xl border ${
                 !isSidebarExpanded ? "px-2.5 pr-7" : "px-2 text-center"
               } text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
@@ -463,7 +461,7 @@ export default function OrderFilterBar({
                   : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-3 focus:ring-blue-500/10"
               }`}
             >
-              {SORT_OPTIONS.map((opt) => (
+              {sortOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -485,8 +483,8 @@ export default function OrderFilterBar({
             <button
               type="button"
               onClick={handleToggleTabletSearch}
-              aria-label="Pencarian Transaksi"
-              title={isTabletSearchOpen ? "Tutup Pencarian" : "Buka Pencarian"}
+              aria-label={t("dashboard.orders.searchAria")}
+              title={isTabletSearchOpen ? t("dashboard.orders.closeSearch") : t("dashboard.orders.openSearch")}
               className={`relative inline-flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
                 isTabletSearchOpen || Boolean(filters.search)
                   ? "border-blue-400 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20 font-bold"
@@ -506,8 +504,8 @@ export default function OrderFilterBar({
               <button
                 type="button"
                 onClick={() => handleDateIconClick("tablet")}
-                aria-label="Filter Tanggal"
-                title={filters.date ? `Tanggal: ${filters.date}` : "Filter Tanggal"}
+                aria-label={t("dashboard.orders.filterDateAria")}
+                title={filters.date ? t("dashboard.orders.dateLabel", { date: filters.date }) : t("dashboard.orders.filterDateAria")}
                 className={`relative inline-flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
                   filters.date
                     ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20 font-bold"
@@ -538,10 +536,10 @@ export default function OrderFilterBar({
                 type="button"
                 onClick={onReset}
                 className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl border border-rose-200/90 bg-rose-50/90 px-2.5 text-xs font-bold text-rose-700 hover:border-rose-300 hover:bg-rose-100 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
-                title="Reset Filter"
+                title={t("dashboard.orders.resetAria")}
               >
                 <RotateCcw size={12} />
-                <span>Reset</span>
+                <span>{t("dashboard.orders.reset")}</span>
               </button>
             )}
           </div>
@@ -559,7 +557,7 @@ export default function OrderFilterBar({
               type="text"
               value={filters.search}
               onChange={(e) => onFilterChange({ search: e.target.value, page: 1 })}
-              placeholder="Cari Order ID, Produk, Pelanggan..."
+              placeholder={t("dashboard.orders.searchPlaceholder")}
               className="h-9 w-full rounded-xl border border-blue-400 bg-blue-50/30 pl-9 pr-8 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
             />
             {filters.search && (
@@ -567,7 +565,7 @@ export default function OrderFilterBar({
                 type="button"
                 onClick={() => onFilterChange({ search: "", page: 1 })}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer mt-1"
-                title="Hapus kata kunci"
+                title={t("dashboard.orders.clearKeyword")}
               >
                 <X size={13} />
               </button>
@@ -587,18 +585,18 @@ export default function OrderFilterBar({
             <select
               value={filters.status}
               onChange={(e) => onFilterChange({ status: e.target.value, page: 1 })}
-              aria-label="Filter Status"
+              aria-label={t("dashboard.orders.filterStatusAria")}
               className={`h-8.5 xs:h-9 w-full appearance-none rounded-xl border px-1.5 xs:px-2 text-center text-[10.5px] xs:text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
                 filters.status !== "Semua"
                   ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                   : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 focus:border-blue-500 focus:bg-white"
               }`}
             >
-              {STATUS_CONFIG.map((st) => {
+              {statusConfig.map((st) => {
                 const countVal = counts[st.countKey] ?? 0;
                 const labelText =
                   st.key === "Semua"
-                    ? `Semua Status (${countVal})`
+                    ? `${t("dashboard.orders.statusAll")} (${countVal})`
                     : `${st.label} (${countVal})`;
                 return (
                   <option key={st.key} value={st.key}>
@@ -614,14 +612,14 @@ export default function OrderFilterBar({
             <select
               value={filters.sort}
               onChange={(e) => onFilterChange({ sort: e.target.value as SortOption, page: 1 })}
-              aria-label="Urutan Transaksi"
+              aria-label={t("dashboard.orders.sortOrderAria")}
               className={`h-8.5 xs:h-9 w-full appearance-none rounded-xl border px-1.5 xs:px-2 text-center text-[10.5px] xs:text-xs font-bold outline-none transition-all duration-200 cursor-pointer truncate shadow-2xs ${
                 filters.sort !== "newest"
                   ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20"
                   : "border-slate-200/90 bg-slate-50/70 text-slate-800 hover:border-slate-300 focus:border-blue-500 focus:bg-white"
               }`}
             >
-              {SORT_OPTIONS.map((opt) => (
+              {sortOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -635,8 +633,8 @@ export default function OrderFilterBar({
             <button
               type="button"
               onClick={handleToggleMobileSearch}
-              aria-label="Pencarian Transaksi"
-              title={isMobileSearchOpen ? "Tutup Pencarian" : "Buka Pencarian"}
+              aria-label={t("dashboard.orders.searchAria")}
+              title={isMobileSearchOpen ? t("dashboard.orders.closeSearch") : t("dashboard.orders.openSearch")}
               className={`relative inline-flex h-8.5 w-8.5 xs:h-9 xs:w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
                 isMobileSearchOpen || Boolean(filters.search)
                   ? "border-blue-400 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20 font-bold"
@@ -656,12 +654,12 @@ export default function OrderFilterBar({
               <button
                 type="button"
                 onClick={() => handleDateIconClick("mobile")}
-                aria-label="Filter Tanggal"
-                title={filters.date ? `Tanggal: ${filters.date}` : "Filter Tanggal"}
+                aria-label={t("dashboard.orders.filterDateAria")}
+                title={filters.date ? t("dashboard.orders.dateLabel", { date: filters.date }) : t("dashboard.orders.filterDateAria")}
                 className={`relative inline-flex h-8.5 w-8.5 xs:h-9 xs:w-9 items-center justify-center rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs ${
                   filters.date
                     ? "border-blue-400 bg-linear-to-r from-blue-50 to-indigo-50 text-blue-700 ring-2 ring-blue-500/20 font-bold"
-                    : "border-slate-200/90 bg-slate-50/70 text-slate-600 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+                    : "border-slate-200/90 bg-slate-50/70 text-slate-600 hover:border-slate-300 hover:bg-slate-100"
                 }`}
               >
                 <CalendarDays size={13} />
@@ -688,10 +686,10 @@ export default function OrderFilterBar({
                 type="button"
                 onClick={onReset}
                 className="inline-flex h-8.5 xs:h-9 shrink-0 items-center gap-1 rounded-xl border border-rose-200/90 bg-rose-50/90 px-2 text-[10.5px] xs:text-xs font-bold text-rose-700 hover:border-rose-300 hover:bg-rose-100 transition-all duration-200 active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
-                title="Reset Filter"
+                title={t("dashboard.orders.resetAria")}
               >
                 <RotateCcw size={11} />
-                <span>Reset</span>
+                <span>{t("dashboard.orders.reset")}</span>
               </button>
             )}
           </div>
@@ -709,7 +707,7 @@ export default function OrderFilterBar({
               type="text"
               value={filters.search}
               onChange={(e) => onFilterChange({ search: e.target.value, page: 1 })}
-              placeholder="Cari transaksi..."
+              placeholder={t("dashboard.orders.searchPlaceholderMobile")}
               className="h-8.5 xs:h-9 w-full rounded-xl border border-blue-400 bg-blue-50/30 pl-8 pr-7 text-[11px] xs:text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
             />
             {filters.search && (
@@ -717,7 +715,7 @@ export default function OrderFilterBar({
                 type="button"
                 onClick={() => onFilterChange({ search: "", page: 1 })}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer mt-0.5"
-                title="Hapus kata kunci"
+                title={t("dashboard.orders.clearKeyword")}
               >
                 <X size={12} />
               </button>
@@ -731,12 +729,12 @@ export default function OrderFilterBar({
         <div className="flex items-center gap-2 px-1">
           <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] xs:text-[11px] font-bold text-blue-700 shadow-2xs">
             <CalendarDays size={11} />
-            <span>Tanggal: {formatDateOnly(filters.date)}</span>
+            <span>{t("dashboard.orders.dateLabel", { date: formatDateOnly(filters.date) })}</span>
             <button
               type="button"
               onClick={() => onFilterChange({ date: "", page: 1 })}
               className="ml-1 text-blue-500 hover:text-blue-800 cursor-pointer"
-              title="Hapus filter tanggal"
+              title={t("dashboard.orders.removeDate")}
             >
               <X size={11} />
             </button>

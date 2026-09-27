@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import React, { useEffect } from "react";
+import { useI18n } from "@/lib/i18n/context";
 import {
   AlertCircle,
   Building2,
@@ -36,6 +37,7 @@ export default function WithdrawDetailModal({
   onClose,
   onCopy,
 }: WithdrawDetailModalProps) {
+  const { t } = useI18n();
   // ESC key and body scroll lock
   useEffect(() => {
     if (!withdrawal) return;
@@ -69,6 +71,21 @@ export default function WithdrawDetailModal({
       ? toNumber(withdrawal.held_amount)
       : amount + fee;
 
+  const getStatusLabel = (status: string, fallback: string) => {
+    switch (status) {
+      case "Pending":
+        return t("dashboard.withdraw.statusPendingLabel");
+      case "Berhasil":
+        return t("dashboard.withdraw.statusSuccessLabel");
+      case "Gagal":
+        return t("dashboard.withdraw.statusFailedLabel");
+      case "Dibatalkan":
+        return t("dashboard.withdraw.statusCancelledLabel");
+      default:
+        return fallback;
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center p-3 sm:p-4 bg-slate-950/40 backdrop-blur-xs transition-opacity duration-200">
       <div
@@ -88,10 +105,10 @@ export default function WithdrawDetailModal({
                 id="withdraw-detail-title"
                 className="text-base sm:text-lg font-black tracking-tight text-slate-950 truncate"
               >
-                Rincian Penarikan
+                {t("dashboard.withdraw.detailTitle")}
               </h2>
               <p className="text-[10px] sm:text-[11px] font-medium text-slate-400 truncate">
-                Informasi status dan mutasi penarikan saldo.
+                {t("dashboard.withdraw.detailSubtitle")}
               </p>
             </div>
           </div>
@@ -99,7 +116,7 @@ export default function WithdrawDetailModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Tutup Rincian Penarikan"
+            aria-label={t("dashboard.withdraw.closeAria")}
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition active:scale-95 cursor-pointer"
           >
             <X size={18} />
@@ -116,14 +133,14 @@ export default function WithdrawDetailModal({
               <span
                 className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`}
               />
-              {statusStyle.label}
+              {getStatusLabel(status, statusStyle.label)}
             </span>
 
             <p className="mt-2 text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
               {formatRupiah(amount)}
             </p>
             <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-              Dana Ditahan:{" "}
+              {t("dashboard.withdraw.fieldHeldAmount")}
               <strong className="font-bold text-indigo-700">
                 {formatRupiah(heldAmount)}
               </strong>
@@ -134,14 +151,14 @@ export default function WithdrawDetailModal({
           <div className="space-y-2.5 rounded-xl border border-slate-200/80 bg-white p-3.5 text-xs">
             {/* 1. ID PENARIKAN */}
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-              <span className="text-slate-500 font-medium">ID Penarikan</span>
+              <span className="text-slate-500 font-medium">{t("dashboard.withdraw.fieldWithdrawId")}</span>
               <div className="flex items-center gap-1 font-mono font-bold text-slate-900">
                 <span className="truncate max-w-40">{withdrawal.id}</span>
                 <button
                   type="button"
-                  onClick={() => onCopy(withdrawal.id, "ID Penarikan")}
-                  title="Salin ID Penarikan"
-                  aria-label="Salin ID Penarikan"
+                  onClick={() => onCopy(withdrawal.id, t("dashboard.withdraw.fieldWithdrawId"))}
+                  title={t("dashboard.withdraw.copyWithdrawId")}
+                  aria-label={t("dashboard.withdraw.copyWithdrawId")}
                   className="flex h-5 w-5 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
                 >
                   <Copy size={11} />
@@ -151,7 +168,7 @@ export default function WithdrawDetailModal({
 
             {/* 2. TUJUAN BANK / E-WALLET */}
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-              <span className="text-slate-500 font-medium">Tujuan</span>
+              <span className="text-slate-500 font-medium">{t("dashboard.withdraw.fieldDestination")}</span>
               <div className="flex items-center gap-2 font-bold text-slate-900">
                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-200/80 bg-white p-0.5 shadow-2xs overflow-hidden">
                   {logoUrl ? (
@@ -172,17 +189,17 @@ export default function WithdrawDetailModal({
 
             {/* 3. NOMOR REKENING */}
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-              <span className="text-slate-500 font-medium">Nomor Rekening</span>
+              <span className="text-slate-500 font-medium">{t("dashboard.withdraw.fieldAccNo")}</span>
               <div className="flex items-center gap-1 font-mono font-bold text-slate-900">
                 <span>{maskedAcc}</span>
                 {withdrawal.account_number && (
                   <button
                     type="button"
                     onClick={() =>
-                      onCopy(withdrawal.account_number || "", "Nomor Rekening")
+                      onCopy(withdrawal.account_number || "", t("dashboard.withdraw.fieldAccNo"))
                     }
-                    title="Salin Nomor Rekening"
-                    aria-label="Salin Nomor Rekening"
+                    title={t("dashboard.withdraw.copyAccNo")}
+                    aria-label={t("dashboard.withdraw.copyAccNo")}
                     className="flex h-5 w-5 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
                   >
                     <Copy size={11} />
@@ -193,7 +210,7 @@ export default function WithdrawDetailModal({
 
             {/* 4. ATAS NAMA */}
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-              <span className="text-slate-500 font-medium">Atas Nama</span>
+              <span className="text-slate-500 font-medium">{t("dashboard.withdraw.fieldAccName")}</span>
               <span className="font-bold text-slate-900">
                 {withdrawal.account_name || "-"}
               </span>
@@ -201,7 +218,7 @@ export default function WithdrawDetailModal({
 
             {/* 5. NOMINAL PENARIKAN */}
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-              <span className="text-slate-500 font-medium">Nominal Penarikan</span>
+              <span className="text-slate-500 font-medium">{t("dashboard.withdraw.fieldAmount")}</span>
               <span className="font-bold text-slate-900">
                 {formatRupiah(amount)}
               </span>
@@ -209,7 +226,7 @@ export default function WithdrawDetailModal({
 
             {/* 6. BIAYA ADMIN */}
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-              <span className="text-slate-500 font-medium">Biaya Admin</span>
+              <span className="text-slate-500 font-medium">{t("dashboard.withdraw.fieldFee")}</span>
               <span className="font-semibold text-slate-700">
                 {formatRupiah(fee)}
               </span>
@@ -217,7 +234,7 @@ export default function WithdrawDetailModal({
 
             {/* 7. DANA DITAHAN */}
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-              <span className="text-slate-500 font-medium">Total Dana Ditahan</span>
+              <span className="text-slate-500 font-medium">{t("dashboard.withdraw.fieldTotalHeld")}</span>
               <span className="font-bold text-indigo-700">
                 {formatRupiah(heldAmount)}
               </span>
@@ -225,7 +242,7 @@ export default function WithdrawDetailModal({
 
             {/* 8. WAKTU PENGAJUAN */}
             <div className="flex items-center justify-between gap-2">
-              <span className="text-slate-500 font-medium">Waktu Pengajuan</span>
+              <span className="text-slate-500 font-medium">{t("dashboard.withdraw.fieldCreatedAt")}</span>
               <span className="font-semibold text-slate-700">
                 {formatDate(withdrawal.created_at)}
               </span>
@@ -237,7 +254,7 @@ export default function WithdrawDetailModal({
             <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-3.5 text-xs text-amber-800 flex items-start gap-2.5">
               <Clock3 size={15} className="text-amber-600 shrink-0 mt-0.5" />
               <p className="leading-relaxed">
-                Pengajuan sedang dalam antrean proses transfer oleh tim finance. Saldo sejumlah nominal + biaya admin ditahan sementara.
+                {t("dashboard.withdraw.noticePending")}
               </p>
             </div>
           )}
@@ -246,7 +263,7 @@ export default function WithdrawDetailModal({
             <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3.5 text-xs text-emerald-800 flex items-start gap-2.5">
               <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
               <p className="leading-relaxed">
-                Penarikan telah berhasil ditransfer ke rekening tujuan Anda. Saldo ditahan telah didebit secara permanen.
+                {t("dashboard.withdraw.noticeSuccess")}
               </p>
             </div>
           )}
@@ -255,7 +272,7 @@ export default function WithdrawDetailModal({
             <div className="rounded-xl border border-rose-200/80 bg-rose-50/60 p-3.5 text-xs text-rose-800 flex items-start gap-2.5">
               <AlertCircle size={15} className="text-rose-600 shrink-0 mt-0.5" />
               <p className="leading-relaxed">
-                Pengajuan penarikan tidak dapat diproses. Dana yang ditahan telah dikembalikan sepenuhnya ke Saldo DaPay Anda.
+                {t("dashboard.withdraw.noticeFailed")}
               </p>
             </div>
           )}
@@ -267,7 +284,7 @@ export default function WithdrawDetailModal({
               onClick={onClose}
               className="flex h-10 w-full items-center justify-center rounded-xl border border-slate-200/90 bg-slate-50 text-xs font-bold text-slate-700 hover:bg-slate-100 transition active:scale-95 cursor-pointer"
             >
-              Tutup
+              {t("dashboard.withdraw.closeModal")}
             </button>
           </div>
         </div>

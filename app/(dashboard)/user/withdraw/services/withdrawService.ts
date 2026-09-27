@@ -1,5 +1,12 @@
 import { supabase } from "@/utils/supabaseClient";
+import { getLocaleFromPathname } from "@/lib/i18n/config";
+import { createTranslator } from "@/lib/i18n/dictionaries";
 import { Withdrawal, toNumber } from "../types";
+
+function getClientT() {
+  const locale = typeof window !== "undefined" ? getLocaleFromPathname(window.location.pathname) : "id";
+  return createTranslator(locale);
+}
 
 export interface DashboardWithdrawResponse {
   success?: boolean;
@@ -32,6 +39,7 @@ export const withdrawService = {
     coinBalance: number;
     withdrawals: Withdrawal[];
   }> {
+    const t = getClientT();
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -55,7 +63,7 @@ export const withdrawService = {
     const result = (await response.json()) as DashboardWithdrawResponse;
 
     if (!response.ok || !result.success) {
-      throw new Error(result.error || "Gagal memuat data penarikan saldo.");
+      throw new Error(result.error || t("dashboard.withdraw.errLoadData"));
     }
 
     return {
@@ -70,6 +78,7 @@ export const withdrawService = {
   async submitWithdrawal(
     params: SubmitWithdrawalParams,
   ): Promise<SubmitWithdrawalResponse> {
+    const t = getClientT();
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -95,7 +104,7 @@ export const withdrawService = {
     const result = (await response.json().catch(() => ({}))) as SubmitWithdrawalResponse;
 
     if (!response.ok || !result.success) {
-      throw new Error(result.error || "Gagal mengajukan penarikan saldo.");
+      throw new Error(result.error || t("dashboard.withdraw.errSubmit"));
     }
 
     return result;

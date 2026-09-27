@@ -17,6 +17,8 @@ import {
   OrdersPagination as OrdersPaginationType,
   OrdersSummary,
 } from "./types";
+import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 import OrderKpiCards from "./components/OrderKpiCards";
 import OrderFilterBar from "./components/OrderFilterBar";
 import OrderDesktopTable from "./components/OrderDesktopTable";
@@ -107,6 +109,12 @@ export default function OrdersViewUser({
   isWorkspaceResolved = true,
 }: OrdersViewUserProps) {
   void onRefresh;
+  const { t, locale } = useI18n();
+  const localeRef = useRef(locale);
+  useEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
+
   const hasInitialData =
     isWorkspaceResolved &&
     !isSandboxMode &&
@@ -167,12 +175,12 @@ export default function OrdersViewUser({
     async (text: string, label: string) => {
       try {
         await navigator.clipboard.writeText(text);
-        showToast(`${label} berhasil disalin ke clipboard!`);
+        showToast(t("dashboard.orders.copiedSuccess", { label }));
       } catch {
-        showToast(`Gagal menyalin ${label}.`);
+        showToast(t("dashboard.orders.copyFailed", { label }));
       }
     },
-    [showToast],
+    [showToast, t],
   );
 
   // Cleanup on unmount
@@ -233,7 +241,7 @@ export default function OrdersViewUser({
         }
 
         if (!session?.access_token) {
-          window.location.href = "/login";
+          window.location.href = localizeHref("/login", localeRef.current);
           return;
         }
 
@@ -268,7 +276,7 @@ export default function OrdersViewUser({
         }
 
         if (response.status === 401) {
-          window.location.href = "/login";
+          window.location.href = localizeHref("/login", localeRef.current);
           return;
         }
 
@@ -294,7 +302,7 @@ export default function OrdersViewUser({
         }
 
         if (!response.ok || !result.success || !result.data) {
-          throw new Error(result.error || "Gagal memuat data transaksi.");
+          throw new Error(result.error || t("dashboard.orders.fetchError"));
         }
 
         setOrders(result.data.orders || []);
@@ -325,7 +333,7 @@ export default function OrdersViewUser({
 
         if (isManual) {
           showToast(
-            error instanceof Error ? error.message : "Terjadi kesalahan saat memuat data.",
+            error instanceof Error ? error.message : t("dashboard.orders.generalError"),
           );
         }
       } finally {
@@ -339,7 +347,7 @@ export default function OrdersViewUser({
         }
       }
     },
-    [showToast, isSandboxMode, isWorkspaceResolved],
+    [showToast, isSandboxMode, isWorkspaceResolved, t],
   );
 
   // Data fetch effect: executes on mount, workspace resolution, or mode change
@@ -436,17 +444,19 @@ export default function OrdersViewUser({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h2 className="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">
-                  {isSandboxMode ? "Riwayat Transaksi Simulasi" : "Riwayat Transaksi"}
+                  {isSandboxMode ? t("dashboard.orders.historyTitleSim") : t("dashboard.orders.historyTitle")}
                 </h2>
                 {isSandboxMode && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[8.5px] font-black uppercase tracking-wider text-amber-900 border border-amber-300">
                     <FlaskConical size={10} className="text-amber-700" />
-                    SANDBOX • SIMULASI
+                    {t("dashboard.sandbox.badge")}
                   </span>
                 )}
               </div>
               <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">
-                Menampilkan {orders.length} dari {pagination.total} transaksi{isSandboxMode ? " simulasi" : ""}
+                {isSandboxMode
+                  ? t("dashboard.orders.showingCountSim", { count: orders.length, total: pagination.total })
+                  : t("dashboard.orders.showingCount", { count: orders.length, total: pagination.total })}
               </p>
             </div>
           </div>
@@ -457,13 +467,13 @@ export default function OrdersViewUser({
               onClick={() => fetchOrders(filters, true)}
               disabled={refreshing}
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-slate-50/80 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer shadow-2xs"
-              title="Refresh Data Transaksi"
+              title={t("dashboard.orders.refreshTitle")}
             >
               <RefreshCw
                 size={12}
                 className={refreshing ? "animate-spin text-blue-600" : "text-slate-500"}
               />
-              <span className="hidden sm:inline">Segarkan</span>
+              <span className="hidden sm:inline">{t("dashboard.orders.refresh")}</span>
             </button>
           </div>
         </div>
@@ -473,7 +483,7 @@ export default function OrdersViewUser({
           <div className="p-8 sm:p-12 text-center flex flex-col items-center justify-center gap-3">
             <Loader2 size={28} className="animate-spin text-blue-600" />
             <p className="text-xs sm:text-sm font-semibold text-slate-500">
-              Memuat data transaksi...
+              {t("dashboard.orders.loading")}
             </p>
           </div>
         ) : orders.length === 0 ? (
@@ -484,10 +494,10 @@ export default function OrdersViewUser({
             </div>
             <div>
               <p className="text-sm font-bold text-slate-800">
-                Tidak ada transaksi ditemukan
+                {t("dashboard.orders.emptyTitle")}
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
-                Coba ubah filter atau kata kunci pencarian Anda.
+                {t("dashboard.orders.emptyDesc")}
               </p>
             </div>
             {(filters.search ||
@@ -500,7 +510,7 @@ export default function OrdersViewUser({
                 onClick={handleResetFilters}
                 className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
               >
-                Reset Filter
+                {t("dashboard.orders.resetFilter")}
               </button>
             )}
           </div>

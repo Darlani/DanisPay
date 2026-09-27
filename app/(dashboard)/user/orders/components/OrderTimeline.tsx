@@ -10,6 +10,7 @@ import {
   Server,
   XCircle,
 } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 import { Order, formatDate, normalizeStatus } from "../types";
 
 interface OrderTimelineProps {
@@ -17,6 +18,7 @@ interface OrderTimelineProps {
 }
 
 export default function OrderTimeline({ order }: OrderTimelineProps) {
+  const { t } = useI18n();
   const status = normalizeStatus(order.status);
 
   const isPending = status === "Pending";
@@ -28,7 +30,7 @@ export default function OrderTimeline({ order }: OrderTimelineProps) {
   return (
     <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 sm:p-4">
       <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-3.5">
-        Timeline Transaksi DaPay
+        {t("dashboard.orders.timelineTitle")}
       </p>
 
       <div className="relative space-y-4 before:absolute before:left-3.5 before:top-2 before:h-[calc(100%-16px)] before:w-0.5 before:bg-slate-200">
@@ -39,7 +41,7 @@ export default function OrderTimeline({ order }: OrderTimelineProps) {
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
             <p className="text-xs font-bold text-slate-900 leading-tight">
-              Pesanan Dibuat
+              {t("dashboard.orders.stepCreated")}
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5">
               {formatDate(order.created_at)}
@@ -73,19 +75,19 @@ export default function OrderTimeline({ order }: OrderTimelineProps) {
           <div className="min-w-0 flex-1 pt-0.5">
             <p className="text-xs font-bold text-slate-900 leading-tight">
               {isPending
-                ? "Menunggu Pembayaran"
+                ? t("dashboard.orders.stepWaitingPayment")
                 : isExpired
-                  ? "Pembayaran Kedaluwarsa (Expired)"
+                  ? t("dashboard.orders.stepPaymentExpired")
                   : isFailed && !order.used_balance && (order.payment_method === "QRIS" || !order.payment_method)
-                    ? "Pembayaran Dibatalkan / Gagal"
-                    : "Pembayaran Dikonfirmasi"}
+                    ? t("dashboard.orders.stepPaymentCancelled")
+                    : t("dashboard.orders.stepPaymentConfirmed")}
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5">
               {isPending
-                ? "Silakan selesaikan pembayaran sebelum batas waktu berakhir"
+                ? t("dashboard.orders.descCompleteBefore")
                 : isExpired
-                  ? "Waktu pembayaran telah habis dan pesanan dibatalkan otomatis"
-                  : `Metode: ${order.payment_method || "Saldo DaPay"}`}
+                  ? t("dashboard.orders.descExpiredTimeOut")
+                  : t("dashboard.orders.descPaymentMethod", { method: order.payment_method || t("dashboard.orders.paymentSaldo") })}
             </p>
           </div>
         </div>
@@ -110,25 +112,25 @@ export default function OrderTimeline({ order }: OrderTimelineProps) {
           <div className="min-w-0 flex-1 pt-0.5">
             <p className="text-xs font-bold text-slate-900 leading-tight">
               {isProcessing
-                ? "Sedang Diproses Provider"
+                ? t("dashboard.orders.stepProcessingProvider")
                 : isSuccess
-                  ? "Selesai Diproses Sistem"
+                  ? t("dashboard.orders.stepProcessedSystem")
                   : isExpired
-                    ? "Tidak Diproses"
+                    ? t("dashboard.orders.stepNotProcessed")
                     : isFailed
-                      ? "Gagal di Provider"
-                      : "Menunggu Antrean Provider"}
+                      ? t("dashboard.orders.stepFailedProvider")
+                      : t("dashboard.orders.stepWaitingQueue")}
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5">
               {isProcessing
-                ? "Pengiriman produk digital sedang berlangsung otomatis"
+                ? t("dashboard.orders.descDelivering")
                 : isSuccess
-                  ? "Produk / Token berhasil diterbitkan"
+                  ? t("dashboard.orders.descIssued")
                   : isExpired
-                    ? "Transaksi dibatalkan karena tidak ada pembayaran yang diterima"
+                    ? t("dashboard.orders.descCancelledNoPay")
                     : isFailed
-                      ? "Layanan tidak dapat diproses oleh provider"
-                      : "Akan diproses otomatis setelah pembayaran"}
+                      ? t("dashboard.orders.descFailedProvider")
+                      : t("dashboard.orders.descAutoAfterPay")}
             </p>
           </div>
         </div>
@@ -169,17 +171,17 @@ export default function OrderTimeline({ order }: OrderTimelineProps) {
               }`}
             >
               {isSuccess
-                ? "Transaksi Selesai & Berhasil"
+                ? t("dashboard.orders.stepFinishedSuccess")
                 : isExpired
-                  ? "Transaksi Kedaluwarsa (Expired)"
+                  ? t("dashboard.orders.stepFinishedExpired")
                   : isFailed
-                    ? "Transaksi Gagal / Dibatalkan"
-                    : "Menunggu Penyelesaian"}
+                    ? t("dashboard.orders.stepFinishedFailed")
+                    : t("dashboard.orders.stepWaitingFinish")}
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5">
               {isSuccess || isFailed || isExpired
                 ? formatDate(order.updated_at || order.created_at)
-                : "Estimasi proses 1-60 detik"}
+                : t("dashboard.orders.estProcessTime")}
             </p>
           </div>
         </div>

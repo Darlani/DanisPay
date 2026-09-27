@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 interface OrderPaginationProps {
   page: number;
@@ -20,6 +21,7 @@ export default function OrderPagination({
   onPageChange,
   onLimitChange,
 }: OrderPaginationProps) {
+  const { t } = useI18n();
   const start = totalItems === 0 ? 0 : (page - 1) * limit + 1;
   const end = totalItems === 0 ? 0 : Math.min(page * limit, totalItems);
 
@@ -30,18 +32,20 @@ export default function OrderPagination({
       {/* Items Summary & Limit Selector */}
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
         <span>
-          Menampilkan <strong className="font-bold text-slate-800">{start}</strong> -{" "}
-          <strong className="font-bold text-slate-800">{end}</strong> dari{" "}
-          <strong className="font-bold text-slate-800">{totalItems}</strong> transaksi
+          {t("dashboard.orders.showingPagination", {
+            start: String(start),
+            end: String(end),
+            total: String(totalItems),
+          })}
         </span>
 
         {onLimitChange && (
           <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
-            <span className="text-[11px] text-slate-400">Baris:</span>
+            <span className="text-[11px] text-slate-400">{t("dashboard.orders.rowsLabel")}</span>
             <select
               value={limit}
               onChange={(e) => onLimitChange(Number(e.target.value))}
-              aria-label="Jumlah baris per halaman"
+              aria-label={t("dashboard.orders.rowsAria")}
               className="h-7 rounded-md border border-slate-200 bg-slate-50 px-2 text-xs font-semibold text-slate-700 outline-none cursor-pointer"
             >
               <option value={10}>10</option>
@@ -60,7 +64,7 @@ export default function OrderPagination({
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
           className="inline-flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35 transition active:scale-95 cursor-pointer shadow-2xs"
-          aria-label="Halaman Sebelumnya"
+          aria-label={t("dashboard.orders.prevPage")}
         >
           <ChevronLeft size={15} />
         </button>
@@ -96,7 +100,7 @@ export default function OrderPagination({
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
           className="inline-flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35 transition active:scale-95 cursor-pointer shadow-2xs"
-          aria-label="Halaman Berikutnya"
+          aria-label={t("dashboard.orders.nextPage")}
         >
           <ChevronRight size={15} />
         </button>

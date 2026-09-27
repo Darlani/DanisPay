@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Check, Loader2, Lock, Mail, QrCode, Shield, User } from "lucide-react";
 import { formatMemberType, UserProfile } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface SettingsProfileCardProps {
   profile: UserProfile;
@@ -13,6 +14,7 @@ export default function SettingsProfileCard({
   profile,
   onSaveProfile,
 }: SettingsProfileCardProps) {
+  const { t } = useI18n();
   const [prevFullName, setPrevFullName] = useState(profile.full_name);
   const [fullName, setFullName] = useState(profile.full_name || "");
   const [isSaving, setIsSaving] = useState(false);
@@ -51,7 +53,7 @@ export default function SettingsProfileCard({
             htmlFor="profile-full-name"
             className="mb-1.5 block text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-600"
           >
-            Nama Lengkap
+            {t("dashboard.settings.fieldFullName")}
           </label>
           <div className="relative">
             <User
@@ -66,13 +68,13 @@ export default function SettingsProfileCard({
               maxLength={100}
               value={fullName}
               onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="Masukkan nama lengkap Anda"
-              aria-label="Nama Lengkap"
+              placeholder={t("dashboard.settings.fullNamePlaceholder")}
+              aria-label={t("dashboard.settings.fieldFullName")}
               className="h-10 sm:h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/70 pl-10 pr-4 text-xs sm:text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
             />
           </div>
           <p className="mt-1 text-[10px] sm:text-[11px] text-slate-400">
-            Nama ini akan digunakan pada struk transaksi dan mutasi akun.
+            {t("dashboard.settings.fullNameHelp")}
           </p>
         </div>
 
@@ -83,11 +85,11 @@ export default function SettingsProfileCard({
               htmlFor="profile-email"
               className="block text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-600"
             >
-              Email Akun
+              {t("dashboard.settings.fieldEmail")}
             </label>
             <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-slate-400">
               <Lock size={10} />
-              <span>Permanen</span>
+              <span>{t("dashboard.settings.badgePermanent")}</span>
             </span>
           </div>
           <div className="relative">
@@ -100,13 +102,13 @@ export default function SettingsProfileCard({
               type="email"
               readOnly
               value={profile.email || "-"}
-              aria-label="Email Akun"
+              aria-label={t("dashboard.settings.fieldEmail")}
               tabIndex={-1}
               className="h-10 sm:h-11 w-full rounded-xl border border-slate-200/70 bg-slate-100/80 pl-10 pr-4 text-xs sm:text-sm font-medium text-slate-600 cursor-not-allowed select-all"
             />
           </div>
           <p className="mt-1 text-[10px] sm:text-[11px] text-slate-400">
-            Email digunakan sebagai identitas login utama dan tidak dapat diubah secara bebas demi keamanan akun.
+            {t("dashboard.settings.emailHelp")}
           </p>
         </div>
 
@@ -118,7 +120,7 @@ export default function SettingsProfileCard({
               htmlFor="profile-ref-code"
               className="mb-1.5 block text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-600"
             >
-              Kode Referral Saya
+              {t("dashboard.settings.fieldRefCode")}
             </label>
             <div className="relative">
               <QrCode
@@ -130,7 +132,7 @@ export default function SettingsProfileCard({
                 type="text"
                 readOnly
                 value={profile.referral_code || "-"}
-                aria-label="Kode Referral Saya"
+                aria-label={t("dashboard.settings.fieldRefCode")}
                 tabIndex={-1}
                 className="h-10 sm:h-11 w-full rounded-xl border border-slate-200/70 bg-slate-100/80 pl-10 pr-4 font-mono text-xs sm:text-sm font-bold text-slate-700 uppercase cursor-not-allowed select-all"
               />
@@ -143,7 +145,7 @@ export default function SettingsProfileCard({
               htmlFor="profile-membership"
               className="mb-1.5 block text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-600"
             >
-              Status Keanggotaan
+              {t("dashboard.settings.fieldMembership")}
             </label>
             <div className="relative">
               <Shield
@@ -155,7 +157,7 @@ export default function SettingsProfileCard({
                 type="text"
                 readOnly
                 value={formatMemberType(profile.member_type)}
-                aria-label="Status Keanggotaan"
+                aria-label={t("dashboard.settings.fieldMembership")}
                 tabIndex={-1}
                 className="h-10 sm:h-11 w-full rounded-xl border border-slate-200/70 bg-slate-100/80 pl-10 pr-4 text-xs sm:text-sm font-bold text-slate-700 cursor-not-allowed"
               />
@@ -173,12 +175,12 @@ export default function SettingsProfileCard({
             {isSaving ? (
               <>
                 <Loader2 size={15} className="animate-spin" />
-                <span>Menyimpan...</span>
+                <span>{t("dashboard.settings.saving")}</span>
               </>
             ) : (
               <>
                 <Check size={15} />
-                <span>Simpan Perubahan</span>
+                <span>{t("dashboard.settings.btnSaveProfile")}</span>
               </>
             )}
           </button>

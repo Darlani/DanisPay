@@ -15,6 +15,8 @@ import {
 import { useDepositFilters } from "./hooks/useDepositFilters";
 import { useDepositData } from "./hooks/useDepositData";
 import { DepositService } from "./services/depositService";
+import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 import DepositKpiCards from "./components/DepositKpiCards";
 import DepositFilterBar from "./components/DepositFilterBar";
 import DepositDesktopTable from "./components/DepositDesktopTable";
@@ -39,6 +41,8 @@ export default function DepositViewUser({
   isSidebarExpanded = false,
   onRefresh,
 }: DepositViewUserProps) {
+  const { t, locale } = useI18n();
+
   // 1. FILTERS HOOK
   const {
     filters,
@@ -101,12 +105,12 @@ export default function DepositViewUser({
     async (text: string, label: string) => {
       try {
         await navigator.clipboard.writeText(text);
-        showToast(`${label} berhasil disalin!`);
+        showToast(t("dashboard.deposit.toastCopied", { label }));
       } catch {
-        showToast(`Gagal menyalin ${label}.`);
+        showToast(t("dashboard.deposit.toastCopyFailed", { label }));
       }
     },
-    [showToast],
+    [showToast, t],
   );
 
   // 5. CREATE DEPOSIT FLOW
@@ -120,7 +124,7 @@ export default function DepositViewUser({
       } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
-        window.location.href = "/login";
+        window.location.href = localizeHref("/login", locale);
         return;
       }
 
@@ -132,12 +136,12 @@ export default function DepositViewUser({
       showToast(
         err instanceof Error
           ? err.message
-          : "Gagal memuat metode pembayaran deposit.",
+          : t("dashboard.deposit.errLoadMethods"),
       );
     } finally {
       setIsLoadingMethods(false);
     }
-  }, [showToast]);
+  }, [locale, showToast, t]);
 
   const handleSubmitDeposit = useCallback(
     async (amount: string, paymentMethodKey: string) => {
@@ -149,7 +153,7 @@ export default function DepositViewUser({
         } = await supabase.auth.getSession();
 
         if (!session?.access_token) {
-          window.location.href = "/login";
+          window.location.href = localizeHref("/login", locale);
           return;
         }
 
@@ -183,18 +187,18 @@ export default function DepositViewUser({
         } else {
           void revalidate(false);
         }
-        showToast("Permintaan deposit berhasil dibuat!");
+        showToast(t("dashboard.deposit.toastDepositCreated"));
       } catch (err) {
         showToast(
           err instanceof Error
             ? err.message
-            : "Gagal memproses permintaan deposit.",
+            : t("dashboard.deposit.errCreateDeposit"),
         );
       } finally {
         setIsSubmittingDeposit(false);
       }
     },
-    [onRefresh, revalidate, showToast],
+    [locale, onRefresh, revalidate, showToast, t],
   );
 
   // 6. RESUME PAYMENT / INSTRUCTION FOR PENDING DEPOSIT
@@ -208,7 +212,7 @@ export default function DepositViewUser({
         } = await supabase.auth.getSession();
 
         if (!session?.access_token) {
-          window.location.href = "/login";
+          window.location.href = localizeHref("/login", locale);
           return;
         }
 
@@ -260,13 +264,13 @@ export default function DepositViewUser({
         showToast(
           err instanceof Error
             ? err.message
-            : "Gagal memuat instruksi pembayaran.",
+            : t("dashboard.deposit.errLoadInstruction"),
         );
       } finally {
         setIsProcessingInstruction(false);
       }
     },
-    [showToast],
+    [locale, showToast, t],
   );
 
   const handleRetryQris = useCallback(async () => {
@@ -279,7 +283,7 @@ export default function DepositViewUser({
       } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
-        window.location.href = "/login";
+        window.location.href = localizeHref("/login", locale);
         return;
       }
 
@@ -289,15 +293,15 @@ export default function DepositViewUser({
       );
 
       setActiveInstruction((prev) => (prev ? { ...prev, qrisString } : prev));
-      showToast("QRIS berhasil dimuat ulang!");
+      showToast(t("dashboard.deposit.toastQrisReloaded"));
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : "Gagal memuat ulang QRIS.",
+        err instanceof Error ? err.message : t("dashboard.deposit.errReloadQris"),
       );
     } finally {
       setIsProcessingInstruction(false);
     }
-  }, [activeInstruction, showToast]);
+  }, [activeInstruction, locale, showToast, t]);
 
   return (
     <section className="w-full relative">
@@ -308,11 +312,11 @@ export default function DepositViewUser({
         <button
           type="button"
           onClick={handleOpenCreateModal}
-          aria-label="Isi Saldo DaPay"
+          aria-label={t("dashboard.deposit.topUpAria")}
           className="inline-flex h-8 xs:h-8.5 sm:h-9 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 sm:px-4 text-xs font-bold text-white shadow-2xs transition active:scale-95 cursor-pointer hover:bg-blue-700 hover:shadow-xs"
         >
           <PlusCircle size={14} />
-          <span>Isi Saldo</span>
+          <span>{t("dashboard.deposit.topUp")}</span>
         </button>
       </div>
 
@@ -349,13 +353,13 @@ export default function DepositViewUser({
           </div>
           <p className="text-sm font-bold text-slate-800">
             {isFiltered
-              ? "Tidak ditemukan deposit yang sesuai dengan filter."
-              : "Belum ada riwayat deposit."}
+              ? t("dashboard.deposit.emptyFilteredTitle")
+              : t("dashboard.deposit.emptyTitle")}
           </p>
           <p className="mt-1 max-w-sm text-xs text-slate-400 font-medium">
             {isFiltered
-              ? "Coba ubah kata kunci pencarian atau reset filter untuk menampilkan data lainnya."
-              : "Setiap permintaan deposit yang Anda buat akan tercatat rapi di sini."}
+              ? t("dashboard.deposit.emptyFilteredDesc")
+              : t("dashboard.deposit.emptyDesc")}
           </p>
 
           <div className="mt-4 flex items-center gap-2">
@@ -365,7 +369,7 @@ export default function DepositViewUser({
                 onClick={resetFilters}
                 className="inline-flex h-8.5 items-center justify-center rounded-xl bg-slate-900 px-4 text-xs font-bold text-white shadow-2xs hover:bg-blue-600 transition active:scale-95 cursor-pointer"
               >
-                Reset Filter
+                {t("dashboard.deposit.resetFilter")}
               </button>
             ) : (
               <button
@@ -374,7 +378,7 @@ export default function DepositViewUser({
                 className="inline-flex h-8.5 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white shadow-2xs hover:bg-blue-700 transition active:scale-95 cursor-pointer"
               >
                 <PlusCircle size={14} />
-                <span>Mulai Deposit</span>
+                <span>{t("dashboard.deposit.startDeposit")}</span>
               </button>
             )}
           </div>
@@ -453,7 +457,7 @@ export default function DepositViewUser({
         onClose={() => setActiveInstruction(null)}
         onRefreshData={async () => {
           void revalidate(true);
-          showToast("Data saldo berhasil diperbarui!");
+          showToast(t("dashboard.deposit.toastBalanceUpdated"));
         }}
         onRetryQris={handleRetryQris}
         isProcessing={isProcessingInstruction}

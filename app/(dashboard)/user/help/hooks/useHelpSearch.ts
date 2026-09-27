@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { calculateCategoryCounts, FAQ_DATA, filterFaqItems } from "../data/faqData";
+import { calculateCategoryCounts, filterFaqItems, getFaqData } from "../data/faqData";
 import { HelpCategory } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 function getAdminWhatsAppConfig(): { whatsappUrl: string; isWhatsappAvailable: boolean } {
   const rawNumber = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "";
@@ -24,6 +25,7 @@ function getAdminWhatsAppConfig(): { whatsappUrl: string; isWhatsappAvailable: b
 }
 
 export function useHelpSearch() {
+  const { t, locale } = useI18n();
   const [category, setCategory] = useState<HelpCategory>("all");
   const [search, setSearch] = useState("");
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
@@ -31,31 +33,36 @@ export function useHelpSearch() {
   const [copied, setCopied] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Dynamic FAQ dataset based on active locale
+  const currentFaqData = useMemo(() => {
+    return getFaqData(locale);
+  }, [locale]);
+
   // Dynamic category counts computed from actual dataset
   const categoryCounts = useMemo(() => {
-    return calculateCategoryCounts(FAQ_DATA);
-  }, []);
+    return calculateCategoryCounts(currentFaqData);
+  }, [currentFaqData]);
 
   // Filtered FAQ list
   const filteredFaq = useMemo(() => {
-    return filterFaqItems(FAQ_DATA, category, search);
-  }, [category, search]);
+    return filterFaqItems(currentFaqData, category, search);
+  }, [currentFaqData, category, search]);
 
   // Screen-reader accessible live announcement
   const liveAnnouncement = useMemo(() => {
     const count = filteredFaq.length;
     const trimmed = search.trim();
     if (trimmed && category !== "all") {
-      return `Menampilkan ${count} FAQ untuk kata kunci "${trimmed}" dalam kategori ${category}.`;
+      return t("dashboard.help.liveSearchCategory", { count, search: trimmed, category });
     }
     if (trimmed) {
-      return `Menampilkan ${count} FAQ untuk kata kunci "${trimmed}".`;
+      return t("dashboard.help.liveSearch", { count, search: trimmed });
     }
     if (category !== "all") {
-      return `Menampilkan ${count} FAQ dalam kategori ${category}.`;
+      return t("dashboard.help.liveCategory", { count, category });
     }
-    return `Menampilkan seluruh ${count} FAQ.`;
-  }, [filteredFaq.length, search, category]);
+    return t("dashboard.help.liveAll", { count });
+  }, [filteredFaq.length, search, category, t]);
 
   // Safe WhatsApp URL config
   const whatsappConfig = useMemo(() => getAdminWhatsAppConfig(), []);
@@ -101,28 +108,28 @@ export function useHelpSearch() {
     async (customText?: string) => {
       const message =
         customText ||
-        "Halo Admin DaPay, saya ingin meminta bantuan terkait akun/transaksi saya di DaPay. Terima kasih.";
+        t("dashboard.help.defaultTemplate");
 
       try {
         await navigator.clipboard.writeText(message);
         setCopied(true);
-        showToast("success", "Template pesan bantuan berhasil disalin!");
+        showToast("success", t("dashboard.help.toastTemplateCopied"));
         setTimeout(() => setCopied(false), 2000);
       } catch {
-        showToast("error", "Gagal menyalin pesan. Silakan salin secara manual.");
+        showToast("error", t("dashboard.help.errCopyTemplate"));
       }
     },
-    [showToast]
+    [showToast, t]
   );
 
   // Open WhatsApp action
   const openWhatsApp = useCallback(() => {
     if (!isWhatsappAvailable || !whatsappUrl) {
-      showToast("error", "Kontak WhatsApp Admin belum tersedia saat ini.");
+      showToast("error", t("dashboard.help.errWhatsappUnavailable"));
       return;
     }
     window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-  }, [isWhatsappAvailable, whatsappUrl, showToast]);
+  }, [isWhatsappAvailable, whatsappUrl, showToast, t]);
 
   return {
     category,
@@ -135,7 +142,7 @@ export function useHelpSearch() {
     setShowAllInOverview,
     categoryCounts,
     filteredFaq,
-    totalFaqCount: FAQ_DATA.length,
+    totalFaqCount: currentFaqData.length,
     liveAnnouncement,
     whatsappUrl,
     isWhatsappAvailable,

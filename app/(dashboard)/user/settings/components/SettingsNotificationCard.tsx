@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Loader2, Mail, ShieldAlert, ShoppingBag, Wallet } from "lucide-react";
 import { NotificationPreferences } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface SettingsNotificationCardProps {
   notifications: NotificationPreferences;
@@ -13,6 +14,7 @@ export default function SettingsNotificationCard({
   notifications,
   onTogglePreference,
 }: SettingsNotificationCardProps) {
+  const { t } = useI18n();
   const [loadingKey, setLoadingKey] = useState<keyof NotificationPreferences | null>(null);
 
   const handleToggle = async (key: keyof NotificationPreferences) => {
@@ -29,8 +31,8 @@ export default function SettingsNotificationCard({
         <NotificationRow
           icon={<ShoppingBag size={15} />}
           iconBg="bg-blue-50 text-blue-600"
-          title="Status Transaksi & Pesanan"
-          description="Pemberitahuan instan saat status pesanan produk digital Anda berubah menjadi sukses atau gagal."
+          title={t("dashboard.settings.notifOrdersTitle")}
+          description={t("dashboard.settings.notifOrdersDesc")}
           checked={Boolean(notifications.orders)}
           isLoading={loadingKey === "orders"}
           onToggle={() => handleToggle("orders")}
@@ -40,8 +42,8 @@ export default function SettingsNotificationCard({
         <NotificationRow
           icon={<Wallet size={15} />}
           iconBg="bg-emerald-50 text-emerald-600"
-          title="Aktivitas Saldo & Mutasi"
-          description="Pemberitahuan saat deposit disetujui, penarikan saldo diproses, cashback, atau komisi referral masuk."
+          title={t("dashboard.settings.notifBalanceTitle")}
+          description={t("dashboard.settings.notifBalanceDesc")}
           checked={Boolean(notifications.balance)}
           isLoading={loadingKey === "balance"}
           onToggle={() => handleToggle("balance")}
@@ -51,8 +53,8 @@ export default function SettingsNotificationCard({
         <NotificationRow
           icon={<Mail size={15} />}
           iconBg="bg-purple-50 text-purple-600"
-          title="Promo & Penawaran Eksklusif"
-          description="Informasi diskon member, voucher potongan harga, dan pembaruan fitur terbaru DaPay."
+          title={t("dashboard.settings.notifPromoTitle")}
+          description={t("dashboard.settings.notifPromoDesc")}
           checked={Boolean(notifications.promotions)}
           isLoading={loadingKey === "promotions"}
           onToggle={() => handleToggle("promotions")}
@@ -63,7 +65,7 @@ export default function SettingsNotificationCard({
       <div className="mt-4 sm:mt-5 flex items-start gap-2.5 rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-xs text-blue-800">
         <ShieldAlert size={15} className="text-blue-600 shrink-0 mt-0.5" />
         <p className="leading-relaxed text-[11px] sm:text-xs">
-          Preferensi tersimpan secara persisten pada akun cloud Anda dan akan tersinkronisasi di seluruh perangkat login.
+          {t("dashboard.settings.notifPersistentBanner")}
         </p>
       </div>
     </div>

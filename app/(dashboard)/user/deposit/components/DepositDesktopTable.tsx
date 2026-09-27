@@ -21,6 +21,7 @@ import {
   normalizePaymentName,
   toNumber,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface DepositDesktopTableProps {
   deposits: Deposit[];
@@ -35,6 +36,23 @@ export default function DepositDesktopTable({
   onOpenInstruction,
   onCopy,
 }: DepositDesktopTableProps) {
+  const { t } = useI18n();
+
+  const getStatusLabel = (status: string, fallback: string) => {
+    switch (status) {
+      case "Pending":
+        return t("dashboard.deposit.statusPendingLabel");
+      case "Berhasil":
+        return t("dashboard.deposit.statusSuccessLabel");
+      case "Gagal":
+        return t("dashboard.deposit.statusFailedLabel");
+      case "Dibatalkan":
+        return t("dashboard.deposit.statusCancelledLabel");
+      default:
+        return fallback;
+    }
+  };
+
   return (
     <div className="overflow-hidden rounded-2xl md:rounded-[22px] border border-slate-200/80 bg-white/95 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60">
       <div className="overflow-x-auto">
@@ -44,38 +62,38 @@ export default function DepositDesktopTable({
             <tr className="border-b border-slate-200/80 bg-slate-50/75 text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
               {/* 1. METODE & ID DEPOSIT (TABLET <1024px) / ID DEPOSIT (DESKTOP ≥1024px) */}
               <th className="py-3.5 pl-3.5 pr-2 sm:pl-4 lg:pr-3 whitespace-nowrap">
-                <span className="lg:hidden">Metode & ID Deposit</span>
-                <span className="hidden lg:inline">ID Deposit</span>
+                <span className="lg:hidden">{t("dashboard.deposit.colMethodId")}</span>
+                <span className="hidden lg:inline">{t("dashboard.deposit.colDepositId")}</span>
               </th>
 
               {/* 2. METODE (DESKTOP ONLY ≥1024px) */}
               <th className="hidden lg:table-cell px-3 py-3.5 whitespace-nowrap">
-                Metode
+                {t("dashboard.deposit.colMethod")}
               </th>
 
               {/* 3. WAKTU TRANSAKSI */}
               <th className="px-2.5 sm:px-3 py-3.5 whitespace-nowrap">
-                Waktu Transaksi
+                {t("dashboard.deposit.colTime")}
               </th>
 
               {/* 4. NOMINAL SALDO */}
               <th className="px-2.5 sm:px-3 py-3.5 text-right whitespace-nowrap">
-                Nominal Saldo
+                {t("dashboard.deposit.colAmount")}
               </th>
 
               {/* 5. TOTAL TRANSFER */}
               <th className="px-2.5 sm:px-3 py-3.5 text-right whitespace-nowrap">
-                Total Transfer
+                {t("dashboard.deposit.colTotalTransfer")}
               </th>
 
               {/* 6. STATUS */}
               <th className="px-2.5 sm:px-3 py-3.5 text-center whitespace-nowrap">
-                Status
+                {t("dashboard.deposit.colStatus")}
               </th>
 
               {/* 7. AKSI (DESKTOP ONLY ≥1024px) */}
               <th className="hidden lg:table-cell py-3.5 pl-3 pr-4 text-center sm:pr-5 whitespace-nowrap">
-                Aksi
+                {t("dashboard.deposit.colAction")}
               </th>
             </tr>
           </thead>
@@ -128,9 +146,9 @@ export default function DepositDesktopTable({
                         {depositId !== "-" && (
                           <button
                             type="button"
-                            onClick={() => onCopy(depositId, "ID Deposit")}
-                            title="Salin ID Deposit"
-                            aria-label="Salin ID Deposit"
+                            onClick={() => onCopy(depositId, t("dashboard.deposit.colDepositId"))}
+                            title={t("dashboard.deposit.copyDepositId")}
+                            aria-label={t("dashboard.deposit.copyDepositId")}
                             className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-70 transition hover:bg-slate-200 hover:text-slate-700 group-hover:opacity-100 cursor-pointer"
                           >
                             <Copy size={11} />
@@ -147,9 +165,9 @@ export default function DepositDesktopTable({
                       {depositId !== "-" && (
                         <button
                           type="button"
-                          onClick={() => onCopy(depositId, "ID Deposit")}
-                          title="Salin ID Deposit"
-                          aria-label="Salin ID Deposit"
+                          onClick={() => onCopy(depositId, t("dashboard.deposit.colDepositId"))}
+                          title={t("dashboard.deposit.copyDepositId")}
+                          aria-label={t("dashboard.deposit.copyDepositId")}
                           className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-70 transition hover:bg-slate-200 hover:text-slate-700 group-hover:opacity-100 cursor-pointer"
                         >
                           <Copy size={11} />
@@ -199,7 +217,7 @@ export default function DepositDesktopTable({
                       {/* Catatan: Di database/backend kolom ini adalah `unique_code` (kode unik verifikasi), ditampilkan di UI dengan istilah "Biaya Layanan" */}
                       {deposit.unique_code && Number(deposit.unique_code) > 0 && (
                         <span className="text-[10px] font-semibold text-slate-400">
-                          Biaya Layanan: +{deposit.unique_code}
+                          {t("dashboard.deposit.serviceFee", { code: deposit.unique_code })}
                         </span>
                       )}
                     </div>
@@ -215,29 +233,29 @@ export default function DepositDesktopTable({
                         <span
                           className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`}
                         />
-                        {statusStyle.label}
+                        {getStatusLabel(status, statusStyle.label)}
                       </span>
 
                       <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
                           onClick={() => onSelectDeposit(deposit)}
-                          title="Lihat Detail Deposit"
-                          aria-label="Lihat Detail Deposit"
+                          title={t("dashboard.deposit.viewDetail")}
+                          aria-label={t("dashboard.deposit.viewDetail")}
                           className="inline-flex h-6 items-center justify-center rounded-md border border-slate-200/90 bg-white px-2 text-[10px] font-bold text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:border-slate-300 hover:bg-slate-50"
                         >
-                          <span>Detail</span>
+                          <span>{t("dashboard.deposit.btnDetail")}</span>
                         </button>
 
                         {isPending && onOpenInstruction && (
                           <button
                             type="button"
                             onClick={() => onOpenInstruction(deposit)}
-                            title="Lanjutkan Pembayaran"
-                            aria-label="Lanjutkan Pembayaran"
+                            title={t("dashboard.deposit.continuePayment")}
+                            aria-label={t("dashboard.deposit.continuePayment")}
                             className="inline-flex h-6 items-center justify-center gap-1 rounded-md bg-emerald-600 px-2 text-[10px] font-bold text-white shadow-2xs transition active:scale-95 cursor-pointer hover:bg-emerald-700"
                           >
-                            <span>Bayar</span>
+                            <span>{t("dashboard.deposit.btnPay")}</span>
                             <ExternalLink size={9} />
                           </button>
                         )}
@@ -252,7 +270,7 @@ export default function DepositDesktopTable({
                         <span
                           className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`}
                         />
-                        {statusStyle.label}
+                        {getStatusLabel(status, statusStyle.label)}
                       </span>
                     </div>
                   </td>
@@ -263,22 +281,22 @@ export default function DepositDesktopTable({
                       <button
                         type="button"
                         onClick={() => onSelectDeposit(deposit)}
-                        title="Lihat Detail Deposit"
-                        aria-label="Lihat Detail Deposit"
+                        title={t("dashboard.deposit.viewDetail")}
+                        aria-label={t("dashboard.deposit.viewDetail")}
                         className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-slate-200/90 bg-white px-2.5 text-[11px] font-bold text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:border-slate-300 hover:bg-slate-50"
                       >
-                        <span>Detail</span>
+                        <span>{t("dashboard.deposit.btnDetail")}</span>
                       </button>
 
                       {isPending && onOpenInstruction && (
                         <button
                           type="button"
                           onClick={() => onOpenInstruction(deposit)}
-                          title="Lanjutkan Pembayaran"
-                          aria-label="Lanjutkan Pembayaran"
+                          title={t("dashboard.deposit.continuePayment")}
+                          aria-label={t("dashboard.deposit.continuePayment")}
                           className="inline-flex h-7 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-[11px] font-bold text-white shadow-2xs transition active:scale-95 cursor-pointer hover:bg-emerald-700"
                         >
-                          <span>Bayar</span>
+                          <span>{t("dashboard.deposit.btnPay")}</span>
                           <ExternalLink size={10} />
                         </button>
                       )}

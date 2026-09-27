@@ -3,6 +3,7 @@
 import React from "react";
 import { Bell, ChevronRight, KeyRound, User } from "lucide-react";
 import { SETTINGS_TABS, SettingsSection } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface SettingsTabNavProps {
   activeSection: SettingsSection;
@@ -13,6 +14,34 @@ export default function SettingsTabNav({
   activeSection,
   onSelectSection,
 }: SettingsTabNavProps) {
+  const { t } = useI18n();
+
+  const getTabLabel = (id: SettingsSection) => {
+    switch (id) {
+      case "profile":
+        return t("dashboard.settings.tabProfileLabel");
+      case "security":
+        return t("dashboard.settings.tabSecurityLabel");
+      case "notifications":
+        return t("dashboard.settings.tabNotificationsLabel");
+      default:
+        return "";
+    }
+  };
+
+  const getTabDesc = (id: SettingsSection) => {
+    switch (id) {
+      case "profile":
+        return t("dashboard.settings.tabProfileDesc");
+      case "security":
+        return t("dashboard.settings.tabSecurityDesc");
+      case "notifications":
+        return t("dashboard.settings.tabNotificationsDesc");
+      default:
+        return "";
+    }
+  };
+
   const getIcon = (iconName: string, active: boolean) => {
     const size = 16;
     switch (iconName) {
@@ -33,7 +62,7 @@ export default function SettingsTabNav({
       <div className="block lg:hidden mb-4 overflow-x-auto custom-scrollbar">
         <div
           role="tablist"
-          aria-label="Pilihan Bagian Pengaturan"
+          aria-label={t("dashboard.settings.tablistAria")}
           className="flex items-center gap-1.5 p-1 rounded-2xl border border-slate-200/80 bg-white/95 shadow-2xs backdrop-blur-md min-w-max"
         >
           {SETTINGS_TABS.map((tab) => {
@@ -52,7 +81,7 @@ export default function SettingsTabNav({
                 }`}
               >
                 {getIcon(tab.iconName, isActive)}
-                <span>{tab.label}</span>
+                <span>{getTabLabel(tab.id)}</span>
               </button>
             );
           })}
@@ -63,7 +92,7 @@ export default function SettingsTabNav({
       <aside className="hidden lg:block">
         <div
           role="tablist"
-          aria-label="Navigasi Pengaturan Akun"
+          aria-label={t("dashboard.settings.asideNavAria")}
           className="rounded-2xl md:rounded-[22px] border border-slate-200/80 bg-white/95 p-2 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60 space-y-1 sticky top-4"
         >
           {SETTINGS_TABS.map((tab) => {
@@ -91,10 +120,10 @@ export default function SettingsTabNav({
 
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold leading-tight truncate">
-                    {tab.label}
+                    {getTabLabel(tab.id)}
                   </p>
                   <p className="mt-0.5 text-[10px] text-slate-400 leading-tight truncate">
-                    {tab.description}
+                    {getTabDesc(tab.id)}
                   </p>
                 </div>
 

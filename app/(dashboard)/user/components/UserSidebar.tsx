@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -20,12 +21,15 @@ import {
   Bell,
   Menu,
   X,
+  Globe,
 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
 import LogoutDoorButton from "@/components/UI/logout-door-button";
 import ThemeToggle from "@/components/UI/theme-toggle";
 import SandboxSessionControl from "@/components/sandbox/SandboxSessionControl";
 import SandboxAccessActions from "@/components/sandbox/SandboxAccessActions";
+import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 
 type SidebarProps = {
   userName: string;
@@ -40,13 +44,15 @@ type SidebarProps = {
 
 type SubMenuItem = {
   id: string;
-  label: string;
+  labelKey: string;
+  label?: string;
   icon: typeof CircleUserRound;
 };
 
 type MenuItem = {
   id: string;
-  label: string;
+  labelKey: string;
+  label?: string;
   icon: typeof LayoutDashboard;
   subItems?: SubMenuItem[];
   disabledInSandbox?: boolean;
@@ -54,89 +60,90 @@ type MenuItem = {
 };
 
 type MenuGroup = {
-  label: string;
+  labelKey: string;
+  label?: string;
   items: MenuItem[];
 };
 
-const MENU_GROUPS: MenuGroup[] = [
+const MENU_GROUPS_CONFIG: MenuGroup[] = [
   {
-    label: "Overview",
+    labelKey: "dashboard.nav.overviewGroup",
     items: [
       {
         id: "overview",
-        label: "Dashboard",
+        labelKey: "dashboard.nav.dashboard",
         icon: LayoutDashboard,
       },
     ],
   },
   {
-    label: "Transactions",
+    labelKey: "dashboard.nav.transactionsGroup",
     items: [
       {
         id: "orders",
-        label: "Riwayat Transaksi",
+        labelKey: "dashboard.nav.orders",
         icon: ShoppingBag,
       },
       {
         id: "wallet",
-        label: "Riwayat Saldo",
+        labelKey: "dashboard.nav.wallet",
         icon: WalletCards,
       },
     ],
   },
   {
-    label: "Balance",
+    labelKey: "dashboard.nav.balanceGroup",
     items: [
       {
         id: "deposit",
-        label: "Deposit",
+        labelKey: "dashboard.nav.deposit",
         icon: ArrowDownToLine,
       },
       {
         id: "withdraw",
-        label: "Tarik Saldo",
+        labelKey: "dashboard.nav.withdraw",
         icon: ArrowUpFromLine,
       },
     ],
   },
   {
-    label: "Referral",
+    labelKey: "dashboard.nav.programGroup",
     items: [
       {
         id: "affiliate",
-        label: "Afiliasi Saya",
+        labelKey: "dashboard.nav.affiliate",
         icon: UsersRound,
       },
     ],
   },
   {
-    label: "Account",
+    labelKey: "dashboard.nav.systemGroup",
     items: [
       {
         id: "settings",
-        label: "Pengaturan",
+        labelKey: "dashboard.nav.settings",
         icon: Settings,
         subItems: [
           {
             id: "settings-profile",
-            label: "Profil",
+            labelKey: "dashboard.nav.profile",
             icon: CircleUserRound,
           },
           {
             id: "settings-security",
-            label: "Keamanan",
+            labelKey: "dashboard.nav.security",
             icon: ShieldCheck,
           },
           {
             id: "settings-notifications",
-            label: "Notifikasi",
+            labelKey: "dashboard.nav.notifications",
             icon: Bell,
           },
         ],
       },
       {
         id: "help",
-        label: "Bantuan",
+        labelKey: "dashboard.nav.help",
         icon: CircleHelp,
       },
     ],
@@ -155,6 +162,23 @@ export default function UserSidebar({
 }: SidebarProps) {
   void balance;
   void userName;
+
+  const { t, locale } = useI18n();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const handleSwitchLocale = () => {
+    const nextLocale = locale === "id" ? "en" : "id";
+    if (typeof document !== "undefined") {
+      document.cookie = `dapay_locale=${nextLocale}; path=/; max-age=31536000; SameSite=Lax`;
+    }
+    const currentPath = pathname || "/user";
+    const targetPath = localizeHref(currentPath, nextLocale);
+    const qs = searchParams.toString();
+    const searchStr = qs ? `?${qs}` : "";
+    router.push(`${targetPath}${searchStr}`);
+  };
 
   const [internalIsOpen, setInternalIsOpen] = useState(true);
 
@@ -210,47 +234,75 @@ export default function UserSidebar({
   }, [isMobileOpen]);
 
   const menuGroups = useMemo(() => {
-    return MENU_GROUPS.map((group) => {
-      if (group.label === "Overview") {
-        const items = [...group.items];
+    return MENU_GROUPS_CONFIG.map((group) => {
+      const groupLabel = t(group.labelKey);
+
+      if (group.labelKey === "dashboard.nav.overviewGroup") {
+        const items: MenuItem[] = group.items.map((item) => ({
+          ...item,
+          label: t(item.labelKey),
+        }));
         if (isSandboxMode) {
           items.push({
             id: "catalog",
-            label: "Katalog Simulasi",
+            labelKey: "dashboard.nav.catalog",
+            label: t("dashboard.nav.catalog"),
             icon: ShoppingBag,
           });
         }
-        return { ...group, items };
+        return { ...group, label: groupLabel, items };
       }
-      if (group.label === "Balance") {
-        const items = group.items.map((item) => {
+
+      if (group.labelKey === "dashboard.nav.balanceGroup") {
+        const items: MenuItem[] = group.items.map((item) => {
+          const itemLabel = t(item.labelKey);
           if (isSandboxMode && (item.id === "deposit" || item.id === "withdraw")) {
             return {
               ...item,
+              label: itemLabel,
               disabledInSandbox: true,
               badge: "LIVE",
             };
           }
-          return item;
+          return {
+            ...item,
+            label: itemLabel,
+          };
         });
-        return { ...group, items };
+        return { ...group, label: groupLabel, items };
       }
-      if (group.label === "Referral") {
-        const items = group.items.map((item) => {
+
+      if (group.labelKey === "dashboard.nav.programGroup") {
+        const items: MenuItem[] = group.items.map((item) => {
+          const itemLabel = t(item.labelKey);
           if (isSandboxMode && item.id === "affiliate") {
             return {
               ...item,
+              label: itemLabel,
               disabledInSandbox: true,
               badge: "LIVE",
             };
           }
-          return item;
+          return {
+            ...item,
+            label: itemLabel,
+          };
         });
-        return { ...group, items };
+        return { ...group, label: groupLabel, items };
       }
-      return group;
+
+      const items: MenuItem[] = group.items.map((item) => ({
+        ...item,
+        label: t(item.labelKey),
+        subItems: item.subItems?.map((sub) => ({
+          ...sub,
+          label: t(sub.labelKey),
+        })),
+      }));
+
+      return { ...group, label: groupLabel, items };
     });
-  }, [isSandboxMode]);
+  }, [isSandboxMode, t]);
 
   const [expandedMenus, setExpandedMenus] = useState<string[]>(() => {
     return activeMenu.startsWith("settings") ? ["settings"] : [];
@@ -285,7 +337,7 @@ export default function UserSidebar({
     document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
     document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
     localStorage.clear();
-    window.location.href = "/";
+    window.location.href = localizeHref("/", locale);
   };
 
   useEffect(() => {
@@ -320,7 +372,7 @@ export default function UserSidebar({
       {isMobileOpen && (
         <button
           type="button"
-          aria-label="Tutup navigasi"
+          aria-label={t("dashboard.nav.closeNavigation")}
           onClick={closeMobile}
           className="fixed inset-0 z-60 bg-slate-950/30 backdrop-blur-[2px] md:hidden"
         />
@@ -357,8 +409,8 @@ export default function UserSidebar({
         >
           {isOpen ? (
             <Link
-              href="/"
-              title="Kembali ke Beranda"
+              href={localizeHref("/", locale)}
+              title={t("common.backToHome")}
               className="group flex items-center min-w-0 px-0.5 rounded-lg transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               <Image
@@ -372,8 +424,8 @@ export default function UserSidebar({
             </Link>
           ) : (
             <Link
-              href="/"
-              title="Kembali ke Beranda"
+              href={localizeHref("/", locale)}
+              title={t("common.backToHome")}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-[11px] font-black italic text-blue-700 transition hover:bg-blue-100 hover:border-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               DP
@@ -386,8 +438,8 @@ export default function UserSidebar({
             onClick={() => setIsOpen((value) => !value)}
             aria-label={
               isOpen
-                ? "Sembunyikan sidebar"
-                : "Tampilkan sidebar"
+                ? t("dashboard.nav.toggleSidebarOpen")
+                : t("dashboard.nav.toggleSidebarClose")
             }
             className="absolute -right-3 top-5 hidden h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-blue-200 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 md:inline-flex"
           >
@@ -402,7 +454,7 @@ export default function UserSidebar({
           <button
             type="button"
             onClick={closeMobile}
-            aria-label="Tutup navigasi"
+            aria-label={t("dashboard.nav.closeNavigation")}
             className="inline-flex h-7.5 w-7.5 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 md:hidden"
           >
             <X size={16} />
@@ -415,11 +467,11 @@ export default function UserSidebar({
 
         <nav
           className="custom-scrollbar flex-1 overflow-y-auto px-2.5 py-2.5 md:px-3 md:py-4"
-          aria-label="Navigasi member"
+          aria-label={t("dashboard.nav.memberNav")}
         >
           {menuGroups.map((group) => (
             <section
-              key={group.label}
+              key={group.labelKey}
               className="mb-2.5 md:mb-5 last:mb-0"
             >
               {isOpen && (
@@ -489,7 +541,7 @@ export default function UserSidebar({
                         </button>
                       ) : item.disabledInSandbox ? (
                         <div
-                          title={`${item.label} hanya tersedia di Mode LIVE`}
+                          title={t("dashboard.nav.liveOnlyTitle", { label: item.label || "" })}
                           aria-disabled="true"
                           className={[
                             "group flex w-full items-center rounded-lg md:rounded-xl text-left cursor-not-allowed opacity-40 select-none",
@@ -520,7 +572,7 @@ export default function UserSidebar({
                         </div>
                       ) : (
                         <Link
-                          href={item.id === "overview" ? "/user" : `/user?tab=${item.id}`}
+                          href={item.id === "overview" ? localizeHref("/user", locale) : `${localizeHref("/user", locale)}?tab=${item.id}`}
                           scroll={false}
                           title={!isOpen ? item.label : undefined}
                           aria-current={isActive ? "page" : undefined}
@@ -573,7 +625,7 @@ export default function UserSidebar({
                             return (
                               <Link
                                 key={sub.id}
-                                href={`/user?tab=${sub.id}`}
+                                href={`${localizeHref("/user", locale)}?tab=${sub.id}`}
                                 scroll={false}
                                 aria-current={isSubActive ? "page" : undefined}
                                 onClick={() => {
@@ -635,7 +687,7 @@ export default function UserSidebar({
 
                     <div className="min-w-0 flex-1">
                       <p className="text-[7.5px] md:text-[8px] font-semibold uppercase tracking-[0.15em] text-indigo-100">
-                        Upgrade ke
+                        {t("dashboard.nav.upgradeTo")}
                       </p>
 
                       <h3 className="truncate text-[10.5px] md:text-[12px] font-black leading-none text-white">
@@ -646,24 +698,24 @@ export default function UserSidebar({
 
                   <div className="hidden md:block mt-3 space-y-1">
                     <Benefit>
-                      Cashback lebih besar
+                      {t("dashboard.nav.cashbackBigger")}
                     </Benefit>
 
                     <Benefit>
-                      Komisi referral lebih tinggi
+                      {t("dashboard.nav.commissionHigher")}
                     </Benefit>
 
                     <Benefit>
-                      Promo eksklusif
+                      {t("dashboard.nav.exclusivePromo")}
                     </Benefit>
 
                     <Benefit>
-                      Layanan prioritas
+                      {t("dashboard.nav.priorityService")}
                     </Benefit>
                   </div>
 
                   <div className="mt-1.5 md:mt-3 flex h-6.5 md:h-8 w-full items-center justify-center gap-1 rounded-lg md:rounded-xl bg-white px-2 md:px-3 text-[8.5px] md:text-[9px] font-black text-indigo-700">
-                    Upgrade Sekarang
+                    {t("dashboard.overview.specialUpgradeCta")}
                     <span aria-hidden="true">→</span>
                   </div>
                 </button>
@@ -675,9 +727,21 @@ export default function UserSidebar({
                 <SandboxAccessActions />
               </div>
 
-              {/* THEME TOGGLE */}
-              <div className="mb-1.5 md:mb-2.5">
-                <ThemeToggle showLabel />
+              {/* THEME TOGGLE + LANGUAGE SWITCHER */}
+              <div className="mb-1.5 md:mb-2.5 flex items-center gap-1.5">
+                <div className="flex-1 min-w-0">
+                  <ThemeToggle showLabel />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSwitchLocale}
+                  title={locale === "id" ? t("language.switchToEnglish") : t("language.switchToIndonesian")}
+                  aria-label={locale === "id" ? t("language.switchToEnglish") : t("language.switchToIndonesian")}
+                  className="flex h-9 shrink-0 items-center justify-center gap-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white/80 dark:bg-slate-800/80 px-2.5 text-[11px] font-black text-slate-700 dark:text-slate-200 shadow-2xs transition hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer"
+                >
+                  <Globe size={13} className="text-blue-600 dark:text-blue-400" />
+                  <span>{locale === "id" ? "ID" : "EN"}</span>
+                </button>
               </div>
 
               {/* LOGOUT */}
@@ -695,12 +759,22 @@ export default function UserSidebar({
                   onClick={() =>
                     handleMenuClick("upgrade")
                   }
-                  title="Upgrade ke Special Member"
+                  title={t("dashboard.nav.upgradeToSpecial")}
                   className="flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-violet-500 to-blue-600 text-white shadow-sm transition hover:scale-[1.02]"
                 >
                   <Crown size={15} />
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={handleSwitchLocale}
+                title={locale === "id" ? t("language.switchToEnglish") : t("language.switchToIndonesian")}
+                aria-label={locale === "id" ? t("language.switchToEnglish") : t("language.switchToIndonesian")}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white/80 dark:bg-slate-800/80 text-[10px] font-black text-slate-700 dark:text-slate-200 shadow-2xs transition hover:border-blue-400 hover:text-blue-600 cursor-pointer"
+              >
+                {locale === "id" ? "ID" : "EN"}
+              </button>
 
               <ThemeToggle isCollapsed />
 

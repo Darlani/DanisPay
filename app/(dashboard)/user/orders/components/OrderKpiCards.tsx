@@ -9,6 +9,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { OrdersSummary, formatRupiah } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface OrderKpiCardsProps {
   summary: OrdersSummary;
@@ -18,6 +19,7 @@ interface OrderKpiCardsProps {
 export default function OrderKpiCards({
   summary,
 }: OrderKpiCardsProps) {
+  const { t } = useI18n();
   return (
     <section className="mb-4 sm:mb-5 grid grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-2.5 sm:gap-3.5 md:gap-4 xl:gap-5">
       {/* ============================================================ */}
@@ -35,7 +37,7 @@ export default function OrderKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-white/15 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-blue-100 backdrop-blur-xs ring-1 ring-white/20">
               <TrendingUp size={9} className="shrink-0 text-cyan-300" />
-              <span className="truncate">Pengeluaran</span>
+              <span className="truncate">{t("dashboard.orders.kpiSpending")}</span>
             </span>
           </div>
 
@@ -49,7 +51,7 @@ export default function OrderKpiCards({
             {formatRupiah(summary.totalSpent)}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-medium text-blue-100/80">
-            Akumulasi transaksi sukses
+            {t("dashboard.orders.kpiSpendingNote")}
           </p>
         </div>
       </div>
@@ -61,7 +63,7 @@ export default function OrderKpiCards({
         <div className="relative z-10 flex items-start justify-between gap-1.5 xs:gap-2">
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center max-w-full truncate rounded-full bg-slate-100 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-slate-600">
-              <span className="truncate">Total Order</span>
+              <span className="truncate">{t("dashboard.orders.kpiTotalOrders")}</span>
             </span>
           </div>
 
@@ -75,7 +77,7 @@ export default function OrderKpiCards({
             {summary.totalCount.toLocaleString("id-ID")}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-slate-400">
-            Seluruh riwayat pesanan
+            {t("dashboard.orders.kpiTotalOrdersNote")}
           </p>
         </div>
       </div>
@@ -88,7 +90,7 @@ export default function OrderKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-emerald-100/80 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-800">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-              <span className="truncate">Berhasil</span>
+              <span className="truncate">{t("dashboard.orders.kpiSuccess")}</span>
             </span>
           </div>
 
@@ -102,7 +104,7 @@ export default function OrderKpiCards({
             {summary.successCount.toLocaleString("id-ID")}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-emerald-700">
-            Pesanan sukses terkirim
+            {t("dashboard.orders.kpiSuccessNote")}
           </p>
         </div>
       </div>
@@ -115,7 +117,7 @@ export default function OrderKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-rose-100/80 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-rose-800">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
-              <span className="truncate">Gagal</span>
+              <span className="truncate">{t("dashboard.orders.kpiFailed")}</span>
             </span>
           </div>
 
@@ -129,7 +131,7 @@ export default function OrderKpiCards({
             {summary.failedCount.toLocaleString("id-ID")}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-rose-700">
-            Dibatalkan / otomatis refund
+            {t("dashboard.orders.kpiFailedNote")}
           </p>
         </div>
       </div>

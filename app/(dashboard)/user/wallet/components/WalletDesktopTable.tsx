@@ -16,6 +16,7 @@ import {
   getEntryMeta,
   toNumber,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface WalletDesktopTableProps {
   entries: WalletEntry[];
@@ -30,10 +31,11 @@ export default function WalletDesktopTable({
   onCopy,
   isSandboxMode = false,
 }: WalletDesktopTableProps) {
+  const { t } = useI18n();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopy = async (id: string) => {
-    await onCopy(id, "ID Mutasi");
+    await onCopy(id, t("dashboard.wallet.fieldMutationId"));
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -45,53 +47,53 @@ export default function WalletDesktopTable({
           <tr>
             {/* 1. WAKTU & ID */}
             <th className="py-2.5 sm:py-3.5 pl-3 sm:pl-4 pr-1 sm:pr-2 lg:pr-3 font-bold">
-              Waktu & ID
+              {t("dashboard.wallet.colTimeId")}
             </th>
 
             {/* 2. TABLET: GABUNGAN JENIS & KETERANGAN */}
             <th className="table-cell lg:hidden px-2 py-2.5 sm:py-3.5 font-bold">
-              Jenis & Keterangan
+              {t("dashboard.wallet.colTypeDesc")}
             </th>
 
             {/* 2. DESKTOP: SEPARATE JENIS */}
             <th className="hidden lg:table-cell px-3 py-3.5 font-bold">
-              Jenis
+              {t("dashboard.wallet.colType")}
             </th>
 
             {/* 3. DESKTOP: SEPARATE KETERANGAN */}
             <th className="hidden lg:table-cell px-3 py-3.5 font-bold">
-              Keterangan
+              {t("dashboard.wallet.colDesc")}
             </th>
 
             {/* 4. TABLET: GABUNGAN MASUK & KELUAR */}
             <th className="table-cell lg:hidden px-2 py-2.5 sm:py-3.5 font-bold text-right">
-              Arus Mutasi
+              {t("dashboard.wallet.colFlow")}
             </th>
 
             {/* 4. DESKTOP: SEPARATE MASUK */}
             <th className="hidden lg:table-cell px-3 py-3.5 font-bold text-right text-emerald-700">
-              Masuk
+              {t("dashboard.wallet.colIncome")}
             </th>
 
             {/* 5. DESKTOP: SEPARATE KELUAR */}
             <th className="hidden lg:table-cell px-3 py-3.5 font-bold text-right text-rose-700">
-              Keluar
+              {t("dashboard.wallet.colExpense")}
             </th>
 
             {/* 6. DESKTOP: SEPARATE SALDO AWAL */}
             <th className="hidden lg:table-cell px-3 py-3.5 font-bold text-right">
-              Saldo Awal
+              {t("dashboard.wallet.colInitialBalance")}
             </th>
 
             {/* 7. SALDO AKHIR (DESKTOP) / SALDO AWAL & AKHIR (TABLET GABUNGAN) */}
             <th className="px-2 lg:px-3 py-2.5 sm:py-3.5 font-bold text-right">
-              <span className="lg:hidden">Saldo Awal & Akhir</span>
-              <span className="hidden lg:inline">Saldo Akhir</span>
+              <span className="lg:hidden">{t("dashboard.wallet.colInitialFinal")}</span>
+              <span className="hidden lg:inline">{t("dashboard.wallet.colFinalBalance")}</span>
             </th>
 
             {/* 8. AKSI (DESKTOP & TABLET TETAP DITAMPILKAN) */}
             <th className="py-2.5 sm:py-3.5 pl-1 sm:pl-2 pr-3 sm:pr-4 font-bold text-center">
-              Aksi
+              {t("dashboard.wallet.colAction")}
             </th>
           </tr>
         </thead>
@@ -146,7 +148,8 @@ export default function WalletDesktopTable({
                         type="button"
                         onClick={() => handleCopy(log.id)}
                         className="inline-flex h-4 w-4 items-center justify-center rounded text-slate-400 hover:text-slate-600 transition cursor-pointer"
-                        title="Salin ID Mutasi"
+                        title={t("dashboard.wallet.copyMutationId")}
+                        aria-label={t("dashboard.wallet.copyMutationId")}
                       >
                         {copiedId === log.id ? (
                           <Check size={11} className="text-emerald-600" />
@@ -170,11 +173,11 @@ export default function WalletDesktopTable({
                       </span>
                       {isCoin ? (
                         <span className="rounded-md bg-violet-100 px-1 py-0.2 text-[8px] font-extrabold text-violet-700">
-                          {isSandboxMode ? "KOIN SANDBOX" : "KOIN"}
+                          {isSandboxMode ? t("dashboard.wallet.coinSandboxBadge") : t("dashboard.wallet.coinBadge")}
                         </span>
                       ) : isSandboxMode ? (
                         <span className="rounded-md bg-amber-100 px-1 py-0.2 text-[8px] font-extrabold text-amber-800">
-                          SALDO VIRTUAL
+                          {t("dashboard.wallet.virtualBalanceBadge")}
                         </span>
                       ) : null}
                     </div>
@@ -198,11 +201,11 @@ export default function WalletDesktopTable({
                     </span>
                     {isCoin ? (
                       <span className="inline-flex rounded-md bg-violet-100 px-1 py-0.2 text-[8px] font-extrabold text-violet-700">
-                        {isSandboxMode ? "KOIN SANDBOX" : "KOIN"}
+                        {isSandboxMode ? t("dashboard.wallet.coinSandboxBadge") : t("dashboard.wallet.coinBadge")}
                       </span>
                     ) : isSandboxMode ? (
                       <span className="inline-flex rounded-md bg-amber-100 px-1 py-0.2 text-[8px] font-extrabold text-amber-800">
-                        SALDO VIRTUAL
+                        {t("dashboard.wallet.virtualBalanceBadge")}
                       </span>
                     ) : null}
                   </div>
@@ -287,7 +290,7 @@ export default function WalletDesktopTable({
                     {/* Tablet: Show Saldo Awal below Saldo Akhir */}
                     {beforeAmount !== null && beforeAmount !== undefined && (
                       <span className="mt-0.5 text-[9.5px] font-medium text-slate-400 lg:hidden">
-                        Awal: {isCoin ? formatCoins(beforeAmount) : formatRupiah(beforeAmount)}
+                        {t("dashboard.wallet.initialShort")} {isCoin ? formatCoins(beforeAmount) : formatRupiah(beforeAmount)}
                       </span>
                     )}
                   </div>
@@ -302,7 +305,8 @@ export default function WalletDesktopTable({
                       onSelectEntry(entry);
                     }}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition active:scale-95 cursor-pointer shadow-2xs"
-                    title="Lihat Detail Mutasi"
+                    title={t("dashboard.wallet.viewDetail")}
+                    aria-label={t("dashboard.wallet.viewDetail")}
                   >
                     <Eye size={14} />
                   </button>

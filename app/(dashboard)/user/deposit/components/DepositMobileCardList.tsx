@@ -21,6 +21,7 @@ import {
   normalizePaymentName,
   toNumber,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface DepositMobileCardListProps {
   deposits: Deposit[];
@@ -35,6 +36,23 @@ export default function DepositMobileCardList({
   onOpenInstruction,
   onCopy,
 }: DepositMobileCardListProps) {
+  const { t } = useI18n();
+
+  const getStatusLabel = (status: string, fallback: string) => {
+    switch (status) {
+      case "Pending":
+        return t("dashboard.deposit.statusPendingLabel");
+      case "Berhasil":
+        return t("dashboard.deposit.statusSuccessLabel");
+      case "Gagal":
+        return t("dashboard.deposit.statusFailedLabel");
+      case "Dibatalkan":
+        return t("dashboard.deposit.statusCancelledLabel");
+      default:
+        return fallback;
+    }
+  };
+
   return (
     <div className="space-y-2 xs:space-y-2.5">
       {deposits.map((deposit) => {
@@ -82,7 +100,7 @@ export default function DepositMobileCardList({
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`}
                 />
-                {statusStyle.label}
+                {getStatusLabel(status, statusStyle.label)}
               </span>
             </div>
 
@@ -90,7 +108,7 @@ export default function DepositMobileCardList({
             <div className="my-2.5 flex items-end justify-between gap-2">
               <div>
                 <p className="text-[9px] xs:text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
-                  Total Transfer
+                  {t("dashboard.deposit.colTotalTransfer")}
                 </p>
                 <p className="mt-0.5 text-base xs:text-lg font-black tracking-tight text-slate-950 leading-tight">
                   {formatRupiah(totalAmount)}
@@ -99,7 +117,7 @@ export default function DepositMobileCardList({
 
               <div className="text-right">
                 <p className="text-[9px] xs:text-[9.5px] font-medium text-slate-400">
-                  Nominal Saldo:{" "}
+                  {t("dashboard.deposit.colAmount")}:{" "}
                   <strong className="font-bold text-slate-700">
                     {formatRupiah(amount)}
                   </strong>
@@ -107,7 +125,7 @@ export default function DepositMobileCardList({
                 {/* Catatan: Di database/backend nilai ini adalah `unique_code` (kode unik verifikasi), ditampilkan di UI sebagai "Biaya Layanan" */}
                 {deposit.unique_code && Number(deposit.unique_code) > 0 && (
                   <span className="mt-0.5 inline-block rounded-md bg-amber-50 border border-amber-200/80 px-1.5 py-0.2 font-mono text-[9px] font-bold text-amber-700">
-                    Biaya Layanan: +{deposit.unique_code}
+                    {t("dashboard.deposit.serviceFee", { code: deposit.unique_code })}
                   </span>
                 )}
               </div>
@@ -123,9 +141,9 @@ export default function DepositMobileCardList({
                   {depositId !== "-" && (
                     <button
                       type="button"
-                      onClick={() => onCopy(depositId, "ID Deposit")}
-                      title="Salin ID Deposit"
-                      aria-label="Salin ID Deposit"
+                      onClick={() => onCopy(depositId, t("dashboard.deposit.colDepositId"))}
+                      title={t("dashboard.deposit.copyDepositId")}
+                      aria-label={t("dashboard.deposit.copyDepositId")}
                       className="flex h-4.5 w-4.5 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
                     >
                       <Copy size={10} />
@@ -141,22 +159,22 @@ export default function DepositMobileCardList({
                 <button
                   type="button"
                   onClick={() => onSelectDeposit(deposit)}
-                  title="Lihat Detail Deposit"
-                  aria-label="Lihat Detail Deposit"
+                  title={t("dashboard.deposit.viewDetail")}
+                  aria-label={t("dashboard.deposit.viewDetail")}
                   className="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 text-[10.5px] xs:text-[11px] font-bold text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-white"
                 >
-                  Detail
+                  {t("dashboard.deposit.btnDetail")}
                 </button>
 
                 {isPending && onOpenInstruction && (
                   <button
                     type="button"
                     onClick={() => onOpenInstruction(deposit)}
-                    title="Lanjutkan Pembayaran"
-                    aria-label="Lanjutkan Pembayaran"
+                    title={t("dashboard.deposit.continuePayment")}
+                    aria-label={t("dashboard.deposit.continuePayment")}
                     className="inline-flex h-7 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-[10.5px] xs:text-[11px] font-bold text-white shadow-2xs transition active:scale-95 cursor-pointer hover:bg-emerald-700"
                   >
-                    <span>Bayar</span>
+                    <span>{t("dashboard.deposit.btnPay")}</span>
                     <ExternalLink size={10} />
                   </button>
                 )}

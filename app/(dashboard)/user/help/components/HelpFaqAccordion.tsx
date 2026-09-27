@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { ChevronDown, CircleHelp, FileQuestion } from "lucide-react";
 import { FAQItem, getCategoryBadgeClasses, HelpCategory } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface HelpFaqAccordionProps {
   faqItems: FAQItem[];
@@ -27,6 +28,25 @@ export default function HelpFaqAccordion({
   onToggleShowAllInOverview,
   minHeight,
 }: HelpFaqAccordionProps) {
+  const { t } = useI18n();
+
+  const getCategoryLabel = (cat: Exclude<HelpCategory, "all">) => {
+    switch (cat) {
+      case "account":
+        return t("dashboard.help.categoryAccount");
+      case "transaction":
+        return t("dashboard.help.categoryTransaction");
+      case "balance":
+        return t("dashboard.help.categoryBalance");
+      case "coin":
+        return t("dashboard.help.categoryCoin");
+      case "referral":
+        return t("dashboard.help.categoryReferral");
+      default:
+        return cat;
+    }
+  };
+
   const isAllCategoryNoSearch = category === "all" && !search.trim();
 
   // If in "all" category without search and not yet expanded, show 1 representative per category
@@ -65,14 +85,14 @@ export default function HelpFaqAccordion({
               <CircleHelp size={15} />
             </div>
             <h2 className="text-sm xs:text-base font-black tracking-tight text-slate-900">
-              Pertanyaan yang Sering Diajukan
+              {t("dashboard.help.faqTitle")}
             </h2>
           </div>
 
           <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[10px] font-bold text-blue-700">
             {isAllCategoryNoSearch && !showAllInOverview
-              ? `${displayedItems.length} dari ${faqItems.length} pertanyaan`
-              : `${displayedItems.length} pertanyaan`}
+              ? t("dashboard.help.faqShowingSubset", { current: displayedItems.length, total: faqItems.length })
+              : t("dashboard.help.faqShowingTotal", { total: displayedItems.length })}
           </span>
         </div>
 
@@ -83,17 +103,17 @@ export default function HelpFaqAccordion({
               <FileQuestion size={22} />
             </div>
             <h3 className="text-xs sm:text-sm font-bold text-slate-800">
-              Tidak menemukan jawaban yang sesuai
+              {t("dashboard.help.faqEmptyTitle")}
             </h3>
             <p className="mt-1 text-xs text-slate-400 max-w-xs mx-auto">
-              Tidak ada FAQ yang cocok dengan pencarian &quot;{search}&quot;. Coba gunakan kata kunci lain atau tampilkan semua.
+              {t("dashboard.help.faqEmptyDesc", { search })}
             </p>
             <button
               type="button"
               onClick={onShowAll}
               className="mt-3.5 inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-4 text-xs font-bold text-white shadow-2xs transition active:scale-95 hover:bg-blue-500 cursor-pointer"
             >
-              Tampilkan Semua FAQ
+              {t("dashboard.help.faqShowAllBtn")}
             </button>
           </div>
         ) : (
@@ -116,7 +136,7 @@ export default function HelpFaqAccordion({
                       <span
                         className={`inline-flex shrink-0 items-center rounded-md border ${badge.badgeBorder} ${badge.badgeBg} ${badge.badgeText} px-2 py-0.5 text-[9.5px] font-bold`}
                       >
-                        {badge.label}
+                        {getCategoryLabel(item.category)}
                       </span>
 
                       {/* Question Text */}
@@ -160,7 +180,7 @@ export default function HelpFaqAccordion({
             onClick={() => onToggleShowAllInOverview(true)}
             className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/80 px-4 py-2 text-xs font-bold text-blue-700 shadow-2xs transition active:scale-95 hover:bg-blue-100 cursor-pointer"
           >
-            <span>Lihat semua FAQ ({faqItems.length})</span>
+            <span>{t("dashboard.help.viewAllFaqBtn", { count: faqItems.length })}</span>
             <span>↓</span>
           </button>
         </div>
@@ -173,7 +193,7 @@ export default function HelpFaqAccordion({
             onClick={() => onToggleShowAllInOverview(false)}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-700 transition hover:underline cursor-pointer"
           >
-            <span>Tampilkan FAQ ringkas</span>
+            <span>{t("dashboard.help.showCompactFaqBtn")}</span>
             <span>↑</span>
           </button>
         </div>

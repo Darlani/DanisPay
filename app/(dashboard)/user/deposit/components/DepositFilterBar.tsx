@@ -14,6 +14,7 @@ import {
   formatDateOnly,
   STATUS_OPTIONS,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface DepositFilterBarProps {
   filters: DepositFilters;
@@ -40,6 +41,25 @@ export default function DepositFilterBar({
   paymentOptions,
   isSidebarExpanded = false,
 }: DepositFilterBarProps) {
+  const { t } = useI18n();
+
+  const getStatusLabel = (key: string, label: string) => {
+    switch (key) {
+      case "Semua":
+        return t("dashboard.deposit.statusAll");
+      case "Pending":
+        return t("dashboard.deposit.statusPending");
+      case "Berhasil":
+        return t("dashboard.deposit.statusSuccess");
+      case "Gagal":
+        return t("dashboard.deposit.statusFailed");
+      case "Dibatalkan":
+        return t("dashboard.deposit.statusCancelled");
+      default:
+        return label;
+    }
+  };
+
   const desktopDateInputRef = useRef<HTMLInputElement>(null);
   const tabletDateInputRef = useRef<HTMLInputElement>(null);
   const mobileDateInputRef = useRef<HTMLInputElement>(null);
@@ -104,16 +124,14 @@ export default function DepositFilterBar({
             <select
               value={filters.status}
               onChange={(e) => onStatusChange(e.target.value)}
-              aria-label="Filter Status Deposit"
+              aria-label={t("dashboard.deposit.statusAria")}
               className="h-8 xs:h-8.5 w-full appearance-none rounded-lg xs:rounded-xl border border-slate-200/90 bg-slate-50/90 px-1.5 xs:px-2 text-center text-[10.5px] xs:text-xs font-bold text-slate-700 outline-hidden transition hover:bg-slate-100/80 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 cursor-pointer truncate"
             >
               {STATUS_OPTIONS.map((opt) => {
                 const count = statusCounts[opt.countKey] ?? 0;
                 return (
                   <option key={opt.key} value={opt.key}>
-                    {opt.key === "Semua"
-                      ? `Semua Status (${count})`
-                      : `${opt.label} (${count})`}
+                    {`${getStatusLabel(opt.key, opt.label)} (${count})`}
                   </option>
                 );
               })}
@@ -125,10 +143,10 @@ export default function DepositFilterBar({
             <select
               value={filters.paymentMethod}
               onChange={(e) => onPaymentMethodChange(e.target.value)}
-              aria-label="Filter Metode Pembayaran"
+              aria-label={t("dashboard.deposit.paymentAria")}
               className="h-8 xs:h-8.5 w-full appearance-none rounded-lg xs:rounded-xl border border-slate-200/90 bg-slate-50/90 px-1.5 xs:px-2 text-center text-[10.5px] xs:text-xs font-bold text-slate-700 outline-hidden transition hover:bg-slate-100/80 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 cursor-pointer truncate"
             >
-              <option value="Semua">Semua Metode</option>
+              <option value="Semua">{t("dashboard.deposit.paymentAll")}</option>
               {paymentOptions.map((method) => (
                 <option key={method} value={method}>
                   {method}
@@ -141,7 +159,7 @@ export default function DepositFilterBar({
           <button
             type="button"
             onClick={handleToggleMobileSearch}
-            aria-label="Buka Pencarian Deposit"
+            aria-label={t("dashboard.deposit.searchToggleAria")}
             className={`flex h-8 w-8 xs:h-8.5 xs:w-8.5 shrink-0 items-center justify-center rounded-lg xs:rounded-xl border transition active:scale-95 cursor-pointer ${
               filters.search || isMobileSearchOpen
                 ? "border-blue-300 bg-blue-50 text-blue-600 shadow-2xs"
@@ -163,10 +181,10 @@ export default function DepositFilterBar({
               }`}
               title={
                 filters.date
-                  ? `Tanggal: ${formatDateOnly(filters.date)} (Klik untuk ubah)`
-                  : "Filter Tanggal Deposit"
+                  ? t("dashboard.deposit.dateActiveTitle", { date: formatDateOnly(filters.date) })
+                  : t("dashboard.deposit.dateAria")
               }
-              aria-label="Filter Tanggal Deposit"
+              aria-label={t("dashboard.deposit.dateAria")}
             >
               <CalendarDays size={14} />
               {filters.date && (
@@ -189,8 +207,8 @@ export default function DepositFilterBar({
             <button
               type="button"
               onClick={onReset}
-              title="Reset Semua Filter"
-              aria-label="Reset Semua Filter"
+              title={t("dashboard.deposit.resetAllAria")}
+              aria-label={t("dashboard.deposit.resetAllAria")}
               className="flex h-8 w-8 xs:h-8.5 xs:w-8.5 shrink-0 items-center justify-center rounded-lg xs:rounded-xl border border-red-200 bg-red-50 text-red-600 transition active:scale-95 cursor-pointer hover:bg-red-100"
             >
               <RotateCcw size={13} />
@@ -210,7 +228,7 @@ export default function DepositFilterBar({
               type="text"
               value={filters.search}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Cari ID, metode, atau nominal..."
+              placeholder={t("dashboard.deposit.searchPlaceholderMobile")}
               className="h-8.5 w-full rounded-xl border border-blue-200 bg-blue-50/40 pl-8.5 pr-8 text-xs font-medium text-slate-800 placeholder-slate-400 outline-hidden transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
             />
             <button
@@ -241,7 +259,7 @@ export default function DepositFilterBar({
             <select
               value={filters.status}
               onChange={(e) => onStatusChange(e.target.value)}
-              aria-label="Filter Status Deposit"
+              aria-label={t("dashboard.deposit.statusAria")}
               className={`h-9 w-full appearance-none rounded-xl border border-slate-200/90 bg-slate-50/90 text-xs font-bold text-slate-700 outline-hidden transition hover:bg-slate-100/80 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 cursor-pointer truncate ${
                 !isSidebarExpanded ? "px-2.5 pr-7 text-left" : "px-2 text-center"
               }`}
@@ -250,13 +268,7 @@ export default function DepositFilterBar({
                 const count = statusCounts[opt.countKey] ?? 0;
                 return (
                   <option key={opt.key} value={opt.key}>
-                    {!isSidebarExpanded
-                      ? opt.key === "Semua"
-                        ? `Semua Status (${count})`
-                        : `${opt.label} (${count})`
-                      : opt.key === "Semua"
-                        ? `Status (${count})`
-                        : `${opt.label} (${count})`}
+                    {`${getStatusLabel(opt.key, opt.label)} (${count})`}
                   </option>
                 );
               })}
@@ -278,13 +290,13 @@ export default function DepositFilterBar({
             <select
               value={filters.paymentMethod}
               onChange={(e) => onPaymentMethodChange(e.target.value)}
-              aria-label="Filter Metode Pembayaran"
+              aria-label={t("dashboard.deposit.paymentAria")}
               className={`h-9 w-full appearance-none rounded-xl border border-slate-200/90 bg-slate-50/90 text-xs font-bold text-slate-700 outline-hidden transition hover:bg-slate-100/80 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 cursor-pointer truncate ${
                 !isSidebarExpanded ? "px-2.5 pr-7 text-left" : "px-2 text-center"
               }`}
             >
               <option value="Semua">
-                {!isSidebarExpanded ? "Semua Metode" : "Metode"}
+                {!isSidebarExpanded ? t("dashboard.deposit.paymentAll") : t("dashboard.deposit.paymentMethodShort")}
               </option>
               {paymentOptions.map((method) => (
                 <option key={method} value={method}>
@@ -304,7 +316,7 @@ export default function DepositFilterBar({
           <button
             type="button"
             onClick={handleToggleTabletSearch}
-            aria-label="Buka Pencarian Deposit"
+            aria-label={t("dashboard.deposit.searchToggleAria")}
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition active:scale-95 cursor-pointer ${
               filters.search || isTabletSearchOpen
                 ? "border-blue-300 bg-blue-50 text-blue-600 shadow-2xs"
@@ -326,10 +338,10 @@ export default function DepositFilterBar({
               }`}
               title={
                 filters.date
-                  ? `Tanggal: ${formatDateOnly(filters.date)} (Klik untuk ubah)`
-                  : "Filter Tanggal Deposit"
+                  ? t("dashboard.deposit.dateActiveTitle", { date: formatDateOnly(filters.date) })
+                  : t("dashboard.deposit.dateAria")
               }
-              aria-label="Filter Tanggal Deposit"
+              aria-label={t("dashboard.deposit.dateAria")}
             >
               <CalendarDays size={15} />
               {filters.date && (
@@ -352,8 +364,8 @@ export default function DepositFilterBar({
             <button
               type="button"
               onClick={onReset}
-              title="Reset Filter"
-              aria-label="Reset Filter"
+              title={t("dashboard.deposit.resetAllAria")}
+              aria-label={t("dashboard.deposit.resetAllAria")}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 transition active:scale-95 cursor-pointer hover:bg-red-100"
             >
               <RotateCcw size={14} />
@@ -373,7 +385,7 @@ export default function DepositFilterBar({
               type="text"
               value={filters.search}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Cari deposit ID, metode pembayaran, atau nominal transfer..."
+              placeholder={t("dashboard.deposit.searchPlaceholderTablet")}
               className="h-9 w-full rounded-xl border border-blue-200 bg-blue-50/40 pl-9 pr-8 text-xs font-medium text-slate-800 placeholder-slate-400 outline-hidden transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
             />
             <button
@@ -399,16 +411,14 @@ export default function DepositFilterBar({
           <select
             value={filters.status}
             onChange={(e) => onStatusChange(e.target.value)}
-            aria-label="Filter Status Deposit"
+            aria-label={t("dashboard.deposit.statusAria")}
             className="h-9.5 w-full appearance-none rounded-xl border border-slate-200/90 bg-slate-50/80 pl-3 pr-7 text-xs font-bold text-slate-700 outline-hidden transition hover:bg-slate-100/80 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 cursor-pointer"
           >
             {STATUS_OPTIONS.map((opt) => {
               const count = statusCounts[opt.countKey] ?? 0;
               return (
                 <option key={opt.key} value={opt.key}>
-                  {opt.key === "Semua"
-                    ? `Semua Status (${count})`
-                    : `${opt.label} (${count})`}
+                  {`${getStatusLabel(opt.key, opt.label)} (${count})`}
                 </option>
               );
             })}
@@ -424,10 +434,10 @@ export default function DepositFilterBar({
           <select
             value={filters.paymentMethod}
             onChange={(e) => onPaymentMethodChange(e.target.value)}
-            aria-label="Filter Metode Pembayaran"
+            aria-label={t("dashboard.deposit.paymentAria")}
             className="h-9.5 w-full appearance-none rounded-xl border border-slate-200/90 bg-slate-50/80 pl-3 pr-7 text-xs font-bold text-slate-700 outline-hidden transition hover:bg-slate-100/80 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 cursor-pointer"
           >
-            <option value="Semua">Semua Metode</option>
+            <option value="Semua">{t("dashboard.deposit.paymentAll")}</option>
             {paymentOptions.map((method) => (
               <option key={method} value={method}>
                 {method}
@@ -450,7 +460,7 @@ export default function DepositFilterBar({
             type="text"
             value={filters.search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Cari deposit ID, metode, nominal..."
+            placeholder={t("dashboard.deposit.searchPlaceholderDesktop")}
             className="h-9.5 w-full rounded-xl border border-slate-200/90 bg-slate-50/80 pl-9.5 pr-8 text-xs font-medium text-slate-800 placeholder-slate-400 outline-hidden transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
           />
           {filters.search && (
@@ -476,10 +486,10 @@ export default function DepositFilterBar({
             }`}
             title={
               filters.date
-                ? `Tanggal: ${formatDateOnly(filters.date)} (Klik untuk ubah)`
-                : "Filter Tanggal Deposit"
+                ? t("dashboard.deposit.dateActiveTitle", { date: formatDateOnly(filters.date) })
+                : t("dashboard.deposit.dateAria")
             }
-            aria-label="Filter Tanggal Deposit"
+            aria-label={t("dashboard.deposit.dateAria")}
           >
             <CalendarDays size={15} />
             {filters.date && (
@@ -504,12 +514,12 @@ export default function DepositFilterBar({
           <button
             type="button"
             onClick={onReset}
-            title="Reset Semua Filter"
-            aria-label="Reset Semua Filter"
+            title={t("dashboard.deposit.resetAllAria")}
+            aria-label={t("dashboard.deposit.resetAllAria")}
             className="flex h-9.5 items-center gap-1.5 rounded-xl border border-red-200 bg-red-50/80 px-3 text-xs font-bold text-red-600 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-red-100 shrink-0"
           >
             <RotateCcw size={13} />
-            <span>Reset</span>
+            <span>{t("dashboard.deposit.resetAll")}</span>
           </button>
         )}
       </div>

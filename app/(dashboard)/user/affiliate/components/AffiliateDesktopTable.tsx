@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useI18n } from "@/lib/i18n/context";
 import { Eye } from "lucide-react";
 import { Referral, formatDate, getInitial, maskEmail } from "../types";
 
@@ -15,6 +16,7 @@ export default function AffiliateDesktopTable({
   onSelectReferral,
   isSidebarExpanded = false,
 }: AffiliateDesktopTableProps) {
+  const { t } = useI18n();
   // TABLET EXPANDED SIDEBAR (256px): 3-COLUMN COMPACT TABLE
   if (isSidebarExpanded) {
     return (
@@ -24,19 +26,19 @@ export default function AffiliateDesktopTable({
             <thead>
               <tr className="border-b border-slate-200/80 bg-slate-50/75 text-[10px] sm:text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
                 <th className="py-3.5 pl-3.5 pr-2 whitespace-nowrap">
-                  Member & Email
+                  {t("dashboard.affiliate.thMemberEmail")}
                 </th>
                 <th className="px-2.5 py-3.5 whitespace-nowrap">
-                  Bergabung
+                  {t("dashboard.affiliate.thJoined")}
                 </th>
                 <th className="py-3.5 pl-2 pr-3.5 text-center whitespace-nowrap">
-                  Status & Aksi
+                  {t("dashboard.affiliate.thStatusAction")}
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/90 text-slate-700">
               {referrals.map((referral, idx) => {
-                const name = referral.full_name || "Member Baru";
+                const name = referral.full_name || t("dashboard.affiliate.defaultMemberName");
                 const initial = getInitial(name);
                 const masked = maskEmail(referral.email);
 
@@ -72,18 +74,18 @@ export default function AffiliateDesktopTable({
                       <div className="flex flex-col items-center justify-center gap-1.5">
                         <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                          Terdaftar
+                          {t("dashboard.affiliate.statusRegistered")}
                         </span>
 
                         <button
                           type="button"
                           onClick={() => onSelectReferral(referral)}
-                          title="Lihat Detail Member"
-                          aria-label="Lihat Detail Member"
+                          title={t("dashboard.affiliate.viewDetailAria")}
+                          aria-label={t("dashboard.affiliate.viewDetailAria")}
                           className="inline-flex h-6.5 items-center justify-center gap-1 rounded-md border border-slate-200/90 bg-white px-2 text-[10px] font-bold text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:border-slate-300 hover:bg-slate-50"
                         >
                           <Eye size={11} />
-                          <span>Detail</span>
+                          <span>{t("dashboard.affiliate.btnDetail")}</span>
                         </button>
                       </div>
                     </td>
@@ -106,34 +108,34 @@ export default function AffiliateDesktopTable({
             <tr className="border-b border-slate-200/80 bg-slate-50/75 text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
               {/* 1. MEMBER */}
               <th className="py-3.5 pl-3.5 pr-2 sm:pl-4 lg:pr-3 whitespace-nowrap">
-                Member
+                {t("dashboard.affiliate.thMember")}
               </th>
 
               {/* 2. EMAIL (DESKTOP ONLY ≥1024px OR TABLET RAIL) */}
               <th className="px-2.5 sm:px-3 py-3.5 whitespace-nowrap">
-                Email
+                {t("dashboard.affiliate.thEmail")}
               </th>
 
               {/* 3. TANGGAL BERGABUNG */}
               <th className="px-2.5 sm:px-3 py-3.5 whitespace-nowrap">
-                Bergabung
+                {t("dashboard.affiliate.thJoined")}
               </th>
 
               {/* 4. STATUS */}
               <th className="px-2.5 sm:px-3 py-3.5 text-center whitespace-nowrap">
-                Status
+                {t("dashboard.affiliate.thStatus")}
               </th>
 
               {/* 5. AKSI (DESKTOP ONLY ≥1024px) */}
               <th className="hidden lg:table-cell py-3.5 pl-3 pr-4 text-center sm:pr-5 whitespace-nowrap">
-                Aksi
+                {t("dashboard.affiliate.thAction")}
               </th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-slate-100/90 text-slate-700">
             {referrals.map((referral, idx) => {
-              const name = referral.full_name || "Member Baru";
+              const name = referral.full_name || t("dashboard.affiliate.defaultMemberName");
               const initial = getInitial(name);
               const masked = maskEmail(referral.email);
 
@@ -153,7 +155,7 @@ export default function AffiliateDesktopTable({
                           {name}
                         </p>
                         <p className="text-[10px] text-slate-400">
-                          Member DaPay
+                          {t("dashboard.affiliate.memberSubtitle")}
                         </p>
                       </div>
                     </div>
@@ -174,18 +176,18 @@ export default function AffiliateDesktopTable({
                     <div className="flex flex-col lg:flex-row items-center justify-center gap-1.5">
                       <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[9.5px] font-bold text-emerald-700">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        Terdaftar
+                        {t("dashboard.affiliate.statusRegistered")}
                       </span>
 
                       {/* Detail button on Tablet (<1024px) */}
                       <button
                         type="button"
                         onClick={() => onSelectReferral(referral)}
-                        title="Lihat Detail Member"
-                        aria-label="Lihat Detail Member"
+                        title={t("dashboard.affiliate.viewDetailAria")}
+                        aria-label={t("dashboard.affiliate.viewDetailAria")}
                         className="inline-flex lg:hidden h-6 items-center justify-center rounded-md border border-slate-200/90 bg-white px-2 text-[10px] font-bold text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:border-slate-300 hover:bg-slate-50"
                       >
-                        Detail
+                        {t("dashboard.affiliate.btnDetail")}
                       </button>
                     </div>
                   </td>
@@ -195,12 +197,12 @@ export default function AffiliateDesktopTable({
                     <button
                       type="button"
                       onClick={() => onSelectReferral(referral)}
-                      title="Lihat Detail Member"
-                      aria-label="Lihat Detail Member"
+                      title={t("dashboard.affiliate.viewDetailAria")}
+                      aria-label={t("dashboard.affiliate.viewDetailAria")}
                       className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-slate-200/90 bg-white px-2.5 text-[11px] font-bold text-slate-700 shadow-2xs transition active:scale-95 cursor-pointer hover:border-slate-300 hover:bg-slate-50"
                     >
                       <Eye size={12} />
-                      <span>Detail</span>
+                      <span>{t("dashboard.affiliate.btnDetail")}</span>
                     </button>
                   </td>
                 </tr>

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useI18n } from "@/lib/i18n/context";
 import {
   CalendarDays,
   CircleDollarSign,
@@ -15,6 +16,8 @@ interface AffiliateKpiCardsProps {
 export default function AffiliateKpiCards({
   summary,
 }: AffiliateKpiCardsProps) {
+  const { t } = useI18n();
+
   return (
     <section className="mb-4 sm:mb-5 lg:mb-6">
       <div className="grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3 sm:grid-cols-3 lg:gap-3.5 xl:gap-4 items-stretch">
@@ -36,10 +39,10 @@ export default function AffiliateKpiCards({
           <div className="relative z-10 flex items-start justify-between gap-1.5">
             <div className="min-w-0">
               <p className="truncate text-[8.5px] xs:text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider text-blue-200/80">
-                Total Komisi
+                {t("dashboard.affiliate.kpiCommission")}
               </p>
               <p className="hidden xs:block text-[8px] sm:text-[9.5px] font-medium text-blue-200/60 leading-tight">
-                Masuk ke Saldo DaPay
+                {t("dashboard.affiliate.kpiCommissionSub")}
               </p>
             </div>
 
@@ -54,7 +57,7 @@ export default function AffiliateKpiCards({
             </p>
             <div className="mt-1 flex items-center gap-1 text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-emerald-300">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="truncate">Withdrawable</span>
+              <span className="truncate">{t("dashboard.affiliate.kpiCommissionNote")}</span>
             </div>
           </div>
         </div>
@@ -71,10 +74,10 @@ export default function AffiliateKpiCards({
           <div className="relative z-10 flex items-start justify-between gap-1.5">
             <div className="min-w-0">
               <p className="truncate text-[8.5px] xs:text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
-                Member Referral
+                {t("dashboard.affiliate.kpiMembers")}
               </p>
               <p className="hidden xs:block text-[8px] sm:text-[9.5px] font-medium text-blue-600/80 leading-tight">
-                Jaringan Terhubung
+                {t("dashboard.affiliate.kpiMembersSub")}
               </p>
             </div>
 
@@ -85,11 +88,11 @@ export default function AffiliateKpiCards({
 
           <div className="relative z-10 mt-2 sm:mt-3">
             <p className="truncate text-[13px] xs:text-[15px] sm:text-lg md:text-xl xl:text-2xl font-black tracking-tight text-slate-900 leading-none">
-              {summary.totalReferralCount} Member
+              {t("dashboard.affiliate.kpiMembersCount", { count: summary.totalReferralCount })}
             </p>
             <div className="mt-1 flex items-center gap-1 text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-blue-700">
               <span className="rounded-md bg-blue-100/80 px-1 py-0.2 font-mono text-[8px] xs:text-[9px] font-bold text-blue-800">
-                {summary.totalReferralCount} Terdaftar
+                {t("dashboard.affiliate.kpiMembersRegistered", { count: summary.totalReferralCount })}
               </span>
             </div>
           </div>
@@ -107,10 +110,10 @@ export default function AffiliateKpiCards({
           <div className="relative z-10 flex items-start justify-between gap-1.5">
             <div className="min-w-0">
               <p className="truncate text-[8.5px] xs:text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
-                Komisi Bulan Ini
+                {t("dashboard.affiliate.kpiMonthly")}
               </p>
               <p className="hidden xs:block text-[8px] sm:text-[9.5px] font-medium text-emerald-600/80 leading-tight">
-                Bulan Berjalan
+                {t("dashboard.affiliate.kpiMonthlySub")}
               </p>
             </div>
 
@@ -125,7 +128,7 @@ export default function AffiliateKpiCards({
             </p>
             <div className="mt-1 flex items-center gap-1 text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-emerald-700">
               <span className="rounded-md bg-emerald-100/80 px-1 py-0.2 font-mono text-[8px] xs:text-[9px] font-bold text-emerald-800">
-                Periode Aktif
+                {t("dashboard.affiliate.kpiMonthlyNote")}
               </span>
             </div>
           </div>

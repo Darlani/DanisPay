@@ -19,6 +19,7 @@ import {
   PRESET_AMOUNTS,
   toNumber,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface DepositCreateModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export default function DepositCreateModal({
   isLoadingMethods,
   isSubmitting,
 }: DepositCreateModalProps) {
+  const { t, locale } = useI18n();
   const [amount, setAmount] = useState("");
   const [selectedMethodKey, setSelectedMethodKey] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -83,18 +85,18 @@ export default function DepositCreateModal({
 
     const trimmed = amount.trim();
     if (!/^(?:[1-9][0-9]*)$/.test(trimmed)) {
-      setValidationError("Nominal deposit harus berupa bilangan bulat positif.");
+      setValidationError(t("dashboard.deposit.valPositiveInt"));
       return;
     }
 
     const num = toNumber(trimmed);
     if (num < 10000) {
-      setValidationError("Minimal deposit adalah Rp10.000.");
+      setValidationError(t("dashboard.deposit.valMin10k"));
       return;
     }
 
     if (!effectiveMethodKey) {
-      setValidationError("Silakan pilih metode pembayaran terlebih dahulu.");
+      setValidationError(t("dashboard.deposit.valSelectMethod"));
       return;
     }
 
@@ -103,9 +105,10 @@ export default function DepositCreateModal({
       const methodMin = toNumber(method.minPrice);
       if (num < methodMin) {
         setValidationError(
-          `Minimal deposit melalui metode ${method.name} adalah ${formatRupiah(
-            methodMin,
-          )}.`,
+          t("dashboard.deposit.valMinMethod", {
+            method: method.name,
+            min: formatRupiah(methodMin),
+          }),
         );
         return;
       }
@@ -138,10 +141,10 @@ export default function DepositCreateModal({
                 id="create-deposit-title"
                 className="text-base sm:text-lg font-black tracking-tight text-slate-950 truncate"
               >
-                Isi Saldo DaPay
+                {t("dashboard.deposit.createTitle")}
               </h2>
               <p className="text-[10px] sm:text-[11px] font-medium text-slate-400 truncate">
-                Deposit instan dan otomatis masuk ke Saldo DaPay.
+                {t("dashboard.deposit.createSubtitle")}
               </p>
             </div>
           </div>
@@ -150,7 +153,7 @@ export default function DepositCreateModal({
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            aria-label="Tutup Formulir Deposit"
+            aria-label={t("dashboard.deposit.closeCreateAria")}
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition active:scale-95 cursor-pointer disabled:opacity-50"
           >
             <X size={18} />
@@ -165,7 +168,7 @@ export default function DepositCreateModal({
               htmlFor="deposit-amount-input"
               className="block text-[10.5px] font-bold uppercase tracking-wider text-slate-500 mb-1.5"
             >
-              Nominal Saldo (Rp)
+              {t("dashboard.deposit.amountLabel")}
             </label>
             <div className="relative">
               <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">
@@ -183,14 +186,14 @@ export default function DepositCreateModal({
               />
             </div>
             <p className="mt-1 text-[10px] text-slate-400 font-medium">
-              Minimal deposit Rp10.000 (bebas biaya admin).
+              {t("dashboard.deposit.minAmountNotice")}
             </p>
           </div>
 
           {/* 2. PRESET CHIPS */}
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-              Pilihan Cepat
+              {t("dashboard.deposit.quickSelect")}
             </p>
             <div className="grid grid-cols-4 gap-1.5">
               {PRESET_AMOUNTS.map((val) => {
@@ -208,8 +211,8 @@ export default function DepositCreateModal({
                     }`}
                   >
                     {val >= 1000000
-                      ? `${val / 1000000} Jt`
-                      : `${val / 1000} Rb`}
+                      ? `${val / 1000000} ${locale === "en" ? "M" : "Jt"}`
+                      : `${val / 1000} ${locale === "en" ? "k" : "Rb"}`}
                   </button>
                 );
               })}
@@ -219,7 +222,7 @@ export default function DepositCreateModal({
           {/* 3. METODE PEMBAYARAN */}
           <div>
             <p className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-              Pilih Metode Pembayaran
+              {t("dashboard.deposit.methodLabel")}
             </p>
 
             {isLoadingMethods ? (
@@ -228,7 +231,7 @@ export default function DepositCreateModal({
               </div>
             ) : paymentMethods.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-4 text-center text-xs text-slate-500">
-                Tidak ada metode pembayaran yang tersedia saat ini.
+                {t("dashboard.deposit.noMethods")}
               </div>
             ) : (
               <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
@@ -270,7 +273,7 @@ export default function DepositCreateModal({
                           </p>
                           <p className="text-[10px] text-slate-400 truncate">
                             {method.isQr
-                              ? "QRIS Real-Time Otomatis"
+                              ? t("dashboard.deposit.qrisAuto")
                               : `${method.accountNo} (${method.accountName})`}
                           </p>
                         </div>
@@ -279,7 +282,7 @@ export default function DepositCreateModal({
                       <div className="shrink-0 flex items-center gap-1.5">
                         {method.minPrice && (
                           <span className="hidden xs:inline-block rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">
-                            Min: {formatRupiah(method.minPrice)}
+                            {t("dashboard.deposit.minDeposit", { amount: formatRupiah(method.minPrice) })}
                           </span>
                         )}
                         <div
@@ -310,22 +313,22 @@ export default function DepositCreateModal({
           {/* 4. SUMMARY ESTIMASI */}
           <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-xs space-y-1.5">
             <div className="flex items-center justify-between text-slate-600">
-              <span>Nominal Saldo:</span>
+              <span>{t("dashboard.deposit.summaryBalance")}</span>
               <span className="font-bold text-slate-900">
                 {formatRupiah(numericAmount)}
               </span>
             </div>
             <div className="flex items-center justify-between text-slate-600">
-              <span>Metode:</span>
+              <span>{t("dashboard.deposit.summaryMethod")}</span>
               <span className="font-bold text-slate-900">
                 {selectedMethod?.name || "-"}
               </span>
             </div>
             {/* Catatan: Di backend/database ini adalah kode unik verifikasi (`unique_code`), ditampilkan sebagai "Biaya Layanan" pada estimasi UI */}
             <div className="border-t border-blue-100/80 pt-1.5 flex items-center justify-between font-bold text-blue-950">
-              <span>Biaya Layanan:</span>
+              <span>{t("dashboard.deposit.summaryFee")}</span>
               <span className="font-mono text-emerald-700">
-                Otomatis dibuat server
+                {t("dashboard.deposit.summaryFeeServer")}
               </span>
             </div>
           </div>
@@ -339,12 +342,12 @@ export default function DepositCreateModal({
             {isSubmitting ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                <span>Memproses Permintaan...</span>
+                <span>{t("dashboard.deposit.submitting")}</span>
               </>
             ) : (
               <>
                 <ShieldCheck size={16} />
-                <span>Lanjutkan ke Pembayaran</span>
+                <span>{t("dashboard.deposit.btnProceed")}</span>
               </>
             )}
           </button>

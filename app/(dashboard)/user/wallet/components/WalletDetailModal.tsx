@@ -16,6 +16,7 @@ import {
   getEntryMeta,
   toNumber,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface WalletDetailModalProps {
   entry: WalletEntry | null;
@@ -30,6 +31,7 @@ export default function WalletDetailModal({
   onCopy,
   isSandboxMode = false,
 }: WalletDetailModalProps) {
+  const { t } = useI18n();
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Close on Escape key
@@ -95,10 +97,10 @@ export default function WalletDetailModal({
             </div>
             <div>
               <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-tight">
-                Detail Mutasi Keuangan
+                {t("dashboard.wallet.detailTitle")}
               </h3>
               <p className="text-[10px] sm:text-xs text-slate-500 font-medium">
-                Catatan mutasi buku besar resmi
+                {t("dashboard.wallet.detailSubtitle")}
               </p>
             </div>
           </div>
@@ -106,7 +108,8 @@ export default function WalletDetailModal({
             type="button"
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
-            title="Tutup Modal"
+            title={t("dashboard.wallet.closeAria")}
+            aria-label={t("dashboard.wallet.closeAria")}
           >
             <X size={17} />
           </button>
@@ -132,7 +135,7 @@ export default function WalletDetailModal({
                 <span>{meta.label}</span>
               </span>
               <span className="rounded-md bg-white/80 px-2 py-0.5 text-[9px] font-extrabold text-slate-700 border border-slate-200/80">
-                {isCoin ? (isSandboxMode ? "KOIN VIRTUAL (SANDBOX)" : "KOIN DAPAY") : isSandboxMode ? "SALDO VIRTUAL (SANDBOX)" : "SALDO DAPAY"}
+                {isCoin ? (isSandboxMode ? t("dashboard.wallet.heroCoinSandbox") : t("dashboard.wallet.heroCoinLive")) : isSandboxMode ? t("dashboard.wallet.heroBalanceSandbox") : t("dashboard.wallet.heroBalanceLive")}
               </span>
             </div>
 
@@ -159,7 +162,7 @@ export default function WalletDetailModal({
             </p>
 
             <p className="mt-1 text-xs text-slate-600 font-semibold truncate max-w-full px-2">
-              {entry.description || "Aktivitas Keuangan"}
+              {entry.description || t("dashboard.wallet.financialActivity")}
             </p>
           </div>
 
@@ -170,16 +173,16 @@ export default function WalletDetailModal({
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2.5">
                 {isSandboxMode
                   ? isCoin
-                    ? "Perubahan Koin Virtual (Sandbox)"
-                    : "Perubahan Saldo Virtual (Sandbox)"
+                    ? t("dashboard.wallet.progressionCoinSandbox")
+                    : t("dashboard.wallet.progressionBalanceSandbox")
                   : isCoin
-                  ? "Perubahan Koin DaPay"
-                  : "Perubahan Saldo Akun"}
+                  ? t("dashboard.wallet.progressionCoin")
+                  : t("dashboard.wallet.progressionBalance")}
               </p>
               <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-2xs">
                   <p className="text-[9px] font-semibold text-slate-400">
-                    {isCoin ? "Koin Awal" : "Saldo Awal"}
+                    {isCoin ? t("dashboard.wallet.initialCoin") : t("dashboard.wallet.initialBalance")}
                   </p>
                   <p className="mt-0.5 text-xs sm:text-sm font-black text-slate-800">
                     {beforeAmount !== null && beforeAmount !== undefined
@@ -191,7 +194,7 @@ export default function WalletDetailModal({
                 </div>
                 <div className="rounded-xl border border-blue-200/80 bg-blue-50/60 p-2.5 shadow-2xs">
                   <p className="text-[9px] font-semibold text-blue-600">
-                    {isCoin ? "Koin Akhir" : "Saldo Akhir"}
+                    {isCoin ? t("dashboard.wallet.finalCoin") : t("dashboard.wallet.finalBalance")}
                   </p>
                   <p className="mt-0.5 text-xs sm:text-sm font-black text-blue-900">
                     {afterAmount !== null && afterAmount !== undefined
@@ -209,18 +212,19 @@ export default function WalletDetailModal({
           <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/80 bg-white p-1">
             {/* ID MUTASI */}
             <div className="flex items-center justify-between p-2.5 text-xs">
-              <span className="text-slate-400 font-medium">ID Mutasi</span>
+              <span className="text-slate-400 font-medium">{t("dashboard.wallet.fieldMutationId")}</span>
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-xs font-bold text-slate-900">
                   {log.id}
                 </span>
                 <button
                   type="button"
-                  onClick={() => handleCopyField(log.id, "ID Mutasi")}
+                  onClick={() => handleCopyField(log.id, t("dashboard.wallet.fieldMutationId"))}
                   className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:text-slate-600 transition cursor-pointer"
-                  title="Salin ID Mutasi"
+                  title={t("dashboard.wallet.copyMutationId")}
+                  aria-label={t("dashboard.wallet.copyMutationId")}
                 >
-                  {copiedField === "ID Mutasi" ? (
+                  {copiedField === t("dashboard.wallet.fieldMutationId") ? (
                     <Check size={12} className="text-emerald-600" />
                   ) : (
                     <Copy size={12} className="text-slate-400 hover:text-slate-600" />
@@ -231,7 +235,7 @@ export default function WalletDetailModal({
 
             {/* WAKTU */}
             <div className="flex items-center justify-between p-2.5 text-xs">
-              <span className="text-slate-400 font-medium">Waktu Transaksi</span>
+              <span className="text-slate-400 font-medium">{t("dashboard.wallet.fieldTransactionTime")}</span>
               <span className="font-semibold text-slate-900">
                 {formatDate(log.created_at)}
               </span>
@@ -239,13 +243,13 @@ export default function WalletDetailModal({
 
             {/* JENIS */}
             <div className="flex items-center justify-between p-2.5 text-xs">
-              <span className="text-slate-400 font-medium">Jenis Mutasi</span>
+              <span className="text-slate-400 font-medium">{t("dashboard.wallet.fieldMutationType")}</span>
               <span className="font-bold text-slate-900">{meta.label}</span>
             </div>
 
             {/* ARUS */}
             <div className="flex items-center justify-between p-2.5 text-xs">
-              <span className="text-slate-400 font-medium">Arah Arus</span>
+              <span className="text-slate-400 font-medium">{t("dashboard.wallet.fieldFlowDirection")}</span>
               <span
                 className={`font-bold ${
                   isIncome
@@ -255,17 +259,17 @@ export default function WalletDetailModal({
                     : "text-slate-600"
                 }`}
               >
-                {isIncome ? "Masuk (+)" : isExpense ? "Keluar (-)" : "Netral"}
+                {isIncome ? t("dashboard.wallet.flowInSigned") : isExpense ? t("dashboard.wallet.flowOutSigned") : t("dashboard.wallet.flowNeutral")}
               </span>
             </div>
 
             {/* KETERANGAN */}
             <div className="p-2.5 text-xs">
               <span className="text-slate-400 font-medium block mb-1">
-                Keterangan Lengkap
+                {t("dashboard.wallet.fieldFullDesc")}
               </span>
               <p className="rounded-xl bg-slate-50 p-2.5 text-slate-700 font-medium text-xs border border-slate-100">
-                {entry.description || "Tidak ada keterangan tambahan."}
+                {entry.description || t("dashboard.wallet.noExtraDesc")}
               </p>
             </div>
           </div>
@@ -278,7 +282,7 @@ export default function WalletDetailModal({
             onClick={onClose}
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
           >
-            Tutup
+            {t("dashboard.wallet.closeBtn")}
           </button>
         </div>
       </div>

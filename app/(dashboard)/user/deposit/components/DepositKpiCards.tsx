@@ -7,6 +7,7 @@ import {
   Clock,
   WalletCards,
 } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 import { DepositSummary, formatRupiah } from "../types";
 
 interface DepositKpiCardsProps {
@@ -16,6 +17,8 @@ interface DepositKpiCardsProps {
 export default function DepositKpiCards({
   summary,
 }: DepositKpiCardsProps) {
+  const { t } = useI18n();
+
   return (
     <section className="mb-4 sm:mb-5 lg:mb-6">
       <div className="grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3 md:grid-cols-2 lg:grid-cols-4 lg:gap-3.5 xl:gap-4 items-stretch">
@@ -37,10 +40,10 @@ export default function DepositKpiCards({
           <div className="relative z-10 flex items-start justify-between gap-1.5">
             <div className="min-w-0">
               <p className="truncate text-[8.5px] xs:text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider text-blue-200/80">
-                Saldo DaPay
+                {t("dashboard.deposit.kpiBalance")}
               </p>
               <p className="hidden xs:block text-[8px] sm:text-[9.5px] font-medium text-blue-200/60 leading-tight">
-                Aset Likuid Akun
+                {t("dashboard.deposit.kpiBalanceSub")}
               </p>
             </div>
 
@@ -55,7 +58,7 @@ export default function DepositKpiCards({
             </p>
             <div className="mt-1 flex items-center gap-1 text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-emerald-300">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="truncate">Saldo Siap Pakai</span>
+              <span className="truncate">{t("dashboard.deposit.kpiBalanceNote")}</span>
             </div>
           </div>
         </div>
@@ -72,10 +75,10 @@ export default function DepositKpiCards({
           <div className="relative z-10 flex items-start justify-between gap-1.5">
             <div className="min-w-0">
               <p className="truncate text-[8.5px] xs:text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
-                Deposit Berhasil
+                {t("dashboard.deposit.kpiSuccess")}
               </p>
               <p className="hidden xs:block text-[8px] sm:text-[9.5px] font-medium text-emerald-600/80 leading-tight">
-                Total Dana Masuk
+                {t("dashboard.deposit.kpiSuccessSub")}
               </p>
             </div>
 
@@ -90,7 +93,7 @@ export default function DepositKpiCards({
             </p>
             <div className="mt-1 flex items-center gap-1 text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-emerald-700">
               <span className="rounded-md bg-emerald-100/80 px-1 py-0.2 font-mono text-[8px] xs:text-[9px] font-bold text-emerald-800">
-                {summary.successfulCount} Transaksi
+                {t("dashboard.deposit.kpiSuccessCount", { count: summary.successfulCount })}
               </span>
             </div>
           </div>
@@ -108,10 +111,10 @@ export default function DepositKpiCards({
           <div className="relative z-10 flex items-start justify-between gap-1.5">
             <div className="min-w-0">
               <p className="truncate text-[8.5px] xs:text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
-                Menunggu Bayar
+                {t("dashboard.deposit.kpiPending")}
               </p>
               <p className="hidden xs:block text-[8px] sm:text-[9.5px] font-medium text-amber-600/80 leading-tight">
-                Permintaan Pending
+                {t("dashboard.deposit.kpiPendingSub")}
               </p>
             </div>
 
@@ -126,7 +129,7 @@ export default function DepositKpiCards({
             </p>
             <div className="mt-1 flex items-center gap-1 text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-amber-700">
               <span className="rounded-md bg-amber-100/80 px-1 py-0.2 font-mono text-[8px] xs:text-[9px] font-bold text-amber-800">
-                {summary.pendingCount} Pending
+                {t("dashboard.deposit.kpiPendingCount", { count: summary.pendingCount })}
               </span>
             </div>
           </div>
@@ -144,10 +147,10 @@ export default function DepositKpiCards({
           <div className="relative z-10 flex items-start justify-between gap-1.5">
             <div className="min-w-0">
               <p className="truncate text-[8.5px] xs:text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
-                Total Deposit
+                {t("dashboard.deposit.kpiTotal")}
               </p>
               <p className="hidden xs:block text-[8px] sm:text-[9.5px] font-medium text-violet-600/80 leading-tight">
-                Akumulasi Pengajuan
+                {t("dashboard.deposit.kpiTotalSub")}
               </p>
             </div>
 
@@ -162,7 +165,7 @@ export default function DepositKpiCards({
             </p>
             <div className="mt-1 flex items-center gap-1 text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-violet-700">
               <span className="rounded-md bg-violet-100/80 px-1 py-0.2 font-mono text-[8px] xs:text-[9px] font-bold text-violet-800">
-                {summary.totalCount} Total Pengajuan
+                {t("dashboard.deposit.kpiTotalCount", { count: summary.totalCount })}
               </span>
             </div>
           </div>

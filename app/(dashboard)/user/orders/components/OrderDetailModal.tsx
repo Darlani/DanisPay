@@ -4,6 +4,8 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 import {
   Check,
   Clock,
@@ -112,6 +114,7 @@ export default function OrderDetailModal({
   onCopy,
 }: OrderDetailModalProps) {
   const router = useRouter();
+  const { t, locale } = useI18n();
   const counterCartSnapshot = parseCounterCartSnapshot(order.notes);
   const isCounterCart = counterCartSnapshot !== null;
   const currentOrderKey = order.order_id || order.id;
@@ -251,12 +254,12 @@ export default function OrderDetailModal({
   const handleBeliLagi = () => {
     if (order.is_sandbox) {
       onClose();
-      router.push("/user?tab=catalog");
+      router.push(localizeHref("/user?tab=catalog", locale));
       return;
     }
     const slug = getProductSlug(order.product_name, order.category);
     if (!slug) {
-      window.open("/", "_blank");
+      window.open(localizeHref("/", locale), "_blank");
       return;
     }
     const params = new URLSearchParams();
@@ -268,7 +271,7 @@ export default function OrderDetailModal({
     if (order.sku) params.set("sku", order.sku);
 
     const queryStr = params.toString() ? `?${params.toString()}` : "";
-    window.open(`/${slug}${queryStr}`, "_blank");
+    window.open(localizeHref(`/${slug}${queryStr}`, locale), "_blank");
   };
 
   const handleOpenInvoice = () => {
@@ -277,7 +280,7 @@ export default function OrderDetailModal({
       return;
     }
     if (!order.order_id) return;
-    window.open(`/checkout/pay/${encodeURIComponent(order.order_id)}`, "_blank");
+    window.open(localizeHref(`/checkout/pay/${encodeURIComponent(order.order_id)}`, locale), "_blank");
   };
 
   return (
@@ -293,7 +296,7 @@ export default function OrderDetailModal({
             </div>
             <div className="min-w-0">
               <p className="text-[9px] font-black uppercase tracking-widest text-blue-600">
-                Detail Transaksi
+                {t("dashboard.orders.detailTitle")}
               </p>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h2 className="mt-0.5 truncate text-sm xs:text-base font-black tracking-tight text-slate-950">
@@ -316,7 +319,7 @@ export default function OrderDetailModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Tutup detail transaksi"
+            aria-label={t("dashboard.orders.closeDetailAria")}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 active:scale-95 cursor-pointer"
           >
             <X size={18} />
@@ -334,7 +337,7 @@ export default function OrderDetailModal({
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/80 bg-white p-1 shadow-2xs">
                   <img
                     src={productImg}
-                    alt={order.product_name || "Produk"}
+                    alt={order.product_name || t("dashboard.orders.colProduct")}
                     className="h-full w-full object-contain"
                   />
                 </div>
@@ -346,10 +349,10 @@ export default function OrderDetailModal({
 
               <div className="min-w-0">
                 <h3 className="truncate text-sm sm:text-base font-black text-slate-950">
-                  {order.product_name || "Produk Digital"}
+                  {order.product_name || (order.is_sandbox ? t("dashboard.orders.digitalProductSim") : t("dashboard.orders.digitalProduct"))}
                 </h3>
                 <p className="truncate text-xs font-semibold text-blue-600">
-                  {order.item_label || order.category || "Item Layanan"}
+                  {order.item_label || order.category || t("dashboard.orders.serviceItem")}
                 </p>
                 <p className="mt-0.5 text-[10px] text-slate-400">
                   {formatDate(order.created_at)}
@@ -373,10 +376,10 @@ export default function OrderDetailModal({
             <div className="rounded-2xl border border-emerald-200/90 bg-emerald-50/50 p-3.5 sm:p-4">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
-                  Serial Number / Token / Kode Voucher
+                  {t("dashboard.orders.serialToken")}
                 </span>
                 <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
-                  {isTokenVisible ? "Terbuka (Auto-hide 30d)" : "Privasi Terlindungi"}
+                  {isTokenVisible ? t("dashboard.orders.tokenVisible") : t("dashboard.orders.tokenProtected")}
                 </span>
               </div>
 
@@ -390,20 +393,20 @@ export default function OrderDetailModal({
                     type="button"
                     onClick={() => setIsTokenVisible((prev) => !prev)}
                     className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 text-[10px] font-bold text-slate-700 hover:bg-slate-100 transition active:scale-95 cursor-pointer"
-                    title={isTokenVisible ? "Sembunyikan Token" : "Lihat Token"}
+                    title={isTokenVisible ? t("dashboard.orders.hideToken") : t("dashboard.orders.viewToken")}
                   >
                     {isTokenVisible ? <EyeOff size={13} /> : <Eye size={13} />}
-                    <span>{isTokenVisible ? "Tutup" : "Lihat"}</span>
+                    <span>{isTokenVisible ? t("dashboard.orders.closeToken") : t("dashboard.orders.seeToken")}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleCopyRawToken}
                     className="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-[10px] font-bold text-white hover:bg-emerald-700 transition active:scale-95 cursor-pointer"
-                    title="Salin Token Asli"
+                    title={t("dashboard.orders.copyRawToken")}
                   >
                     {copiedToken ? <Check size={13} /> : <Copy size={13} />}
-                    <span>{copiedToken ? "Tersalin!" : "Salin"}</span>
+                    <span>{copiedToken ? t("dashboard.orders.tokenCopied") : t("dashboard.orders.copy")}</span>
                   </button>
                 </div>
               </div>
@@ -418,10 +421,10 @@ export default function OrderDetailModal({
               </div>
               <div className="min-w-0 flex-1 text-xs">
                 <p className="font-bold text-slate-900">
-                  Batas Waktu Pembayaran Berakhir (Expired)
+                  {t("dashboard.orders.expiredTitle")}
                 </p>
                 <p className="mt-0.5 text-[11px] leading-relaxed text-slate-600">
-                  Pesanan ini telah kedaluwarsa karena tidak ada pembayaran yang diselesaikan dalam batas waktu. Silakan klik tombol <strong>Beli Lagi</strong> untuk membuat pesanan baru.
+                  {t("dashboard.orders.expiredDesc")}
                 </p>
               </div>
             </div>
@@ -435,22 +438,21 @@ export default function OrderDetailModal({
               </div>
               <div className="min-w-0 flex-1 text-xs">
                 <p className="font-bold text-rose-950">
-                  Dana Otomatis Dikembalikan (Refund)
+                  {t("dashboard.orders.refundTitle")}
                 </p>
                 <p className="mt-0.5 text-[11px] leading-relaxed text-rose-800/90">
-                  Transaksi dibatalkan oleh sistem. Pembayaran telah dikembalikan utuh ke{" "}
-                  <strong className="font-bold text-rose-950">Saldo / Koin DaPay</strong> Anda.
+                  {t("dashboard.orders.refundDesc")}
                 </p>
                 {(usedBalance > 0 || usedCoin > 0) && (
                   <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold">
                     {usedBalance > 0 && (
                       <span className="rounded-md bg-white/90 px-2 py-0.5 text-blue-700 border border-rose-200">
-                        + {formatRupiah(usedBalance)} Saldo
+                        {t("dashboard.orders.refundBalance", { amount: formatRupiah(usedBalance) })}
                       </span>
                     )}
                     {usedCoin > 0 && (
                       <span className="rounded-md bg-white/90 px-2 py-0.5 text-purple-700 border border-rose-200">
-                        + {formatCoins(usedCoin)} Koin
+                        {t("dashboard.orders.refundCoin", { amount: formatCoins(usedCoin) })}
                       </span>
                     )}
                   </div>
@@ -465,12 +467,12 @@ export default function OrderDetailModal({
           {/* TRANSACTION METADATA DETAILS */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 space-y-2.5 text-xs">
             <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 pb-1 border-b border-slate-100">
-              Rincian Pembayaran & Pelanggan
+              {t("dashboard.orders.metadataTitle")}
             </p>
 
             {/* Order ID */}
             <div className="flex items-center justify-between gap-2">
-              <span className="text-slate-400">Order ID:</span>
+              <span className="text-slate-400">{t("dashboard.orders.orderIdLabel")}</span>
               <div className="flex items-center gap-1.5">
                 <span className="font-mono font-bold text-slate-800">
                   {order.order_id || order.id}
@@ -479,7 +481,7 @@ export default function OrderDetailModal({
                   type="button"
                   onClick={handleCopyOrderId}
                   className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-blue-600 transition"
-                  title="Salin Order ID"
+                  title={t("dashboard.orders.copyOrderId")}
                 >
                   {copiedOrderId ? <Check size={12} /> : <Copy size={12} />}
                 </button>
@@ -489,7 +491,7 @@ export default function OrderDetailModal({
             {/* Target ID / Customer No */}
             {order.customer_no && (
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-400">Nomor / ID Tujuan:</span>
+                <span className="text-slate-400">{t("dashboard.orders.targetNumberLabel")}</span>
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-slate-900">
                     {order.customer_no}
@@ -498,7 +500,7 @@ export default function OrderDetailModal({
                     type="button"
                     onClick={handleCopyCustNo}
                     className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-blue-600 transition"
-                    title="Salin ID Pelanggan"
+                    title={t("dashboard.orders.copyCustNo")}
                   >
                     {copiedCustNo ? <Check size={12} /> : <Copy size={12} />}
                   </button>
@@ -509,7 +511,7 @@ export default function OrderDetailModal({
             {/* Customer Name */}
             {customerName && (
               <div className="flex items-center justify-between gap-2">
-                <span className="text-slate-400">Nama / Nickname:</span>
+                <span className="text-slate-400">{t("dashboard.orders.customerNameLabel")}</span>
                 <span className="font-bold text-slate-900 uppercase">
                   {customerName}
                 </span>
@@ -518,7 +520,7 @@ export default function OrderDetailModal({
 
             {/* Payment Method */}
             <div className="flex items-center justify-between gap-2">
-              <span className="text-slate-400">Metode Pembayaran:</span>
+              <span className="text-slate-400">{t("dashboard.orders.paymentMethodLabel")}</span>
               <div className="flex items-center gap-1.5">
                 {paymentLogo && (
                   <div className="flex h-5 w-8 items-center justify-center overflow-hidden rounded border border-slate-200 bg-white p-0.5 shadow-2xs">
@@ -538,14 +540,14 @@ export default function OrderDetailModal({
             {/* Used Balance if mixed */}
             {usedBalance > 0 && order.payment_method !== "Saldo" && (
               <div className="flex items-center justify-between gap-2 text-blue-700">
-                <span>Potongan Saldo DaPay:</span>
+                <span>{t("dashboard.orders.balanceDeductionLabel")}</span>
                 <span className="font-bold">{formatRupiah(usedBalance)}</span>
               </div>
             )}
 
             {/* Total Amount */}
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
-              <span className="font-bold text-slate-700">Total Pembayaran:</span>
+              <span className="font-bold text-slate-700">{t("dashboard.orders.totalPaymentLabel")}</span>
               <span className="text-sm font-black text-slate-950">
                 {formatRupiah(totalAmount)}
               </span>
@@ -566,7 +568,7 @@ export default function OrderDetailModal({
                 className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 sm:px-4 text-xs font-bold text-slate-700 hover:bg-slate-100 transition active:scale-95 cursor-pointer shadow-2xs"
               >
                 {copiedCustNo ? <Check size={14} /> : <Copy size={14} />}
-                <span>{copiedCustNo ? "ID Tersalin!" : "Salin ID Pelanggan"}</span>
+                <span>{copiedCustNo ? t("dashboard.orders.custNoCopied") : t("dashboard.orders.copyCustNo")}</span>
               </button>
             )}
 
@@ -580,7 +582,7 @@ export default function OrderDetailModal({
                   className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 sm:px-4 text-xs font-black text-amber-900 hover:bg-amber-100 transition active:scale-95 cursor-pointer shadow-2xs"
                 >
                   <Receipt size={14} className="text-amber-700" />
-                  <span>{isCounterCart ? "Buka Struk Kasir" : "Buka Struk Simulasi"}</span>
+                  <span>{isCounterCart ? t("dashboard.orders.openCashierReceipt") : t("dashboard.orders.openSimReceipt")}</span>
                 </button>
 
                 {/* Simulasi Lagi CTA */}
@@ -590,7 +592,7 @@ export default function OrderDetailModal({
                   className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 px-4 sm:px-5 text-xs font-black text-slate-950 shadow-sm transition active:scale-95 cursor-pointer"
                 >
                   <FlaskConical size={14} />
-                  <span>Simulasi Lagi →</span>
+                  <span>{t("dashboard.orders.simulateAgain")}</span>
                 </button>
               </>
             ) : (
@@ -603,7 +605,7 @@ export default function OrderDetailModal({
                     className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 sm:px-4 text-xs font-black text-amber-900 hover:bg-amber-100 transition active:scale-95 cursor-pointer shadow-2xs"
                   >
                     <Receipt size={14} className="text-amber-700" />
-                    <span>Buka Struk Kasir</span>
+                    <span>{t("dashboard.orders.openCashierReceipt")}</span>
                   </button>
                 )}
 
@@ -614,7 +616,7 @@ export default function OrderDetailModal({
                   className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/80 px-3 sm:px-4 text-xs font-bold text-blue-700 hover:bg-blue-100 transition active:scale-95 cursor-pointer shadow-2xs"
                 >
                   <Download size={14} />
-                  <span>Lihat Struk / Invoice</span>
+                  <span>{t("dashboard.orders.viewInvoice")}</span>
                 </button>
 
                 {/* 3. Beli Lagi CTA (Live only) */}
@@ -624,7 +626,7 @@ export default function OrderDetailModal({
                   className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 sm:px-5 text-xs font-black text-white hover:bg-blue-700 transition active:scale-95 cursor-pointer shadow-sm"
                 >
                   <ShoppingBag size={14} />
-                  <span>Beli Lagi →</span>
+                  <span>{t("dashboard.orders.buyAgain")}</span>
                 </button>
               </>
             )}

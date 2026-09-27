@@ -9,6 +9,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { WalletSummary, formatCoins, formatRupiah } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface WalletKpiCardsProps {
   summary: WalletSummary;
@@ -18,6 +19,7 @@ interface WalletKpiCardsProps {
 export default function WalletKpiCards({
   summary,
 }: WalletKpiCardsProps) {
+  const { t } = useI18n();
   return (
     <section className="mb-4 sm:mb-5 grid grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-2.5 sm:gap-3.5 md:gap-4 xl:gap-5">
       {/* ============================================================ */}
@@ -35,7 +37,7 @@ export default function WalletKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-white/15 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-blue-100 backdrop-blur-xs ring-1 ring-white/20">
               <CircleDollarSign size={9} className="shrink-0 text-cyan-300" />
-              <span className="truncate">Saldo DaPay</span>
+              <span className="truncate">{t("dashboard.wallet.kpiBalance")}</span>
             </span>
           </div>
 
@@ -49,7 +51,7 @@ export default function WalletKpiCards({
             {formatRupiah(summary.balance)}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-medium text-blue-100/80">
-            Dapat ditarik / ditransaksikan
+            {t("dashboard.wallet.kpiBalanceNote")}
           </p>
         </div>
       </div>
@@ -62,7 +64,7 @@ export default function WalletKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-emerald-100/80 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-800">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-              <span className="truncate">Saldo Masuk</span>
+              <span className="truncate">{t("dashboard.wallet.kpiIncome")}</span>
             </span>
           </div>
 
@@ -76,7 +78,7 @@ export default function WalletKpiCards({
             {formatRupiah(summary.totalIncome)}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-emerald-700">
-            Akumulasi deposit & top up
+            {t("dashboard.wallet.kpiIncomeNote")}
           </p>
         </div>
       </div>
@@ -89,7 +91,7 @@ export default function WalletKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-rose-100/80 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-rose-800">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
-              <span className="truncate">Saldo Keluar</span>
+              <span className="truncate">{t("dashboard.wallet.kpiExpense")}</span>
             </span>
           </div>
 
@@ -103,7 +105,7 @@ export default function WalletKpiCards({
             {formatRupiah(summary.totalExpense)}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-rose-700">
-            Pembelian & penarikan saldo
+            {t("dashboard.wallet.kpiExpenseNote")}
           </p>
         </div>
       </div>
@@ -116,7 +118,7 @@ export default function WalletKpiCards({
           <div className="min-w-0 flex-1 flex justify-start">
             <span className="inline-flex items-center gap-1 max-w-full truncate rounded-full bg-violet-100/90 px-1.5 xs:px-2 py-0.5 text-[8px] xs:text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-violet-800">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
-              <span className="truncate">Koin DaPay</span>
+              <span className="truncate">{t("dashboard.wallet.kpiCoins")}</span>
             </span>
           </div>
 
@@ -130,7 +132,7 @@ export default function WalletKpiCards({
             {formatCoins(summary.coinBalance)}
           </p>
           <p className="mt-0.5 xs:mt-1 truncate text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-violet-700">
-            Reward & cashback belanja
+            {t("dashboard.wallet.kpiCoinsNote")}
           </p>
         </div>
       </div>

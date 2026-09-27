@@ -1,5 +1,12 @@
 import { supabase } from "@/utils/supabaseClient";
+import { getLocaleFromPathname } from "@/lib/i18n/config";
+import { createTranslator } from "@/lib/i18n/dictionaries";
 import { BalanceLog, Profile, Referral } from "../types";
+
+function getClientT() {
+  const locale = typeof window !== "undefined" ? getLocaleFromPathname(window.location.pathname) : "id";
+  return createTranslator(locale);
+}
 
 export interface AffiliateDashboardSnapshot {
   profile: Profile;
@@ -12,12 +19,13 @@ export const affiliateService = {
    * Fetch current user's affiliate data snapshot from server API
    */
   async fetchAffiliateData(): Promise<AffiliateDashboardSnapshot> {
+    const t = getClientT();
     const {
       data: { session },
     } = await supabase.auth.getSession();
 
     if (!session?.access_token) {
-      throw new Error("Sesi login berakhir. Silakan masuk kembali.");
+      throw new Error(t("dashboard.settings.errSessionExpired"));
     }
 
     const response = await fetch("/api/user/dashboard", {
@@ -35,7 +43,7 @@ export const affiliateService = {
     const result = await response.json();
 
     if (!response.ok || !result.success) {
-      throw new Error(result.error || "Gagal memuat data afiliasi.");
+      throw new Error(result.error || t("dashboard.affiliate.errLoadData"));
     }
 
     return {

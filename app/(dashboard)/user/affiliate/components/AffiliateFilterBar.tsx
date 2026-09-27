@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
+import { useI18n } from "@/lib/i18n/context";
 import { CalendarDays, ChevronDown, RotateCcw, Search, X } from "lucide-react";
 import {
   AffiliateFilters,
@@ -27,8 +28,26 @@ export default function AffiliateFilterBar({
   onDateChange,
   onResetFilters,
 }: AffiliateFilterBarProps) {
+  const { t } = useI18n();
   const desktopDateInputRef = useRef<HTMLInputElement>(null);
   const mobileDateInputRef = useRef<HTMLInputElement>(null);
+
+  const getSortOptionLabel = (val: MemberSortOption) => {
+    switch (val) {
+      case "all":
+        return t("dashboard.affiliate.filterSortAll");
+      case "newest":
+        return t("dashboard.affiliate.filterSortNewest");
+      case "oldest":
+        return t("dashboard.affiliate.filterSortOldest");
+      case "name_asc":
+        return t("dashboard.affiliate.filterSortNameAsc");
+      case "name_desc":
+        return t("dashboard.affiliate.filterSortNameDesc");
+      default:
+        return val;
+    }
+  };
 
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
@@ -67,12 +86,12 @@ export default function AffiliateFilterBar({
             <select
               value={filters.sortBy}
               onChange={(e) => onSortChange(e.target.value as MemberSortOption)}
-              aria-label="Filter pengurutan member downline"
+              aria-label={t("dashboard.affiliate.filterSortAria")}
               className="h-8.5 w-full appearance-none rounded-xl border border-slate-200/90 bg-slate-50/90 px-2.5 pr-7 text-[11px] font-bold text-slate-700 outline-none transition hover:bg-slate-100/80 focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100 cursor-pointer truncate"
             >
               {MEMBER_FILTER_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {getSortOptionLabel(opt.value)}
                 </option>
               ))}
             </select>
@@ -86,7 +105,7 @@ export default function AffiliateFilterBar({
           <button
             type="button"
             onClick={handleToggleMobileSearch}
-            aria-label="Buka Pencarian Member"
+            aria-label={t("dashboard.affiliate.searchToggleAria")}
             className={`flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-xl border transition active:scale-95 cursor-pointer ${
               filters.search || isMobileSearchOpen
                 ? "border-amber-400 bg-amber-50 text-amber-600 shadow-2xs"
@@ -103,7 +122,7 @@ export default function AffiliateFilterBar({
               type="date"
               value={filters.date}
               onChange={(e) => onDateChange(e.target.value)}
-              aria-label="Filter Tanggal Bergabung"
+              aria-label={t("dashboard.affiliate.dateAria")}
               className="sr-only"
               tabIndex={-1}
             />
@@ -112,10 +131,10 @@ export default function AffiliateFilterBar({
               onClick={() => handleDateIconClick("mobile")}
               title={
                 filters.date
-                  ? `Tanggal: ${formatDateOnly(filters.date)} (Klik untuk ubah)`
-                  : "Filter Tanggal Bergabung"
+                  ? t("dashboard.affiliate.dateActiveTitle", { date: formatDateOnly(filters.date) })
+                  : t("dashboard.affiliate.dateAria")
               }
-              aria-label="Filter Tanggal Bergabung"
+              aria-label={t("dashboard.affiliate.dateAria")}
               className={`relative flex h-8.5 w-8.5 items-center justify-center rounded-xl border transition active:scale-95 cursor-pointer shadow-2xs ${
                 filters.date
                   ? "border-amber-400 bg-amber-50 text-amber-600 font-bold ring-2 ring-amber-500/20"
@@ -134,8 +153,8 @@ export default function AffiliateFilterBar({
             <button
               type="button"
               onClick={onResetFilters}
-              title="Reset Filter"
-              aria-label="Reset Filter"
+              title={t("dashboard.affiliate.resetFilter")}
+              aria-label={t("dashboard.affiliate.resetFilter")}
               className="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-red-100"
             >
               <RotateCcw size={12} />
@@ -155,8 +174,8 @@ export default function AffiliateFilterBar({
               type="search"
               value={filters.search}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Cari nama atau email member..."
-              aria-label="Cari member downline"
+              placeholder={t("dashboard.affiliate.searchPlaceholder")}
+              aria-label={t("dashboard.affiliate.searchAria")}
               className="h-8.5 w-full rounded-xl border border-amber-200 bg-amber-50/40 pl-8.5 pr-8 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
             />
             <button
@@ -165,7 +184,7 @@ export default function AffiliateFilterBar({
                 onSearchChange("");
                 setIsMobileSearchOpen(false);
               }}
-              aria-label="Tutup pencarian"
+              aria-label={t("dashboard.affiliate.closeSearchAria")}
               className="absolute right-2.5 flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-700 cursor-pointer"
             >
               <X size={12} />
@@ -183,12 +202,12 @@ export default function AffiliateFilterBar({
           <select
             value={filters.sortBy}
             onChange={(e) => onSortChange(e.target.value as MemberSortOption)}
-            aria-label="Filter pengurutan member downline"
+            aria-label={t("dashboard.affiliate.filterSortAria")}
             className="h-9.5 w-full appearance-none rounded-xl border border-slate-200/90 bg-slate-50/80 px-3 pr-8 text-xs font-bold text-slate-700 outline-none transition hover:bg-slate-100/80 focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100 cursor-pointer truncate"
           >
             {MEMBER_FILTER_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {opt.label}
+                {getSortOptionLabel(opt.value)}
               </option>
             ))}
           </select>
@@ -208,15 +227,15 @@ export default function AffiliateFilterBar({
             type="search"
             value={filters.search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Cari nama atau email member downline..."
-            aria-label="Cari member downline"
+            placeholder={t("dashboard.affiliate.searchPlaceholderDesktop")}
+            aria-label={t("dashboard.affiliate.searchAria")}
             className="h-9.5 w-full rounded-xl border border-slate-200/90 bg-slate-50/80 pl-8.5 pr-8 text-xs font-medium text-slate-800 placeholder-slate-400 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
           />
           {filters.search && (
             <button
               type="button"
               onClick={() => onSearchChange("")}
-              aria-label="Hapus pencarian"
+              aria-label={t("dashboard.affiliate.clearSearchAria")}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
             >
               <X size={13} />
@@ -231,7 +250,7 @@ export default function AffiliateFilterBar({
             type="date"
             value={filters.date}
             onChange={(e) => onDateChange(e.target.value)}
-            aria-label="Filter Tanggal Bergabung"
+            aria-label={t("dashboard.affiliate.dateAria")}
             className="sr-only"
             tabIndex={-1}
           />
@@ -240,10 +259,10 @@ export default function AffiliateFilterBar({
             onClick={() => handleDateIconClick("desktop")}
             title={
               filters.date
-                ? `Tanggal: ${formatDateOnly(filters.date)} (Klik untuk ubah)`
-                : "Filter Tanggal Bergabung"
+                ? t("dashboard.affiliate.dateActiveTitle", { date: formatDateOnly(filters.date) })
+                : t("dashboard.affiliate.dateAria")
             }
-            aria-label="Filter Tanggal Bergabung"
+            aria-label={t("dashboard.affiliate.dateAria")}
             className={`relative flex h-9.5 w-9.5 items-center justify-center rounded-xl border transition active:scale-95 cursor-pointer shadow-2xs ${
               filters.date
                 ? "border-amber-400 bg-amber-50 text-amber-700 font-bold ring-2 ring-amber-500/20"
@@ -262,12 +281,12 @@ export default function AffiliateFilterBar({
           <button
             type="button"
             onClick={onResetFilters}
-            title="Reset Filter"
-            aria-label="Reset Filter"
+            title={t("dashboard.affiliate.resetFilter")}
+            aria-label={t("dashboard.affiliate.resetFilter")}
             className="flex h-9.5 shrink-0 items-center gap-1.5 rounded-xl border border-red-200 bg-red-50/80 px-3 text-xs font-bold text-red-600 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-red-100"
           >
             <RotateCcw size={12} />
-            <span className="hidden xs:inline">Reset</span>
+            <span className="hidden xs:inline">{t("dashboard.affiliate.resetBtn")}</span>
           </button>
         )}
       </div>

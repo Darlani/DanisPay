@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 interface WalletPaginationProps {
   page: number;
@@ -20,6 +21,7 @@ export default function WalletPagination({
   onPageChange,
   onLimitChange,
 }: WalletPaginationProps) {
+  const { t } = useI18n();
   const start = totalItems === 0 ? 0 : (page - 1) * limit + 1;
   const end = totalItems === 0 ? 0 : Math.min(page * limit, totalItems);
 
@@ -30,18 +32,20 @@ export default function WalletPagination({
       {/* Items Summary & Limit Selector */}
       <div className="flex items-center justify-between gap-3 text-xs text-slate-500 sm:justify-start">
         <span>
-          Menampilkan <strong className="font-bold text-slate-900">{start}</strong>–
-          <strong className="font-bold text-slate-900">{end}</strong> dari{" "}
-          <strong className="font-bold text-slate-900">{totalItems}</strong> mutasi
+          {t("dashboard.wallet.showingPagination", {
+            start: String(start),
+            end: String(end),
+            total: String(totalItems),
+          })}
         </span>
 
         {onLimitChange && (
           <div className="flex items-center gap-1 text-[11px]">
-            <span className="hidden xs:inline text-slate-400">Baris:</span>
+            <span className="hidden xs:inline text-slate-400">{t("dashboard.wallet.rowsLabel")}</span>
             <select
               value={limit}
               onChange={(e) => onLimitChange(Number(e.target.value))}
-              aria-label="Jumlah baris per halaman"
+              aria-label={t("dashboard.wallet.rowsAria")}
               className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-700 outline-none transition hover:border-slate-300 focus:border-blue-500 focus:bg-white cursor-pointer shadow-2xs"
             >
               <option value={10}>10</option>
@@ -60,7 +64,8 @@ export default function WalletPagination({
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs"
-          title="Halaman Sebelumnya"
+          title={t("dashboard.wallet.prevPage")}
+          aria-label={t("dashboard.wallet.prevPage")}
         >
           <ChevronLeft size={15} />
         </button>
@@ -105,7 +110,8 @@ export default function WalletPagination({
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs"
-          title="Halaman Berikutnya"
+          title={t("dashboard.wallet.nextPage")}
+          aria-label={t("dashboard.wallet.nextPage")}
         >
           <ChevronRight size={15} />
         </button>

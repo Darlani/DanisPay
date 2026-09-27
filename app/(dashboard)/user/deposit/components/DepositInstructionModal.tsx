@@ -16,6 +16,7 @@ import {
   formatRupiah,
   toNumber,
 } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface DepositInstructionModalProps {
   instruction: DepositInstruction | null;
@@ -34,6 +35,7 @@ export default function DepositInstructionModal({
   isProcessing,
   onCopy,
 }: DepositInstructionModalProps) {
+  const { t } = useI18n();
   const qrRef = useRef<HTMLDivElement>(null);
 
   // ESC key and body scroll lock
@@ -109,10 +111,10 @@ export default function DepositInstructionModal({
                 id="deposit-instruction-title"
                 className="text-base sm:text-lg font-black tracking-tight text-slate-950 truncate"
               >
-                Instruksi Pembayaran
+                {t("dashboard.deposit.instructionTitle")}
               </h2>
               <p className="text-[10px] sm:text-[11px] font-medium text-slate-400 truncate">
-                Lakukan transfer sesuai rincian berikut.
+                {t("dashboard.deposit.instructionSubtitle")}
               </p>
             </div>
           </div>
@@ -121,7 +123,7 @@ export default function DepositInstructionModal({
             type="button"
             onClick={onClose}
             disabled={isProcessing}
-            aria-label="Tutup Instruksi Deposit"
+            aria-label={t("dashboard.deposit.closeInstructionAria")}
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition active:scale-95 cursor-pointer disabled:opacity-50"
           >
             <X size={18} />
@@ -133,7 +135,7 @@ export default function DepositInstructionModal({
           {/* TOTAL TRANSFER HIGHLIGHT BOX */}
           <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-4 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-              Total Pembayaran Persis
+              {t("dashboard.deposit.exactTotalTitle")}
             </p>
             <div className="mt-1 flex items-center justify-center gap-2">
               <span className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
@@ -141,9 +143,9 @@ export default function DepositInstructionModal({
               </span>
               <button
                 type="button"
-                onClick={() => onCopy(totalAmount, "Total Pembayaran")}
-                title="Salin Total Pembayaran"
-                aria-label="Salin Total Pembayaran"
+                onClick={() => onCopy(totalAmount, t("dashboard.deposit.exactTotalTitle"))}
+                title={t("dashboard.deposit.copyPaymentTotal")}
+                aria-label={t("dashboard.deposit.copyPaymentTotal")}
                 className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-emerald-700 shadow-2xs hover:bg-emerald-100 transition active:scale-95 cursor-pointer"
               >
                 <Copy size={13} />
@@ -152,7 +154,7 @@ export default function DepositInstructionModal({
             {/* Catatan: Di backend/database nilai ini adalah `uniqueCode` (kode unik verifikasi), ditampilkan sebagai "Biaya Layanan" pada UI */}
             {uniqueCode > 0 && (
               <p className="mt-1.5 text-[10.5px] font-semibold text-emerald-800">
-                Termasuk biaya layanan:{" "}
+                {t("dashboard.deposit.includesServiceFee")}
                 <span className="font-mono font-bold bg-white/80 px-1.5 py-0.5 rounded-md border border-emerald-200">
                   +{uniqueCode}
                 </span>
@@ -164,7 +166,7 @@ export default function DepositInstructionModal({
           {isQr ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 text-center">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3">
-                Pindai QRIS (Semua E-Wallet & Mobile Banking)
+                {t("dashboard.deposit.scanQris")}
               </p>
 
               <div
@@ -182,7 +184,7 @@ export default function DepositInstructionModal({
                   <div className="flex h-50 w-50 flex-col items-center justify-center gap-2 text-slate-400">
                     <Loader2 size={24} className="animate-spin text-blue-600" />
                     <span className="text-xs font-semibold">
-                      Memuat QR Code...
+                      {t("dashboard.deposit.loadingQr")}
                     </span>
                   </div>
                 )}
@@ -195,7 +197,7 @@ export default function DepositInstructionModal({
                   className="mt-3.5 inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition active:scale-95 cursor-pointer"
                 >
                   <Download size={13} />
-                  <span>Unduh QR Code</span>
+                  <span>{t("dashboard.deposit.downloadQr")}</span>
                 </button>
               ) : (
                 <button
@@ -208,20 +210,20 @@ export default function DepositInstructionModal({
                     size={13}
                     className={isProcessing ? "animate-spin" : ""}
                   />
-                  <span>Muat Ulang QRIS</span>
+                  <span>{t("dashboard.deposit.reloadQris")}</span>
                 </button>
               )}
             </div>
           ) : (
             <div className="space-y-2.5 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 text-xs">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Tujuan Transfer: {payment.name}
+                {t("dashboard.deposit.transferTarget", { name: payment.name })}
               </p>
 
               <div className="flex items-center justify-between rounded-xl bg-white p-2.5 border border-slate-200/80 shadow-2xs">
                 <div>
                   <p className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
-                    Nomor Rekening / Akun
+                    {t("dashboard.deposit.accountNumberLabel")}
                   </p>
                   <p className="font-mono text-sm font-black text-slate-900">
                     {payment.accountNo}
@@ -229,7 +231,9 @@ export default function DepositInstructionModal({
                 </div>
                 <button
                   type="button"
-                  onClick={() => onCopy(payment.accountNo, "Nomor Rekening")}
+                  onClick={() => onCopy(payment.accountNo, t("dashboard.deposit.accountNumberLabel"))}
+                  title={t("dashboard.deposit.copyAccountNo")}
+                  aria-label={t("dashboard.deposit.copyAccountNo")}
                   className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-50 text-slate-700 hover:bg-slate-100 transition active:scale-95 cursor-pointer"
                 >
                   <Copy size={13} />
@@ -239,7 +243,7 @@ export default function DepositInstructionModal({
               <div className="flex items-center justify-between rounded-xl bg-white p-2.5 border border-slate-200/80 shadow-2xs">
                 <div>
                   <p className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
-                    Atas Nama Rekening
+                    {t("dashboard.deposit.accountNameLabel")}
                   </p>
                   <p className="text-xs font-bold text-slate-900">
                     {payment.accountName}
@@ -253,11 +257,9 @@ export default function DepositInstructionModal({
           <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/90 bg-amber-50/70 p-3 text-xs font-medium text-amber-800">
             <AlertCircle size={16} className="shrink-0 text-amber-600 mt-0.5" />
             <div>
-              <p className="font-bold">Penting:</p>
+              <p className="font-bold">{t("dashboard.deposit.importantNotice")}</p>
               <p className="text-[11px] leading-relaxed mt-0.5">
-                Pastikan transfer nominal persis hingga 3 digit terakhir. Sistem
-                akan otomatis memverifikasi dan menambahkan Saldo DaPay Anda dalam
-                1-3 menit.
+                {t("dashboard.deposit.importantNoticeDesc")}
               </p>
             </div>
           </div>
@@ -274,7 +276,7 @@ export default function DepositInstructionModal({
                 size={14}
                 className={isProcessing ? "animate-spin" : ""}
               />
-              <span>Saya Sudah Bayar (Cek Saldo)</span>
+              <span>{t("dashboard.deposit.btnAlreadyPaid")}</span>
             </button>
 
             <button
@@ -282,7 +284,7 @@ export default function DepositInstructionModal({
               onClick={onClose}
               className="flex h-10.5 w-full sm:w-auto px-4 items-center justify-center rounded-xl border border-slate-200/90 bg-slate-50 text-xs font-bold text-slate-700 hover:bg-slate-100 transition active:scale-95 cursor-pointer"
             >
-              Tutup
+              {t("dashboard.deposit.closeModal")}
             </button>
           </div>
         </div>

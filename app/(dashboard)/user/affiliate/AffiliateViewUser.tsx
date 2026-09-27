@@ -10,6 +10,7 @@ import {
 import { BalanceLog, Profile, Referral } from "./types";
 import { useAffiliateData } from "./hooks/useAffiliateData";
 import { useAffiliateFilters } from "./hooks/useAffiliateFilters";
+import { useI18n } from "@/lib/i18n/context";
 import AffiliateReferralBanner from "./components/AffiliateReferralBanner";
 import AffiliateKpiCards from "./components/AffiliateKpiCards";
 import AffiliateRecentCommission from "./components/AffiliateRecentCommission";
@@ -34,6 +35,8 @@ export default function AffiliateViewUser({
   isSidebarExpanded = false,
   onRefresh,
 }: AffiliateViewUserProps) {
+  const { t } = useI18n();
+
   // SWR DATA HOOK
   const {
     profile,
@@ -72,7 +75,7 @@ export default function AffiliateViewUser({
     if (!text || text === "-") return;
     try {
       await navigator.clipboard.writeText(text);
-      setToastMessage(`${label} berhasil disalin!`);
+      setToastMessage(t("dashboard.affiliate.toastCopied", { label }));
       setTimeout(() => setToastMessage(null), 2500);
     } catch {
       // Fallback
@@ -112,7 +115,7 @@ export default function AffiliateViewUser({
             className="flex items-center gap-1 font-bold text-rose-800 underline hover:no-underline cursor-pointer"
           >
             <RotateCcw size={12} />
-            <span>Coba Lagi</span>
+            <span>{t("dashboard.affiliate.retry")}</span>
           </button>
         </div>
       )}
@@ -139,13 +142,13 @@ export default function AffiliateViewUser({
           </div>
           <h3 className="mt-3.5 text-sm font-bold text-slate-800">
             {isFiltered
-              ? "Tidak ditemukan member yang sesuai"
-              : "Belum ada member yang bergabung"}
+              ? t("dashboard.affiliate.emptyFilteredTitle")
+              : t("dashboard.affiliate.emptyTitle")}
           </h3>
           <p className="mt-1 text-xs text-slate-400 max-w-sm">
             {isFiltered
-              ? "Coba ubah kata kunci pencarian atau reset filter tanggal Anda."
-              : "Bagikan link referral Anda untuk mulai membangun jaringan member downline."}
+              ? t("dashboard.affiliate.emptyFilteredDesc")
+              : t("dashboard.affiliate.emptyDesc")}
           </p>
           {isFiltered && (
             <div className="mt-4 flex items-center gap-2">
@@ -155,7 +158,7 @@ export default function AffiliateViewUser({
                 className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 active:scale-95 cursor-pointer"
               >
                 <RotateCcw size={12} />
-                <span>Reset Filter</span>
+                <span>{t("dashboard.affiliate.resetFilter")}</span>
               </button>
             </div>
           )}

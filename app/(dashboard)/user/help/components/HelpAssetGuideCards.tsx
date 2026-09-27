@@ -3,6 +3,7 @@
 import React from "react";
 import { CheckCircle2, Coins, Sparkles, Wallet } from "lucide-react";
 import { HelpCategory } from "../types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface HelpAssetGuideCardsProps {
   onSelectCategory: (category: HelpCategory, shouldScroll?: boolean) => void;
@@ -11,15 +12,17 @@ interface HelpAssetGuideCardsProps {
 export default function HelpAssetGuideCards({
   onSelectCategory,
 }: HelpAssetGuideCardsProps) {
+  const { t } = useI18n();
+
   return (
     <section className="mb-4 sm:mb-5 rounded-2xl md:rounded-3xl border border-slate-200/80 bg-white/95 p-3 xs:p-4 sm:p-5 md:p-6 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/60">
       {/* Section Header Inside Container */}
       <div className="mb-3 sm:mb-4 pb-2.5 sm:pb-3 border-b border-slate-100">
         <h2 className="text-sm xs:text-base sm:text-lg font-black tracking-tight text-slate-900 leading-tight">
-          Kenali Aset DaPay Anda
+          {t("dashboard.help.assetGuideTitle")}
         </h2>
         <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500">
-          Pahami perbedaan Saldo DaPay dan Koin DaPay
+          {t("dashboard.help.assetGuideSubtitle")}
         </p>
       </div>
 
@@ -29,34 +32,34 @@ export default function HelpAssetGuideCards({
         <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-[22px] border border-emerald-200/80 bg-linear-to-br from-white via-emerald-50/50 to-teal-100/30 p-2.5 xs:p-3.5 sm:p-5 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/70 transition-all duration-200 hover:shadow-xs">
           {/* Badge Aset Likuid di Pojok Kanan Atas Container (Hidden on <640px Mobile, Visible on >=640px Tablet & Desktop) */}
           <span className="hidden sm:inline-flex absolute sm:top-4 sm:right-4 items-center rounded-full border border-emerald-300 bg-emerald-100/90 px-2 py-0.5 text-[9.5px] sm:text-[10px] font-bold text-emerald-800 shadow-2xs">
-            Aset Likuid
+            {t("dashboard.help.assetLiquidBadge")}
           </span>
 
           <div>
             {/* Header: Icon + Title sejajar di dasar masing-masing icon */}
             <div className="flex items-end gap-1.5 xs:gap-2.5 sm:gap-3 pr-0 sm:pr-20">
               {/* Glowing Ambient Avatar */}
-              <div className="relative flex h-7.5 w-7.5 xs:h-9 xs:w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl sm:rounded-2xl border border-emerald-300/60 bg-linear-to-br from-emerald-500 to-teal-600 text-white shadow-[0_6px_16px_rgba(16,185,129,0.25)] ring-2 xs:ring-3 sm:ring-4 ring-emerald-100/80">
+              <div className="relative flex h-7.5 w-7.5 xs:h-9 xs:w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl sm:rounded-2xl border border-emerald-300/60 bg-linear-to-br from-emerald-500 to-teal-600 text-white shadow-[0_6px_16px_rgba(160,185,129,0.25)] ring-2 xs:ring-3 sm:ring-4 ring-emerald-100/80">
                 <Wallet size={15} strokeWidth={2.2} className="xs:hidden" />
                 <Wallet size={18} strokeWidth={2.2} className="hidden xs:block sm:hidden" />
                 <Wallet size={21} strokeWidth={2.2} className="hidden sm:block" />
               </div>
 
               <h3 className="pb-0.5 text-[11.5px] xs:text-sm sm:text-base font-black tracking-tight text-slate-900 leading-tight">
-                Saldo DaPay
+                {t("dashboard.help.saldoTitle")}
               </h3>
             </div>
 
             {/* Description Text */}
             <p className="mt-2 xs:mt-2.5 text-[10px] xs:text-[11.5px] sm:text-xs text-slate-600 leading-relaxed">
-              Saldo utama yang dapat digunakan belanja dan dapat ditarik ke rekening / e-wallet.
+              {t("dashboard.help.saldoDesc")}
             </p>
 
             {/* Checklist */}
             <div className="mt-2.5 xs:mt-3.5 space-y-1 xs:space-y-1.5 border-t border-emerald-100/80 pt-2 xs:pt-3">
-              <CheckItem text="Dapat digunakan untuk semua produk digital" tone="emerald" />
-              <CheckItem text="Dapat ditarik ke rekening bank / e-wallet" tone="emerald" />
-              <CheckItem text="Bersumber dari deposit, refund, komisi" tone="emerald" />
+              <CheckItem text={t("dashboard.help.saldoCheck1")} tone="emerald" />
+              <CheckItem text={t("dashboard.help.saldoCheck2")} tone="emerald" />
+              <CheckItem text={t("dashboard.help.saldoCheck3")} tone="emerald" />
             </div>
           </div>
 
@@ -66,7 +69,7 @@ export default function HelpAssetGuideCards({
               onClick={() => onSelectCategory("balance", true)}
               className="inline-flex items-center gap-1 text-[10.5px] xs:text-xs font-bold text-emerald-700 transition hover:text-emerald-800 hover:underline cursor-pointer"
             >
-              <span>Pelajari lebih lanjut</span>
+              <span>{t("dashboard.help.learnMore")}</span>
               <span>→</span>
             </button>
           </div>
@@ -76,7 +79,7 @@ export default function HelpAssetGuideCards({
         <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl xs:rounded-2xl md:rounded-[22px] border border-purple-200/80 bg-linear-to-br from-white via-purple-50/50 to-violet-100/30 p-2.5 xs:p-3.5 sm:p-5 shadow-2xs backdrop-blur-md ring-1 ring-inset ring-white/70 transition-all duration-200 hover:shadow-xs">
           {/* Badge Aset Reward di Pojok Kanan Atas Container (Hidden on <640px Mobile, Visible on >=640px Tablet & Desktop) */}
           <span className="hidden sm:inline-flex absolute sm:top-4 sm:right-4 items-center rounded-full border border-purple-300 bg-purple-100/90 px-2 py-0.5 text-[9.5px] sm:text-[10px] font-bold text-purple-800 shadow-2xs">
-            Aset Reward
+            {t("dashboard.help.assetRewardBadge")}
           </span>
 
           <div>
@@ -94,20 +97,20 @@ export default function HelpAssetGuideCards({
               </div>
 
               <h3 className="pb-0.5 text-[11.5px] xs:text-sm sm:text-base font-black tracking-tight text-slate-900 leading-tight">
-                Koin DaPay
+                {t("dashboard.help.coinTitle")}
               </h3>
             </div>
 
             {/* Description Text */}
             <p className="mt-2 xs:mt-2.5 text-[10px] xs:text-[11.5px] sm:text-xs text-slate-600 leading-relaxed">
-              Koin reward/cashback dari transaksi untuk potongan belanja hemat di DaPay.
+              {t("dashboard.help.coinDesc")}
             </p>
 
             {/* Checklist */}
             <div className="mt-2.5 xs:mt-3.5 space-y-1 xs:space-y-1.5 border-t border-purple-100/80 pt-2 xs:pt-3">
-              <CheckItem text="Hanya untuk produk pendukung koin" tone="purple" />
-              <CheckItem text="Tidak dapat dicairkan / ditarik ke bank" tone="purple" />
-              <CheckItem text="Bersumber dari cashback & promo loyalitas" tone="purple" />
+              <CheckItem text={t("dashboard.help.coinCheck1")} tone="purple" />
+              <CheckItem text={t("dashboard.help.coinCheck2")} tone="purple" />
+              <CheckItem text={t("dashboard.help.coinCheck3")} tone="purple" />
             </div>
           </div>
 
@@ -117,7 +120,7 @@ export default function HelpAssetGuideCards({
               onClick={() => onSelectCategory("coin", true)}
               className="inline-flex items-center gap-1 text-[10.5px] xs:text-xs font-bold text-purple-700 transition hover:text-purple-800 hover:underline cursor-pointer"
             >
-              <span>Pelajari lebih lanjut</span>
+              <span>{t("dashboard.help.learnMore")}</span>
               <span>→</span>
             </button>
           </div>

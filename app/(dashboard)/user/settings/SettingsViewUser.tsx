@@ -7,6 +7,7 @@ import SettingsProfileCard from "./components/SettingsProfileCard";
 import SettingsSecurityCard from "./components/SettingsSecurityCard";
 import { useSettingsData } from "./hooks/useSettingsData";
 import { SettingsSection, UserProfile } from "./types";
+import { useI18n } from "@/lib/i18n/context";
 
 interface SettingsViewUserProps {
   initialProfile?: UserProfile | null;
@@ -23,6 +24,7 @@ export default function SettingsViewUser({
   isSidebarExpanded,
   onRefresh,
 }: SettingsViewUserProps) {
+  const { t } = useI18n();
   void isSidebarExpanded;
   void onSectionChange;
 
@@ -65,7 +67,7 @@ export default function SettingsViewUser({
           <button
             type="button"
             onClick={dismissToast}
-            aria-label="Tutup notifikasi"
+            aria-label={t("dashboard.settings.closeToastAria")}
             className="ml-2 text-slate-400 hover:text-white transition cursor-pointer"
           >
             <X size={14} />
@@ -85,7 +87,7 @@ export default function SettingsViewUser({
             onClick={revalidate}
             className="font-bold text-rose-800 underline hover:no-underline cursor-pointer"
           >
-            Coba Lagi
+            {t("dashboard.settings.retry")}
           </button>
         </div>
       )}
@@ -94,7 +96,7 @@ export default function SettingsViewUser({
       <main
         id={`panel-${currentSection}`}
         role="region"
-        aria-label="Pengaturan Akun"
+        aria-label={t("dashboard.settings.regionAria")}
         className="w-full min-w-0"
       >
         {currentSection === "profile" && (

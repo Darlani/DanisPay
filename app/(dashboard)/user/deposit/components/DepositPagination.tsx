@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 interface DepositPaginationProps {
   page: number;
@@ -22,6 +23,8 @@ export default function DepositPagination({
   onNext,
   onPage,
 }: DepositPaginationProps) {
+  const { t } = useI18n();
+
   if (totalPages <= 1 && totalItems <= pageSize) {
     return null;
   }
@@ -71,13 +74,11 @@ export default function DepositPagination({
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 pb-2 text-xs text-slate-500">
       {/* Information string */}
       <p className="text-[11px] xs:text-xs font-medium">
-        Menampilkan{" "}
-        <strong className="font-bold text-slate-800">
-          {totalItems > 0 ? `${startItem}-${endItem}` : 0}
-        </strong>{" "}
-        dari{" "}
-        <strong className="font-bold text-slate-800">{totalItems}</strong>{" "}
-        data deposit
+        {t("dashboard.deposit.paginationShowing", {
+          start: totalItems > 0 ? startItem : 0,
+          end: totalItems > 0 ? endItem : 0,
+          total: totalItems,
+        })}
       </p>
 
       {/* Pagination controls */}
@@ -86,7 +87,7 @@ export default function DepositPagination({
           type="button"
           onClick={onPrevious}
           disabled={page <= 1}
-          aria-label="Halaman Sebelumnya"
+          aria-label={t("dashboard.deposit.prevPage")}
           className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ChevronLeft size={15} />
@@ -112,7 +113,7 @@ export default function DepositPagination({
               key={pageNum}
               type="button"
               onClick={() => onPage(pageNum)}
-              aria-label={`Halaman ${pageNum}`}
+              aria-label={t("dashboard.deposit.pageAria", { page: pageNum })}
               className={`flex h-8 min-w-8 px-2 items-center justify-center rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${
                 isActive
                   ? "border border-blue-500 bg-blue-600 text-white shadow-2xs"
@@ -128,7 +129,7 @@ export default function DepositPagination({
           type="button"
           onClick={onNext}
           disabled={page >= totalPages}
-          aria-label="Halaman Selanjutnya"
+          aria-label={t("dashboard.deposit.nextPage")}
           className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-2xs transition active:scale-95 cursor-pointer hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ChevronRight size={15} />
