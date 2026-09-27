@@ -31,76 +31,49 @@ export default function DaPayCheck({
           ? "w-12 h-12"
           : "w-7 h-7 min-[380px]:w-8 min-[380px]:h-8 sm:w-9 sm:h-9 md:w-10 md:h-10";
 
-  // Position handling:
-  // Default to top-left corner ribbon.
-  // If parent passes legacy 'bottom-1' / 'right-1' (from ProductSection.tsx),
-  // strip them and anchor to top-0 left-0 so DaPayCheck is always top-left without modifying ProductSection.
-  const hasLegacyBottomRight =
-    className.includes("bottom-1") && className.includes("right-1");
-  const cleanClassName = hasLegacyBottomRight
-    ? className
-        .replace(/\bbottom-\S+/g, "")
-        .replace(/\bright-\S+/g, "")
-        .trim()
-    : className;
-
-  const positioning =
-    hasLegacyBottomRight || (!cleanClassName.includes("top-") && !cleanClassName.includes("bottom-"))
-      ? "top-0 left-0"
-      : "";
-
-  // If parent container passes legacy badge offset (top-1/left-1), snap back to exact card corner
-  const cornerAlignment =
-    cleanClassName.includes("top-1") && cleanClassName.includes("left-1")
-      ? "-translate-x-1 -translate-y-1"
-      : "";
-
   return (
     <div
       role="status"
       aria-label="Checked"
-      className={`select-none pointer-events-none ${dimensionClasses} ${positioning} ${cornerAlignment} ${cleanClassName}`}
+      className={`select-none pointer-events-none ${dimensionClasses} ${className}`}
     >
-      {/* Corner wrapper with top-left curvature matching card squircles (16px mobile, 22px desktop, zero outer seam) */}
-      <div className="w-full h-full rounded-tl-2xl md:rounded-tl-[22px] overflow-hidden">
-        <svg
-          viewBox="0 0 40 40"
-          className="w-full h-full block"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor={COLOR_CONFIG.gradient[0]} />
-              <stop offset="60%" stopColor={COLOR_CONFIG.gradient[1]} />
-              <stop offset="100%" stopColor={COLOR_CONFIG.gradient[2]} />
-            </linearGradient>
-          </defs>
+      <svg
+        viewBox="0 0 40 40"
+        className="w-full h-full block"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={COLOR_CONFIG.gradient[0]} />
+            <stop offset="60%" stopColor={COLOR_CONFIG.gradient[1]} />
+            <stop offset="100%" stopColor={COLOR_CONFIG.gradient[2]} />
+          </linearGradient>
+        </defs>
 
-          {/* 1. Diagonal Corner Triangle Ribbon (Top-Left) */}
-          <path d="M 0,0 L 40,0 L 0,40 Z" fill={`url(#${gradientId})`} />
+        {/* 1. Diagonal Corner Triangle Ribbon (Top-Left) */}
+        <path d="M 0,0 L 40,0 L 0,40 Z" fill={`url(#${gradientId})`} />
 
-          {/* 2. Crisp Separation Line Along Hypotenuse */}
-          <line
-            x1="40"
-            y1="0"
-            x2="0"
-            y2="40"
-            stroke={COLOR_CONFIG.stroke}
-            strokeWidth="1.2"
-          />
+        {/* 2. Crisp Separation Line Along Hypotenuse */}
+        <line
+          x1="40"
+          y1="0"
+          x2="0"
+          y2="40"
+          stroke={COLOR_CONFIG.stroke}
+          strokeWidth="0.36"
+        />
 
-          {/* 3. Bold White Checkmark with Soft/Rounded Joints */}
-          <path
-            d="M 9.5,13.5 L 13.5,17.5 L 19.5,10"
-            stroke={COLOR_CONFIG.checkColor}
-            strokeWidth="3.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]"
-          />
-        </svg>
-      </div>
+        {/* 3. Bold White Checkmark with Soft/Rounded Joints */}
+        <path
+          d="M 9.5,13.5 L 13.5,17.5 L 19.5,10"
+          stroke={COLOR_CONFIG.checkColor}
+          strokeWidth="3.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]"
+        />
+      </svg>
     </div>
   );
 }

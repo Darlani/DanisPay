@@ -1,4 +1,11 @@
 import React from "react";
+import localFont from "next/font/local";
+
+const angryBirds = localFont({
+  src: "../../public/fonts/AngryBirds-Regular.ttf",
+  variable: "--font-angry-birds",
+  display: "swap",
+});
 
 export type DaPayHotVariant = "red" | "gold" | "blue" | "dark";
 export type DaPayHotSize = "sm" | "md" | "lg" | "responsive";
@@ -66,67 +73,56 @@ export default function DaPayHot({
           ? "w-12 h-12"
           : "w-7 h-7 min-[380px]:w-8 min-[380px]:h-8 sm:w-9 sm:h-9 md:w-10 md:h-10";
 
-  // If parent container passes legacy badge offset (top-1/left-1), snap back to exact card corner
-  const cornerAlignment =
-    className.includes("top-1") && className.includes("left-1")
-      ? "-translate-x-1 -translate-y-1"
-      : "";
-
   return (
     <div
       role="status"
       aria-label={label}
-      className={`relative select-none pointer-events-none ${dimensionClasses} ${cornerAlignment} ${className}`}
+      className={`relative select-none pointer-events-none ${angryBirds.variable} ${dimensionClasses} ${className}`}
     >
-      {/* Corner wrapper with top-left curvature matching card squircles (16px mobile, 22px desktop, zero outer seam) */}
-      <div className="w-full h-full rounded-tl-2xl md:rounded-tl-[22px] overflow-hidden">
-        <svg
-          viewBox="0 0 40 40"
-          className="w-full h-full block"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
+      <svg
+        viewBox="0 0 40 40"
+        className="w-full h-full block"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={config.gradient[0]} />
+            <stop offset="60%" stopColor={config.gradient[1]} />
+            <stop offset="100%" stopColor={config.gradient[2]} />
+          </linearGradient>
+        </defs>
+
+        {/* 1. Diagonal Corner Triangle Ribbon */}
+        <path d="M 0,0 L 40,0 L 0,40 Z" fill={`url(#${gradientId})`} />
+
+        {/* 2. Crisp Separation Line Along Hypotenuse */}
+        <line
+          x1="40"
+          y1="0"
+          x2="0"
+          y2="40"
+          stroke={config.stroke}
+          strokeWidth="0.36"
+        />
+
+        {/* 3. Theme-Aware / Contrast-Aware Rotated HOT Text (Angry Birds Regular specification) */}
+        <text
+          x="13.5"
+          y="13.5"
+          transform="rotate(-45 13.5 13.5)"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="currentColor"
+          style={{
+            fontFamily: `var(--font-angry-birds), ${angryBirds.style.fontFamily}, "AngryBirds", "Angry Birds", var(--font-poppins), var(--font-comfortaa), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
+          }}
+          className={`${angryBirds.className} ${config.textColor} font-normal tracking-wider leading-none select-none`}
+          fontSize="9"
         >
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor={config.gradient[0]} />
-              <stop offset="60%" stopColor={config.gradient[1]} />
-              <stop offset="100%" stopColor={config.gradient[2]} />
-            </linearGradient>
-          </defs>
-
-          {/* 1. Diagonal Corner Triangle Ribbon */}
-          <path d="M 0,0 L 40,0 L 0,40 Z" fill={`url(#${gradientId})`} />
-
-          {/* 2. Crisp Separation Line Along Hypotenuse */}
-          <line
-            x1="40"
-            y1="0"
-            x2="0"
-            y2="40"
-            stroke={config.stroke}
-            strokeWidth="1.2"
-          />
-
-          {/* 3. Theme-Aware / Contrast-Aware Rotated HOT Text (Modern Love Bold specification) */}
-          <text
-            x="13.5"
-            y="13.5"
-            transform="rotate(-45 13.5 13.5)"
-            textAnchor="middle"
-            dominantBaseline="central"
-            fill="currentColor"
-            style={{
-              fontFamily:
-                '"Modern Love Bold", "Modern Love", var(--font-poppins), var(--font-comfortaa), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              fontWeight: 800,
-            }}
-            className={`${config.textColor} font-black tracking-wider leading-none select-none`}
-            fontSize="9"
-          >
-            {label}
-          </text>
-        </svg>
-      </div>
+          {label}
+        </text>
+      </svg>
     </div>
   );
 }

@@ -44,7 +44,8 @@
     "lastBill": "Last Bill",
     "shortcutLabel": "Shortcut",
     "openShortcut": "Open Shortcut",
-    "closeShortcut": "Close Shortcut"
+    "closeShortcut": "Close Shortcut",
+      "shortcutTrayAria": "Category Shortcuts Panel"
   },
   "navigation": {
     "home": "Home",

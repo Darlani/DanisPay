@@ -84,7 +84,7 @@ const fetchBanners = async () => {
   if (banners.length === 0) {
     return (
       <section className="w-full max-w-full overflow-hidden py-4 md:py-6">
-        <div className="aspect-3/2 md:aspect-auto md:h-[270px] max-w-[625px] mx-auto w-full flex flex-col items-center justify-center rounded-[24px] md:rounded-[40px] border border-white/5 bg-[#0B0E14]/50">
+        <div className="aspect-3/2 md:aspect-auto md:h-67.5 max-w-156.25 mx-auto w-full flex flex-col items-center justify-center rounded-3xl md:rounded-[40px] border border-white/5 bg-[#0B0E14]/50">
            
            {/* Container Logo: Ukuran ditingkatkan ke w-64 md:w-96 */}
            <div className="relative w-48 h-24 md:w-72 md:h-36 animate-pulse">
@@ -137,11 +137,34 @@ const fetchBanners = async () => {
         }
         @media (min-width: 768px) {
           .banner-slide-prev {
-            transform: translateX(calc(1.425 * 100% - 50vw)) scale(0.85);
+            transform: translateX(42.5%) scale(0.85);
+            opacity: 0.55;
           }
           .banner-slide-next {
-            transform: translateX(calc(-1.425 * 100% + 50vw)) scale(0.85);
+            transform: translateX(-42.5%) scale(0.85);
+            opacity: 0.55;
           }
+        }
+        @media (min-width: 1920px) {
+          .banner-slide-prev {
+            opacity: 0.5;
+          }
+          .banner-slide-next {
+            opacity: 0.5;
+          }
+          .nav-arrow-prev {
+            left: calc(50% - 500px) !important;
+          }
+          .nav-arrow-next {
+            right: calc(50% - 500px) !important;
+          }
+        }
+        /* Sembunyikan hanya preview card yang berada jauh di pojok */
+        .banner-slide-far {
+          opacity: 0 !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+          z-index: 0 !important;
         }
       `}</style>
 
@@ -155,6 +178,9 @@ const fetchBanners = async () => {
                 diff = diff > 0 ? diff - total : diff + total;
               }
               const isActive = index === selectedIndex;
+              const isAdjacentPrev = diff === -1;
+              const isAdjacentNext = diff === 1;
+              const isFar = !isActive && !isAdjacentPrev && !isAdjacentNext;
               
               // LOGIKA SMART LINK YANG RAMAH TYPESCRIPT
               // Banner cuma bisa diklik kalau ada link-nya DAN status is_active-nya TRUE
@@ -163,20 +189,22 @@ const fetchBanners = async () => {
                 : null;
               const isLinkActive = Boolean(targetHref);
               
-              // Bungkus style dan class biar nggak ditulis dua kali
+              // Pisahkan slide aktif, background ambient terdekat, dan kartu jauh yang disembunyikan
               const slideTransformClass = isActive
                 ? 'banner-slide-active'
-                : diff < 0
+                : isAdjacentPrev
                   ? 'banner-slide-prev'
-                  : 'banner-slide-next';
+                  : isAdjacentNext
+                    ? 'banner-slide-next'
+                    : 'banner-slide-far';
 
               const wrapperClasses = `slide-inner-container ${slideTransformClass} block h-full w-full ${isActive ? (isLinkActive ? 'cursor-pointer' : 'cursor-default opacity-80') : 'cursor-default pointer-events-none'}`;
 
               // Isi Visual Banner (Biar gak ketik ulang)
               const InnerBannerContent = (
                 <div className={`
-                  zoom-layer relative aspect-3/2 md:aspect-auto md:h-[270px] w-full rounded-[24px] md:rounded-[40px] overflow-hidden transition-transform duration-500
-                  ${isActive ? 'shadow-[0_40px_80px_-15px_rgba(0,0,0,0.8)] ring-2 ring-white/10' : 'shadow-none blur-[1px]'}
+                  zoom-layer relative aspect-3/2 md:aspect-auto md:h-67.5 2xl:h-72.5 w-full rounded-3xl md:rounded-[40px] overflow-hidden transition-transform duration-500
+                  ${isActive ? 'shadow-[0_40px_80px_-15px_rgba(0,0,0,0.8)] ring-2 ring-white/10' : 'shadow-none blur-[2px]'}
                 `}>
               <Image
                 src={banner.src}
@@ -206,9 +234,9 @@ const fetchBanners = async () => {
 
               return (
                 <div 
-                  className={`flex-[0_0_90%] md:flex-[0_0_50%] min-w-0 relative ${isActive ? 'banner-wrapper' : ''}`}
+                  className={`flex-[0_0_90%] md:flex-[0_0_50%] md:max-w-200 min-w-0 relative ${isActive ? 'banner-wrapper' : ''}`}
                   key={banner.id}
-                  style={{ zIndex: isActive ? 30 : 10 }}
+                  style={{ zIndex: isActive ? 30 : isFar ? 0 : 10 }}
                 >
                   {/* Eksekusi Kondisi Link (TS Senang, UI Aman) */}
                   {targetHref ? (
@@ -233,14 +261,14 @@ const fetchBanners = async () => {
         <button
           onClick={() => emblaApi?.scrollPrev()}
           aria-label={t("common.prevSlide")}
-          className="absolute left-0 md:left-4 top-1/2 -translate-y-1/2 z-50 bg-white/10 backdrop-blur-xl hover:bg-blue-600 p-3 md:p-4 rounded-full border border-white/10 opacity-0 group-hover/main:opacity-100 transition-all cursor-pointer"
+          className="nav-arrow-prev absolute left-0 md:left-4 top-1/2 -translate-y-1/2 z-50 bg-white/10 backdrop-blur-xl hover:bg-blue-600 p-3 md:p-4 rounded-full border border-white/10 opacity-0 group-hover/main:opacity-100 transition-all cursor-pointer"
         >
           <ChevronLeft size={28} className="text-white" />
         </button>
         <button
           onClick={() => emblaApi?.scrollNext()}
           aria-label={t("common.nextSlide")}
-          className="absolute right-0 md:right-4 top-1/2 -translate-y-1/2 z-50 bg-white/10 backdrop-blur-xl hover:bg-blue-600 p-3 md:p-4 rounded-full border border-white/10 opacity-0 group-hover/main:opacity-100 transition-all cursor-pointer"
+          className="nav-arrow-next absolute right-0 md:right-4 top-1/2 -translate-y-1/2 z-50 bg-white/10 backdrop-blur-xl hover:bg-blue-600 p-3 md:p-4 rounded-full border border-white/10 opacity-0 group-hover/main:opacity-100 transition-all cursor-pointer"
         >
           <ChevronRight size={28} className="text-white" />
         </button>

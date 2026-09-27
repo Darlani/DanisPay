@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/utils/supabaseClient";
 import BannerCarousel from '@/components/BannerCarousel';
+import BannerPopularDivider from '@/components/dapay/BannerPopularDivider';
 import ProductSection, { BrandItem } from '@/components/ProductSection';
 import CategoryShortcut from '../components/CategoryShortcut';
 import { useI18n } from "@/lib/i18n/context";
@@ -744,6 +745,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#0f172a]">
       <BannerCarousel />
+      <BannerPopularDivider />
       <CategoryShortcut
         categories={shortcutCategories}
         availableSectionIds={catalogSections.map((s) => s.id)}

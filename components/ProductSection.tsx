@@ -54,7 +54,7 @@ export default function ProductSection({
         isPopular
           ? hasTopSection
             ? 'pt-2 sm:pt-3 pb-2 sm:pb-3'
-            : '-mt-3 sm:-mt-5 pt-0 pb-2 sm:pb-3'
+            : 'mt-1 sm:mt-1.5 pt-0 pb-2 sm:pb-3'
           : 'pt-6 pb-4'
       }`}
       style={{ scrollMarginTop: '120px' }}

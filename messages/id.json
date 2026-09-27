@@ -44,7 +44,8 @@
     "lastBill": "Tagihan Terakhir",
     "shortcutLabel": "Pintasan",
     "openShortcut": "Buka Pintasan",
-    "closeShortcut": "Tutup Pintasan"
+    "closeShortcut": "Tutup Pintasan",
+      "shortcutTrayAria": "Panel Pintasan Kategori"
   },
   "navigation": {
     "home": "Beranda",
@@ -2034,7 +2035,7 @@
     }
   },
   "categories": {
-    "game": "Game Top Up",
+    "game": "Top Up Game",
     "voucher": "Voucher & Gift Card",
     "entertainment": "Entertainment & Subscription",
     "pulsa": "Pulsa & Data Seluler",
