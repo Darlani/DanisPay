@@ -34,7 +34,7 @@ export default function PreFooterInfo() {
 
   return (
     <section className="bg-[#0b1120] border-t border-slate-800/80 text-slate-300 py-3 sm:py-4 transition-colors">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-2.5">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-20 space-y-2.5">
         {/* JUDUL UTAMA & TOPIK 1 (SELALU TAMPIL SEBAGAI PROFIL UTAMA) */}
         <div className="space-y-1.5">
           <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">

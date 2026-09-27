@@ -23,7 +23,7 @@ import {
 import { supabase } from "@/utils/supabaseClient";
 import PublicSandboxFaqAccordion from "@/components/sandbox/PublicSandboxFaqAccordion";
 import { CURATED_SANDBOX_PRODUCTS } from "@/lib/sandbox/curated-catalog";
-import { type Locale } from "@/lib/i18n/config";
+import { type Locale, localizeHref } from "@/lib/i18n/config";
 import { useI18n } from "@/lib/i18n/context";
 
 const UUID_REGEX =
@@ -217,7 +217,8 @@ export default function PublicSandboxPage({ locale }: PublicSandboxPageProps = {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      const targetHref = session ? "/user" : "/login";
+      const rawTarget = session ? "/user" : "/login";
+      const targetHref = localizeHref(rawTarget, currentLocale);
 
       try {
         const anonId = getOrCreateAnonymousId();
@@ -244,7 +245,7 @@ export default function PublicSandboxPage({ locale }: PublicSandboxPageProps = {
 
       router.push(targetHref);
     } catch {
-      router.push("/login");
+      router.push(localizeHref("/login", currentLocale));
     } finally {
       setIsLoading(false);
     }

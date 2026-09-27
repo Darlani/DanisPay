@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useRef } from "react";
 import { supabase } from "@/utils/supabaseClient";
@@ -50,10 +50,10 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
       if (res.ok && result.success) {
         setOrder(result.data);
       } else {
-        setError(result.error || "Invoice tidak ditemukan. Cek lagi kodenya, Bos!");
+        setError(result.error || t("tracking.notFound"));
       }
     } catch (err) {
-      setError("Gagal koneksi ke server.");
+      setError(t("tracking.serverError"));
     } finally {
       setLoading(false);
     }
@@ -154,7 +154,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
                       <Gamepad2 className="text-white" size={20} />
                     </div>
                     <div className="text-left flex-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Official Receipt</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("receipt.officialReceipt")}</p>
                       <p className="text-sm font-bold text-slate-900 leading-tight">DanisPay Digital</p>
                     </div>
                   </div>
@@ -173,8 +173,8 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
                       <p className="text-xs font-semibold text-slate-500">{t("receipt.product")}</p>
                       <h4 className="text-lg font-bold text-slate-900 leading-tight">{order.item_label}</h4>
                       <div className="flex flex-col gap-1 text-sm mt-2">
-                        <p className="font-medium text-slate-600"><span className="text-slate-400">ID Order:</span> {order.order_id}</p>
-                        <p className="font-medium text-slate-600"><span className="text-slate-400">ID Game:</span> {order.customer_no}</p>
+                        <p className="font-medium text-slate-600"><span className="text-slate-400">{t("tracking.orderIdLabel")}:</span> {order.order_id}</p>
+                        <p className="font-medium text-slate-600"><span className="text-slate-400">{t("tracking.customerIdLabel")}:</span> {order.customer_no}</p>
                       </div>
                     </div>
 
@@ -222,7 +222,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: { isOpen: b
 
         {/* FOOTER */}
         <div className="p-4 bg-slate-50 border-t border-slate-100 text-center shrink-0">
-          <p className="text-[11px] font-semibold text-slate-400 tracking-wide">DanisPay - Safe & Fast Transaction</p>
+          <p className="text-[11px] font-semibold text-slate-400 tracking-wide">{t("common.safeFastTx")}</p>
         </div>
 
       </div>

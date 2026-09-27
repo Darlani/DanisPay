@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRef, useState, useEffect, useMemo } from "react";
 import {
@@ -148,7 +148,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
   // 💡 Tambahkan isPolling agar sistem tahu ini jemput bola antrean atau refresh manual biasa
   const handleInquiryGame = async (forceRefresh = false, isPolling = false) => {
     if (inquirySkus.length === 0) return true;
-    if (!accId || accId.length < 3) { setErrorMsg("ID terlalu pendek!"); return false; }
+    if (!accId || accId.length < 3) { setErrorMsg(t("products.ppob.idTooShort")); return false; }
 
     // 💡 CEK LIMIT REFRESH MANUAL (Bypass/Abaikan limit jika ini adalah aksi Jemput Bola)
     if (forceRefresh && !isPolling) {
@@ -225,7 +225,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
 
         return true;
       } else {
-        setErrorMsg(result.message || "ID tidak ditemukan / gangguan.");
+        setErrorMsg(result.message || t("products.game.inquiryFailed"));
         return false;
       }
     } catch (err) {
@@ -363,6 +363,27 @@ export default function InterfaceGame(props: InterfaceGameProps) {
   useEffect(() => { if (availableCategories.length > 0 && !availableCategories.includes(advCategory)) setAdvCategory(availableCategories[0]); }, [availableCategories, advCategory]);
   useEffect(() => { if (availableSubCats.length > 0 && !availableSubCats.includes(advSubCategory)) setAdvSubCategory(availableSubCats[0]); }, [availableSubCats, advSubCategory]);
 
+  // Sinkronisasi tab/kategori aktif saat varian dipilih otomatis dari URL (?sku=...)
+  useEffect(() => {
+    if (!selectedItemId || !processedItems.length) return;
+    const matched = (
+      processedItems as Array<{
+        id?: string | number;
+        isAdvGame?: boolean;
+        advRegion?: string;
+        advCategory?: string;
+        sub_brand?: string;
+      }>
+    ).find((it) => String(it.id) === String(selectedItemId));
+    if (!matched) return;
+    if (matched.isAdvGame) {
+      if (matched.advRegion) setAdvRegion(matched.advRegion);
+      if (matched.advCategory) setAdvCategory(matched.advCategory);
+    } else if (matched.sub_brand) {
+      setActiveTab(String(matched.sub_brand));
+    }
+  }, [selectedItemId, processedItems]);
+
   const filteredItems = useMemo(() => {
     if (!processedItems) return [];
 
@@ -471,18 +492,18 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                     <span className="bg-[#4ADE80] text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm">TOP UP</span>
                   </div>
                   <h1 className="text-lg font-black leading-tight text-slate-800 tracking-tight uppercase wrap-break-word italic">{product.name}</h1>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic">Proses Instan & Terverifikasi Aman</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic">{t("products.common.instantAndVerified")}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2 mb-8">
                 <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-full border border-slate-100">
                   <div className="bg-slate-200 p-1 rounded-full text-slate-600 shrink-0"><ShieldCheck size={14} /></div>
-                  <span className="text-[10px] font-bold text-slate-600 leading-tight italic">Official Supply</span>
+                  <span className="text-[10px] font-bold text-slate-600 leading-tight italic">{t("products.common.officialSupply")}</span>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-full border border-slate-100">
                   <div className="bg-slate-200 p-1 rounded-full text-slate-600 shrink-0"><CircleDollarSign size={14} /></div>
-                  <span className="text-[10px] font-bold text-slate-600 leading-tight italic">Money Back</span>
+                  <span className="text-[10px] font-bold text-slate-600 leading-tight italic">{t("products.common.moneyBack")}</span>
                 </div>
               </div>
 
@@ -810,12 +831,12 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                     </div>
                     {customerName && (
                       <p className="text-[10px] font-black text-emerald-600 bg-emerald-50 p-2 rounded-lg animate-in zoom-in uppercase">
-                        👤 Nickname: {customerName}
+                        👤 {t("products.game.nicknameLabel")}: {customerName}
                       </p>
                     )}
                     {errorMsg && (
                       <p className={`text-[10px] font-black italic ${errorMsg.includes('antrean') || errorMsg.includes('Pending') ? 'text-blue-500' : 'text-rose-500'}`}>
-                        {errorMsg.includes('antrean') || errorMsg.includes('Pending') ? '⏳ Mengamankan jalur ke server...' : '❌ ID tidak ditemukan / Server sibuk'}
+                        {errorMsg.includes('antrean') || errorMsg.includes('Pending') ? t("products.game.securingPath") : t("products.game.idNotFoundServerBusy")}
                       </p>
                     )}
                   </div>
@@ -824,7 +845,7 @@ export default function InterfaceGame(props: InterfaceGameProps) {
                     <div className="w-full md:w-1/3 space-y-3 animate-in fade-in slide-in-from-left-4 duration-500">
                       <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-2 justify-start">
                         <div className="w-1.5 h-1.5 rounded-full bg-[#00796B]" />
-                        <span>Zone ID</span>
+                        <span>{t("products.game.zoneId")}</span>
                       </label>
                       <div className="relative">
                         <input
@@ -937,11 +958,11 @@ export default function InterfaceGame(props: InterfaceGameProps) {
           // 💡 UI Canggih: Sembunyikan pesan backend & hapus ID redundan jika fitur Cek Username aktif
           accId={
             isChecking
-              ? `🔍 Mencari Data...`
+              ? t("products.game.searchingData")
               : errorMsg.includes('antrean') || errorMsg.includes('Pending')
-                ? `⏳ Menghubungkan Server...`
+                ? t("products.game.connectingServer")
                 : errorMsg
-                  ? `❌ ID Tidak Ditemukan`
+                  ? t("products.game.idNotFound")
                   : customerName
                     ? `👤 ${customerName}`
                     : (zoneId ? `${accId} (${zoneId})` : accId) // Fallback untuk game tanpa Cek Username

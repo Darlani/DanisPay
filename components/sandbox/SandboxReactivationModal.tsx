@@ -12,6 +12,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
+import { useI18n } from "@/lib/i18n/context";
 
 interface SandboxReactivationModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export default function SandboxReactivationModal({
   onSuccess,
   lockType = "other",
 }: SandboxReactivationModalProps) {
+  const { t } = useI18n();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -62,14 +64,14 @@ export default function SandboxReactivationModal({
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        let msg = "Gagal mengirimkan pengajuan reaktivasi Sandbox.";
+        let msg = t("sandbox.reactivation.errGeneric");
         if (body.error) {
           if (body.error.includes("MANAGEMENT_PERSONA")) {
-            msg = "Akun Admin/Manager tidak dapat mengajukan reaktivasi Sandbox Pelanggan.";
+            msg = t("sandbox.reactivation.errManagement");
           } else if (body.error.includes("SANDBOX_REACTIVATION_NOT_ALLOWED")) {
-            msg = "Status akun Anda saat ini tidak memenuhi syarat untuk reaktivasi Sandbox.";
+            msg = t("sandbox.reactivation.errNotAllowed");
           } else if (body.error.includes("REACTIVATION_USER_NOT_FOUND")) {
-            msg = "Data akun tidak ditemukan. Silakan masuk kembali.";
+            msg = t("sandbox.reactivation.errUserNotFound");
           } else {
             msg = body.error;
           }
@@ -88,7 +90,7 @@ export default function SandboxReactivationModal({
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : "Terjadi kesalahan saat memproses permohonan. Silakan coba lagi."
+          : t("sandbox.reactivation.errTryAgain")
       );
     } finally {
       setIsLoading(false);
@@ -109,7 +111,7 @@ export default function SandboxReactivationModal({
           type="button"
           onClick={onClose}
           disabled={isLoading}
-          aria-label="Tutup modal permohonan reaktivasi"
+          aria-label={t("sandbox.reactivation.closeAria")}
           className="absolute right-3.5 top-3.5 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition disabled:opacity-50 cursor-pointer"
         >
           <X size={18} />
@@ -122,23 +124,23 @@ export default function SandboxReactivationModal({
           </div>
           <div className="min-w-0 pr-6">
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-900 border border-amber-300 mb-1">
-              Reaktivasi Sandbox
+              {t("sandbox.reactivation.badge")}
             </span>
             <h2
               id="reactivation-modal-title"
               className="text-sm sm:text-base font-black text-slate-950 leading-tight"
             >
-              Ajukan Pembukaan Akses Sandbox
+              {t("sandbox.reactivation.title")}
             </h2>
             <p
               id="reactivation-modal-description"
               className="text-[11px] text-slate-500 mt-0.5 leading-snug"
             >
               {lockType === "conversion"
-                ? "Permintaan akses tambahan ke lingkungan simulasi untuk akun Member LIVE."
+                ? t("sandbox.reactivation.descConversion")
                 : lockType === "inactivity"
-                ? "Permintaan pembukaan kembali akses Sandbox yang terkunci karena tidak aktif."
-                : "Pengajuan permohonan peninjauan kembali akses simulasi Sandbox kepada manajemen."}
+                ? t("sandbox.reactivation.descInactivity")
+                : t("sandbox.reactivation.descOther")}
             </p>
           </div>
         </div>
@@ -154,55 +156,55 @@ export default function SandboxReactivationModal({
         {/* 7 Transparency Disclosures */}
         <div className="space-y-2 rounded-2xl bg-slate-50 p-3 sm:p-3.5 border border-slate-200/80 mb-4 text-xs text-slate-700">
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">
-            Ketentuan & Penjelasan Pengajuan (Transparansi Penuh):
+            {t("sandbox.reactivation.termsTitle")}
           </p>
 
           <div className="flex items-start gap-2">
             <Clock size={14} className="text-amber-600 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Persetujuan Manajemen:</strong> Pengajuan wajib diverifikasi dan disetujui terlebih dahulu oleh Admin/Manager.
+              <strong className="text-slate-900">{t("sandbox.reactivation.item1Title")}</strong> {t("sandbox.reactivation.item1Desc")}
             </span>
           </div>
 
           <div className="flex items-start gap-2">
             <Clock size={14} className="text-amber-600 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Tidak Langsung Aktif:</strong> Mengirim pengajuan tidak serta-merta membuka akses Sandbox seketika.
+              <strong className="text-slate-900">{t("sandbox.reactivation.item2Title")}</strong> {t("sandbox.reactivation.item2Desc")}
             </span>
           </div>
 
           <div className="flex items-start gap-2">
             <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Status Akun Utuh:</strong> Keanggotaan Member LIVE dan data profil Anda tetap aktif dan tidak berubah.
+              <strong className="text-slate-900">{t("sandbox.reactivation.item3Title")}</strong> {t("sandbox.reactivation.item3Desc")}
             </span>
           </div>
 
           <div className="flex items-start gap-2">
             <ShieldCheck size={14} className="text-emerald-600 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Bebas Risiko Finansial:</strong> Saldo kas riil DaPay Anda 100% aman dan tidak tersentuh proses ini.
+              <strong className="text-slate-900">{t("sandbox.reactivation.item4Title")}</strong> {t("sandbox.reactivation.item4Desc")}
             </span>
           </div>
 
           <div className="flex items-start gap-2">
             <ShieldCheck size={14} className="text-emerald-600 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Saldo Tetap Virtual:</strong> Saldo virtual dan Koin Sandbox tetap terisolasi di Sandbox dan tidak dapat diuangkan.
+              <strong className="text-slate-900">{t("sandbox.reactivation.item5Title")}</strong> {t("sandbox.reactivation.item5Desc")}
             </span>
           </div>
 
           <div className="flex items-start gap-2">
             <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Riwayat Tersimpan:</strong> Riwayat simulasi pesanan Sandbox sebelumnya tetap aman tersimpan.
+              <strong className="text-slate-900">{t("sandbox.reactivation.item6Title")}</strong> {t("sandbox.reactivation.item6Desc")}
             </span>
           </div>
 
           <div className="flex items-start gap-2">
             <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Satu Pengajuan:</strong> Sistem hanya memproses 1 permohonan aktif per akun untuk mencegah duplikasi.
+              <strong className="text-slate-900">{t("sandbox.reactivation.item7Title")}</strong> {t("sandbox.reactivation.item7Desc")}
             </span>
           </div>
         </div>
@@ -215,7 +217,7 @@ export default function SandboxReactivationModal({
             disabled={isLoading}
             className="w-full xs:flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50 text-center"
           >
-            Batal
+            {t("sandbox.reactivation.btnCancel")}
           </button>
 
           <button
@@ -227,11 +229,11 @@ export default function SandboxReactivationModal({
             {isLoading ? (
               <>
                 <Loader2 size={14} className="animate-spin text-slate-950" />
-                <span>Mengirim...</span>
+                <span>{t("sandbox.reactivation.btnSubmitting")}</span>
               </>
             ) : (
               <>
-                <span>Kirim Pengajuan</span>
+                <span>{t("sandbox.reactivation.btnSubmit")}</span>
                 <ArrowRight size={14} />
               </>
             )}

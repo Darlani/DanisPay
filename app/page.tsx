@@ -1,33 +1,37 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { supabase } from "@/utils/supabaseClient";
 import BannerCarousel from '@/components/BannerCarousel';
 import ProductSection, { BrandItem } from '@/components/ProductSection';
 import CategoryShortcut from '../components/CategoryShortcut';
 import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
+import { CURATED_SANDBOX_BRANDS } from "@/lib/sandbox/curated-catalog";
 
 interface CatalogSection {
   title: string;
+  titleKey?: string;
   category: string;
   id: string;
   brands: BrandItem[];
 }
 
 const LANDING_CATEGORY_CONFIG = [
-  { slug: 'game', title: 'Game Top Up', domId: 'game' },
-  { slug: 'voucher & gift card', title: 'Voucher & Gift Card', domId: 'voucher' },
-  { slug: 'entertainment & subscription', title: 'Entertainment & Subscription', domId: 'entertainment' },
-  { slug: 'pulsa & data seluler', title: 'Pulsa & Data Seluler', domId: 'pulsa' },
-  { slug: 'tagihan prabayar', title: 'Tagihan Prabayar', domId: 'prabayar' },
-  { slug: 'tagihan pascabayar', title: 'Tagihan Pascabayar', domId: 'pascabayar' },
-  { slug: 'e-wallet & saldo', title: 'E-Wallet & Saldo', domId: 'e-money' },
-  { slug: 'marketplace', title: 'Marketplace', domId: 'marketplace' },
-  { slug: 'social & konten', title: 'Sosial & Konten', domId: 'social' },
-  { slug: 'productivity & software', title: 'Produktivitas & Software', domId: 'productivity' },
-  { slug: 'travel', title: 'Travel & Perjalanan', domId: 'travel' },
-  { slug: 'digital services', title: 'Digital Services', domId: 'digital' }
+  { slug: 'game', title: 'Game Top Up', titleKey: 'categories.game', domId: 'game' },
+  { slug: 'voucher & gift card', title: 'Voucher & Gift Card', titleKey: 'categories.voucher', domId: 'voucher' },
+  { slug: 'entertainment & subscription', title: 'Entertainment & Subscription', titleKey: 'categories.entertainment', domId: 'entertainment' },
+  { slug: 'pulsa & data seluler', title: 'Pulsa & Data Seluler', titleKey: 'categories.pulsa', domId: 'pulsa' },
+  { slug: 'tagihan prabayar', title: 'Tagihan Prabayar', titleKey: 'categories.prabayar', domId: 'prabayar' },
+  { slug: 'tagihan pascabayar', title: 'Tagihan Pascabayar', titleKey: 'categories.pascabayar', domId: 'pascabayar' },
+  { slug: 'e-wallet & saldo', title: 'E-Wallet & Saldo', titleKey: 'categories.emoney', domId: 'e-money' },
+  { slug: 'marketplace', title: 'Marketplace', titleKey: 'categories.marketplace', domId: 'marketplace' },
+  { slug: 'social & konten', title: 'Sosial & Konten', titleKey: 'categories.social', domId: 'social' },
+  { slug: 'productivity & software', title: 'Produktivitas & Software', titleKey: 'categories.productivity', domId: 'productivity' },
+  { slug: 'travel', title: 'Travel & Perjalanan', titleKey: 'categories.travel', domId: 'travel' },
+  { slug: 'digital services', title: 'Digital Services', titleKey: 'categories.digital', domId: 'digital' }
 ];
 
 const POPULAR_BRAND_SLUGS = [
@@ -47,16 +51,234 @@ interface RawBrandRow {
 }
 
 interface ActiveProductRow {
+  id: number | string;
+  sku: string;
+  name: string;
+  price: number;
+  discount: number | null;
   brand_id: number | string | null;
+  promo_label?: string | null;
 }
+
+interface ValidBrandInfo {
+  id: number | string;
+  name: string;
+  slug: string;
+  image_url: string | null;
+  categorySlug: string;
+  is_hot?: boolean;
+}
+
+interface RepeatPurchaseItem {
+  groupKey: string;
+  orderId: string;
+  brandSlug: string;
+  brandName: string;
+  brandImageUrl: string | null;
+  variantLabel: string;
+  sku: string;
+  targetId: string;
+  zoneId: string;
+  maskedDestination: string;
+  paymentMethod: string;
+  currentPrice: number;
+  priceLabelType: "current_price" | "last_bill";
+}
+
+interface RawHistoricalOrder {
+  id?: string | number;
+  order_id?: string;
+  sku?: string | null;
+  product_name?: string | null;
+  customer_no?: string | null;
+  status?: string | null;
+  payment_method?: string | null;
+  price?: number | string | null;
+  raw_tagihan?: number | string | null;
+  unique_code?: number | string | null;
+  total_amount?: number | string | null;
+  desc?: unknown;
+  category?: string | null;
+  created_at?: string | null;
+  is_sandbox?: boolean | null;
+}
+
+interface ShortcutCategoryItem {
+  id: number;
+  name: string;
+  slug: string;
+  is_shortcut?: boolean;
+}
+
 import MaintenancePage from "@/utils/MaintenancePage";
-import { Loader2, Settings, Clock, Zap, Smartphone, Gamepad2, Wifi, MonitorPlay, Headset, CheckCircle2, XCircle } from "lucide-react";
-import FingerprintJS from '@fingerprintjs/fingerprintjs';
+import { Loader2, Clock, Headset, CheckCircle2, XCircle } from "lucide-react";
 import ContactModal from "@/components/ContactModal";
 import { getWhatsAppUrl } from "@/utils/storeConfig";
 
+function parseCustomerDestination(rawCustomerNo: unknown): {
+  targetId: string;
+  zoneId: string;
+  normalizedKey: string;
+} {
+  const raw = String(rawCustomerNo ?? "").trim();
+  if (!raw) {
+    return { targetId: "", zoneId: "", normalizedKey: "" };
+  }
+  const parenMatch = raw.match(/^(.+?)\(([^()]+)\)$/);
+  if (parenMatch) {
+    const targetId = parenMatch[1].trim();
+    const zoneId = parenMatch[2].trim();
+    return {
+      targetId,
+      zoneId,
+      normalizedKey: `${targetId.toLowerCase()}(${zoneId.toLowerCase()})`,
+    };
+  }
+  return {
+    targetId: raw,
+    zoneId: "",
+    normalizedKey: raw.toLowerCase(),
+  };
+}
+
+function formatMaskedDestination(targetId: string, zoneId: string): string {
+  const cleanTarget = targetId.trim();
+  const cleanZone = zoneId.trim();
+  if (!cleanTarget) return "";
+
+  if (cleanZone) {
+    const maskedTarget =
+      cleanTarget.length > 4
+        ? `${cleanTarget.slice(0, 4)}••••`
+        : `${cleanTarget.slice(0, Math.max(1, cleanTarget.length - 1))}••`;
+    return `ID: ${maskedTarget} (${cleanZone})`;
+  }
+
+  if (/^(08|\+?628)\d{6,}$/.test(cleanTarget)) {
+    if (cleanTarget.length >= 8) {
+      return `${cleanTarget.slice(0, 4)}••••${cleanTarget.slice(-4)}`;
+    }
+    return `${cleanTarget.slice(0, 3)}••••`;
+  }
+
+  if (cleanTarget.length >= 9) {
+    return `${cleanTarget.slice(0, 4)}••••${cleanTarget.slice(-3)}`;
+  }
+
+  if (cleanTarget.length > 4) {
+    return `ID: ${cleanTarget.slice(0, 4)}••••`;
+  }
+
+  return `ID: ${cleanTarget.slice(0, Math.max(1, cleanTarget.length - 1))}••`;
+}
+
+function formatVariantLabel(productName: string, brandName: string): string {
+  const cleanProduct = String(productName || "").trim();
+  const cleanBrand = String(brandName || "").trim();
+  if (!cleanProduct) return cleanBrand;
+  if (!cleanBrand) return cleanProduct;
+
+  if (cleanProduct.toLowerCase().startsWith(cleanBrand.toLowerCase())) {
+    const stripped = cleanProduct
+      .slice(cleanBrand.length)
+      .replace(/^[\s\-–—:|]+/, "")
+      .trim();
+    if (stripped.length > 0) {
+      return stripped;
+    }
+  }
+
+  const dashMatch = cleanProduct.match(/^([^:\-–—]+?)\s*[\-–—:]\s*(.+)$/);
+  if (dashMatch) {
+    const prefixNorm = dashMatch[1].toLowerCase().replace(/[^a-z0-9]/g, "");
+    const brandNorm = cleanBrand.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (
+      prefixNorm.length >= 3 &&
+      (brandNorm.startsWith(prefixNorm) || prefixNorm.startsWith(brandNorm))
+    ) {
+      const rest = dashMatch[2].trim();
+      if (rest.length > 0) {
+        return rest;
+      }
+    }
+  }
+
+  return cleanProduct;
+}
+
+function getBrandInitials(brandName: string): string {
+  const words = String(brandName || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return "DP";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0]}${words[1][0]}`.toUpperCase();
+}
+
+function isPlnPascabayarItem(
+  brand: ValidBrandInfo,
+  product: ActiveProductRow,
+  order: RawHistoricalOrder
+): boolean {
+  const brandSlug = String(brand.slug || "").trim().toLowerCase();
+  const brandName = String(brand.name || "").trim().toLowerCase();
+  const categorySlug = String(brand.categorySlug || order.category || "").trim().toLowerCase();
+  const prodSku = String(product.sku || order.sku || "").trim().toLowerCase();
+  const prodName = String(product.name || order.product_name || "").trim().toLowerCase();
+
+  if (brandSlug === "pln-pascabayar" || prodSku === "pln") {
+    return true;
+  }
+  if (
+    categorySlug.includes("pascabayar") &&
+    (brandName.includes("pln") || prodName.includes("pln"))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function resolvePlnHistoricalBillAmount(order: RawHistoricalOrder): number {
+  if (order.desc) {
+    try {
+      const parsed =
+        typeof order.desc === "string" ? JSON.parse(order.desc) : order.desc;
+      const detail0 = (
+        parsed as { detail?: Array<{ nilai_tagihan?: unknown }> } | null
+      )?.detail?.[0];
+      const nilaiTagihan = Number(detail0?.nilai_tagihan);
+      if (Number.isFinite(nilaiTagihan) && nilaiTagihan > 0) {
+        return Math.floor(nilaiTagihan);
+      }
+    } catch {
+      // Ignore malformed desc JSON
+    }
+  }
+
+  const rawTagihan = Number(order.raw_tagihan);
+  if (Number.isFinite(rawTagihan) && rawTagihan > 0) {
+    return Math.floor(rawTagihan);
+  }
+
+  const orderPrice = Number(order.price);
+  if (Number.isFinite(orderPrice) && orderPrice > 0) {
+    return Math.floor(orderPrice);
+  }
+
+  return 0;
+}
+
 // --- KOMPONEN BARU: BANNER PENDING DENGAN TIMER REALTIME & AUTO-SYNC ---
-function PendingPaymentBanner({ order, router, onResolved }: { order: any, router: any, onResolved: (status: string) => void }) {
+function PendingPaymentBanner({
+  order,
+  router,
+  onResolved,
+}: {
+  order: RawHistoricalOrder;
+  router: ReturnType<typeof useRouter>;
+  onResolved: (status: string) => void;
+}) {
   const { t, locale } = useI18n();
   const [timeLeft, setTimeLeft] = useState("");
   const [isExpired, setIsExpired] = useState(false);
@@ -112,23 +334,23 @@ function PendingPaymentBanner({ order, router, onResolved }: { order: any, route
             const currentStatus = data.status.toLowerCase();
 
             if (currentStatus !== 'pending') {
-              setIsResolved(true); // Sembunyikan banner instan
-              onResolved(data.status); // Luncurkan pop-up Toast!
-
-              // Update cache browser lokal
+              // Update cache browser lokal terlebih dahulu sebelum callback
               const guestCache = localStorage.getItem('dapay_guest_history');
               if (guestCache) {
-                let history = JSON.parse(guestCache);
-                const orderIndex = history.findIndex((o: any) => o.order_id === order.order_id);
+                const history = JSON.parse(guestCache) as RawHistoricalOrder[];
+                const orderIndex = history.findIndex((o) => o.order_id === order.order_id);
                 if (orderIndex !== -1) {
                   history[orderIndex].status = data.status;
                   localStorage.setItem('dapay_guest_history', JSON.stringify(history));
                 }
               }
+
+              setIsResolved(true); // Sembunyikan banner instan
+              onResolved(data.status); // Luncurkan pop-up Toast!
             }
           }
         }
-      } catch (err) {
+      } catch {
         // Silently fail
       }
     };
@@ -162,7 +384,7 @@ function PendingPaymentBanner({ order, router, onResolved }: { order: any, route
           </p>
         </div>
         <button
-          onClick={() => router.push(locale === "en" ? `/en/checkout/pay/${order.order_id}` : `/checkout/pay/${order.order_id}`)}
+          onClick={() => router.push(localizeHref(`/checkout/pay/${order.order_id}`, locale))}
           className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] sm:text-xs px-3 py-1.5 rounded-lg shrink-0 transition-all active:scale-95 shadow-md shadow-amber-500/20 cursor-pointer"
         >
           {t("home.payNow")}
@@ -177,14 +399,142 @@ export default function Home() {
   const router = useRouter();
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [shortcutCategories, setShortcutCategories] = useState<any[]>([]);
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
-  const [pendingOrder, setPendingOrder] = useState<any>(null);
+  const [shortcutCategories, setShortcutCategories] = useState<ShortcutCategoryItem[]>([]);
+  const [recentOrders, setRecentOrders] = useState<RepeatPurchaseItem[]>([]);
+  const [pendingOrder, setPendingOrder] = useState<RawHistoricalOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSupportMenuOpen, setIsSupportMenuOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState<{title: string, desc: string, type: 'success' | 'error'} | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogSections, setCatalogSections] = useState<CatalogSection[]>([]);
+
+  const catalogMapsRef = useRef<{
+    productBySku: Map<string, ActiveProductRow>;
+    brandById: Map<string, ValidBrandInfo>;
+  } | null>(null);
+
+  const resolveRepeatAndPendingOrders = useCallback(
+    (
+      ordersToProcess: RawHistoricalOrder[],
+      isUserStaff: boolean,
+      productBySku: Map<string, ActiveProductRow>,
+      brandById: Map<string, ValidBrandInfo>
+    ) => {
+      if (!Array.isArray(ordersToProcess)) {
+        setPendingOrder(null);
+        setRecentOrders([]);
+        return;
+      }
+
+      // Filter ketat: hilangkan seluruh order dummy / sandbox / test
+      const liveOrders = ordersToProcess.filter((o) => {
+        if (!o || o.is_sandbox === true) return false;
+        const skuUpper = String(o.sku || "").trim().toUpperCase();
+        const orderIdUpper = String(o.order_id || "").trim().toUpperCase();
+        return !skuUpper.startsWith("TEST-") && !orderIdUpper.startsWith("TEST-");
+      });
+
+      // 1. Cari transaksi yang masih pending (Staff tidak pernah melihat pengingat konsumen)
+      const pending = !isUserStaff
+        ? liveOrders.find(
+            (o) => String(o.status || "").trim().toLowerCase() === "pending"
+          )
+        : null;
+
+      setPendingOrder(pending || null);
+
+      if (isUserStaff) {
+        setRecentOrders([]);
+        return;
+      }
+
+      // 2. Resolusi kanonik untuk "Beli Lagi Yuk":
+      //    Hanya status === "Berhasil", dipetakan melalui SKU aktif -> product_unified_view -> brand aktif,
+      //    dikelompokkan berdasarkan brandSlug + normalizedDestination (maksimal 4 kartu).
+      const seenGroups = new Set<string>();
+      const repeatItems: RepeatPurchaseItem[] = [];
+
+      for (const order of liveOrders) {
+        const normalizedStatus = String(order.status || "").trim().toLowerCase();
+        if (normalizedStatus !== "berhasil") {
+          continue;
+        }
+
+        const rawSku = String(order.sku || "").trim();
+        if (!rawSku) {
+          continue;
+        }
+
+        const matchedProduct = productBySku.get(rawSku.toLowerCase());
+        if (!matchedProduct || matchedProduct.brand_id === null || matchedProduct.brand_id === undefined) {
+          continue;
+        }
+
+        const matchedBrand = brandById.get(String(matchedProduct.brand_id));
+        if (!matchedBrand || !matchedBrand.slug) {
+          continue;
+        }
+
+        const { targetId, zoneId, normalizedKey } = parseCustomerDestination(order.customer_no);
+        if (!targetId || !normalizedKey) {
+          continue;
+        }
+
+        const groupKey = `${matchedBrand.slug.toLowerCase()}::${normalizedKey}`;
+        if (seenGroups.has(groupKey)) {
+          continue;
+        }
+
+        const isPlnPasca = isPlnPascabayarItem(matchedBrand, matchedProduct, order);
+        let displayPrice = 0;
+
+        if (isPlnPasca) {
+          displayPrice = resolvePlnHistoricalBillAmount(order);
+        } else {
+          const rawPrice = Number(matchedProduct.price) || 0;
+          const discountPct = Number(matchedProduct.discount) || 0;
+          displayPrice =
+            discountPct > 0
+              ? Math.floor(rawPrice * (1 - discountPct / 100))
+              : rawPrice;
+        }
+
+        if (displayPrice <= 0) {
+          continue;
+        }
+
+        const displayBrandName = isPlnPasca ? "PLN / Listrik" : matchedBrand.name;
+        const displayVariantLabel = isPlnPasca
+          ? "PLN Pascabayar"
+          : formatVariantLabel(matchedProduct.name, matchedBrand.name);
+        const paymentMethod = String(order.payment_method || "").trim();
+
+        seenGroups.add(groupKey);
+        repeatItems.push({
+          groupKey,
+          orderId: String(order.order_id || order.id || groupKey),
+          brandSlug: matchedBrand.slug,
+          brandName: displayBrandName,
+          brandImageUrl: matchedBrand.image_url,
+          variantLabel: displayVariantLabel,
+          sku: matchedProduct.sku,
+          targetId,
+          zoneId,
+          maskedDestination: formatMaskedDestination(targetId, zoneId),
+          paymentMethod,
+          currentPrice: displayPrice,
+          priceLabelType: isPlnPasca ? "last_bill" : "current_price",
+        });
+
+        if (repeatItems.length >= 4) {
+          break;
+        }
+      }
+
+      setRecentOrders(repeatItems);
+    },
+    []
+  );
 
   // Helper untuk Auto-hide Toast (Diperlama jadi 12 detik agar sempat dibaca)
   useEffect(() => {
@@ -195,34 +545,75 @@ export default function Home() {
   }, [toastMsg]);
 
   useEffect(() => {
+    let isCancelled = false;
+
     const checkMaintenanceAndData = async () => {
       try {
-        // 1. Consolidated Fetch: Maintenance, Shortcuts, Active Brands, Active Product Existence
+        // 1. Consolidated Fetch: Maintenance, Shortcuts, Active Brands, Active Storefront Products
         const [settingsRes, shortcutCatsRes, brandsRes, activeProdsRes] = await Promise.all([
           supabase.from('store_settings').select('is_maintenance').single(),
           supabase.from('categories').select('id, name, slug, is_shortcut').eq('is_shortcut', true).order('name', { ascending: true }),
           supabase.from('brands').select('id, name, slug, image_url, categories!inner(slug, name)').eq('active', true).order('name', { ascending: true }),
-          supabase.from('product_unified_view').select('brand_id').eq('is_active', true).eq('is_storefront_eligible', true)
+          supabase
+            .from('product_unified_view')
+            .select('id, sku, name, price, discount, brand_id, promo_label')
+            .eq('is_active', true)
+            .eq('is_storefront_eligible', true)
         ]);
+
+        if (isCancelled) return;
 
         if (settingsRes.data) setIsMaintenance(settingsRes.data.is_maintenance);
         if (shortcutCatsRes.data) setShortcutCategories(shortcutCatsRes.data);
 
-        // Filter: Hanya brand aktif yang memiliki minimal 1 produk aktif dari product_automatic / product_semi_auto
-        const activeBrandIds = new Set(
-          ((activeProdsRes.data as ActiveProductRow[] | null) || [])
-            .map((p) => p.brand_id)
-            .filter((id): id is number | string => id !== null && id !== undefined)
+        const activeProductRows = (activeProdsRes.data as ActiveProductRow[] | null) || [];
+        const productBySku = new Map<string, ActiveProductRow>();
+        const activeBrandIds = new Set<string>();
+
+        // Authoritative HOT detection from active products and curated catalog
+        const hotBrandIds = new Set<string>();
+
+        for (const prod of activeProductRows) {
+          if (prod.brand_id !== null && prod.brand_id !== undefined) {
+            activeBrandIds.add(String(prod.brand_id));
+            if (prod.promo_label && String(prod.promo_label).toUpperCase().includes("HOT")) {
+              hotBrandIds.add(String(prod.brand_id));
+            }
+          }
+          // Jangan masukkan SKU internal "Cek Username" sebagai produk pembelian ulang
+          if (String(prod.name || "").toLowerCase().includes("cek username")) {
+            continue;
+          }
+          const skuKey = String(prod.sku || "").trim().toLowerCase();
+          if (skuKey && !productBySku.has(skuKey)) {
+            productBySku.set(skuKey, prod);
+          }
+        }
+
+        const curatedHotSlugs = new Set(
+          CURATED_SANDBOX_BRANDS
+            .filter((c) => String(c.badge || '').toUpperCase() === 'HOT')
+            .map((c) => c.brandKey.toLowerCase())
         );
-        const validBrands = ((brandsRes.data as unknown as RawBrandRow[] | null) || [])
-          .filter((b) => activeBrandIds.has(b.id))
+
+        // Filter: Hanya brand aktif yang memiliki minimal 1 produk aktif dari product_unified_view
+        const validBrands: ValidBrandInfo[] = ((brandsRes.data as unknown as RawBrandRow[] | null) || [])
+          .filter((b) => activeBrandIds.has(String(b.id)))
           .map((b) => ({
             id: b.id,
             name: b.name,
             slug: b.slug,
             image_url: b.image_url,
-            categorySlug: b.categories?.slug || ''
+            categorySlug: b.categories?.slug || '',
+            is_hot: hotBrandIds.has(String(b.id)) || curatedHotSlugs.has(String(b.slug).toLowerCase()),
           }));
+
+        const brandById = new Map<string, ValidBrandInfo>();
+        for (const brand of validBrands) {
+          brandById.set(String(brand.id), brand);
+        }
+
+        catalogMapsRef.current = { productBySku, brandById };
 
         const builtSections: CatalogSection[] = [];
 
@@ -230,7 +621,8 @@ export default function Home() {
         const popularBrands = validBrands.filter((b) => POPULAR_BRAND_SLUGS.includes(b.slug));
         if (popularBrands.length > 0) {
           builtSections.push({
-            title: t("home.popularTitle"),
+            title: 'Populer Sekarang',
+            titleKey: 'home.popularTitle',
             category: 'popular',
             id: 'popular',
             brands: popularBrands
@@ -243,6 +635,7 @@ export default function Home() {
           if (catBrands.length > 0) {
             builtSections.push({
               title: cat.title,
+              titleKey: cat.titleKey,
               category: cat.slug,
               id: cat.domId,
               brands: catBrands
@@ -252,9 +645,12 @@ export default function Home() {
 
         setCatalogSections(builtSections);
         setCatalogLoading(false);
+        // Lepas spinner utama segera setelah katalog siap (Non-Blocking Homepage Render)
+        setLoading(false);
 
-        // 3. Logika Transaksi Terakhir (FILTER UNIK & LIMIT 4) [cite: 2026-02-11]
+        // 2. Resolusi Transaksi Terakhir secara non-blocking
         const { data: { session } } = await supabase.auth.getSession();
+        if (isCancelled) return;
 
         let isStaff = false;
         if (session?.user?.id) {
@@ -263,91 +659,64 @@ export default function Home() {
             .select('role')
             .eq('id', session.user.id)
             .maybeSingle();
-          if (profile?.role === 'admin' || profile?.role === 'manager') {
+          const role = String(profile?.role || "").toLowerCase();
+          if (role === 'admin' || role === 'manager') {
             isStaff = true;
           }
         }
 
-        const ordersQuery = supabase
-          .from('orders')
-          .select('id, order_id, product_name, customer_no, status, created_at, payment_method, total_amount, category, sku')
-          .order('created_at', { ascending: false })
-          .limit(20);
+        if (isCancelled) return;
 
-        // FUNGSI BARU: Pisahkan pengecekan transaksi Pending dan Filter Unik
-        const processOrdersData = (ordersToProcess: any[], isUserStaff = false) => {
-          // Filter ketat: hilangkan seluruh order dummy test
-          const liveOrders = ordersToProcess.filter(
-            (o: any) => !o.sku?.startsWith('TEST-') && !o.order_id?.startsWith('TEST-')
-          );
-
-          // 1. Cari transaksi yang masih pending (Staff never sees consumer pending reminder)
-          const pending = !isUserStaff
-            ? liveOrders.find((o: any) => o.status?.toLowerCase() === 'pending')
-            : null;
-
-          // SINKRONISASI: Jika tidak ada transaksi pending, bersihkan state banner
-          if (pending) {
-            setPendingOrder(pending);
+        if (session?.user && session?.access_token) {
+          if (isStaff) {
+            resolveRepeatAndPendingOrders([], true, productBySku, brandById);
           } else {
-            setPendingOrder(null);
+            const res = await fetch('/api/user/orders?page=1&limit=20&sort=newest', {
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            });
+            if (!isCancelled && res.ok) {
+              const json = await res.json();
+              const ordersArray =
+                Array.isArray(json?.data?.orders)
+                  ? json.data.orders
+                  : Array.isArray(json?.orders)
+                    ? json.orders
+                    : [];
+              resolveRepeatAndPendingOrders(ordersArray, false, productBySku, brandById);
+            }
           }
-
-          // 2. Jalankan filter unik untuk slider "Beli ini lagi"
-          const unique = liveOrders.reduce((acc: any[], current: any) => {
-            const isExist = acc.find((item: any) => item.product_name === current.product_name);
-            if (!isExist && acc.length < 4) acc.push(current);
-            return acc;
-          }, []);
-          setRecentOrders(unique);
-        };
-
-        if (session?.user?.email) {
-          const { data: orders } = await ordersQuery.eq('email', session.user.email);
-          if (orders) processOrdersData(orders, isStaff);
         } else {
-          // GUEST LOGIC: Prioritas baca LocalStorage dulu biar ngebut <50ms!
-          const guestCache = localStorage.getItem('dapay_guest_history');
-          let hasLocalData = false;
-
-          if (guestCache) {
-            try {
-              const parsedCache = JSON.parse(guestCache);
-              if (parsedCache && parsedCache.length > 0) {
-                processOrdersData(parsedCache);
-                hasLocalData = true;
-              }
-            } catch (e) {
-              console.error("Gagal baca cache lokal Guest", e);
-            }
-          }
-
-          // FALLBACK: Kalau cache kosong, tembak Supabase pakai Fingerprint ID
-          if (!hasLocalData) {
-            try {
-              const fpPromise = await FingerprintJS.load();
-              const fpResult = await fpPromise.get();
-
-              const { data: orders } = await ordersQuery.eq('device_id', fpResult.visitorId);
-
-              if (orders && orders.length > 0) {
-                processOrdersData(orders);
-                localStorage.setItem('dapay_guest_history', JSON.stringify(orders));
-              }
-            } catch (fpError) {
-              console.error("Device ID Error", fpError);
-            }
-          }
-        }
+          // GUEST LOGIC: Baca riwayat lokal yang aman (tanpa query Supabase device_id)
+          const guestCache = localStorage.getItem('dapay_guest_history');
+          if (guestCache) {
+            try {
+              const parsedCache = JSON.parse(guestCache);
+              if (Array.isArray(parsedCache) && parsedCache.length > 0) {
+                resolveRepeatAndPendingOrders(parsedCache, false, productBySku, brandById);
+              }
+            } catch (e) {
+              console.error("Gagal baca cache lokal Guest", e);
+            }
+          }
+        }
       } catch (err) {
         console.error("Load error", err);
       } finally {
-        setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+          setCatalogLoading(false);
+        }
       }
     };
 
     checkMaintenanceAndData();
-  }, []);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [resolveRepeatAndPendingOrders]);
 
   if (loading) return (
     <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
@@ -360,11 +729,13 @@ export default function Home() {
     if (userEmail !== "admin1@gmail.com") return <MaintenancePage />;
   }
 
-  const getStatusColor = (status: string) => {
-    const s = status.toLowerCase();
-    if (s === 'berhasil' || s === 'success') return 'text-emerald-400';
-    if (s === 'pending') return 'text-amber-400';
-    return 'text-rose-400';
+  const buildReorderHref = (item: RepeatPurchaseItem) => {
+    const params = new URLSearchParams();
+    if (item.targetId) params.set("target", item.targetId);
+    if (item.zoneId) params.set("zone", item.zoneId);
+    if (item.sku) params.set("sku", item.sku);
+    const query = params.toString();
+    return localizeHref(`/${item.brandSlug}${query ? `?${query}` : ""}`, locale);
   };
 
   const popularSection = catalogSections.find((sec) => sec.category === 'popular');
@@ -378,142 +749,132 @@ export default function Home() {
         availableSectionIds={catalogSections.map((s) => s.id)}
       />
 
-      {/* --- BANNER PENGINGAT PEMBAYARAN PENDING --- */}
-      {pendingOrder && (
+      {/* --- BANNER PENGINGAT PEMBAYARAN PENDING --- */}
+      {pendingOrder && (
         <PendingPaymentBanner
           order={pendingOrder}
           router={router}
           onResolved={(status) => {
-            const isSuccess = status.toLowerCase() === 'berhasil' || status.toLowerCase() === 'success' || status.toLowerCase() === 'diproses';
-            // Munculkan Pop-up Toast dengan bahasa yang lebih hangat
-            setToastMsg({
-              title: isSuccess ? "Terima Kasih, Kak! ✨" : "Waduh, Transaksi Batal 🥺",
-              desc: isSuccess ? "Pembayaran sukses diterima. Pesanannya sedang kami siapkan ya." : "Waktu bayarnya kedaluwarsa atau dibatalkan ya Kak.",
-              type: isSuccess ? 'success' : 'error'
-            });
-            // Bersihkan banner kuning dari layar
-            setPendingOrder(null);
-          }}
+            const normalized = status.toLowerCase();
+            const isSuccess = normalized === 'berhasil' || normalized === 'success' || normalized === 'diproses';
+            setToastMsg({
+              title: isSuccess ? t("home.toastPaymentSuccessTitle") : t("home.toastPaymentCanceledTitle"),
+              desc: isSuccess ? t("home.toastPaymentSuccessDesc") : t("home.toastPaymentCanceledDesc"),
+              type: isSuccess ? 'success' : 'error'
+            });
+            setPendingOrder(null);
+
+            // Sinkronisasi ulang riwayat Guest bila order yang baru selesai berstatus Berhasil
+            if (catalogMapsRef.current) {
+              try {
+                const guestCache = localStorage.getItem('dapay_guest_history');
+                if (guestCache) {
+                  const parsed = JSON.parse(guestCache);
+                  if (Array.isArray(parsed)) {
+                    resolveRepeatAndPendingOrders(
+                      parsed,
+                      false,
+                      catalogMapsRef.current.productBySku,
+                      catalogMapsRef.current.brandById
+                    );
+                  }
+                }
+              } catch {
+                // Ignore localStorage parse error
+              }
+            }
+          }}
         />
       )}
 
-      {/* --- FITUR QUICK RE-ORDER (BELI LAGI YUK) - DI ATAS POPULER SEKARANG (MINI CARD) --- */}
+      {/* --- SEKSI BELI LAGI YUK (REPEAT-PURCHASE ACTION SECTION) --- */}
       {recentOrders.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 mb-1 mt-0.5 sm:mt-1 relative z-20">
-          <div className="mb-1.5 flex items-center justify-between">
-            <h2 className="text-white font-bold text-xs sm:text-sm flex items-center gap-1.5">
-              {t("home.buyAgainTitle")} <span className="text-xs sm:text-sm">👇</span>
+        <section
+          aria-label={t("home.buyAgainTitle")}
+          className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-20 pt-0 sm:pt-0.5 pb-2 sm:pb-3 relative z-20"
+        >
+          {/* Section Header */}
+          <div className="mb-3 sm:mb-3.5 flex items-center justify-between gap-3">
+            <h2 className="text-base sm:text-lg font-bold text-white leading-tight truncate">
+              {t("home.buyAgainTitle")}
             </h2>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-1.5 pt-0.5 custom-scrollbar snap-x snap-mandatory">
-            {recentOrders.map((order) => {
-              // Logika Mapping Berdasarkan Kolom Category [cite: 2026-02-11]
-              const getSlug = (order: any) => {
-                // 0. Ambil kategori & nama produk dalam huruf kecil agar tidak sensitif huruf besar/kecil [cite: 2026-02-11]
-                const cat = order.category?.toLowerCase() || "";
-                const name = order.product_name?.toLowerCase() || "";
-
-                // 1. Jalur PPOB/Tagihan (Berdasarkan Kategori) [cite: 2026-02-11]
-                if (cat.includes('pascabayar')) return "pln-pascabayar";
-                if (cat.includes('pln')) return "pln";
-
-                // 2. Jalur Provider (Jika kategori adalah Pulsa/Data) [cite: 2026-02-11]
-                if (cat.includes('pulsa') || cat.includes('data')) {
-                  if (name.includes('telkomsel')) return "telkomsel";
-                  if (name.includes('indosat')) return "indosat";
-                  if (name.includes('xl')) return "xl";
-                  if (name.includes('axis')) return "axis";
-                  if (name.includes('tri')) return "tri";
-                  if (name.includes('smartfren')) return "smartfren";
-                }
-
-                // 3. Jalur Game (Berdasarkan Kategori) [cite: 2026-02-11]
-                if (cat.includes('game')) {
-                  if (name.includes('free fire')) return "free-fire";
-                  if (name.includes('mobile legends')) return "mobile-legends";
-                  if (name.includes('call of duty') || name.includes('codm')) return "call-of-duty-mobile";
-                  if (name.includes('valorant')) return "valorant";
-                  if (name.includes('genshin')) return "genshin-impact";
-                }
-
-                // 4. Jalur Default / Lainnya (Gunakan kata pertama nama produk sebagai slug) [cite: 2026-02-11]
-                return name.split(' ')[0]
-                  .replace(/[^a-z0-9]+/g, '-')
-                  .replace(/(^-|-$)+/g, '');
-              };
-
-              const slug = getSlug(order);
-
-              // 1. SMART DETECTOR LOGO KATEGORI (UKURAN ICON LEBIH COMPACT SIZE 12)
-              const getCategoryIcon = (name: string) => {
-                const lowerName = name.toLowerCase();
-                if (lowerName.includes('pln') || lowerName.includes('listrik')) return <Zap size={12} className="text-yellow-400" />;
-                if (lowerName.includes('pulsa') || lowerName.includes('telkomsel') || lowerName.includes('indosat') || lowerName.includes('xl') || lowerName.includes('axis') || lowerName.includes('tri') || lowerName.includes('smartfren')) return <Smartphone size={12} className="text-blue-400" />;
-                if (lowerName.includes('data') || lowerName.includes('wifi') || lowerName.includes('internet')) return <Wifi size={12} className="text-emerald-400" />;
-                if (lowerName.includes('netflix') || lowerName.includes('spotify') || lowerName.includes('youtube')) return <MonitorPlay size={12} className="text-rose-400" />;
-                return <Gamepad2 size={12} className="text-purple-400" />;
-              };
-
-              const getPaymentLogo = (method: string) => {
-                const m = method?.toLowerCase() || '';
-                if (m.includes('dana')) return '/payment/dana.png';
-                if (m.includes('gopay') || m.includes('go-pay')) return '/payment/gopay.png';
-                if (m.includes('ovo')) return '/payment/ovo.png';
-                if (m.includes('shopee') || m.includes('spay')) return '/payment/shopeepay.png';
-                if (m.includes('linkaja')) return '/payment/linkaja.png';
-                if (m.includes('qris')) return '/payment/qris.png';
-                if (m.includes('bca')) return '/payment/bca.png';
-                if (m.includes('bni')) return '/payment/bni.png';
-                if (m.includes('bri')) return '/payment/bri.png';
-                if (m.includes('mandiri')) return '/payment/mandiri.png';
-                return null;
-              };
-
-              const payLogo = getPaymentLogo(order.payment_method);
+          {/* Mobile: Horizontal Snap Rail (~1.3-1.5 cards visible) | Tablet: 2-Col Grid | Desktop: 4-Col Grid */}
+          <div className="flex gap-3 overflow-x-auto pb-2 pt-0.5 custom-scrollbar snap-x snap-mandatory sm:grid sm:grid-cols-2 sm:gap-3 sm:overflow-visible sm:pb-0 lg:grid-cols-4 lg:gap-3.5">
+            {recentOrders.map((item) => {
+              const targetHref = buildReorderHref(item);
 
               return (
                 <div
-                  key={order.id}
-                  // KARTU MINI DIPERKECIL: w-36 sm:w-44 p-2 rounded-xl
-                  className="group shrink-0 w-36 sm:w-44 bg-[#1e293b]/90 backdrop-blur-md border border-slate-700/80 p-2 rounded-xl text-left hover:border-blue-500 hover:shadow-[0_0_12px_rgba(59,130,246,0.25)] transition-all snap-start flex flex-col justify-between"
+                  key={item.groupKey}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => router.push(targetHref)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(targetHref);
+                    }
+                  }}
+                  className="group shrink-0 w-[232px] min-[360px]:w-[250px] min-[410px]:w-[272px] sm:w-auto bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 snap-start flex flex-col justify-between gap-2.5 shadow-md shadow-black/20 hover:shadow-lg hover:shadow-blue-500/10 cursor-pointer"
                 >
-                  {/* Bagian Atas: Logo & Info Produk */}
-                  <div className="flex gap-1.5 items-center mb-1.5">
-                    {/* Kotak Logo Diperkecil */}
-                    <div className="w-6 h-6 rounded-md bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700/80 shadow-inner">
-                      {getCategoryIcon(order.product_name)}
+                  {/* Top Row: Real Brand Artwork + Brand / Variant / Masked Destination */}
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-slate-700/70 shrink-0 flex items-center justify-center shadow-inner">
+                      {item.brandImageUrl ? (
+                        <Image
+                          src={item.brandImageUrl}
+                          alt={item.brandName}
+                          fill
+                          sizes="48px"
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <span className="text-xs font-bold text-blue-400 select-none">
+                          {getBrandInitials(item.brandName)}
+                        </span>
+                      )}
                     </div>
+
                     <div className="min-w-0 flex-1">
-                      <p className="text-slate-300 font-medium text-[9px] sm:text-[10px] truncate leading-tight">
-                        {order.product_name}
+                      <p className="text-[11px] sm:text-xs font-medium text-slate-400 truncate leading-tight">
+                        {item.brandName}
                       </p>
-                      <p className="text-white font-bold text-[10px] sm:text-xs leading-none mt-0.5">
-                        Rp {(order.total_amount || 0).toLocaleString('id-ID')}
+                      <p
+                        title={item.variantLabel}
+                        className="text-[13px] sm:text-sm font-bold text-white truncate leading-snug mt-0.5 group-hover:text-blue-400 transition-colors"
+                      >
+                        {item.variantLabel}
                       </p>
+                      <div className="mt-1 inline-flex items-center max-w-full bg-slate-800/90 border border-slate-700/70 rounded-md px-1.5 py-0.5">
+                        <span className="text-[11px] font-mono text-slate-300 truncate leading-none">
+                          {item.maskedDestination}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Bagian Bawah: Payment & Tombol */}
-                  <div className="flex items-end justify-between mt-0.5 pt-1 border-t border-slate-700/60">
-                    <div className="flex flex-col justify-center">
-                      <div className="h-2.5 flex items-center mb-0.5">
-                        {payLogo ? (
-                          <img src={payLogo} alt={order.payment_method} className="h-2 sm:h-2.5 object-contain opacity-90" />
-                        ) : (
-                          <div className="bg-blue-600 text-white text-[6.5px] px-1 py-0.2 rounded font-bold uppercase">
-                            {order.payment_method || 'PAY'}
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-[6.5px] sm:text-[7px] text-slate-500 italic leading-none">
-                        *harga terakhir
+                  {/* Bottom Row: Current Active Catalog Price / Historical PLN Bill + Explicit Reorder CTA */}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                    <div className="min-w-0">
+                      <p className="text-[10px] sm:text-[11px] font-medium text-slate-400 leading-none mb-1 truncate">
+                        {item.priceLabelType === "last_bill"
+                          ? t("home.lastBill")
+                          : t("home.currentPrice")}
+                      </p>
+                      <p className="text-[13px] sm:text-sm font-bold text-amber-400 leading-none truncate">
+                        Rp {item.currentPrice.toLocaleString('id-ID')}
                       </p>
                     </div>
 
                     <button
-                      onClick={() => router.push(locale === "en" ? `/en/${slug}` : `/${slug}`)}
-                      className="bg-blue-600 hover:bg-blue-500 text-white text-[7.5px] sm:text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs active:scale-95 transition-all"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(targetHref);
+                      }}
+                      className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-semibold text-[11px] sm:text-xs shrink-0 inline-flex items-center justify-center transition-all shadow-sm shadow-blue-600/25 cursor-pointer"
                     >
                       {t("home.buyAgainButton")}
                     </button>
@@ -526,18 +887,26 @@ export default function Home() {
       )}
 
       {/* --- SEKSI 1: POPULER SEKARANG (COMPACT APP-ICONS) --- */}
-      <div className={recentOrders.length > 0 ? "mt-0.5 sm:mt-1" : ""}>
+      <div>
         {catalogLoading ? (
-          <ProductSection title={t("home.loadingCatalog")} category="popular" id="popular" brands={[]} isLoading={true} />
+          <ProductSection
+            title={t("home.loadingCatalog")}
+            category="popular"
+            id="popular"
+            brands={[]}
+            isLoading={true}
+            hasTopSection={recentOrders.length > 0}
+          />
         ) : (
           popularSection && (
             <ProductSection
               key={popularSection.id}
-              title={popularSection.title}
+              title={popularSection.titleKey ? t(popularSection.titleKey, popularSection.title) : popularSection.title}
               category={popularSection.category}
               id={popularSection.id}
               brands={popularSection.brands}
               isLoading={false}
+              hasTopSection={recentOrders.length > 0}
             />
           )
         )}
@@ -548,7 +917,7 @@ export default function Home() {
         otherSections.map((sec) => (
           <ProductSection
             key={sec.id}
-            title={sec.title}
+            title={sec.titleKey ? t(sec.titleKey, sec.title) : sec.title}
             category={sec.category}
             id={sec.id}
             brands={sec.brands}

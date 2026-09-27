@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Newspaper, Tag, ReceiptText, LogIn, UserCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useI18n } from "@/lib/i18n/context";
-import { stripLocaleFromPathname } from "@/lib/i18n/config";
+import { localizeHref, stripLocaleFromPathname } from "@/lib/i18n/config";
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -30,10 +30,10 @@ export default function BottomNav() {
     handleStorageChange();
   }, [pathname]);
 
-  // Sembunyikan di halaman Dashboard (Admin & User) agar tidak tabrakan dengan Navigation Dashboard
-  if (pathname.startsWith('/admin') || pathname.startsWith('/user')) return null;
-
   const currentNormalized = stripLocaleFromPathname(pathname);
+
+  // Sembunyikan di halaman Dashboard (Admin & User) agar tidak tabrakan dengan Navigation Dashboard
+  if (currentNormalized.startsWith('/admin') || currentNormalized.startsWith('/user')) return null;
   const isHomeActive = currentNormalized === "/";
   const isNewsActive = currentNormalized === "/news";
   const isPromoActive = currentNormalized === "/promo";
@@ -67,15 +67,15 @@ export default function BottomNav() {
         </button>
 
         {role ? (
-          <Link href={role === 'admin' ? "/admin" : "/user"} className={`relative flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${(pathname === '/admin' || pathname === '/user') ? 'text-blue-500' : 'text-slate-400 hover:text-slate-200'}`}>
-             {(pathname === '/admin' || pathname === '/user') && <div className="absolute top-0 w-8 h-1 bg-blue-500 rounded-b-full"></div>}
-            <UserCircle size={22} className={(pathname === '/admin' || pathname === '/user') ? 'animate-in zoom-in duration-300' : ''} />
+          <Link href={role === 'admin' ? "/admin" : localizeHref("/user", locale)} className={`relative flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${(currentNormalized === '/admin' || currentNormalized === '/user') ? 'text-blue-500' : 'text-slate-400 hover:text-slate-200'}`}>
+             {(currentNormalized === '/admin' || currentNormalized === '/user') && <div className="absolute top-0 w-8 h-1 bg-blue-500 rounded-b-full"></div>}
+            <UserCircle size={22} className={(currentNormalized === '/admin' || currentNormalized === '/user') ? 'animate-in zoom-in duration-300' : ''} />
             <span className="text-[10px] font-bold">{t("navigation.account")}</span>
           </Link>
         ) : (
-          <Link href="/login" className={`relative flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${pathname === '/login' ? 'text-blue-500' : 'text-slate-400 hover:text-slate-200'}`}>
-            {pathname === '/login' && <div className="absolute top-0 w-8 h-1 bg-blue-500 rounded-b-full"></div>}
-            <LogIn size={22} className={pathname === '/login' ? 'animate-in zoom-in duration-300' : ''} />
+          <Link href={localizeHref("/login", locale)} className={`relative flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${currentNormalized === '/login' ? 'text-blue-500' : 'text-slate-400 hover:text-slate-200'}`}>
+            {currentNormalized === '/login' && <div className="absolute top-0 w-8 h-1 bg-blue-500 rounded-b-full"></div>}
+            <LogIn size={22} className={currentNormalized === '/login' ? 'animate-in zoom-in duration-300' : ''} />
             <span className="text-[10px] font-bold">{t("navigation.signIn")}</span>
           </Link>
         )}

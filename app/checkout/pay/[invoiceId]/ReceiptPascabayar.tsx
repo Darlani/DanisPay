@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRef, useState } from "react";
 import { Download, Printer, CheckCircle2, Copy } from "lucide-react";
@@ -62,13 +62,13 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
         dendaPLN = parseInt(detailJson.denda) || 0;
         adminPLN = parseInt(detailJson.admin) || 0;
 
-        // Format periode otomatis (202604 -> April 2026)
+        // Format periode otomatis (202604 -> April 2026 / April 2026)
         const rawPeriode = detailJson.periode;
         if (rawPeriode && rawPeriode.length === 6) {
-          const year = rawPeriode.substring(0, 4);
-          const month = parseInt(rawPeriode.substring(4, 6)) - 1;
-          const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-          periode = `${months[month]} ${year}`;
+          const year = parseInt(rawPeriode.substring(0, 4), 10);
+          const month = parseInt(rawPeriode.substring(4, 6), 10) - 1;
+          const d = new Date(year, month, 1);
+          periode = d.toLocaleDateString(locale === "en" ? "en-US" : "id-ID", { month: "long", year: "numeric" });
         } else {
           periode = rawPeriode || "";
         }

@@ -17,7 +17,7 @@ export default function InterfaceEntertainment({ product, selectedItemId, setSel
           </div>
           
           <h1 className="text-2xl font-black italic uppercase text-white tracking-tighter relative z-10">{product.name}</h1>
-          <p className="text-[9px] font-black text-rose-400 uppercase tracking-[0.3em] mt-2 relative z-10">Premium Subscription</p>
+          <p className="text-[9px] font-black text-rose-400 uppercase tracking-[0.3em] mt-2 relative z-10">{t("products.minor.premiumSubscription")}</p>
         </div>
       </div>
       {/* ... sisa kode ke bawah sama ... */}

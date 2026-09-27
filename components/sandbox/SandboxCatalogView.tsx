@@ -41,6 +41,7 @@ import { supabase } from "@/utils/supabaseClient";
 import { fetchTesterSessionDeduplicated } from "@/components/sandbox/SandboxSessionControl";
 import SandboxConversionModal from "@/components/sandbox/SandboxConversionModal";
 import CounterCartReceiptModal from "@/components/sandbox/CounterCartReceiptModal";
+import { useI18n } from "@/lib/i18n/context";
 import {
   CURATED_SANDBOX_PRODUCTS,
   calculateSimulatedMargin,
@@ -382,6 +383,8 @@ export default function SandboxCatalogView({
   onMarginView,
   isSimulationQuotaExhausted = false,
 }: SandboxCatalogViewProps) {
+  const { t } = useI18n();
+
   // Catalog Data & Fetch State
   const [catalogData, setCatalogData] = useState<DynamicSandboxCatalogResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -547,13 +550,13 @@ export default function SandboxCatalogView({
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => null);
-        let errorMsg = "Gagal memuat katalog simulasi Sandbox.";
+        let errorMsg = t("sandbox.catalog.errLoadCatalog");
         if (res.status === 401 || errorData?.code === "AUTHENTICATION_REQUIRED") {
-          errorMsg = "Sesi login diperlukan untuk mengakses katalog Sandbox. Silakan login kembali.";
+          errorMsg = t("sandbox.catalog.errAuthRequired");
         } else if (errorData?.code === "SANDBOX_SESSION_REQUIRED") {
-          errorMsg = "Sesi Sandbox belum aktif atau telah berakhir. Silakan aktifkan sesi Sandbox Anda.";
+          errorMsg = t("sandbox.catalog.errSessionRequired");
         } else if (errorData?.code === "SANDBOX_ACCESS_DENIED") {
-          errorMsg = "Akses Sandbox ditolak untuk akun manajemen / non-tester.";
+          errorMsg = t("sandbox.catalog.errAccessDenied");
         } else if (errorData?.error) {
           errorMsg = errorData.error;
         }
@@ -566,7 +569,7 @@ export default function SandboxCatalogView({
       const data: DynamicSandboxCatalogResponse = await res.json();
       if (!data.success || !Array.isArray(data.categories)) {
         console.warn("[SandboxCatalogView] Format respons katalog tidak sesuai:", data);
-        setCatalogError("Format respons katalog tidak sesuai.");
+        setCatalogError(t("sandbox.catalog.errResponseFormat"));
         return;
       }
 
@@ -580,11 +583,11 @@ export default function SandboxCatalogView({
       }
     } catch (err: unknown) {
       console.warn("[SandboxCatalogView] Network/client error:", err);
-      setCatalogError("Gagal memuat katalog simulasi Sandbox. Silakan periksa koneksi internet Anda dan coba lagi.");
+      setCatalogError(t("sandbox.catalog.errNetworkCatalog"));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void fetchCatalog();
@@ -835,7 +838,7 @@ export default function SandboxCatalogView({
 
     setCartItems((prev) => {
       if (prev.length >= 30) {
-        alert("Maksimal keranjang konter adalah 30 item transaksi.");
+        alert(t("sandbox.catalog.errMaxCartItems"));
         return prev;
       }
       return [...prev, newItem];
@@ -906,7 +909,7 @@ export default function SandboxCatalogView({
   const handleAddDestinationForProduct = (sourceCartItemId: string) => {
     setCartItems((prev) => {
       if (prev.length >= 30) {
-        alert("Maksimal keranjang konter adalah 30 item transaksi.");
+        alert(t("sandbox.catalog.errMaxCartItems"));
         return prev;
       }
       const source = prev.find((it) => it.cartItemId === sourceCartItemId);
@@ -1238,7 +1241,7 @@ export default function SandboxCatalogView({
   const handleExecuteSimulatedTransaction = async () => {
     if (!activeVariant || !isVariantPriceValid) return;
     if (!targetNumber.trim() || targetNumber.trim().length < 4) {
-      setTransactionError("Nomor tujuan / ID pelanggan minimal 4 karakter.");
+      setTransactionError(t("sandbox.catalog.errMinCustomerNo"));
       return;
     }
 
@@ -1270,7 +1273,7 @@ export default function SandboxCatalogView({
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(body.error || "Transaksi simulasi gagal.");
+        throw new Error(body.error || t("sandbox.catalog.errTxFailed"));
       }
 
       setTransactionResult(body as SimulatedTransactionOutcome);
@@ -1283,7 +1286,7 @@ export default function SandboxCatalogView({
         window.dispatchEvent(new Event("sandboxSessionChanged"));
       }
     } catch (err: unknown) {
-      setTransactionError(err instanceof Error ? err.message : "Transaksi simulasi gagal diproses.");
+      setTransactionError(err instanceof Error ? err.message : t("sandbox.catalog.errTxProcessFailed"));
     } finally {
       setIsTransacting(false);
     }
@@ -1293,7 +1296,7 @@ export default function SandboxCatalogView({
     const isCartActive = cartItems.length > 0;
     if (!isCartActive && selectedVariantEntries.length === 0) return;
     if (!isCartActive && (!bulkCustomerNo.trim() || bulkCustomerNo.trim().length < 4)) {
-      setBulkError("Nomor tujuan / ID pelanggan minimal 4 karakter.");
+      setBulkError(t("sandbox.catalog.errMinCustomerNo"));
       return;
     }
 
@@ -1363,15 +1366,15 @@ export default function SandboxCatalogView({
       }
 
       if (!response.ok) {
-        let errMsg = data.error || "Simulasi massal gagal diproses.";
+        let errMsg = data.error || t("sandbox.catalog.errBulkProcessFailed");
         if (data.code === "INSUFFICIENT_SANDBOX_BALANCE") {
-          errMsg = "Saldo virtual Sandbox Anda tidak mencukupi untuk simulasi pembelian massal ini.";
+          errMsg = t("sandbox.catalog.errBulkBalanceInsufficient");
         } else if (data.code === "MAX_SKU_EXCEEDED") {
-          errMsg = "Maksimal pemilihan varian adalah 20 produk per simulasi.";
+          errMsg = t("sandbox.catalog.errMaxSkuExceeded");
         } else if (data.code === "INVALID_QUANTITY") {
-          errMsg = "Jumlah kuantitas per produk tidak valid (1-100 item).";
+          errMsg = t("sandbox.catalog.errInvalidQty");
         } else if (data.code === "INVALID_TOTAL_QUANTITY") {
-          errMsg = "Total kuantitas simulasi melebihi batas maksimal 500 item.";
+          errMsg = t("sandbox.catalog.errInvalidTotalQty");
         }
         throw new Error(errMsg);
       }
@@ -1413,7 +1416,7 @@ export default function SandboxCatalogView({
                   return {
                     lineId: l.lineId || matchedCartItem?.cartItemId || `line_${idx}`,
                     productId: l.productId,
-                    productName: l.productName || matchedCartItem?.productName || "Produk Digital",
+                    productName: l.productName || matchedCartItem?.productName || t("sandbox.receipt.digitalProductFallback"),
                     customerNo: l.customerNo || matchedCartItem?.customerNo || "081234567890",
                     quantity: typeof l.quantity === "number" ? l.quantity : (matchedCartItem?.quantity || 1),
                     modalUnitPrice: typeof l.modalUnitPrice === "number" ? l.modalUnitPrice : (matchedCartItem?.unitPrice || 0),
@@ -1484,7 +1487,7 @@ export default function SandboxCatalogView({
         window.dispatchEvent(new Event("sandboxSessionChanged"));
       }
     } catch (err: unknown) {
-      setBulkError(err instanceof Error ? err.message : "Simulasi massal gagal diproses.");
+      setBulkError(err instanceof Error ? err.message : t("sandbox.catalog.errBulkProcessFailed"));
     } finally {
       setIsBulkTransacting(false);
     }
@@ -1499,17 +1502,17 @@ export default function SandboxCatalogView({
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-900 border border-amber-300">
                 <FlaskConical size={11} className="text-amber-700" />
-                SANDBOX • SIMULASI
+                {t("sandbox.catalog.badge")}
               </span>
               <span className="hidden sm:inline text-[10px] font-bold text-amber-800/80 uppercase tracking-wide">
-                Katalog Dinamis & Simulasi
+                {t("sandbox.catalog.subBadge")}
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-              Katalog Produk & Simulasi Transaksi Digital
+              {t("sandbox.catalog.title")}
             </h2>
             <p className="hidden md:block text-xs text-slate-600 max-w-2xl leading-relaxed">
-              Jelajahi produk retail digital DaPay secara dinamis. Simulasikan transaksi menggunakan saldo virtual sandbox yang 100% terisolasi dari sistem LIVE.
+              {t("sandbox.catalog.desc")}
             </p>
           </div>
 
@@ -1518,11 +1521,11 @@ export default function SandboxCatalogView({
             <button
               type="button"
               onClick={() => setIsPricingModalOpen(true)}
-              title="Atur margin default harga jual reseller"
+              title={t("sandbox.catalog.sellingPriceSettingsTitle")}
               className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl bg-white/90 border border-amber-200/90 text-xs font-semibold text-amber-900 shadow-2xs hover:bg-white transition cursor-pointer"
             >
               <SlidersHorizontal size={13} className="text-amber-700 shrink-0" />
-              <span className="hidden sm:inline">Harga Jual</span>
+              <span className="hidden sm:inline">{t("sandbox.catalog.sellingPriceSettings")}</span>
               <span className="text-[10px] font-mono font-bold bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded-md border border-amber-200 shrink-0">
                 {globalPricingRule.type === "nominal"
                   ? `+Rp${globalPricingRule.value.toLocaleString("id-ID")}`
@@ -1538,7 +1541,7 @@ export default function SandboxCatalogView({
                 setBulkError(null);
                 setBulkResult(null);
               }}
-              title="Buka Keranjang"
+              title={t("sandbox.catalog.openCartTitle")}
               className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-xl border text-xs font-bold transition cursor-pointer shadow-2xs ${
                 cartLineCount > 0
                   ? "bg-slate-900 border-slate-900 text-white hover:bg-slate-800"
@@ -1549,7 +1552,7 @@ export default function SandboxCatalogView({
                 size={14}
                 className={cartLineCount > 0 ? "text-amber-400" : "text-amber-700"}
               />
-              <span>Keranjang</span>
+              <span>{t("sandbox.catalog.cart")}</span>
               <span
                 className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black ${
                   cartLineCount > 0
@@ -1570,13 +1573,13 @@ export default function SandboxCatalogView({
 
         {/* Mobile Description */}
         <p className="md:hidden mt-2.5 text-xs text-slate-600 leading-relaxed">
-          Jelajahi produk retail digital DaPay secara dinamis. Simulasikan transaksi menggunakan saldo virtual sandbox yang 100% terisolasi dari sistem LIVE.
+          {t("sandbox.catalog.desc")}
         </p>
 
         {/* Persona Simulation Switcher */}
         <div className="mt-3.5 pt-3 border-t border-amber-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-amber-950">Mode Simulasi Akun:</span>
+            <span className="text-xs font-bold text-amber-950">{t("sandbox.catalog.accountSimMode")}</span>
             <div className="inline-flex items-center rounded-xl bg-white/90 p-1 border border-amber-200/90 shadow-2xs">
               <button
                 type="button"
@@ -1588,7 +1591,7 @@ export default function SandboxCatalogView({
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Simulasi Reguler
+                {t("sandbox.catalog.simRegular")}
               </button>
               <button
                 type="button"
@@ -1600,28 +1603,28 @@ export default function SandboxCatalogView({
                     : "text-amber-900 hover:text-amber-950"
                 }`}
               >
-                Simulasi Special
+                {t("sandbox.catalog.simSpecial")}
               </button>
             </div>
           </div>
           <div className="flex flex-col sm:items-end gap-0.5 text-[11px] text-amber-900/90 font-medium">
             {simulatedMemberType === "special" ? (
               <span className="inline-flex items-center gap-1.5 text-amber-950 font-semibold">
-                <span className="rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-black text-amber-900 border border-amber-300">
-                  SPECIAL
+                <span className="rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-900 border border-amber-300">
+                  {t("sandbox.catalog.simSpecial")}
                 </span>
-                Promo + Referral ✅ • <strong>Cashback Koin Sandbox ✅</strong>
+                <span>{t("sandbox.catalog.specialPerks")}</span>
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 text-slate-700">
-                <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[10px] font-black text-slate-800 border border-slate-300">
-                  REGULER
+                <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[10px] font-black uppercase text-slate-800 border border-slate-300">
+                  {t("sandbox.catalog.simRegular")}
                 </span>
-                Promo + Referral ✅ • <span>Tanpa Cashback ❌</span>
+                <span>{t("sandbox.catalog.regularPerks")}</span>
               </span>
             )}
             <span className="text-[10px] text-amber-800/75 italic">
-              *Hanya berlaku di Sandbox dan tidak mengubah tipe akun LIVE Anda.
+              {t("sandbox.catalog.simNotice")}
             </span>
           </div>
         </div>
@@ -1643,7 +1646,7 @@ export default function SandboxCatalogView({
             }`}
           >
             <FlaskConical size={15} className="shrink-0" />
-            <span>Semua Produk</span>
+            <span>{t("sandbox.catalog.allProducts")}</span>
             <span
               className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                 selectedCategoryKey === "all" ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-500"
@@ -1687,7 +1690,7 @@ export default function SandboxCatalogView({
             type="button"
             onClick={() => setIsMilestoneDismissed(true)}
             className="absolute top-3 right-3 rounded-full p-1 text-slate-400 hover:bg-emerald-200/50 hover:text-slate-700 transition cursor-pointer"
-            aria-label="Tutup pemberitahuan simulasi selesai"
+            aria-label={t("sandbox.catalog.milestoneCloseAria")}
           >
             <X size={15} />
           </button>
@@ -1700,14 +1703,14 @@ export default function SandboxCatalogView({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-300">
-                    Simulasi Selesai
+                    {t("sandbox.catalog.milestoneBadge")}
                   </span>
                   <span className="text-xs font-black text-slate-900">
-                    Eksplorasi Transaksi & Margin Selesai!
+                    {t("sandbox.catalog.milestoneTitle")}
                   </span>
                 </div>
                 <p className="text-xs text-slate-600 mt-0.5 max-w-xl leading-relaxed">
-                  Anda telah berhasil menguji alur transaksi digital dan margin retail di Sandbox. Siap bertransaksi riil dan meraih keuntungan bisnis nyata?
+                  {t("sandbox.catalog.milestoneDesc")}
                 </p>
               </div>
             </div>
@@ -1716,7 +1719,7 @@ export default function SandboxCatalogView({
               onClick={() => setIsConversionModalOpen(true)}
               className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition cursor-pointer"
             >
-              <span>Beralih ke Member LIVE</span>
+              <span>{t("sandbox.catalog.milestoneCta")}</span>
               <ArrowRight size={14} />
             </button>
           </div>
@@ -1728,8 +1731,8 @@ export default function SandboxCatalogView({
         <div className="flex flex-col items-center justify-center py-16 px-4 rounded-2xl bg-white border border-slate-200/80 text-center space-y-3 shadow-2xs">
           <Loader2 size={32} className="animate-spin text-amber-600" />
           <div className="space-y-1">
-            <p className="text-sm font-bold text-slate-800">Memuat Katalog Dinamis Sandbox...</p>
-            <p className="text-xs text-slate-500">Mengambil data produk terkini langsung dari sistem DaPay.</p>
+            <p className="text-sm font-bold text-slate-800">{t("sandbox.catalog.loadingTitle")}</p>
+            <p className="text-xs text-slate-500">{t("sandbox.catalog.loadingDesc")}</p>
           </div>
         </div>
       )}
@@ -1740,7 +1743,7 @@ export default function SandboxCatalogView({
           <AlertCircle size={28} className="text-rose-600" />
           <div className="space-y-1 max-w-md">
             <p className="text-sm font-bold text-rose-900">{catalogError}</p>
-            <p className="text-xs text-rose-700">Pastikan sesi Sandbox Anda aktif dan coba muat ulang.</p>
+            <p className="text-xs text-rose-700">{t("sandbox.catalog.errorDesc")}</p>
           </div>
           <button
             type="button"
@@ -1748,7 +1751,7 @@ export default function SandboxCatalogView({
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition cursor-pointer"
           >
             <RefreshCw size={13} />
-            <span>Coba Lagi</span>
+            <span>{t("sandbox.catalog.retry")}</span>
           </button>
         </div>
       )}
@@ -1757,8 +1760,8 @@ export default function SandboxCatalogView({
       {!isLoading && !catalogError && (!catalogData || catalogData.categories.length === 0) && (
         <div className="flex flex-col items-center justify-center py-16 px-4 rounded-2xl bg-white border border-slate-200/80 text-center space-y-2">
           <FlaskConical size={32} className="text-slate-400" />
-          <p className="text-sm font-bold text-slate-800">Katalog simulasi sedang tidak tersedia.</p>
-          <p className="text-xs text-slate-500">Silakan periksa kembali nanti atau hubungi bantuan.</p>
+          <p className="text-sm font-bold text-slate-800">{t("sandbox.catalog.emptyTitle")}</p>
+          <p className="text-xs text-slate-500">{t("sandbox.catalog.emptyDesc")}</p>
         </div>
       )}
 
@@ -1766,8 +1769,8 @@ export default function SandboxCatalogView({
       {!isLoading && !catalogError && currentCategory && activeBrands.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 px-4 rounded-2xl bg-white border border-slate-200/80 text-center space-y-2">
           <FlaskConical size={32} className="text-slate-400" />
-          <p className="text-sm font-bold text-slate-800">Belum ada brand yang tersedia di kategori ini.</p>
-          <p className="text-xs text-slate-500">Pilih kategori lain untuk melanjutkan eksplorasi produk.</p>
+          <p className="text-sm font-bold text-slate-800">{t("sandbox.catalog.emptyBrandTitle")}</p>
+          <p className="text-xs text-slate-500">{t("sandbox.catalog.emptyBrandDesc")}</p>
         </div>
       )}
 
@@ -1781,7 +1784,7 @@ export default function SandboxCatalogView({
                 type="button"
                 onClick={() => handleScrollBrands("left")}
                 className="absolute left-0 sm:-left-2 top-12.5 sm:top-15 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/85 hover:bg-white text-slate-700 hover:text-amber-900 shadow-md shadow-black/10 hover:shadow-xl border border-white/90 hover:border-amber-300 backdrop-blur-md transition-all duration-200 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 group/arrow"
-                aria-label="Geser brand ke kiri"
+                aria-label={t("sandbox.catalog.scrollLeftAria")}
               >
                 <ChevronLeft size={20} strokeWidth={2.5} className="transition-transform group-hover/arrow:-translate-x-0.5" />
               </button>
@@ -1852,7 +1855,7 @@ export default function SandboxCatalogView({
                 type="button"
                 onClick={() => handleScrollBrands("right")}
                 className="absolute right-0 sm:-right-2 top-12.5 sm:top-15 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/85 hover:bg-white text-slate-700 hover:text-amber-900 shadow-md shadow-black/10 hover:shadow-xl border border-white/90 hover:border-amber-300 backdrop-blur-md transition-all duration-200 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 group/arrow"
-                aria-label="Geser brand ke kanan"
+                aria-label={t("sandbox.catalog.scrollRightAria")}
               >
                 <ChevronRight size={20} strokeWidth={2.5} className="transition-transform group-hover/arrow:translate-x-0.5" />
               </button>
@@ -1869,7 +1872,7 @@ export default function SandboxCatalogView({
                       {formatTwoWordsName(activeBrand.displayName)}
                     </h4>
                     <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
-                      {displayedVariants.length} Varian
+                      {t("sandbox.catalog.variantsCount", { count: displayedVariants.length })}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1881,13 +1884,13 @@ export default function SandboxCatalogView({
                         disabled={!hasActiveSelections}
                         title={
                           hasActiveSelections
-                            ? "Kosongkan semua pilihan dan keranjang simulasi"
-                            : "Keranjang dan pilihan produk masih kosong"
+                            ? t("sandbox.catalog.resetTitleActive")
+                            : t("sandbox.catalog.resetTitleEmpty")
                         }
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-rose-200 bg-rose-50/90 text-rose-700 hover:bg-rose-100 hover:border-rose-300 text-[10px] font-bold transition shadow-2xs cursor-pointer"
                       >
                         <RotateCcw size={10} className="text-rose-600" />
-                        <span>Reset</span>
+                        <span>{t("sandbox.catalog.resetBtn")}</span>
                       </button>
                     )}
 
@@ -1897,7 +1900,7 @@ export default function SandboxCatalogView({
                         onClick={() => setIsViewAllVariants(!isViewAllVariants)}
                         className="text-[11px] font-bold text-slate-500 hover:text-amber-800 flex items-center gap-1 transition cursor-pointer"
                       >
-                        <span>{isViewAllVariants ? "Tampilkan Sedikit" : "Lihat Semua"}</span>
+                        <span>{isViewAllVariants ? t("sandbox.catalog.showLess") : t("sandbox.catalog.viewAll")}</span>
                         <ArrowRight size={12} className={isViewAllVariants ? "rotate-90 transition-transform" : ""} />
                       </button>
                     )}
@@ -1905,7 +1908,7 @@ export default function SandboxCatalogView({
                       type="button"
                       onClick={() => setSelectedBrandKey(null)}
                       className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
-                      title="Tutup dropdown"
+                      title={t("sandbox.catalog.closeDropdown")}
                     >
                       <X size={14} />
                     </button>
@@ -1923,7 +1926,7 @@ export default function SandboxCatalogView({
                       }`}
                     >
                       <FlaskConical size={12} className={simulationMode === "single" ? "text-amber-600" : "text-slate-400"} />
-                      <span>Satuan</span>
+                      <span>{t("sandbox.catalog.singleMode")}</span>
                     </button>
                     <button
                       type="button"
@@ -1933,7 +1936,7 @@ export default function SandboxCatalogView({
                       }`}
                     >
                       <Layers size={12} className={simulationMode === "bulk" ? "text-amber-400" : "text-slate-400"} />
-                      <span>Massal</span>
+                      <span>{t("sandbox.catalog.bulkMode")}</span>
                       {cartLineCount > 0 && (
                         <span className="ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-amber-500 text-slate-950 font-black">
                           {cartLineCount}
@@ -1948,7 +1951,7 @@ export default function SandboxCatalogView({
                       type="text"
                       value={variantSearch}
                       onChange={(e) => setVariantSearch(e.target.value)}
-                      placeholder="Cari..."
+                      placeholder={t("sandbox.catalog.searchPlaceholder")}
                       className="w-full pl-7 pr-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-slate-50/70 text-slate-900 focus:bg-white focus:outline-hidden"
                     />
                     {variantSearch && (
@@ -1967,7 +1970,7 @@ export default function SandboxCatalogView({
                 <div className="space-y-1.5 max-h-73.75 overflow-y-auto pr-1 scrollbar-thin">
                   {displayedVariants.length === 0 ? (
                     <div className="py-8 text-center text-xs text-slate-400">
-                      Tidak ada varian produk yang ditemukan.
+                      {t("sandbox.catalog.noVariantsFound")}
                     </div>
                   ) : (
                     (isViewAllVariants ? displayedVariants : displayedVariants.slice(0, 5)).map((variant) => {
@@ -2012,7 +2015,7 @@ export default function SandboxCatalogView({
                                   if (!isPriceValid) return;
                                   handleToggleVariantInCart(variant, activeBrand, currentCategory);
                                 }}
-                                title={isSelectedInCart ? "Batal pilih (hapus dari keranjang)" : "Centang untuk pilih"}
+                                title={isSelectedInCart ? t("sandbox.catalog.uncheckAria") : t("sandbox.catalog.checkAria")}
                                 className={`w-6 h-6 rounded-lg border flex items-center justify-center shrink-0 transition cursor-pointer ${
                                   isSelectedInCart
                                     ? "bg-amber-600 border-amber-600 text-white shadow-2xs hover:bg-amber-700"
@@ -2060,7 +2063,7 @@ export default function SandboxCatalogView({
                                         e.stopPropagation();
                                         handleDecrementVariantInCart(variant.id);
                                       }}
-                                      title="Kurangi kuantitas"
+                                      title={t("sandbox.catalog.decreaseQtyAria")}
                                       className="w-6 h-6 rounded-md bg-slate-100 hover:bg-rose-100 hover:text-rose-700 flex items-center justify-center text-slate-700 transition cursor-pointer border border-slate-200"
                                     >
                                       <Minus size={11} strokeWidth={2.5} />
@@ -2077,7 +2080,7 @@ export default function SandboxCatalogView({
                                     if (!isPriceValid) return;
                                     handleIncrementVariantInCart(variant, activeBrand, currentCategory);
                                   }}
-                                  title="Tambah kuantitas"
+                                  title={t("sandbox.catalog.increaseQtyAria")}
                                   className={`w-6 h-6 rounded-md border flex items-center justify-center transition cursor-pointer ${
                                     isSelectedInCart
                                       ? "bg-amber-100 border-amber-300 text-amber-900 hover:bg-amber-200"
@@ -2101,10 +2104,10 @@ export default function SandboxCatalogView({
                     {cartLineCount === 0 && bulkSelectedCount === 0 ? (
                       <div className="py-2 text-center rounded-xl bg-slate-50 border border-dashed border-slate-200">
                         <p className="text-[11px] text-slate-500 font-medium">
-                          Pilih produk di atas untuk memasukkan ke <strong>Keranjang</strong>.
+                          {t("sandbox.catalog.cartEmptyPromptTitle")}
                         </p>
                         <p className="text-[10px] text-slate-400 mt-0.5">
-                          Mendukung transaksi berbagai brand dan nomor tujuan berbeda dalam satu checkout.
+                          {t("sandbox.catalog.cartEmptyPromptDesc")}
                         </p>
                       </div>
                     ) : (
@@ -2113,12 +2116,14 @@ export default function SandboxCatalogView({
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="rounded-md bg-amber-500/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 text-[10px] font-mono font-black">
-                                {cartLineCount > 0 ? `${cartLineCount} Transaksi` : `${bulkSelectedCount} Produk`} • {cartLineCount > 0 ? cartTotalQuantity : bulkTotalQuantity} Item
+                                {cartLineCount > 0
+                                  ? t("sandbox.catalog.cartSummaryTransactions", { count: cartLineCount, qty: cartTotalQuantity })
+                                  : t("sandbox.catalog.cartSummaryProducts", { count: bulkSelectedCount, qty: bulkTotalQuantity })}
                               </span>
                               {simulatedMemberType === "special" && (cartTotalCashback > 0 || bulkTotalCashback > 0) && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-300 font-mono">
                                   <Sparkles size={10} className="text-violet-400" />
-                                  +{(cartTotalCashback || bulkTotalCashback).toLocaleString("id-ID")} Koin
+                                  +{(cartTotalCashback || bulkTotalCashback).toLocaleString("id-ID")} {t("sandbox.receipt.coinUnit")}
                                 </span>
                               )}
                             </div>
@@ -2130,12 +2135,12 @@ export default function SandboxCatalogView({
                               }}
                               className="text-[10px] font-bold text-slate-400 hover:text-rose-400 transition cursor-pointer"
                             >
-                              Reset
+                              {t("sandbox.catalog.resetBtn")}
                             </button>
                           </div>
 
                           <div className="flex items-baseline justify-between pt-1 border-t border-slate-800">
-                            <span className="text-[11px] text-slate-400">Total Harga Beli:</span>
+                            <span className="text-[11px] text-slate-400">{t("sandbox.catalog.totalCost")}</span>
                             <span className="text-xs sm:text-sm font-black text-amber-400 font-mono">
                               Rp {(cartLineCount > 0 ? cartTotalCost : bulkTotalCost).toLocaleString("id-ID")}
                             </span>
@@ -2143,7 +2148,7 @@ export default function SandboxCatalogView({
 
                           {cartLineCount > 0 && (
                             <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/60 text-[11px]">
-                              <span className="text-slate-400">Perkiraan Margin:</span>
+                              <span className="text-slate-400">{t("sandbox.catalog.estMargin")}</span>
                               <span className="font-mono font-bold text-emerald-400">
                                 +Rp {cartTotalEstimatedMargin.toLocaleString("id-ID")}
                               </span>
@@ -2168,7 +2173,7 @@ export default function SandboxCatalogView({
                           className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 text-xs font-black uppercase tracking-wider shadow-md shadow-amber-500/20 transition cursor-pointer active:scale-[0.99]"
                         >
                           <ShoppingCart size={14} />
-                          <span>Tinjau Keranjang ({cartLineCount > 0 ? cartLineCount : bulkSelectedCount} Item)</span>
+                          <span>{t("sandbox.catalog.reviewCartBtn", { count: cartLineCount > 0 ? cartLineCount : bulkSelectedCount })}</span>
                           <ArrowRight size={14} />
                         </button>
                       </div>
@@ -2183,7 +2188,7 @@ export default function SandboxCatalogView({
                   <Sparkles size={16} className="text-amber-600 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
                     <h5 className="text-xs font-bold text-amber-950">
-                      Wawasan Bisnis {activeBrand.displayName}:
+                      {t("sandbox.catalog.businessInsights", { brand: activeBrand.displayName })}
                     </h5>
                     <p className="text-xs leading-relaxed text-amber-900/90">
                       {activeBrand.educationalTip}
@@ -2210,7 +2215,7 @@ export default function SandboxCatalogView({
               onClick={handleCloseModal}
               disabled={isTransacting}
               className="absolute right-3.5 top-3.5 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition disabled:opacity-50 cursor-pointer"
-              aria-label="Tutup dialog transaksi"
+              aria-label={t("sandbox.catalog.closeDialogAria")}
             >
               <X size={18} />
             </button>
@@ -2219,7 +2224,7 @@ export default function SandboxCatalogView({
             <div className="mb-1">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-900 border border-amber-300">
                 <FlaskConical size={12} className="text-amber-600" />
-                DEMO • SIMULASI SATUAN
+                {t("sandbox.catalog.singleSimBadge")}
               </span>
             </div>
 
@@ -2279,28 +2284,28 @@ export default function SandboxCatalogView({
 
                     <h4 className="text-sm font-black">
                       {transactionResult.status === "Berhasil"
-                        ? "Transaksi Simulasi Berhasil!"
-                        : "Transaksi Simulasi Gagal"}
+                        ? t("sandbox.catalog.simSuccessTitle")
+                        : t("sandbox.catalog.simFailedTitle")}
                     </h4>
                     <p className="text-xs text-slate-600 mt-1">{transactionResult.message}</p>
 
                     <div className="mt-3.5 pt-3 border-t border-slate-200/70 space-y-1.5 text-xs text-left bg-white/80 p-3 rounded-xl">
                       <div className="flex justify-between">
-                        <span className="text-slate-500">Order ID:</span>
+                        <span className="text-slate-500">{t("sandbox.catalog.orderId")}</span>
                         <span className="font-mono font-bold text-slate-800">#{transactionResult.orderId}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-500">No. Tujuan:</span>
+                        <span className="text-slate-500">{t("sandbox.catalog.customerNo")}</span>
                         <span className="font-mono font-bold text-slate-800">{transactionResult.customerNo}</span>
                       </div>
                       {transactionResult.sn && (
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Serial Number (SN):</span>
+                          <span className="text-slate-500">{t("sandbox.catalog.serialNumber")}</span>
                           <span className="font-mono font-black text-emerald-700">{transactionResult.sn}</span>
                         </div>
                       )}
                       <div className="flex justify-between">
-                        <span className="text-slate-500">Saldo Virtual Terpotong:</span>
+                        <span className="text-slate-500">{t("sandbox.catalog.virtualBalanceDeducted")}</span>
                         <span className="font-mono font-bold text-slate-900">
                           Rp {transactionResult.amount.toLocaleString("id-ID")}
                         </span>
@@ -2309,22 +2314,22 @@ export default function SandboxCatalogView({
                         <div className="flex justify-between text-violet-800 font-bold bg-violet-50 px-2 py-1 rounded-lg border border-violet-200">
                           <span className="flex items-center gap-1 text-[11px]">
                             <Sparkles size={12} className="text-violet-600" />
-                            Cashback Koin Sandbox:
+                            {t("sandbox.catalog.cashbackCoins")}
                           </span>
-                          <span className="font-mono text-xs">+{transactionResult.cashbackAwarded} Koin</span>
+                          <span className="font-mono text-xs">+{transactionResult.cashbackAwarded} {t("sandbox.receipt.coinUnit")}</span>
                         </div>
                       )}
                       <div className="flex justify-between border-t border-slate-200/70 pt-1.5 font-bold">
-                        <span className="text-slate-600">Sisa Saldo Virtual:</span>
+                        <span className="text-slate-600">{t("sandbox.catalog.remainingVirtualBalance")}</span>
                         <span className="font-mono text-amber-700">
                           Rp {transactionResult.remainingBalance.toLocaleString("id-ID")}
                         </span>
                       </div>
                       {transactionResult.remainingCoin !== undefined && (
                         <div className="flex justify-between font-bold text-violet-900">
-                          <span className="text-slate-600">Sisa Koin Sandbox:</span>
+                          <span className="text-slate-600">{t("sandbox.catalog.remainingCoins")}</span>
                           <span className="font-mono text-violet-700">
-                            {(transactionResult.remainingCoin || 0).toLocaleString("id-ID")} KOIN
+                            {(transactionResult.remainingCoin || 0).toLocaleString("id-ID")} {t("sandbox.receipt.coinUnit").toUpperCase()}
                           </span>
                         </div>
                       )}
@@ -2340,14 +2345,14 @@ export default function SandboxCatalogView({
                       }}
                       className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                     >
-                      Coba Produk Lain
+                      {t("sandbox.catalog.tryOtherProduct")}
                     </button>
                     <button
                       type="button"
                       onClick={handleCloseModal}
                       className="flex-1 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition cursor-pointer"
                     >
-                      Selesai & Tutup
+                      {t("sandbox.catalog.doneAndClose")}
                     </button>
                   </div>
                 </div>
@@ -2358,7 +2363,7 @@ export default function SandboxCatalogView({
                     <div className="flex items-center gap-2">
                       <Users size={15} className="text-slate-400 shrink-0" />
                       <div className="min-w-0">
-                        <span className="block text-[10px] text-slate-400 font-medium">Kategori</span>
+                        <span className="block text-[10px] text-slate-400 font-medium">{t("sandbox.catalog.category")}</span>
                         <span className="font-bold text-slate-800 truncate block">
                           {currentCategory?.displayName || "Game"}
                         </span>
@@ -2368,7 +2373,7 @@ export default function SandboxCatalogView({
                     <div className="flex items-center gap-2">
                       <Tag size={15} className="text-slate-400 shrink-0" />
                       <div className="min-w-0">
-                        <span className="block text-[10px] text-slate-400 font-medium">Harga Katalog</span>
+                        <span className="block text-[10px] text-slate-400 font-medium">{t("sandbox.catalog.catalogPrice")}</span>
                         <span className="font-bold text-slate-900 font-mono truncate block">
                           Rp {activeVariant.effectivePrice.toLocaleString("id-ID")}
                         </span>
@@ -2378,7 +2383,7 @@ export default function SandboxCatalogView({
                     <div className="flex items-center gap-2">
                       <Box size={15} className="text-slate-400 shrink-0" />
                       <div className="min-w-0">
-                        <span className="block text-[10px] text-slate-400 font-medium">Brand Provider</span>
+                        <span className="block text-[10px] text-slate-400 font-medium">{t("sandbox.catalog.brandProvider")}</span>
                         <span className="font-bold text-slate-800 truncate block">
                           {formatTwoWordsName(activeBrandForModal?.displayName || activeBrand?.displayName)}
                         </span>
@@ -2388,9 +2393,9 @@ export default function SandboxCatalogView({
                     <div className="flex items-center gap-2">
                       <Gift size={15} className="text-violet-600 shrink-0" />
                       <div className="min-w-0">
-                        <span className="block text-[10px] text-slate-400 font-medium">Reward Cashback</span>
+                        <span className="block text-[10px] text-slate-400 font-medium">{t("sandbox.catalog.cashbackReward")}</span>
                         <span className="font-bold text-violet-700 font-mono truncate block">
-                          +{activeVariant.cashback} Koin Sandbox {simulatedMemberType === "special" ? "(AKTIF)" : ""}
+                          +{activeVariant.cashback} {t("sandbox.catalog.coinSandboxUnit")} {simulatedMemberType === "special" ? t("sandbox.catalog.activeTag") : ""}
                         </span>
                       </div>
                     </div>
@@ -2402,28 +2407,28 @@ export default function SandboxCatalogView({
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-black uppercase tracking-wide text-emerald-950 flex items-center gap-1.5">
                           <TrendingUp size={14} className="text-emerald-600" />
-                          PERKIRAAN MARGIN
+                          {t("sandbox.catalog.estMarginTitle")}
                         </span>
                         <span className="text-[10px] font-bold text-amber-800 bg-amber-200/60 px-2 py-0.5 rounded-full">
-                          Ilustratif
+                          {t("sandbox.catalog.illustrativeBadge")}
                         </span>
                       </div>
 
                       <div className="grid grid-cols-3 gap-2 bg-white/90 p-2.5 rounded-xl border border-amber-200/80 text-center">
                         <div>
-                          <p className="text-[8.5px] font-bold text-slate-400 uppercase">HARGA BELI</p>
+                          <p className="text-[8.5px] font-bold text-slate-400 uppercase">{t("sandbox.catalog.purchasePrice")}</p>
                           <p className="text-xs font-black text-slate-900 font-mono mt-0.5">
                             Rp {activeVariant.effectivePrice.toLocaleString("id-ID")}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[8.5px] font-bold text-slate-400 uppercase">HARGA JUAL</p>
+                          <p className="text-[8.5px] font-bold text-slate-400 uppercase">{t("sandbox.catalog.sellingPrice")}</p>
                           <p className="text-xs font-black text-slate-900 font-mono mt-0.5">
                             Rp {currentSellingPrice.toLocaleString("id-ID")}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[8.5px] font-bold text-emerald-700 uppercase">PERKIRAAN MARGIN</p>
+                          <p className="text-[8.5px] font-bold text-emerald-700 uppercase">{t("sandbox.catalog.estMarginTitle")}</p>
                           <p className="text-xs font-black text-emerald-700 font-mono mt-0.5">
                             +Rp {currentMargin.marginAmount.toLocaleString("id-ID")}
                           </p>
@@ -2432,13 +2437,13 @@ export default function SandboxCatalogView({
 
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-[10px] font-semibold text-slate-700">
-                          <span>Opsi Harga Jual:</span>
+                          <span>{t("sandbox.catalog.sellingPriceOptions")}</span>
                           <button
                             type="button"
                             onClick={() => setCustomSellingPrice(calculateDefaultSellingPrice(activeVariant.effectivePrice, globalPricingRule))}
                             className="text-[9.5px] text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
                           >
-                            <RotateCcw size={9} /> Reset
+                            <RotateCcw size={9} /> {t("sandbox.catalog.resetBtn")}
                           </button>
                         </div>
                         <div className="grid grid-cols-4 gap-1.5">
@@ -2468,7 +2473,7 @@ export default function SandboxCatalogView({
                       </div>
 
                       <p className="text-[10px] text-amber-900/70 italic">
-                        *Contoh margin bersifat ilustratif untuk latihan dan bukan jaminan keuntungan riil.
+                        {t("sandbox.catalog.marginIllustrationNote")}
                       </p>
                     </div>
                   )}
@@ -2481,10 +2486,10 @@ export default function SandboxCatalogView({
                         className="block text-xs font-bold text-slate-900"
                       >
                         {currentCategory?.categoryKey === "pln"
-                          ? "Nomor Meter / ID Pelanggan PLN:"
+                          ? t("sandbox.catalog.targetPln")
                           : currentCategory?.categoryKey === "game"
-                          ? "User ID / ID Game Akun (Simulasi)"
-                          : "Nomor HP / ID Tujuan (Simulasi)"}
+                          ? t("sandbox.catalog.targetGame")
+                          : t("sandbox.catalog.targetPhone")}
                       </label>
                       <button
                         type="button"
@@ -2499,7 +2504,7 @@ export default function SandboxCatalogView({
                         }}
                         className="text-[10px] font-bold text-amber-800 bg-amber-100/90 hover:bg-amber-200 px-2 py-0.5 rounded-md border border-amber-300 transition cursor-pointer"
                       >
-                        Nomor contoh simulasi
+                        {t("sandbox.catalog.sampleTargetBtn")}
                       </button>
                     </div>
                     <input
@@ -2509,7 +2514,7 @@ export default function SandboxCatalogView({
                       onChange={(e) => setTargetNumber(e.target.value)}
                       placeholder={
                         currentCategory?.categoryKey === "pln"
-                          ? "Contoh: 14023456789"
+                          ? t("sandbox.catalog.exampleTargetPln")
                           : currentCategory?.categoryKey === "game"
                           ? "12345678 (2048)"
                           : "081234567890"
@@ -2518,7 +2523,7 @@ export default function SandboxCatalogView({
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-mono font-medium focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500 bg-slate-50/50"
                     />
                     <p className="text-[10.5px] text-slate-500">
-                      Gunakan nomor contoh untuk simulasi. Tidak ada pulsa atau voucher nyata yang dikirim.
+                      {t("sandbox.catalog.sampleTargetDesc")}
                     </p>
                   </div>
 
@@ -2540,22 +2545,22 @@ export default function SandboxCatalogView({
                       {isTransacting ? (
                         <>
                           <Loader2 size={16} className="animate-spin" />
-                          <span>Memproses Transaksi Simulasi...</span>
+                          <span>{t("sandbox.catalog.executingSim")}</span>
                         </>
                       ) : isSimulationQuotaExhausted ? (
                         <>
                           <FlaskConical size={16} />
-                          <span>Batas Kuota Tercapai (Coba Besok)</span>
+                          <span>{t("sandbox.catalog.quotaExhausted")}</span>
                         </>
                       ) : !isVariantPriceValid ? (
                         <>
                           <FlaskConical size={16} />
-                          <span>Harga Belum Tersedia</span>
+                          <span>{t("sandbox.catalog.priceUnavailable")}</span>
                         </>
                       ) : (
                         <>
                           <FlaskConical size={16} />
-                          <span>SIMULASI BELI (Rp {activeVariant.effectivePrice.toLocaleString("id-ID")})</span>
+                          <span>{t("sandbox.catalog.simBuy", { price: activeVariant.effectivePrice.toLocaleString("id-ID") })}</span>
                         </>
                       )}
                     </button>
@@ -2566,7 +2571,7 @@ export default function SandboxCatalogView({
                         disabled={isTransacting}
                         className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition cursor-pointer"
                       >
-                        Batal
+                        {t("sandbox.catalog.cancel")}
                       </button>
                     </div>
                   </div>
@@ -2593,7 +2598,7 @@ export default function SandboxCatalogView({
               }}
               disabled={isBulkTransacting}
               className="absolute right-3.5 top-3.5 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition disabled:opacity-50 cursor-pointer"
-              aria-label="Tutup modal tinjau keranjang"
+              aria-label={t("sandbox.catalog.closeCartModalAria")}
             >
               <X size={18} />
             </button>
@@ -2602,7 +2607,7 @@ export default function SandboxCatalogView({
             <div className="mb-3">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-900 border border-amber-300">
                 <ShoppingCart size={12} className="text-amber-700" />
-                KERANJANG • RESELLER • SIMULASI
+                {t("sandbox.catalog.cartModalBadge")}
               </span>
             </div>
 
@@ -2623,29 +2628,29 @@ export default function SandboxCatalogView({
                   </div>
 
                   <h4 className="text-sm font-black">
-                    Simulasi Pembelian Massal Berhasil!
+                    {t("sandbox.catalog.bulkSuccessTitle")}
                   </h4>
                   <p className="text-xs text-slate-600 mt-1">{bulkResult.message}</p>
 
                   <div className="mt-3.5 pt-3 border-t border-slate-200/70 space-y-1.5 text-xs text-left bg-white/80 p-3 rounded-xl">
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Order ID Massal:</span>
+                      <span className="text-slate-500">{t("sandbox.catalog.bulkOrderId")}</span>
                       <span className="font-mono font-bold text-slate-800">#{bulkResult.orderId}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">No. Tujuan / ID:</span>
+                      <span className="text-slate-500">{t("sandbox.catalog.bulkTarget")}</span>
                       <span className="font-mono font-bold text-slate-800">{bulkCustomerNo}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Total Varian Diproses:</span>
-                      <span className="font-mono font-bold text-slate-800">{bulkResult.totalItems} Varian</span>
+                      <span className="text-slate-500">{t("sandbox.catalog.totalVariantsProcessed")}</span>
+                      <span className="font-mono font-bold text-slate-800">{bulkResult.totalItems} {t("sandbox.catalog.variantsLabel")}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Total Kuantitas:</span>
-                      <span className="font-mono font-bold text-slate-800">{bulkResult.totalQuantity} Item</span>
+                      <span className="text-slate-500">{t("sandbox.catalog.totalQuantity")}</span>
+                      <span className="font-mono font-bold text-slate-800">{t("sandbox.catalog.totalQuantity")} {bulkResult.totalQuantity}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Saldo Virtual Terpotong:</span>
+                      <span className="text-slate-500">{t("sandbox.catalog.virtualBalanceDeducted")}</span>
                       <span className="font-mono font-bold text-slate-900">
                         Rp {bulkResult.amount.toLocaleString("id-ID")}
                       </span>
@@ -2655,23 +2660,23 @@ export default function SandboxCatalogView({
                       <div className="flex justify-between text-violet-800 font-bold bg-violet-50 px-2 py-1 rounded-lg border border-violet-200">
                         <span className="flex items-center gap-1 text-[11px]">
                           <Sparkles size={12} className="text-violet-600" />
-                          Cashback Koin Sandbox:
+                          {t("sandbox.catalog.cashbackCoins")}
                         </span>
-                        <span className="font-mono text-xs">+{bulkResult.cashbackAwarded.toLocaleString("id-ID")} Koin</span>
+                        <span className="font-mono text-xs">+{bulkResult.cashbackAwarded.toLocaleString("id-ID")} {t("sandbox.receipt.coinUnit")}</span>
                       </div>
                     )}
 
                     <div className="flex justify-between border-t border-slate-200/70 pt-1.5 font-bold">
-                      <span className="text-slate-600">Sisa Saldo Virtual:</span>
+                      <span className="text-slate-600">{t("sandbox.catalog.remainingVirtualBalance")}</span>
                       <span className="font-mono text-amber-700">
                         Rp {bulkResult.remainingBalance.toLocaleString("id-ID")}
                       </span>
                     </div>
                     {bulkResult.remainingCoin !== undefined && (
                       <div className="flex justify-between font-bold text-violet-900">
-                        <span className="text-slate-600">Sisa Koin Sandbox:</span>
+                        <span className="text-slate-600">{t("sandbox.catalog.remainingCoins")}</span>
                         <span className="font-mono text-violet-700">
-                          {(bulkResult.remainingCoin || 0).toLocaleString("id-ID")} KOIN
+                          {(bulkResult.remainingCoin || 0).toLocaleString("id-ID")} {t("sandbox.receipt.coinUnit").toUpperCase()}
                         </span>
                       </div>
                     )}
@@ -2682,7 +2687,7 @@ export default function SandboxCatalogView({
                 {Array.isArray(bulkResult.lines) && bulkResult.lines.length > 0 && (
                   <div className="space-y-2">
                     <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                      Rincian Item Yang Diproses ({bulkResult.lines.length} Varian):
+                      {t("sandbox.catalog.processedItemsDetail", { count: bulkResult.lines.length })}
                     </h5>
                     <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                       {bulkResult.lines.map((line, idx) => (
@@ -2693,7 +2698,7 @@ export default function SandboxCatalogView({
                           <div className="space-y-0.5 max-w-[65%]">
                             <p className="font-bold text-slate-900 truncate">{line.productName}</p>
                             <p className="text-[10px] text-slate-400 font-medium">
-                              {line.quantity} item @ Rp {line.unitPrice.toLocaleString("id-ID")}
+                              {t("sandbox.catalog.itemAtPrice", { qty: line.quantity, price: line.unitPrice.toLocaleString("id-ID") })}
                             </p>
                           </div>
                           <div className="text-right">
@@ -2702,7 +2707,7 @@ export default function SandboxCatalogView({
                             </span>
                             {line.cashback > 0 && (
                               <span className="text-[9.5px] font-bold text-violet-700 font-mono block">
-                                +{line.cashback.toLocaleString("id-ID")} Koin
+                                +{line.cashback.toLocaleString("id-ID")} {t("sandbox.receipt.coinUnit")}
                               </span>
                             )}
                           </div>
@@ -2722,7 +2727,7 @@ export default function SandboxCatalogView({
                     }}
                     className="flex-1 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition cursor-pointer text-center"
                   >
-                    Selesai & Reset Pilihan
+                    {t("sandbox.catalog.doneAndReset")}
                   </button>
                   <button
                     type="button"
@@ -2732,7 +2737,7 @@ export default function SandboxCatalogView({
                     }}
                     className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer text-center"
                   >
-                    Tutup Modal
+                    {t("sandbox.catalog.closeModal")}
                   </button>
                 </div>
               </div>
@@ -2741,17 +2746,16 @@ export default function SandboxCatalogView({
               <div className="space-y-4">
                 <div>
                   <h3 id="cart-review-modal-title" className="text-base font-black text-slate-950 leading-tight">
-                    Tinjau Keranjang
+                    {t("sandbox.catalog.reviewCartTitle")}
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
                     {cartLineCount > 0 ? (
                       <span>
-                        Total <strong>{cartLineCount} Baris Transaksi</strong> ({cartTotalQuantity} item) • Periksa tujuan dan harga jual sebelum eksekusi
+                        {t("sandbox.catalog.reviewCartSubtitle", { lines: cartLineCount, items: cartTotalQuantity })}
                       </span>
                     ) : (
                       <span>
-                        Brand: <span className="font-bold text-slate-800">{formatTwoWordsName(activeBrand?.displayName)}</span> • Kategori:{" "}
-                        <span className="font-bold text-slate-800">{currentCategory?.displayName}</span>
+                        {t("sandbox.catalog.reviewBrandCategorySubtitle", { brand: formatTwoWordsName(activeBrand?.displayName), category: currentCategory?.displayName || "" })}
                       </span>
                     )}
                   </p>
@@ -2766,13 +2770,13 @@ export default function SandboxCatalogView({
                         className="block text-[11px] font-bold text-slate-800"
                       >
                         {currentCategory?.categoryKey === "pln"
-                          ? "Nomor Meter / ID Pelanggan PLN:"
+                          ? t("sandbox.catalog.targetPln")
                           : currentCategory?.categoryKey === "game"
-                          ? "User ID / ID Game Akun (Simulasi):"
-                          : "Nomor HP / ID Tujuan (Simulasi):"}
+                          ? t("sandbox.catalog.targetGame")
+                          : t("sandbox.catalog.targetPhone")}
                       </label>
                       <span className="text-[10px] font-semibold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-md border border-amber-300/80">
-                        Contoh simulasi
+                        {t("sandbox.catalog.sampleTargetBtn")}
                       </span>
                     </div>
                     <input
@@ -2782,16 +2786,16 @@ export default function SandboxCatalogView({
                       onChange={(e) => setBulkCustomerNo(e.target.value)}
                       placeholder={
                         currentCategory?.categoryKey === "pln"
-                          ? "Contoh: 14023456789"
+                          ? t("sandbox.catalog.exampleTargetPln")
                           : currentCategory?.categoryKey === "game"
-                          ? "Contoh: 12345678 (2048)"
-                          : "Contoh: 081234567890"
+                          ? t("sandbox.catalog.exampleTargetGame")
+                          : t("sandbox.catalog.exampleTargetPhone")
                       }
                       disabled={isBulkTransacting}
                       className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-mono text-slate-900 focus:border-amber-500 focus:outline-hidden focus:ring-2 focus:ring-amber-200"
                     />
                     <p className="text-[10.5px] text-slate-500 leading-snug">
-                      Nomor tujuan contoh digunakan untuk identifikasi virtual transaksi massal.
+                      {t("sandbox.catalog.targetExampleNote")}
                     </p>
                   </div>
                 )}
@@ -2800,16 +2804,16 @@ export default function SandboxCatalogView({
                 {cartLineCount === 0 && bulkSelectedCount === 0 && (
                   <div className="py-8 text-center rounded-2xl bg-slate-50 border border-dashed border-slate-200 space-y-2.5">
                     <ShoppingCart size={30} className="mx-auto text-slate-300" />
-                    <p className="text-xs font-bold text-slate-700">Keranjang masih kosong</p>
+                    <p className="text-xs font-bold text-slate-700">{t("sandbox.catalog.cartEmptyTitle")}</p>
                     <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-                      Pilih produk dari berbagai brand dan kategori di katalog dalam mode Massal untuk menambahkan transaksi ke keranjang.
+                      {t("sandbox.catalog.cartEmptySubtitle")}
                     </p>
                     <button
                       type="button"
                       onClick={() => setIsBulkReviewOpen(false)}
                       className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold transition cursor-pointer shadow-2xs"
                     >
-                      Pilih Produk di Katalog
+                      {t("sandbox.catalog.pickProductInCatalog")}
                     </button>
                   </div>
                 )}
@@ -2820,11 +2824,11 @@ export default function SandboxCatalogView({
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                          Daftar Transaksi ({cartLineCount} Baris):
+                          {t("sandbox.catalog.transactionListTitle", { count: cartLineCount })}
                         </span>
                         {duplicateLinesCount > 0 && (
                           <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
-                            {duplicateLinesCount} duplikasi
+                            {t("sandbox.catalog.duplicateBadge", { count: duplicateLinesCount })}
                           </span>
                         )}
                       </div>
@@ -2833,11 +2837,11 @@ export default function SandboxCatalogView({
                           type="button"
                           onClick={() => setIsPricingModalOpen(true)}
                           disabled={isBulkTransacting}
-                          title="Ubah aturan margin harga jual global"
+                          title={t("sandbox.catalog.sellingPriceSettingsTitle")}
                           className="text-[11px] font-bold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-200/80 flex items-center gap-1 cursor-pointer disabled:opacity-50"
                         >
                           <SlidersHorizontal size={11} className="text-amber-700" />
-                          <span>Aturan Harga: {globalPricingRule.type === "nominal" ? `+Rp${globalPricingRule.value.toLocaleString("id-ID")}` : `+${globalPricingRule.value}%`}</span>
+                          <span>{t("sandbox.catalog.priceRuleBadge", { rule: globalPricingRule.type === "nominal" ? `+Rp${globalPricingRule.value.toLocaleString("id-ID")}` : `+${globalPricingRule.value}%` })}</span>
                         </button>
                         <button
                           type="button"
@@ -2845,7 +2849,7 @@ export default function SandboxCatalogView({
                           disabled={isBulkTransacting}
                           className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer disabled:opacity-50"
                         >
-                          <Trash2 size={12} /> Kosongkan Keranjang
+                          <Trash2 size={12} /> {t("sandbox.catalog.clearCartBtn")}
                         </button>
                       </div>
                     </div>
@@ -2855,7 +2859,7 @@ export default function SandboxCatalogView({
                       <div className="flex items-start gap-2 rounded-xl bg-amber-50 p-2.5 text-xs text-amber-900 border border-amber-200/80">
                         <Info size={14} className="text-amber-600 shrink-0 mt-0.5" />
                         <span className="leading-snug">
-                          <strong>Catatan Simulasi:</strong> Produk dan tujuan yang sama muncul lebih dari sekali ({duplicateLinesCount} duplikasi terdeteksi). Setiap baris transaksi tetap diproses secara terpisah.
+                          {t("sandbox.catalog.duplicateNotice", { count: duplicateLinesCount })}
                         </span>
                       </div>
                     )}
@@ -2874,15 +2878,15 @@ export default function SandboxCatalogView({
                         const isPln = item.categoryKey === "pln";
                         const isGame = item.categoryKey === "game";
                         const destLabel = isPln
-                          ? "No. Meter / ID Pelanggan PLN"
+                          ? t("sandbox.catalog.targetPln")
                           : isGame
-                          ? "User ID / ID Game Akun"
-                          : "Nomor HP / ID Tujuan";
+                          ? t("sandbox.catalog.targetGame")
+                          : t("sandbox.catalog.targetPhone");
                         const destPlaceholder = isPln
-                          ? "Contoh: 14023456789"
+                          ? t("sandbox.catalog.exampleTargetPln")
                           : isGame
-                          ? "Contoh: 12345678 (2048)"
-                          : "Contoh: 081234567890";
+                          ? t("sandbox.catalog.exampleTargetGame")
+                          : t("sandbox.catalog.exampleTargetPhone");
                         const destHelperVal = resolveDefaultCustomerNo(item.categoryKey);
 
                         return (
@@ -2912,7 +2916,7 @@ export default function SandboxCatalogView({
                                   {isDuplicate && (
                                     <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300 shadow-2xs">
                                       <AlertCircle size={10} />
-                                      Duplikat Tujuan
+                                      {t("sandbox.catalog.duplicateDest")}
                                     </span>
                                   )}
                                 </div>
@@ -2927,8 +2931,8 @@ export default function SandboxCatalogView({
                                   type="button"
                                   onClick={() => handleRemoveCartItem(item.cartItemId)}
                                   disabled={isBulkTransacting}
-                                  aria-label={`Hapus ${cleanProductName} dari keranjang`}
-                                  title="Hapus baris ini dari keranjang"
+                                  aria-label={t("sandbox.catalog.deleteLineAria", { name: cleanProductName })}
+                                  title={t("sandbox.catalog.deleteLineTitle")}
                                   className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer disabled:opacity-40"
                                 >
                                   <Trash2 size={14} />
@@ -2943,28 +2947,28 @@ export default function SandboxCatalogView({
                                   htmlFor={`dest-${item.cartItemId}`}
                                   className="text-[10.5px] font-bold text-slate-700 truncate"
                                 >
-                                  {destLabel}:
+                                  {destLabel}
                                 </label>
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   <button
                                     type="button"
                                     onClick={() => handleAddDestinationForProduct(item.cartItemId)}
                                     disabled={isBulkTransacting || cartItems.length >= 30}
-                                    title="Tambah tujuan baru untuk produk ini (baris transaksi baru)"
+                                    title={t("sandbox.catalog.addDestinationTitle")}
                                     className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded-md border border-amber-300 transition cursor-pointer disabled:opacity-40"
                                   >
                                     <Plus size={10} strokeWidth={3} className="text-amber-800" />
-                                    <span>Tambah Tujuan</span>
+                                    <span>{t("sandbox.catalog.addDestination")}</span>
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handleUpdateCartCustomerNo(item.cartItemId, destHelperVal)}
                                     disabled={isBulkTransacting}
-                                    title={`Isi nomor contoh simulasi: ${destHelperVal}`}
+                                    title={t("sandbox.catalog.sampleBtnTitle", { val: destHelperVal })}
                                     className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-700 bg-white hover:bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 transition cursor-pointer"
                                   >
                                     <Sparkles size={10} className="text-amber-700" />
-                                    <span>Contoh</span>
+                                    <span>{t("sandbox.catalog.sampleBtn")}</span>
                                   </button>
                                 </div>
                               </div>
@@ -2978,7 +2982,7 @@ export default function SandboxCatalogView({
                                 className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 focus:border-amber-500 focus:outline-hidden focus:ring-1 focus:ring-amber-400"
                               />
                               <p className="text-[10px] text-slate-500 leading-snug">
-                                Nomor tujuan simulasi latihan. Tidak ada pulsa atau voucher nyata yang dikirim.
+                                {t("sandbox.catalog.sampleDestFootnote")}
                               </p>
                             </div>
 
@@ -2987,27 +2991,27 @@ export default function SandboxCatalogView({
                               {/* A. Harga Beli */}
                               <div className="bg-slate-50/60 p-2 rounded-xl border border-slate-200/60 space-y-0.5">
                                 <span className="text-[10px] font-semibold text-slate-500 block">
-                                  Harga Beli
+                                  {t("sandbox.catalog.purchasePrice")}
                                 </span>
                                 <span className="font-mono font-bold text-slate-800 block text-xs">
                                   Rp {item.unitPrice.toLocaleString("id-ID")}
                                 </span>
                                 <span className="text-[9.5px] text-slate-400 block font-mono">
-                                  Subtotal: Rp {lineCost.toLocaleString("id-ID")}
+                                  {t("sandbox.catalog.costSubtotal", { amount: lineCost.toLocaleString("id-ID") })}
                                 </span>
                               </div>
 
                               {/* B. Jumlah / Qty Stepper */}
                               <div className="bg-slate-50/60 p-2 rounded-xl border border-slate-200/60 space-y-1">
                                 <span className="text-[10px] font-semibold text-slate-500 block">
-                                  Jumlah (Qty)
+                                  {t("sandbox.catalog.qtyLabel")}
                                 </span>
                                 <div className="flex items-center gap-1">
                                   <button
                                     type="button"
                                     onClick={() => handleUpdateCartQuantity(item.cartItemId, -1)}
                                     disabled={isBulkTransacting}
-                                    title={item.quantity === 1 ? "Hapus dari keranjang" : "Kurangi kuantitas"}
+                                    title={item.quantity === 1 ? t("sandbox.catalog.removeLineQtyTitle") : t("sandbox.catalog.decreaseQtyTitle")}
                                     className="w-6 h-6 rounded-md bg-white hover:bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-700 transition cursor-pointer disabled:opacity-40"
                                   >
                                     <Minus size={11} strokeWidth={2.5} />
@@ -3019,7 +3023,7 @@ export default function SandboxCatalogView({
                                     type="button"
                                     onClick={() => handleUpdateCartQuantity(item.cartItemId, 1)}
                                     disabled={item.quantity >= 100 || isBulkTransacting}
-                                    title="Tambah kuantitas"
+                                    title={t("sandbox.catalog.increaseQtyTitle")}
                                     className="w-6 h-6 rounded-md bg-white hover:bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-700 transition cursor-pointer disabled:opacity-40"
                                   >
                                     <Plus size={11} strokeWidth={2.5} />
@@ -3033,7 +3037,7 @@ export default function SandboxCatalogView({
                                   htmlFor={`price-${item.cartItemId}`}
                                   className="text-[10px] font-semibold text-slate-500 block truncate"
                                 >
-                                  Harga Jual
+                                  {t("sandbox.catalog.sellingPrice")}
                                 </label>
                                 <div className="relative">
                                   <span className="absolute left-2 top-1.5 text-[10.5px] font-mono font-bold text-slate-400">
@@ -3068,7 +3072,7 @@ export default function SandboxCatalogView({
                                 }`}
                               >
                                 <span className="text-[10px] font-semibold text-slate-600 block">
-                                  Perkiraan Margin
+                                  {t("sandbox.catalog.estMarginTitle")}
                                 </span>
                                 <div className="font-mono font-bold text-xs">
                                   {lineMargin > 0 ? (
@@ -3081,15 +3085,15 @@ export default function SandboxCatalogView({
                                 </div>
                                 {lineMargin < 0 ? (
                                   <span className="text-[9px] font-medium text-amber-800 block leading-tight">
-                                    Harga jual di bawah modal
+                                    {t("sandbox.catalog.sellPriceBelowCost")}
                                   </span>
                                 ) : lineKoin > 0 && simulatedMemberType === "special" ? (
                                   <span className="text-[9.5px] font-mono font-bold text-violet-700 block">
-                                    +{lineKoin.toLocaleString("id-ID")} Koin
+                                    +{lineKoin.toLocaleString("id-ID")} {t("sandbox.receipt.coinUnit")}
                                   </span>
                                 ) : (
                                   <span className="text-[9px] text-slate-400 block font-mono">
-                                    Jual: Rp {lineSellingTotal.toLocaleString("id-ID")}
+                                    {t("sandbox.catalog.sellSubtotal", { amount: lineSellingTotal.toLocaleString("id-ID") })}
                                   </span>
                                 )}
                               </div>
@@ -3104,14 +3108,14 @@ export default function SandboxCatalogView({
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                          Daftar Varian Dipilih ({bulkSelectedCount} Varian):
+                          {t("sandbox.catalog.selectedVariantsTitle", { count: bulkSelectedCount })}
                         </span>
                         <button
                           type="button"
                           onClick={() => setBulkQuantities({})}
                           className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
                         >
-                          <Trash2 size={12} /> Hapus Semua
+                          <Trash2 size={12} /> {t("sandbox.catalog.deleteAll")}
                         </button>
                       </div>
 
@@ -3131,7 +3135,7 @@ export default function SandboxCatalogView({
                                   {variant.name}
                                 </p>
                                 <p className="text-[10.5px] text-slate-400 font-mono">
-                                  Rp {variant.effectivePrice.toLocaleString("id-ID")} / item
+                                  Rp {variant.effectivePrice.toLocaleString("id-ID")} {t("sandbox.catalog.perItem")}
                                 </p>
                               </div>
 
@@ -3164,7 +3168,7 @@ export default function SandboxCatalogView({
                                   </span>
                                   {simulatedMemberType === "special" && lineKoin > 0 && (
                                     <span className="text-[9.5px] font-bold text-violet-700 font-mono block">
-                                      +{lineKoin.toLocaleString("id-ID")} Koin
+                                      +{lineKoin.toLocaleString("id-ID")} {t("sandbox.receipt.coinUnit")}
                                     </span>
                                   )}
                                 </div>
@@ -3174,7 +3178,7 @@ export default function SandboxCatalogView({
                                   onClick={() => handleRemoveBulkItem(variant.id)}
                                   disabled={isBulkTransacting}
                                   className="text-slate-400 hover:text-rose-600 transition p-1 cursor-pointer disabled:opacity-40"
-                                  title="Hapus varian"
+                                  title={t("sandbox.catalog.deleteVariantTitle")}
                                 >
                                   <Trash2 size={13} />
                                 </button>
@@ -3190,7 +3194,7 @@ export default function SandboxCatalogView({
                 {/* Financial Summary & Balance Comparison Box (Section 13: Financial Recap) */}
                 <div className="rounded-2xl border border-amber-200/90 bg-amber-50/60 p-3.5 space-y-2.5 text-xs">
                   <div className="flex justify-between items-center text-slate-600">
-                    <span>Saldo Virtual Sandbox Saat Ini:</span>
+                    <span>{t("sandbox.catalog.currentSandboxBalance")}</span>
                     <span className="font-mono font-bold text-slate-900">
                       Rp {virtualBalance.toLocaleString("id-ID")}
                     </span>
@@ -3200,7 +3204,7 @@ export default function SandboxCatalogView({
                     {/* A. Harga Beli Total */}
                     <div className="flex justify-between items-center text-slate-800">
                       <span className="font-semibold">
-                        Total Harga Beli ({cartLineCount > 0 ? cartTotalQuantity : bulkTotalQuantity} Item):
+                        {t("sandbox.catalog.totalPurchaseCostQty", { qty: cartLineCount > 0 ? cartTotalQuantity : bulkTotalQuantity })}
                       </span>
                       <span className="font-mono font-bold text-slate-900">
                         Rp {(cartLineCount > 0 ? cartTotalCost : bulkTotalCost).toLocaleString("id-ID")}
@@ -3210,7 +3214,7 @@ export default function SandboxCatalogView({
                     {/* B. Total Harga Jual */}
                     {cartLineCount > 0 && (
                       <div className="flex justify-between items-center text-slate-700">
-                        <span className="font-semibold">Total Harga Jual:</span>
+                        <span className="font-semibold">{t("sandbox.catalog.totalSellingPrice")}</span>
                         <span className="font-mono font-bold text-slate-900">
                           Rp {cartTotalSellingPrice.toLocaleString("id-ID")}
                         </span>
@@ -3230,7 +3234,7 @@ export default function SandboxCatalogView({
                       >
                         <span className="flex items-center gap-1.5 text-[11px]">
                           <TrendingUp size={13} className={cartTotalEstimatedMargin >= 0 ? "text-emerald-700" : "text-amber-800"} />
-                          Total Perkiraan Margin:
+                          {t("sandbox.catalog.totalEstimatedMargin")}
                         </span>
                         <span className="font-mono text-xs">
                           {cartTotalEstimatedMargin > 0
@@ -3246,24 +3250,24 @@ export default function SandboxCatalogView({
                     <div className="flex justify-between items-center text-violet-900 font-bold bg-violet-100/70 px-2.5 py-1.5 rounded-xl border border-violet-200/80">
                       <span className="flex items-center gap-1.5 text-[11px]">
                         <Sparkles size={13} className="text-violet-600" />
-                        Total Koin Sandbox:
+                        {t("sandbox.catalog.totalSandboxCoins")}
                       </span>
                       <span className="font-mono text-xs">
                         {simulatedMemberType === "special" && (cartTotalCashback > 0 || bulkTotalCashback > 0)
-                          ? `+${(cartLineCount > 0 ? cartTotalCashback : bulkTotalCashback).toLocaleString("id-ID")} Koin (Special)`
-                          : "0 Koin (Reguler)"}
+                          ? t("sandbox.catalog.coinsSpecial", { count: (cartLineCount > 0 ? cartTotalCashback : bulkTotalCashback).toLocaleString("id-ID") })
+                          : t("sandbox.catalog.coinsRegular")}
                       </span>
                     </div>
                   </div>
 
                   {/* E. Microcopy */}
                   <p className="text-[10px] text-slate-500 italic pt-0.5">
-                    *Nilai penjualan dan margin hanya untuk simulasi edukasi reseller pemula.
+                    {t("sandbox.catalog.microcopyMargin")}
                   </p>
 
                   {/* F. Comparison with Saldo Virtual */}
                   <div className="flex justify-between items-center border-t border-amber-200/60 pt-2 font-bold">
-                    <span className="text-slate-700">Perkiraan Sisa Saldo Virtual:</span>
+                    <span className="text-slate-700">{t("sandbox.catalog.estRemainingBalance")}</span>
                     <span
                       className={`font-mono text-xs ${
                         virtualBalance >= (cartLineCount > 0 ? cartTotalCost : bulkTotalCost)
@@ -3279,8 +3283,7 @@ export default function SandboxCatalogView({
                     <div className="rounded-xl bg-rose-100/90 p-2.5 text-[11px] font-bold text-rose-800 border border-rose-200 flex items-center gap-1.5">
                       <AlertCircle size={14} className="text-rose-600 shrink-0" />
                       <span>
-                        Saldo virtual tidak mencukupi (Kekurangan: Rp{" "}
-                        {((cartLineCount > 0 ? cartTotalCost : bulkTotalCost) - virtualBalance).toLocaleString("id-ID")}).
+                        {t("sandbox.catalog.balanceShortage", { shortage: ((cartLineCount > 0 ? cartTotalCost : bulkTotalCost) - virtualBalance).toLocaleString("id-ID") })}
                       </span>
                     </div>
                   )}
@@ -3290,23 +3293,18 @@ export default function SandboxCatalogView({
                 <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5 text-[11px] text-slate-600">
                   {simulatedMemberType === "special" ? (
                     <p>
-                      <strong className="text-violet-900 font-semibold">Mode Special Aktif:</strong> Transaksi keranjang ini
-                      akan mengkreditkan reward simulasi sebesar{" "}
-                      <span className="font-bold text-violet-700 font-mono">
-                        +{(cartLineCount > 0 ? cartTotalCashback : bulkTotalCashback).toLocaleString("id-ID")} Koin Sandbox
-                      </span>.
+                      {t("sandbox.catalog.specialModeDesc", { coins: (cartLineCount > 0 ? cartTotalCashback : bulkTotalCashback).toLocaleString("id-ID") })}
                     </p>
                   ) : (
                     <p>
-                      <strong className="text-slate-800 font-semibold">Mode Reguler:</strong> Tidak ada reward koin. Anda
-                      dapat menguji penerimaan reward koin dengan beralih ke Simulasi Special di bagian atas halaman.
+                      {t("sandbox.catalog.regularModeDesc")}
                     </p>
                   )}
                 </div>
 
                 {/* Sandbox Isolation Notice */}
                 <p className="text-[10.5px] text-slate-500 italic text-center">
-                  *Semua transaksi hanya memotong saldo virtual Sandbox. 100% aman tanpa vendor riil atau potongan saldo LIVE.
+                  {t("sandbox.catalog.isolationDisclaimer")}
                 </p>
 
                 {/* Error Banner */}
@@ -3333,12 +3331,12 @@ export default function SandboxCatalogView({
                     {isBulkTransacting ? (
                       <>
                         <Loader2 size={14} className="animate-spin text-slate-950" />
-                        <span>Memproses Transaksi Keranjang ({cartLineCount > 0 ? cartTotalQuantity : bulkTotalQuantity} Item)...</span>
+                        <span>{t("sandbox.catalog.processingCartQty", { qty: cartLineCount > 0 ? cartTotalQuantity : bulkTotalQuantity })}</span>
                       </>
                     ) : (
                       <>
                         <ShoppingCart size={14} />
-                        <span>Eksekusi Keranjang (Rp {(cartLineCount > 0 ? cartTotalCost : bulkTotalCost).toLocaleString("id-ID")})</span>
+                        <span>{t("sandbox.catalog.executeCart", { cost: (cartLineCount > 0 ? cartTotalCost : bulkTotalCost).toLocaleString("id-ID") })}</span>
                       </>
                     )}
                   </button>
@@ -3352,7 +3350,7 @@ export default function SandboxCatalogView({
                     disabled={isBulkTransacting}
                     className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition cursor-pointer text-center"
                   >
-                    Tutup & Lanjutkan Pilih Produk
+                    {t("sandbox.catalog.closeAndContinue")}
                   </button>
                 </div>
               </div>
@@ -3406,10 +3404,10 @@ export default function SandboxCatalogView({
             </div>
             <div className="space-y-1">
               <h3 id="reset-confirm-title" className="text-sm font-black text-slate-900">
-                Reset Pilihan & Keranjang?
+                {t("sandbox.catalog.resetConfirmTitle")}
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Semua pilihan produk dan nomor tujuan dalam keranjang akan dikosongkan.
+                {t("sandbox.catalog.resetConfirmDesc")}
               </p>
             </div>
             <div className="flex gap-2 pt-1">
@@ -3418,14 +3416,14 @@ export default function SandboxCatalogView({
                 onClick={() => setIsResetConfirmOpen(false)}
                 className="flex-1 rounded-xl border border-slate-300 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               >
-                Batal
+                {t("sandbox.catalog.resetCancel")}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmReset}
                 className="flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-xs font-bold text-white shadow-md shadow-rose-600/20 transition cursor-pointer"
               >
-                Reset
+                {t("sandbox.catalog.resetConfirmBtn")}
               </button>
             </div>
           </div>
@@ -3459,6 +3457,7 @@ function SandboxPricingSettingsModal({
   manualOverrideCount,
   onApply,
 }: SandboxPricingSettingsModalProps) {
+  const { t } = useI18n();
   const [ruleType, setRuleType] = useState<"nominal" | "percent">(currentRule.type);
   const [ruleValue, setRuleValue] = useState<number>(currentRule.value);
   const [applyToCart, setApplyToCart] = useState<boolean>(true);
@@ -3505,17 +3504,17 @@ function SandboxPricingSettingsModal({
             </div>
             <div>
               <h3 id="pricing-modal-title" className="text-sm font-black text-slate-900 leading-tight">
-                Pengaturan Harga Jual
+                {t("sandbox.catalog.pricingTitle")}
               </h3>
               <p className="text-[11px] text-slate-500">
-                Aturan margin default untuk seluruh katalog
+                {t("sandbox.catalog.pricingSubtitle")}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Tutup pengaturan harga"
+            aria-label={t("sandbox.catalog.closePricingAria")}
             className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
           >
             <X size={16} />
@@ -3527,7 +3526,7 @@ function SandboxPricingSettingsModal({
           {/* 1. Aturan Harga Default (Radio Cards) */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-700 block">
-              Aturan Margin Default:
+              {t("sandbox.catalog.marginRuleTitle")}
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -3543,14 +3542,14 @@ function SandboxPricingSettingsModal({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900">Harga Beli + Nominal</span>
+                  <span className="text-xs font-bold text-slate-900">{t("sandbox.catalog.costPlusNominal")}</span>
                   <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
                     ruleType === "nominal" ? "border-amber-600 bg-amber-600" : "border-slate-300"
                   }`}>
                     {ruleType === "nominal" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-0.5">Tambah nominal rupiah tetap</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{t("sandbox.catalog.costPlusNominalDesc")}</p>
               </button>
 
               <button
@@ -3566,14 +3565,14 @@ function SandboxPricingSettingsModal({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900">Harga Beli + Persentase</span>
+                  <span className="text-xs font-bold text-slate-900">{t("sandbox.catalog.costPlusPercent")}</span>
                   <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
                     ruleType === "percent" ? "border-amber-600 bg-amber-600" : "border-slate-300"
                   }`}>
                     {ruleType === "percent" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-0.5">Tambah margin persentase (%)</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{t("sandbox.catalog.costPlusPercentDesc")}</p>
               </button>
             </div>
           </div>
@@ -3581,7 +3580,7 @@ function SandboxPricingSettingsModal({
           {/* 2. Value Input & Preset Quick Pills */}
           <div className="space-y-1.5">
             <label htmlFor="markup-rule-value-input" className="text-xs font-bold text-slate-700 block">
-              {ruleType === "nominal" ? "Nominal Markup Margin (Rp):" : "Persentase Markup Margin (%):"}
+              {ruleType === "nominal" ? t("sandbox.catalog.markupNominalLabel") : t("sandbox.catalog.markupPercentLabel")}
             </label>
             <div className="relative">
               <span className="absolute left-3 top-2.5 text-xs font-mono font-bold text-slate-400">
@@ -3602,7 +3601,7 @@ function SandboxPricingSettingsModal({
 
             {/* Quick Pills */}
             <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-              <span className="text-[10px] text-slate-400">Preset:</span>
+              <span className="text-[10px] text-slate-400">{t("sandbox.catalog.presetLabel")}</span>
               {ruleType === "nominal" ? (
                 [500, 1000, 1500, 2000, 3000].map((val) => (
                   <button
@@ -3642,21 +3641,21 @@ function SandboxPricingSettingsModal({
             <div className="flex items-center justify-between text-[10.5px]">
               <span className="font-bold text-amber-900 flex items-center gap-1">
                 <Sparkles size={12} className="text-amber-700" />
-                Simulasi Perhitungan Contoh:
+                {t("sandbox.catalog.pricingPreviewTitle")}
               </span>
-              <span className="text-slate-500 font-mono">Sampel Produk</span>
+              <span className="text-slate-500 font-mono">{t("sandbox.catalog.sampleProductLabel")}</span>
             </div>
             <div className="grid grid-cols-3 gap-1.5 bg-white p-2 rounded-lg border border-amber-200/60 text-center font-mono">
               <div>
-                <p className="text-[9px] font-bold text-slate-400">HARGA BELI</p>
+                <p className="text-[9px] font-bold text-slate-400">{t("sandbox.catalog.purchasePrice")}</p>
                 <p className="text-xs font-bold text-slate-800 mt-0.5">Rp {samplePurchase.toLocaleString("id-ID")}</p>
               </div>
               <div>
-                <p className="text-[9px] font-bold text-slate-400">HARGA JUAL</p>
+                <p className="text-[9px] font-bold text-slate-400">{t("sandbox.catalog.sellingPrice")}</p>
                 <p className="text-xs font-black text-slate-950 mt-0.5">Rp {sampleSelling.toLocaleString("id-ID")}</p>
               </div>
               <div>
-                <p className="text-[9px] font-bold text-emerald-700">MARGIN</p>
+                <p className="text-[9px] font-bold text-emerald-700">{t("sandbox.catalog.sampleMargin")}</p>
                 <p className="text-xs font-black text-emerald-700 mt-0.5">+Rp {sampleMarkup.toLocaleString("id-ID")}</p>
               </div>
             </div>
@@ -3674,10 +3673,10 @@ function SandboxPricingSettingsModal({
                 />
                 <div className="text-[11px] leading-tight">
                   <span className="font-bold text-slate-900">
-                    Terapkan juga ke {cartItemCount} baris di keranjang
+                    {t("sandbox.catalog.applyToCart", { count: cartItemCount })}
                   </span>
                   <p className="text-[10px] text-slate-500 mt-0.5">
-                    Menghitung ulang harga jual seluruh item di keranjang mengikuti aturan baru.
+                    {t("sandbox.catalog.applyToCartDesc")}
                   </p>
                 </div>
               </label>
@@ -3686,7 +3685,7 @@ function SandboxPricingSettingsModal({
                 <div className="pl-5 pt-1 border-t border-slate-200/80 space-y-1">
                   <div className="flex items-center gap-1 text-[10.5px] text-amber-800 font-semibold">
                     <Info size={12} className="shrink-0" />
-                    <span>Ada {manualOverrideCount} baris dengan harga jual manual.</span>
+                    <span>{t("sandbox.catalog.manualRowsNotice", { count: manualOverrideCount })}</span>
                   </div>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -3696,12 +3695,12 @@ function SandboxPricingSettingsModal({
                       className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
                     />
                     <span className="text-[10.5px] font-bold text-slate-800">
-                      Timpa juga harga jual yang sudah diedit manual
+                      {t("sandbox.catalog.overwriteManual")}
                     </span>
                   </label>
                   {!overwriteManual && (
                     <p className="text-[9.5px] text-slate-500 italic">
-                      (Default aman: harga manual tetap dipertahankan jika kotak ini tidak dicentang)
+                      {t("sandbox.catalog.overwriteManualSafe")}
                     </p>
                   )}
                 </div>
@@ -3710,7 +3709,7 @@ function SandboxPricingSettingsModal({
           )}
 
           <p className="text-[10px] text-slate-500 leading-relaxed">
-            Aturan ini otomatis menjadi harga jual default saat produk baru dimasukkan ke keranjang maupun pada simulasi transaksi satuan.
+            {t("sandbox.catalog.pricingFootnote")}
           </p>
 
           {/* Action Buttons */}
@@ -3720,13 +3719,13 @@ function SandboxPricingSettingsModal({
               onClick={onClose}
               className="flex-1 rounded-xl border border-slate-300 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer text-center"
             >
-              Batal
+              {t("sandbox.catalog.pricingCancel")}
             </button>
             <button
               type="submit"
               className="flex-1 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 py-2 text-xs font-black text-slate-950 shadow-md shadow-amber-500/20 transition cursor-pointer text-center"
             >
-              Terapkan ke Katalog
+              {t("sandbox.catalog.pricingApply")}
             </button>
           </div>
         </form>

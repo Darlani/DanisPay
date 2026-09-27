@@ -10,7 +10,7 @@ export default function InterfaceDigitalService({ product, accId, setAccId, sele
         <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl text-white text-center sticky top-24">
           <Globe className="mx-auto mb-4 text-blue-400" size={48} />
           <h1 className="font-black text-xl italic uppercase tracking-widest">{product.name}</h1>
-          <p className="text-[10px] text-slate-500 mt-2 uppercase">High Performance Service</p>
+          <p className="text-[10px] text-slate-500 mt-2 uppercase">{t("products.minor.highPerformanceService")}</p>
         </div>
       </div>
       <div className="lg:col-span-2 space-y-6">
@@ -27,7 +27,7 @@ export default function InterfaceDigitalService({ product, accId, setAccId, sele
               >
                 <div className="text-left">
                   <p className="font-black text-slate-800 uppercase text-sm">{item.label}</p>
-                  <p className="text-[10px] text-slate-400 uppercase">Managed Service</p>
+                  <p className="text-[10px] text-slate-400 uppercase">{t("products.minor.managedService")}</p>
                 </div>
                 <p className="font-black text-blue-600">{formatRupiah(item.price)}</p>
               </button>

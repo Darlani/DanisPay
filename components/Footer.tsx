@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Search,
   MessageCircle,
@@ -39,6 +39,14 @@ export default function Footer() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { locale, t } = useI18n();
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleToggleLanguage = () => {
+    const targetLocale = locale === "id" ? "en" : "id";
+    const searchStr = typeof window !== "undefined" ? window.location.search : "";
+    const targetPath = localizeHref(pathname || "/", targetLocale);
+    router.push(`${targetPath}${searchStr}`);
+  };
 
   const handleOpenHistoryModal = () => {
     if (typeof window !== "undefined") {
@@ -74,7 +82,7 @@ export default function Footer() {
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute top-1/2 right-10 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-20 relative z-10">
           {/* MAIN GRID: BRAND (LEFT) & 4 NAVIGATION COLUMNS (RIGHT) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 mb-10">
             {/* LEFT COLUMN: BRAND INFO & WILAYAH / BAHASA (Col span 4) */}
@@ -102,22 +110,25 @@ export default function Footer() {
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
                   {t("footer.regionLanguage")}
                 </p>
-                <Link
-                  href={localizeHref(pathname || "/", locale === "id" ? "en" : "id")}
-                  className="inline-flex items-center justify-between gap-3 px-4 py-2.5 rounded-full border border-slate-700/80 bg-slate-900 hover:bg-slate-800 hover:border-slate-600 transition-all text-xs font-semibold text-slate-200 hover:text-white shadow-xs group w-48"
-                  title={locale === "id" ? "Switch to English" : "Ganti ke Bahasa Indonesia"}
+                <button
+                  type="button"
+                  onClick={handleToggleLanguage}
+                  className="inline-flex items-center justify-between gap-3 px-4 py-2.5 rounded-full border border-slate-700/80 bg-slate-900 hover:bg-slate-800 hover:border-slate-600 transition-all text-xs font-semibold text-slate-200 hover:text-white shadow-xs group w-48 cursor-pointer"
+                  title={locale === "id" ? t("language.switchToEnglish") : t("language.switchToIndonesian")}
+                  aria-label={locale === "id" ? t("language.switchToEnglish") : t("language.switchToIndonesian")}
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="text-base leading-none">{locale === "id" ? "🇮🇩" : "🇬🇧"}</span>
                     <span>{locale === "id" ? "Indonesia" : "English"}</span>
                   </div>
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-blue-400 transition-transform group-hover:translate-x-0.5" />
-                </Link>
+                </button>
               </div>
             </div>
 
             {/* RIGHT COLUMNS: 4 SUB-COLUMNS (Col span 8) */}
             <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
+
               {/* 1. Hubungi Kami */}
               <div className="space-y-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-white">
@@ -149,7 +160,7 @@ export default function Footer() {
                       className="hover:text-emerald-400 transition-colors inline-flex items-center gap-2 py-0.5"
                     >
                       <MessageCircle size={14} className="text-emerald-400 shrink-0" />
-                      <span>Chat WhatsApp</span>
+                      <span>{t("footer.chatWhatsApp")}</span>
                     </a>
                   </li>
                   <li className="pt-1">
@@ -231,7 +242,7 @@ export default function Footer() {
                         </Link>
                       </li>
                       <li>
-                        <Link href="/login" className="hover:text-blue-400 transition-colors inline-block py-0.5">
+                        <Link href={localizeHref("/login", locale)} className="hover:text-blue-400 transition-colors inline-block py-0.5">
                           {t("footer.resellerPartner")}
                         </Link>
                       </li>
@@ -341,7 +352,7 @@ export default function Footer() {
                     <div className="bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 border border-amber-500/40 rounded-lg px-2 py-1 h-7 flex items-center gap-1.5 shadow-xs">
                       <DaPayCoin size={18} showShadow={false} className="shrink-0" />
                       <span className="text-[10px] sm:text-[11px] font-bold text-amber-300 tracking-tight whitespace-nowrap">
-                        Koin DaPay
+                        {t("dashboard.overview.coinsTitle")}
                       </span>
                     </div>
 
@@ -349,7 +360,7 @@ export default function Footer() {
                     <div className="bg-gradient-to-r from-blue-500/20 via-cyan-500/20 to-blue-500/20 border border-blue-500/40 rounded-lg px-2 py-1 h-7 flex items-center gap-1.5 shadow-xs">
                       <Wallet size={12} className="text-cyan-400 shrink-0" />
                       <span className="text-[10px] sm:text-[11px] font-bold text-cyan-300 tracking-tight whitespace-nowrap">
-                        Saldo DaPay
+                        {t("footer.dapayBalance")}
                       </span>
                     </div>
 

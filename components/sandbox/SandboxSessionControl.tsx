@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
 import SandboxConversionModal from "@/components/sandbox/SandboxConversionModal";
+import { useI18n } from "@/lib/i18n/context";
 
 export interface SandboxQuotaData {
   sessionsToday: number;
@@ -132,6 +133,7 @@ export default function SandboxSessionControl({
   variant = "navbar",
   className = "",
 }: SandboxSessionControlProps) {
+  const { t } = useI18n();
   const [mounted, setMounted] = useState<boolean>(false);
   const [data, setData] = useState<SandboxSessionData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -204,7 +206,7 @@ export default function SandboxSessionControl({
       const res = await fetch("/api/tester/session", { method: "POST", headers });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Gagal mengaktifkan sesi sandbox.");
+        throw new Error(err.error || t("sandbox.session.errActivate"));
       }
       const updated = await res.json();
       const nextData: SandboxSessionData = {
@@ -221,7 +223,7 @@ export default function SandboxSessionControl({
       setIsModalOpen(false);
     } catch (err: unknown) {
       setActionError(
-        err instanceof Error ? err.message : "Gagal mengaktifkan sesi sandbox."
+        err instanceof Error ? err.message : t("sandbox.session.errActivate")
       );
     } finally {
       setIsLoading(false);
@@ -241,7 +243,7 @@ export default function SandboxSessionControl({
       const res = await fetch("/api/tester/session", { method: "DELETE", headers });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Gagal mematikan sesi sandbox.");
+        throw new Error(err.error || t("sandbox.session.errDeactivate"));
       }
       const nextData: SandboxSessionData = {
         ...data,
@@ -254,7 +256,7 @@ export default function SandboxSessionControl({
       setIsModalOpen(false);
     } catch (err: unknown) {
       setActionError(
-        err instanceof Error ? err.message : "Gagal mematikan sesi sandbox."
+        err instanceof Error ? err.message : t("sandbox.session.errDeactivate")
       );
     } finally {
       setIsLoading(false);
@@ -262,7 +264,7 @@ export default function SandboxSessionControl({
   };
 
   const handleResetWallet = async () => {
-    if (!confirm("Reset saldo virtual sandbox ke Rp 1.000.000?")) return;
+    if (!confirm(t("sandbox.session.confirmReset"))) return;
     setIsLoading(true);
     setActionError(null);
     try {
@@ -279,7 +281,7 @@ export default function SandboxSessionControl({
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Gagal mereset saldo virtual sandbox.");
+        throw new Error(err.error || t("sandbox.session.errReset"));
       }
       const updated = await res.json();
       const nextData: SandboxSessionData = {
@@ -292,7 +294,7 @@ export default function SandboxSessionControl({
       window.dispatchEvent(new Event("sandboxSessionChanged"));
     } catch (err: unknown) {
       setActionError(
-        err instanceof Error ? err.message : "Gagal mereset saldo virtual sandbox."
+        err instanceof Error ? err.message : t("sandbox.session.errReset")
       );
     } finally {
       setIsLoading(false);
@@ -311,7 +313,7 @@ export default function SandboxSessionControl({
               ? "bg-linear-to-r from-amber-500 to-orange-500 text-white shadow-amber-500/20 ring-1 ring-amber-400"
               : "border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:border-amber-500/60 hover:bg-amber-500/20"
           } ${className}`}
-          title="Kelola Sesi Sandbox (Tester Terdaftar)"
+          title={t("sandbox.session.navbarTitle")}
         >
           <FlaskConical
             size={13}
@@ -336,10 +338,10 @@ export default function SandboxSessionControl({
           } ${className}`}
           title={
             data.isSandboxActive
-              ? "Mode Sandbox: AKTIF (Klik untuk kelola)"
-              : "Mode Sandbox: NONAKTIF (Klik untuk kelola)"
+              ? t("sandbox.session.railTitleActive")
+              : t("sandbox.session.railTitleInactive")
           }
-          aria-label={data.isSandboxActive ? "Mode Sandbox Aktif" : "Mode Sandbox Nonaktif"}
+          aria-label={data.isSandboxActive ? t("sandbox.session.railAriaActive") : t("sandbox.session.railAriaInactive")}
         >
           <FlaskConical
             size={16}
@@ -370,7 +372,7 @@ export default function SandboxSessionControl({
             <div className="flex items-center gap-1.5 text-amber-400">
               <FlaskConical size={14} className={data.isSandboxActive ? "animate-pulse" : ""} />
               <span className="text-[10px] font-bold uppercase tracking-wider">
-                Sandbox Tester
+                {t("sandbox.session.sidebarTitle")}
               </span>
             </div>
             <span
@@ -380,19 +382,19 @@ export default function SandboxSessionControl({
                   : "bg-slate-800 text-slate-400"
               }`}
             >
-              {data.isSandboxActive ? "AKTIF" : "LIVE"}
+              {data.isSandboxActive ? t("sandbox.session.badgeActive") : t("sandbox.session.badgeLive")}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-[11px] mb-1">
-            <span className="text-slate-400">Saldo Virtual:</span>
+            <span className="text-slate-400">{t("sandbox.session.virtualBalance")}</span>
             <span className="font-bold text-amber-300 font-mono">
               Rp {data.sandboxBalance.toLocaleString("id-ID")}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-[11px] mb-2">
-            <span className="text-slate-400">Koin Sandbox:</span>
+            <span className="text-slate-400">{t("sandbox.session.sandboxCoins")}</span>
             <span className="font-bold text-violet-300 font-mono">
               {(data.sandboxCoinBalance || 0).toLocaleString("id-ID")} KOIN
             </span>
@@ -408,7 +410,7 @@ export default function SandboxSessionControl({
             }`}
           >
             <Sparkles size={12} />
-            {data.isSandboxActive ? "Kelola Sandbox" : "Masuk Sandbox"}
+            {data.isSandboxActive ? t("sandbox.session.manageSandbox") : t("sandbox.session.enterSandbox")}
           </button>
         </div>
       )}
@@ -435,17 +437,17 @@ export default function SandboxSessionControl({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                    Sandbox Environment
+                    {t("sandbox.session.modalTitle")}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Sistem simulasi transaksi terisolasi
+                    {t("sandbox.session.modalSubtitle")}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                aria-label="Tutup modal sandbox"
+                aria-label={t("sandbox.session.closeAria")}
                 className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 cursor-pointer"
               >
                 <X size={18} />
@@ -470,7 +472,7 @@ export default function SandboxSessionControl({
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Status Lingkungan Saat Ini
+                    {t("sandbox.session.currentEnvStatus")}
                   </span>
                   <div className="flex items-center gap-2 mt-1">
                     <span
@@ -482,36 +484,38 @@ export default function SandboxSessionControl({
                     />
                     <span className="text-sm font-extrabold tracking-wide">
                       {data.isSandboxActive
-                        ? "MODE SANDBOX (Simulasi Aktif)"
-                        : "MODE LIVE (Produksi Nyata)"}
+                        ? t("sandbox.session.modeSandboxActive")
+                        : t("sandbox.session.modeLiveActive")}
                     </span>
                   </div>
                 </div>
                 {data.isSandboxActive && (
                   <span className="flex items-center gap-1 text-[10px] font-medium text-amber-300 bg-amber-400/20 px-2.5 py-1 rounded-full border border-amber-400/30">
-                    <Clock size={11} /> 1 Jam
+                    <Clock size={11} /> {t("sandbox.session.oneHour")}
                   </span>
                 )}
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-1.5 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Saldo Virtual:</span>
+                  <span className="text-slate-400">{t("sandbox.session.virtualBalance")}</span>
                   <span className="font-extrabold text-amber-300 font-mono text-sm">
                     Rp {data.sandboxBalance.toLocaleString("id-ID")}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Koin Sandbox:</span>
+                  <span className="text-slate-400">{t("sandbox.session.sandboxCoins")}</span>
                   <span className="font-extrabold text-violet-300 font-mono text-sm">
                     {(data.sandboxCoinBalance || 0).toLocaleString("id-ID")} KOIN
                   </span>
                 </div>
                 {data.simulatedMemberType && (
                   <div className="flex items-center justify-between pt-1 border-t border-slate-800/40 text-[11px]">
-                    <span className="text-slate-400">Simulasi Persona:</span>
+                    <span className="text-slate-400">{t("sandbox.session.simulatedPersona")}</span>
                     <span className="font-bold text-amber-200 uppercase tracking-wide">
-                      Member {data.simulatedMemberType === "special" ? "Spesial" : "Reguler"}
+                      {data.simulatedMemberType === "special"
+                        ? t("sandbox.session.memberSpecial")
+                        : t("sandbox.session.memberRegular")}
                     </span>
                   </div>
                 )}
@@ -521,19 +525,19 @@ export default function SandboxSessionControl({
             {/* Jaminan Keamanan Checklist */}
             <div className="space-y-2 text-xs text-slate-300 bg-slate-950/40 p-3.5 rounded-2xl border border-slate-800/60">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                Jaminan Perlindungan Finansial:
+                {t("sandbox.session.guaranteeTitle")}
               </p>
               <div className="flex items-start gap-2 text-slate-300">
                 <CheckCircle2 size={14} className="text-emerald-400 shrink-0 mt-0.5" />
-                <span>Saldo kas riil Anda tidak akan pernah dipotong.</span>
+                <span>{t("sandbox.session.guarantee1")}</span>
               </div>
               <div className="flex items-start gap-2 text-slate-300">
                 <CheckCircle2 size={14} className="text-emerald-400 shrink-0 mt-0.5" />
-                <span>Tidak ada pemanggilan API Digiflazz / vendor eksternal nyata.</span>
+                <span>{t("sandbox.session.guarantee2")}</span>
               </div>
               <div className="flex items-start gap-2 text-slate-300">
                 <CheckCircle2 size={14} className="text-emerald-400 shrink-0 mt-0.5" />
-                <span>Transaksi diisolasi dari laporan keuangan dan omzet admin.</span>
+                <span>{t("sandbox.session.guarantee3")}</span>
               </div>
             </div>
 
@@ -552,7 +556,7 @@ export default function SandboxSessionControl({
                     ) : (
                       <Power size={14} />
                     )}
-                    Kembali ke Mode LIVE
+                    {t("sandbox.session.btnReturnLive")}
                   </button>
 
                   <button
@@ -562,7 +566,7 @@ export default function SandboxSessionControl({
                     className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 py-2.5 text-xs font-semibold transition border border-white/10 cursor-pointer disabled:opacity-50"
                   >
                     <RotateCcw size={13} />
-                    Reset Saldo Virtual ke Rp 1.000.000
+                    {t("sandbox.session.btnResetBalance")}
                   </button>
                 </>
               ) : (
@@ -577,7 +581,7 @@ export default function SandboxSessionControl({
                   ) : (
                     <FlaskConical size={14} />
                   )}
-                  Aktifkan Sesi Sandbox (1 Jam)
+                  {t("sandbox.session.btnActivateSession")}
                 </button>
               )}
 
@@ -594,7 +598,7 @@ export default function SandboxSessionControl({
                     className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 hover:underline transition cursor-pointer inline-flex items-center justify-center gap-1.5"
                   >
                     <Sparkles size={12} />
-                    <span>Sudah siap berbisnis nyata? Beralih ke Member LIVE</span>
+                    <span>{t("sandbox.session.conversionCta")}</span>
                     <span aria-hidden="true">→</span>
                   </button>
                 </div>

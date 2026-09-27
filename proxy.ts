@@ -82,19 +82,21 @@ async function checkBlockedIp(
 async function validateAuthRoute(
   request: NextRequest,
   isAdminRoute: boolean,
-  isUserRoute: boolean
+  isUserRoute: boolean,
+  isEnglishRoute: boolean
 ): Promise<AuthCheckResult> {
   if (!isAdminRoute && !isUserRoute) {
     return { requiresAction: false };
   }
 
+  const loginPath = isEnglishRoute ? '/en/login' : '/login';
   const token = request.cookies.get('sb-access-token')?.value;
 
   // Jika tidak ada token di cookie sama sekali, lempar ke login
   if (!token) {
     return {
       requiresAction: true,
-      response: NextResponse.redirect(new URL('/login', request.url)),
+      response: NextResponse.redirect(new URL(loginPath, request.url)),
     };
   }
 
@@ -113,7 +115,7 @@ async function validateAuthRoute(
     // Jika response tidak ok (token hangus, palsu, atau kedaluwarsa)
     if (!res.ok) {
       // Hapus paksa cookie dan lempar ke halaman login dengan sinyal 'expired'
-      const response = NextResponse.redirect(new URL('/login?session=expired', request.url));
+      const response = NextResponse.redirect(new URL(`${loginPath}?session=expired`, request.url));
 
       // Bersihkan cookie kustom dan seluruh cookie auth bawaan Supabase agar browser bersih total
       response.cookies.delete('sb-access-token');
@@ -170,7 +172,7 @@ async function validateAuthRoute(
     console.error('Gagal validasi token:', error);
     return {
       requiresAction: true,
-      response: NextResponse.redirect(new URL('/login', request.url)),
+      response: NextResponse.redirect(new URL(loginPath, request.url)),
     };
   }
 }
@@ -189,7 +191,7 @@ export default async function proxy(request: NextRequest) {
 
   // 3. Deteksi rute protected
   const isAdminRoute = pathname.startsWith('/admin');
-  const isUserRoute = pathname.startsWith('/user');
+  const isUserRoute = pathname.startsWith('/user') || pathname === '/en/user' || pathname.startsWith('/en/user/');
 
   // 4. Deteksi locale untuk server-side HTML lang
   const isEnglishRoute = pathname === '/en' || pathname.startsWith('/en/');
@@ -200,7 +202,7 @@ export default async function proxy(request: NextRequest) {
   // =========================================================================
   const [ipResult, authResult] = await Promise.all([
     checkBlockedIp(ip, isStaticPath),
-    validateAuthRoute(request, isAdminRoute, isUserRoute),
+    validateAuthRoute(request, isAdminRoute, isUserRoute, isEnglishRoute),
   ]);
 
   // =========================================================================

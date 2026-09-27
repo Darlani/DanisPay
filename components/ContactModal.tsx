@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { X, Send, Loader2 } from "lucide-react";
@@ -25,7 +25,7 @@ export default function ContactModal({ isOpen, onClose }: { isOpen: boolean; onC
       });
 
       if (res.ok) {
-        setStatus("Pesan berhasil dikirim ke Admin!");
+        setStatus(t("contact.sendSuccess"));
         setEmail("");
         setMessage("");
         setTimeout(() => {
@@ -33,10 +33,10 @@ export default function ContactModal({ isOpen, onClose }: { isOpen: boolean; onC
           onClose();
         }, 3000);
       } else {
-        setStatus("Gagal mengirim pesan. Coba lagi nanti.");
+        setStatus(t("contact.sendFailed"));
       }
     } catch (error) {
-      setStatus("Terjadi kesalahan jaringan.");
+      setStatus(t("contact.networkError"));
     } finally {
       setLoading(false);
     }

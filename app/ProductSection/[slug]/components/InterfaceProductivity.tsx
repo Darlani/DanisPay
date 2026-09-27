@@ -13,7 +13,7 @@ export default function InterfaceProductivity({ product, selectedItemId, setSele
           </div>
           <h1 className="text-2xl font-black italic text-slate-800 uppercase text-center">{product.name}</h1>
           <div className="mt-4 p-3 bg-emerald-50 rounded-2xl border border-emerald-100">
-             <p className="text-[10px] font-black text-emerald-700 uppercase text-center tracking-tighter">Productivity Tools</p>
+             <p className="text-[10px] font-black text-emerald-700 uppercase text-center tracking-tighter">{t("products.minor.productivityTools")}</p>
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
@@ -28,18 +28,18 @@ export default function ContactAndPromoSection(props: ContactAndPromoProps) {
 
   // 🚀 GANTI FUNGSI INI TOTAL:
   const handleApplyPromo = async () => {
-    if (!promoCode) return alert("Silakan masukkan kode promo.");
+    if (!promoCode) return alert(t("products.contact.enterPromoAlert"));
 
     // Langsung tembak ke otak utama di page.tsx, jangan fetch sendiri!
     const result = await checkPromo(promoCode);
 
     if (result.success) {
-      alert(`Selamat! Potongan harga berhasil diterapkan.`);
+      alert(t("products.contact.promoSuccessAlert"));
       setIsShake(false);
     } else {
       setIsShake(true);
       setTimeout(() => setIsShake(false), 2000);
-      alert(result.message || "Maaf, kode promo tidak valid.");
+      alert(result.message || t("products.contact.promoInvalidAlert"));
     }
   };
 
@@ -93,7 +93,7 @@ return (
                   setIsPromoApplied(false);
                   setIsShake(false);
                 }}
-                placeholder="KODE PROMO"
+                placeholder={t("products.contact.promoPlaceholder")}
                 className={`w-full py-2 px-3 sm:py-2.5 sm:px-4 rounded-lg sm:rounded-xl outline-none font-black text-xs sm:text-sm text-slate-700 uppercase tracking-widest transition-all border-2 ${
                   isShake
                     ? "animate-shake border-rose-500 bg-rose-50"

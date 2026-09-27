@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, Suspense, useRef } from "react";
 import {
   Clock,
@@ -580,7 +580,7 @@ fetchTransaction();
             </div>
             {!trx.user_id && (
               <a
-                href={`https://wa.me/6285545213952?text=Halo Admin, pesanan saya ${trx.order_id} GAGAL. Mohon bantu refund manual.`}
+                href={`https://wa.me/6285545213952?text=${encodeURIComponent(t("checkout.whatsappRefundMsg", { orderId: trx.order_id }))}`}
                 className="block w-full py-3.5 bg-emerald-500 text-white rounded-xl font-bold text-[11px] uppercase shadow-lg shadow-emerald-200"
               >
                 {t("checkout.contactAdminRefund")}
@@ -630,8 +630,9 @@ fetchTransaction();
 }
 
 export default function InvoicePage() {
+  const { t } = useI18n();
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-500 italic uppercase">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-500 italic uppercase">{t("common.loading")}</div>}>
       <InvoiceContent />
     </Suspense>
   );

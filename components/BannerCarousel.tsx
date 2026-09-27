@@ -19,7 +19,7 @@ interface BannerItem {
 }
 
 export default function BannerCarousel() {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [shouldAnimate, setShouldAnimate] = useState(false);
   const [banners, setBanners] = useState<BannerItem[]>([]);
@@ -90,7 +90,7 @@ const fetchBanners = async () => {
            <div className="relative w-48 h-24 md:w-72 md:h-36 animate-pulse">
              <Image
                src="/images/logo-danish.png"
-               alt="Loading DanisPay"
+               alt={t("common.loadingBrandAlt")}
                fill
                className="object-contain drop-shadow-[0_0_25px_rgba(59,130,246,0.5)]"
                priority
@@ -99,7 +99,7 @@ const fetchBanners = async () => {
            </div>
 
            <p className="mt-4 md:mt-6 text-slate-500 text-[10px] md:text-xs font-black uppercase tracking-[0.4em] animate-pulse">
-             Secure Transaction by DanisPay
+             {t("common.secureByDanisPay")}
            </p>
         </div>
       </section>
@@ -230,10 +230,18 @@ const fetchBanners = async () => {
         </div>
 
         {/* Tombol Navigasi */}
-        <button onClick={() => emblaApi?.scrollPrev()} className="absolute left-0 md:left-4 top-1/2 -translate-y-1/2 z-50 bg-white/10 backdrop-blur-xl hover:bg-blue-600 p-3 md:p-4 rounded-full border border-white/10 opacity-0 group-hover/main:opacity-100 transition-all">
+        <button
+          onClick={() => emblaApi?.scrollPrev()}
+          aria-label={t("common.prevSlide")}
+          className="absolute left-0 md:left-4 top-1/2 -translate-y-1/2 z-50 bg-white/10 backdrop-blur-xl hover:bg-blue-600 p-3 md:p-4 rounded-full border border-white/10 opacity-0 group-hover/main:opacity-100 transition-all cursor-pointer"
+        >
           <ChevronLeft size={28} className="text-white" />
         </button>
-        <button onClick={() => emblaApi?.scrollNext()} className="absolute right-0 md:right-4 top-1/2 -translate-y-1/2 z-50 bg-white/10 backdrop-blur-xl hover:bg-blue-600 p-3 md:p-4 rounded-full border border-white/10 opacity-0 group-hover/main:opacity-100 transition-all">
+        <button
+          onClick={() => emblaApi?.scrollNext()}
+          aria-label={t("common.nextSlide")}
+          className="absolute right-0 md:right-4 top-1/2 -translate-y-1/2 z-50 bg-white/10 backdrop-blur-xl hover:bg-blue-600 p-3 md:p-4 rounded-full border border-white/10 opacity-0 group-hover/main:opacity-100 transition-all cursor-pointer"
+        >
           <ChevronRight size={28} className="text-white" />
         </button>
       </div>
@@ -244,6 +252,7 @@ const fetchBanners = async () => {
           <button
             key={index}
             onClick={() => emblaApi?.scrollTo(index)}
+            aria-label={t("common.goToSlide", { index: index + 1 })}
             className={`h-1.5 rounded-full cursor-pointer focus:outline-none transition-all duration-500 ${
               index === selectedIndex ? "w-10 bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)]" : "w-2 bg-slate-800"
             }`}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { useI18n } from "@/lib/i18n/context";
 
 type DaPayCoinProps = {
   size?: number;
@@ -24,6 +25,7 @@ export default function DaPayCoin({
   y = 0,
   scale = 1,
 }: DaPayCoinProps) {
+  const { t } = useI18n();
   const uid = useId().replace(/:/g, "");
 
   const faceId = `dapay-face-${uid}`;
@@ -40,7 +42,7 @@ export default function DaPayCoin({
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
-      aria-label="Koin DaPay"
+      aria-label={t("footer.dapayCoins")}
       className={className}
       style={{
         overflow: "visible",

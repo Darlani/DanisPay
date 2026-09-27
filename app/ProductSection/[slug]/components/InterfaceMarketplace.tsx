@@ -12,7 +12,7 @@ export default function InterfaceMarketplace({ product, accId, setAccId, selecte
             <ShoppingBag size={40} />
           </div>
           <h1 className="mt-4 font-black text-lg text-orange-600 uppercase italic">{product.name}</h1>
-          <p className="text-xs font-bold text-slate-400">Marketplace Service</p>
+          <p className="text-xs font-bold text-slate-400">{t("products.minor.marketplaceService")}</p>
         </div>
       </div>
       <div className="lg:col-span-2 space-y-6">

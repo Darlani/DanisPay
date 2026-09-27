@@ -10,8 +10,10 @@ import {
   MessageCircle,
   ShieldCheck
 } from 'lucide-react';
+import { useI18n } from "@/lib/i18n/context";
 
 export default function MaintenancePage() {
+  const { t } = useI18n();
   return (
     <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-6 overflow-hidden relative">
       
@@ -37,16 +39,16 @@ export default function MaintenancePage() {
         {/* TEXT CONTENT */}
         <div className="space-y-4">
           <h1 className="text-4xl md:text-6xl font-black uppercase text-white tracking-tighter italic">
-            SISTEM <span className="text-blue-500 text-outline">OFFLINE</span>
+            {t("maintenance.systemPrefix")} <span className="text-blue-500 text-outline">{t("maintenance.systemOffline")}</span>
           </h1>
           
           <div className="flex items-center justify-center gap-2 text-blue-400 font-black uppercase italic tracking-widest text-xs md:text-sm">
             <ShieldCheck size={16} />
-            <span>DanisPay Security Protocol Active</span>
+            <span>{t("maintenance.securityProtocol")}</span>
           </div>
 
           <p className="text-slate-400 font-medium text-sm md:text-base max-w-md mx-auto leading-relaxed">
-            Kami sedang melakukan optimasi server dan pembaruan sistem untuk pengalaman top-up yang lebih kencang. Kami akan segera kembali!
+            {t("maintenance.systemOfflineDesc")}
           </p>
         </div>
 
@@ -57,8 +59,8 @@ export default function MaintenancePage() {
               <Clock size={24} />
             </div>
             <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Estimasi Selesai</p>
-              <p className="text-white font-bold italic">Cek Berkala di Grup</p>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("maintenance.estCompletion")}</p>
+              <p className="text-white font-bold italic">{t("maintenance.checkGroupRegularly")}</p>
             </div>
           </div>
 
@@ -71,8 +73,8 @@ export default function MaintenancePage() {
               <MessageCircle size={24} />
             </div>
             <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Butuh Bantuan?</p>
-              <p className="text-white font-bold italic group-hover:text-emerald-400 transition-colors">Hubungi Admin</p>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t("maintenance.needHelp")}</p>
+              <p className="text-white font-bold italic group-hover:text-emerald-400 transition-colors">{t("maintenance.contactAdmin")}</p>
             </div>
           </a>
         </div>
@@ -80,7 +82,7 @@ export default function MaintenancePage() {
         {/* FOOTER */}
         <div className="mt-16 pt-8 border-t border-slate-800/50">
           <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em]">
-            &copy; 2026 DANISPAY - ALL RIGHTS RESERVED
+            &copy; 2026 DANISPAY - {t("footer.allRightsReserved")}
           </p>
         </div>
       </div>

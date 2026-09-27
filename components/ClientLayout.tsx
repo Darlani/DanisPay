@@ -3,6 +3,7 @@ import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic"; // Pakai dynamic import biar enteng
 import { STORE_CONFIG } from "@/utils/storeConfig";
 import { I18nProvider } from "@/lib/i18n/context";
+import { stripLocaleFromPathname } from "@/lib/i18n/config";
 
 // Load Navbar, Footer, dan BottomNav cuma pas dibutuhin (Lazy Load)
 const Navbar = dynamic(() => import("./Navbar"), { ssr: false });
@@ -13,11 +14,16 @@ const SandboxTopBanner = dynamic(() => import("./sandbox/SandboxTopBanner"), { s
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isDashboardPage = pathname?.startsWith("/user") || pathname?.startsWith("/admin");
+  const normalizedPath = stripLocaleFromPathname(pathname || "");
+  const isDashboardPage = normalizedPath.startsWith("/user") || normalizedPath.startsWith("/admin");
 
   // Jika maintenance, langsung potong kompas biar gak load yang lain
   if (STORE_CONFIG.isMaintenanceMode) {
-    return <MaintenancePage />;
+    return (
+      <I18nProvider>
+        <MaintenancePage />
+      </I18nProvider>
+    );
   }
 
   return (

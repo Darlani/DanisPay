@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRef, useState, useMemo, useEffect } from "react";
 import { PULSA_CATEGORY_SLUGS } from '@/lib/constants/product-mappings';
@@ -114,7 +114,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
       saveToHistory(plnId); // Simpan nomor PLN ke chip history
       scrollToNext(step3Ref);
     } else {
-      setErrorOp(result.message || "ID PLN tidak ditemukan");
+      setErrorOp(result.message || t("products.ppob.plnNotFound"));
     }
 
     setIsInquiring(false);
@@ -234,10 +234,10 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
   };
 
   const getDynamicLabel = () => {
-    if (isPLN) return "ID Pelanggan / No. Meter PLN";
+    if (isPLN) return t("products.ppob.customerId");
     const category = product?.category?.toLowerCase() || "";
-    if (category.includes('pulsa') || category.includes('data')) return "Nomor Handphone (08xxx)";
-    return "Nomor Tujuan / ID Pelanggan";
+    if (category.includes('pulsa') || category.includes('data')) return t("products.ppob.phoneLabel");
+    return t("products.ppob.destLabel");
   };
 
   const onConfirmCheckout = () => {
@@ -284,18 +284,18 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                     <span className="bg-[#4ADE80] text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm">TOP UP</span>
                   </div>
                   <h1 className="text-lg font-black leading-tight text-slate-800 tracking-tight uppercase wrap-break-word italic">{product.name}</h1>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic">Proses Instan & Terverifikasi Aman</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic">{t("products.common.instantAndVerified")}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2 mb-8">
                 <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-full border border-slate-100">
                   <div className="bg-slate-200 p-1 rounded-full text-slate-600 shrink-0"><ShieldCheck size={14} /></div>
-                  <span className="text-[10px] font-bold text-slate-600 leading-tight italic">Official Supply</span>
+                  <span className="text-[10px] font-bold text-slate-600 leading-tight italic">{t("products.common.officialSupply")}</span>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-full border border-slate-100">
                   <div className="bg-slate-200 p-1 rounded-full text-slate-600 shrink-0"><CircleDollarSign size={14} /></div>
-                  <span className="text-[10px] font-bold text-slate-600 leading-tight italic">Money Back</span>
+                  <span className="text-[10px] font-bold text-slate-600 leading-tight italic">{t("products.common.moneyBack")}</span>
                 </div>
               </div>
 
@@ -370,7 +370,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                           }`}
                         >
                           <span className="text-sm mr-1">{cat === 'PULSA' ? '📱' : '🌐'}</span>
-                          {cat === 'PULSA' ? 'Pulsa' : 'Data internet'}
+                          {cat === 'PULSA' ? t("products.ppob.tabCredit") : t("products.ppob.tabData")}
                         </button>
                       ))}
                     </div>
@@ -402,7 +402,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                             : "bg-white border-[#E0F2F1] text-slate-400 hover:border-[#80CBC4]"
                         }`}
                       >
-                        {tab.toLowerCase() === 'umum' || tab.toLowerCase() === 'pulsa-reguler' ? 'Pulsa biasa' : tab.toLowerCase() === 'data-umum' ? 'Umum' : tab.replace(/-/g, ' ')}
+                        {tab.toLowerCase() === 'umum' || tab.toLowerCase() === 'pulsa-reguler' ? t("products.ppob.subTabRegularCredit") : tab.toLowerCase() === 'data-umum' ? t("products.ppob.subTabGeneral") : tab.replace(/-/g, ' ')}
                       </button>
                     ))}
                   </div>
@@ -464,7 +464,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                                 selectedItemId === opt.id ? 'bg-[#B2DFDB]' : 'bg-[#dddfde]'
                             }`}>
                                <span className="text-slate-400/50 font-black text-[8px] sm:text-[10px] uppercase tracking-wider absolute z-0 text-center leading-tight">
-                                  {isPLN ? "PLN Token" : product.name}
+                                  {isPLN ? t("products.ppob.plnToken") : product.name}
                                </span>
                                {isEnabled && promoLabel && (
                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#FFC107] text-slate-900 px-3 py-0.5 rounded-full shadow-sm border border-white/50 transform rotate-3 z-10">
@@ -583,12 +583,12 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
                       </div>
                       {!isPLN && accId.length >= 4 && (
                         <span className="text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-lg animate-in fade-in">
-                          Deteksi: {getOperatorLogo(accId)?.name || "Operator Tidak Dikenal"}
+                          {t("products.ppob.detected")}: {getOperatorLogo(accId)?.name || t("products.ppob.unknownOperator")}
                         </span>
                       )}
                       {isPLN && accId.length >= 11 && (
                         <span className="text-[9px] bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-lg animate-in fade-in">
-                          Deteksi: Token PLN
+                          {t("products.ppob.detected")}: Token PLN
                         </span>
                       )}
                     </label>
@@ -599,7 +599,7 @@ export default function InterfacePulsa(props: InterfacePulsaProps) {
       <div className="absolute left-3 z-10 animate-in fade-in zoom-in duration-300 flex items-center">
         <img
           src={detectedLogo}
-          alt="Logo Operator"
+          alt={t("products.ppob.operatorLogo")}
           className="w-7 h-7 sm:w-8 sm:h-8 object-contain bg-white rounded-md p-0.5 shadow-sm border border-slate-100"
         />
       </div>

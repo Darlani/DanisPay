@@ -1,29 +1,32 @@
-﻿"use client";
-import { useState } from "react";
+"use client";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, ArrowRight, Loader2, AlertCircle, ShieldCheck, ChevronLeft, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { Turnstile } from '@marsidev/react-turnstile'; 
 import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 
 export default function ForgotPasswordPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null); 
+  const [isLocal, setIsLocal] = useState(false);
+
+  useEffect(() => {
+    setIsLocal(window.location.hostname === "localhost");
+  }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Deteksi Localhost
-    const isLocal = typeof window !== "undefined" && window.location.hostname === "localhost";
-
     // Bypass jika jalan di lokal
     if (!captchaToken && !isLocal) {
-      setErrorMsg("Tolong selesaikan verifikasi keamanan dulu, Bos!");
+      setErrorMsg(t("auth.securityVerificationCaptchaAlert"));
       return;
     }
 
@@ -39,7 +42,7 @@ export default function ForgotPasswordPage() {
 
       const result = await res.json();
 
-      if (!res.ok) throw new Error(result.error || "Gagal mengirim permintaan");
+      if (!res.ok) throw new Error(result.error || t("auth.sendRequestFailed"));
 
       setSuccessMsg(true);
     } catch (err: any) {
@@ -83,7 +86,7 @@ export default function ForgotPasswordPage() {
             <p className="text-slate-400 text-xs leading-relaxed mb-8">
               {t("auth.emailSentDesc")}
             </p>
-            <Link href="/login" className="w-full bg-slate-800 hover:bg-slate-700 text-white font-black italic uppercase py-4 rounded-2xl transition-all transform active:scale-95 flex items-center justify-center gap-2">
+            <Link href={localizeHref("/login", locale)} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-black italic uppercase py-4 rounded-2xl transition-all transform active:scale-95 flex items-center justify-center gap-2">
               <ChevronLeft size={18} /> {t("auth.backToLogin").toUpperCase()}
             </Link>
           </div>
@@ -120,7 +123,7 @@ export default function ForgotPasswordPage() {
               <div className="flex justify-center pt-2">
                 <Turnstile 
                   // Gunakan Dummy Key untuk localhost
-                  siteKey={typeof window !== "undefined" && window.location.hostname === "localhost" ? "1x00000000000000000000AA" : "0x4AAAAAACkQAA6L_WPQSSms"}
+                  siteKey={isLocal ? "1x00000000000000000000AA" : "0x4AAAAAACkQAA6L_WPQSSms"}
                   onSuccess={(token) => setCaptchaToken(token)}
                   onExpire={() => setCaptchaToken(null)}
                   options={{ theme: 'dark' }}
@@ -130,12 +133,12 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 // Jangan disable tombol jika di localhost
-                disabled={loading || (!captchaToken && !(typeof window !== "undefined" && window.location.hostname === "localhost"))} 
+                disabled={loading || (!captchaToken && !isLocal)}
                 className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-black italic uppercase py-4 rounded-2xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transition-all transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <Loader2 className="animate-spin" size={20} />
-                ) : (!captchaToken && !(typeof window !== "undefined" && window.location.hostname === "localhost")) ? (
+                ) : (!captchaToken && !isLocal) ? (
                   t("auth.verifying")
                 ) : (
                   <>{t("auth.sendResetLink")} <ArrowRight size={20} /></>
@@ -143,7 +146,7 @@ export default function ForgotPasswordPage() {
               </button>
 
               <div className="pt-4 text-center">
-                <Link href="/login" className="inline-flex items-center justify-center gap-1 text-slate-500 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-colors">
+                <Link href={localizeHref("/login", locale)} className="inline-flex items-center justify-center gap-1 text-slate-500 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-colors">
                   <ChevronLeft size={14}/> {t("auth.backToLogin")}
                 </Link>
               </div>

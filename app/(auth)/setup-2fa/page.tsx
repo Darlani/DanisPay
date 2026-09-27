@@ -1,12 +1,13 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import { ShieldAlert, Loader2 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 
 export default function Setup2FAPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [factorId, setFactorId] = useState<string | null>(null);
@@ -38,8 +39,8 @@ export default function Setup2FAPage() {
         }
 
         if (!session?.user) {
-          setErrorMsg("Sesi login tidak ditemukan. Silakan login kembali.");
-          router.push("/login");
+          setErrorMsg(t("auth.loginSessionNotFound"));
+          router.push(localizeHref("/login", locale));
           return;
         }
 
@@ -75,15 +76,15 @@ export default function Setup2FAPage() {
         // Supabase mengembalikan format SVG murni (data URI)
         setQrCode(data.totp.qr_code);
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Terjadi kesalahan saat memproses 2FA.";
+        const message = err instanceof Error ? err.message : t("auth.errorProcessingTwoFa");
         if (
           message.toLowerCase().includes("session") &&
           !message.toLowerCase().includes("missing sub claim")
         ) {
-          setErrorMsg("Sesi login tidak ditemukan. Silakan login kembali.");
-          router.push("/login");
+          setErrorMsg(t("auth.loginSessionNotFound"));
+          router.push(localizeHref("/login", locale));
         } else {
-          setErrorMsg("Gagal membuat kode keamanan: " + message);
+          setErrorMsg(t("auth.failedGenerateSecurityCode") + message);
         }
       } finally {
         setLoading(false);
@@ -91,7 +92,7 @@ export default function Setup2FAPage() {
     };
 
     void setupMFA();
-  }, [router]);
+  }, [router, locale, t]);
 
   const handleVerifyPin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +123,7 @@ export default function Setup2FAPage() {
       // Jika sukses, AAL naik ke AAL2. Langsung arahkan ke dashboard
       router.push("/admin");
     } catch {
-      setErrorMsg("KODE SALAH! Coba lagi, Bos.");
+      setErrorMsg(t("auth.invalidPinRetry"));
       setPin(""); // Kosongkan input jika salah
     } finally {
       setLoading(false);
@@ -161,7 +162,7 @@ export default function Setup2FAPage() {
             >
               <img 
                 src={qrCode} 
-                alt="QR Code 2FA" 
+                alt={t("auth.qrCodeAlt")}
                 className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-white rounded-[30px] -z-10 group-hover:blur-xl group-hover:opacity-10 transition-all duration-300"></div>

@@ -9,8 +9,8 @@ export default function InterfaceSosmed({ product, accId, setAccId, selectedItem
       <div className="lg:col-span-1">
         <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-pink-100 sticky top-24">
           <img src={product.img} className="w-full rounded-3xl shadow-md mb-4" alt={product.name} />
-          <h1 className="font-black text-center text-pink-600 text-xl italic uppercase">SOSMED BOOSTER</h1>
-          <p className="text-center text-[10px] text-slate-400 uppercase mt-2">Grow your audience fast</p>
+          <h1 className="font-black text-center text-pink-600 text-xl italic uppercase">{t("products.minor.sosmedBooster")}</h1>
+          <p className="text-center text-[10px] text-slate-400 uppercase mt-2">{t("products.minor.growAudienceFast")}</p>
         </div>
       </div>
       <div className="lg:col-span-2 space-y-6">

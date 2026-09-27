@@ -165,7 +165,7 @@ export default function PromoSection({ section, items, locale: propLocale }: Pro
                   </span>
                   {item.is_featured && (
                     <span className="inline-flex rounded-md border border-amber-500/30 bg-amber-500/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950">
-                      Featured
+                      {t("promo.featured")}
                     </span>
                   )}
                 </div>

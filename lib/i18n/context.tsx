@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { DEFAULT_LOCALE, getLocaleFromPathname, type Locale } from "./config";
 import { createTranslator, getDictionary, type Dictionary } from "./dictionaries";
@@ -25,6 +25,12 @@ export function I18nProvider({
     if (initialLocale) return initialLocale;
     return getLocaleFromPathname(pathname || "/");
   }, [pathname, initialLocale]);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = currentLocale;
+    }
+  }, [currentLocale]);
 
   const value = useMemo(() => {
     return {

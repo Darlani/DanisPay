@@ -1,13 +1,14 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import { Lock, ArrowRight, Loader2, AlertCircle, CheckCircle2, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 
 export default function UpdatePasswordPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -27,12 +28,12 @@ export default function UpdatePasswordPage() {
     setErrorMsg("");
 
     if (password.length < 6) {
-      setErrorMsg("Password minimal 6 karakter, Bos!");
+      setErrorMsg(t("auth.passwordMinLengthNotice"));
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMsg("Konfirmasi password tidak cocok!");
+      setErrorMsg(t("auth.passwordMismatch"));
       return;
     }
 
@@ -50,12 +51,12 @@ export default function UpdatePasswordPage() {
       
       // Tendang kembali ke halaman login setelah 3 detik
       setTimeout(() => {
-        router.push("/login");
+        router.push(localizeHref("/login", locale));
       }, 3000);
 
     } catch (err: any) {
       // Biasanya error jika link sudah kadaluarsa atau sudah pernah dipakai
-      setErrorMsg(err.message || "Sesi tidak valid atau kadaluarsa. Silakan minta link reset baru.");
+      setErrorMsg(err.message || t("auth.sessionExpiredRequestNewLink"));
     } finally {
       setLoading(false);
     }
@@ -95,7 +96,7 @@ export default function UpdatePasswordPage() {
               <p className="text-white text-sm font-bold">{t("auth.passwordUpdated")}</p>
               <p className="text-slate-400 text-xs mt-2">{t("auth.redirectingToLogin")}</p>
             </div>
-            <Link href="/login" className="block w-full bg-slate-800 hover:bg-slate-700 text-white font-black italic uppercase py-4 rounded-2xl transition-all">
+            <Link href={localizeHref("/login", locale)} className="block w-full bg-slate-800 hover:bg-slate-700 text-white font-black italic uppercase py-4 rounded-2xl transition-all">
               {t("products.common.loginNow")}
             </Link>
           </div>

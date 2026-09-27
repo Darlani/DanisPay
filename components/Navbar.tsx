@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  LogOut, Search, Loader2, X,
+  LogOut, LogIn, Search, Loader2, X,
   Newspaper, Tag, ReceiptText, UserCircle, Menu
 } from "lucide-react";
 import TransactionHistoryModal from "@/components/TransactionHistoryModal";
@@ -48,12 +48,14 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
   const { locale, t } = useI18n();
 
   const isAdminPage = pathname.startsWith("/admin");
-  const isLoginPage = pathname === "/login";
+  const normalizedAuthPath = stripLocaleFromPathname(pathname || "");
+  const isLoginPage = normalizedAuthPath === "/login";
 
   useEffect(() => {
     const checkAuth = async () => {
       if (typeof window !== "undefined") {
-        if (pathname === "/login" || pathname === "/setup-2fa" || pathname === "/register") {
+        const normPath = stripLocaleFromPathname(pathname || "");
+        if (normPath === "/login" || normPath === "/setup-2fa" || normPath === "/register") {
           setIsCheckingAuth(false);
           return;
         }
@@ -156,29 +158,29 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
   }, [searchQuery]);
 
   const handleLogout = async () => {
-    if (confirm("Yakin ingin keluar?")) {
+    if (confirm(t("auth.confirmSignOut"))) {
       await supabase.auth.signOut();
       document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
       document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
       localStorage.clear();
-      window.location.href = "/";
+      window.location.href = locale === "en" ? "/en" : "/";
     }
   };
 
   const isLocal = typeof window !== "undefined" && window.location.hostname === "localhost";
 
   const handleSendSuggestion = async () => {
-    if (!suggestionText.trim() || (!captchaToken && !isLocal)) return alert("Selesaikan verifikasi keamanan dulu!");
+    if (!suggestionText.trim() || (!captchaToken && !isLocal)) return alert(t("search.suggestionCaptchaRequired"));
     setIsSending(true);
     try {
       const { error } = await supabase.from("product_suggestions").insert([{ content: suggestionText.trim() }]);
       if (error) throw error;
-      alert("Saran diterima! Makasih ya Bos.");
+      alert(t("search.suggestionSuccess"));
       setSuggestionText("");
       setCaptchaToken(null);
       setIsSuggestionOpen(false);
     } catch {
-      alert("Gagal kirim.");
+      alert(t("search.suggestionFailed"));
     } finally {
       setIsSending(false);
     }
@@ -204,7 +206,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
   return (
     <>
       <nav className="w-full bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 shadow-lg shadow-black/10 transition-colors duration-200">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8 lg:px-12 py-3 flex items-center justify-between gap-3 sm:gap-4">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8 lg:px-20 py-3 flex items-center justify-between gap-3 sm:gap-4">
 
           {/* SISI KIRI: Mobile Menu (Admin) & Logo */}
           <div className="flex items-center gap-3 shrink-0">
@@ -212,7 +214,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
               <button
                 type="button"
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                aria-label="Toggle menu admin"
+                aria-label={t("common.toggleAdminMenuAria")}
                 className="md:hidden p-2 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 <Menu size={18} />
@@ -232,10 +234,10 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
           </div>
 
           {/* SISI TENGAH: Search Bar */}
-          <div ref={searchRef} className="flex-1 max-w-xs sm:max-w-sm md:max-w-md mx-2 sm:mx-4 md:mx-6 relative">
+          <div ref={searchRef} className="flex-1 max-w-xs sm:max-w-sm md:max-w-xs lg:max-w-sm xl:max-w-md mx-2 sm:mx-3 md:mx-3 lg:mx-4 xl:mx-6 relative">
             <div className="relative w-full group">
               <label htmlFor="navbar-product-search" className="sr-only">
-                Cari produk atau game
+                {t("search.inputLabel")}
               </label>
               <Search
                 className="pointer-events-none absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-400 transition-colors"
@@ -336,14 +338,14 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
           </div>
 
           {/* SISI KANAN: Navigasi Desktop & Auth/Sandbox */}
-          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 md:gap-2 lg:gap-3 shrink-0">
             {/* Language Switcher Button (Single-Click Direct Toggle with Flag) */}
             <button
               type="button"
               onClick={handleToggleLanguage}
               aria-label={locale === "id" ? t("language.switchToEnglish") : t("language.switchToIndonesian")}
               title={locale === "id" ? t("language.switchToEnglish") : t("language.switchToIndonesian")}
-              className="flex items-center gap-1.5 text-slate-300 hover:text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-800/90 bg-slate-950/40 hover:bg-slate-800/80 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer shrink-0"
+              className="flex items-center gap-1.5 text-slate-300 hover:text-white text-xs font-semibold px-2 sm:px-2.5 py-1.5 rounded-lg border border-slate-800/90 bg-slate-950/40 hover:bg-slate-800/80 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer shrink-0"
             >
               {locale === "id" ? (
                 <svg className="w-4 h-3 rounded-xs shrink-0 overflow-hidden shadow-xs" viewBox="0 0 3 2" aria-hidden="true">
@@ -369,74 +371,86 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
               </span>
             </button>
 
-            {/* Menu Navigasi Desktop */}
-            <div className="hidden md:flex items-center gap-2 lg:gap-3 border-l border-slate-800 pl-3 lg:pl-4">
+            {/* Menu Navigasi Desktop & Tablet */}
+            <div className="hidden md:flex items-center gap-1.5 lg:gap-2.5 xl:gap-3 border-l border-slate-800 pl-2 md:pl-2.5 lg:pl-3.5">
               <Link
                 href={locale === "en" ? "/en/news" : "/news"}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                title={t("navigation.news")}
+                aria-label={t("navigation.news")}
+                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-xl text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                   isNewsActive
                     ? "font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20"
                     : "font-medium text-slate-300 hover:text-white hover:bg-slate-800/60"
                 }`}
               >
-                <Newspaper size={14} />
-                <span>{t("navigation.news")}</span>
+                <Newspaper size={14} className="shrink-0" />
+                <span className="hidden lg:inline">{t("navigation.news")}</span>
               </Link>
 
               <Link
                 href={locale === "en" ? "/en/promo" : "/promo"}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                title={t("navigation.promo")}
+                aria-label={t("navigation.promo")}
+                className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-xl text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                   isPromoActive
                     ? "font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20"
                     : "font-medium text-slate-300 hover:text-white hover:bg-slate-800/60"
                 }`}
               >
-                <Tag size={14} />
-                <span>{t("navigation.promo")}</span>
+                <Tag size={14} className="shrink-0" />
+                <span className="hidden lg:inline">{t("navigation.promo")}</span>
               </Link>
 
               <button
                 type="button"
                 onClick={() => setIsHistoryOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer"
+                title={t("navigation.trackOrder")}
+                aria-label={t("navigation.trackOrder")}
+                className="flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer"
               >
-                 <ReceiptText size={14} />
-                 <span>{t("navigation.trackOrder")}</span>
+                 <ReceiptText size={14} className="shrink-0" />
+                 <span className="hidden xl:inline">{t("navigation.trackOrder")}</span>
               </button>
 
               {/* State Autentikasi / Sandbox */}
               {isCheckingAuth ? (
-                <div className="flex items-center gap-2 ml-1 pl-3 border-l border-slate-800">
+                <div className="flex items-center gap-2 ml-1 pl-2.5 lg:pl-3 border-l border-slate-800">
                   <div className="h-9 w-20 bg-slate-800/70 animate-pulse rounded-xl" />
                 </div>
               ) : role && !isLoginPage ? (
-                <div className="flex items-center gap-2 ml-1 pl-3 border-l border-slate-800">
+                <div className="flex items-center gap-1.5 lg:gap-2 ml-1 pl-2 md:pl-2.5 lg:pl-3 border-l border-slate-800">
                   <SandboxSessionControl variant="navbar" />
 
                   <Link
-                    href={role === "admin" ? "/admin" : "/user"}
-                    className="flex items-center gap-1.5 bg-blue-500/10 text-blue-400 px-3.5 py-2 rounded-xl text-xs font-semibold border border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    href={role === "admin" ? "/admin" : localizeHref("/user", locale)}
+                    title={t("navigation.account")}
+                    aria-label={t("navigation.account")}
+                    className="flex items-center gap-1.5 bg-blue-500/10 text-blue-400 px-2.5 lg:px-3.5 py-2 rounded-xl text-xs font-semibold border border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
-                    <UserCircle size={15} />
-                    <span>{t("navigation.account")}</span>
+                    <UserCircle size={15} className="shrink-0" />
+                    <span className="hidden lg:inline">{t("navigation.account")}</span>
                   </Link>
 
                   <button
                     type="button"
                     onClick={handleLogout}
                     aria-label={t("navigation.signOut")}
-                    className="p-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-xl hover:bg-rose-600 hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                    title={t("navigation.signOut")}
+                    className="p-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-xl hover:bg-rose-600 hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 cursor-pointer"
                   >
-                    <LogOut size={15} />
+                    <LogOut size={15} className="shrink-0" />
                   </button>
                 </div>
               ) : (
-                <div className="ml-1 pl-3 border-l border-slate-800">
+                <div className="ml-1 pl-2 md:pl-2.5 lg:pl-3 border-l border-slate-800">
                   <Link
-                    href="/login"
-                    className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-blue-500 transition-all shadow-md shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    href={localizeHref("/login", locale)}
+                    title={t("navigation.signIn")}
+                    aria-label={t("navigation.signIn")}
+                    className="flex items-center gap-1.5 bg-blue-600 text-white px-3 lg:px-4 py-2 rounded-xl text-xs font-semibold hover:bg-blue-500 transition-all shadow-md shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
-                    {t("navigation.signIn")}
+                    <LogIn size={15} className="lg:hidden shrink-0" />
+                    <span className="hidden lg:inline">{t("navigation.signIn")}</span>
                   </Link>
                 </div>
               )}
@@ -454,11 +468,11 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
         >
           <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-950/50">
-              <h3 className="text-base font-bold text-white">Saran Produk Baru</h3>
+              <h3 className="text-base font-bold text-white">{t("search.suggestionTitle")}</h3>
               <button
                 type="button"
                 onClick={() => setIsSuggestionOpen(false)}
-                aria-label="Tutup modal saran"
+                aria-label={t("search.closeSuggestionAria")}
                 className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 <X size={18} />
@@ -468,7 +482,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
               <textarea
                 value={suggestionText}
                 onChange={(e) => setSuggestionText(e.target.value)}
-                placeholder="Tuliskan produk, voucher, atau game yang Anda inginkan..."
+                placeholder={t("search.suggestionPlaceholder")}
                 className="w-full h-32 p-3.5 bg-slate-950/80 border border-slate-700 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all resize-none text-white text-xs placeholder:text-slate-500"
               />
               <div className="mt-4 flex justify-center">
@@ -488,12 +502,12 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                 {isSending ? (
                   <>
                     <Loader2 className="animate-spin" size={15} />
-                    <span>Mengirim saran...</span>
+                    <span>{t("search.suggestionSending")}</span>
                   </>
                 ) : (!captchaToken && !isLocal) ? (
-                  "Verifikasi Keamanan Terlebih Dahulu"
+                  t("search.suggestionSecurityFirst")
                 ) : (
-                  "Kirim Saran Produk"
+                  t("search.suggestionSubmit")
                 )}
               </button>
             </div>

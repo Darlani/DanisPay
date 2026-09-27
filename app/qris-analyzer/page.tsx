@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function QRISAnalyzerPage() {
+  const { t } = useI18n();
   const [
     staticQRIS,
     setStaticQRIS,
@@ -34,14 +36,14 @@ export default function QRISAnalyzerPage() {
 
     if (!staticQRIS.trim()) {
       setError(
-        "QRIS Static belum diisi."
+        t("qris.errStaticEmpty")
       );
       return;
     }
 
     if (!dynamicQRIS.trim()) {
       setError(
-        "QRIS Dynamic belum diisi."
+        t("qris.errDynamicEmpty")
       );
       return;
     }
@@ -93,7 +95,7 @@ export default function QRISAnalyzerPage() {
         );
       } else {
         setError(
-          "Terjadi kesalahan."
+          t("qris.errGeneric")
         );
       }
     } finally {
@@ -113,19 +115,18 @@ export default function QRISAnalyzerPage() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold">
-            QRIS Analyzer
+            {t("qris.analyzerTitle")}
           </h1>
 
           <p className="mt-2 text-slate-400">
-            DaPay - Static vs Dynamic
-            QRIS Analyzer
+            {t("qris.analyzerSubtitle")}
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           <div>
             <h2 className="mb-2 font-bold">
-              QRIS STATIC
+              {t("qris.staticLabel")}
             </h2>
 
             <textarea
@@ -135,7 +136,7 @@ export default function QRISAnalyzerPage() {
                   event.target.value
                 )
               }
-              placeholder="Paste QRIS Static..."
+              placeholder={t("qris.staticPlaceholder")}
               spellCheck={false}
               className="h-64 w-full rounded-xl border border-slate-700 bg-slate-900 p-4 font-mono text-xs text-white outline-none focus:border-blue-500"
             />
@@ -143,7 +144,7 @@ export default function QRISAnalyzerPage() {
 
           <div>
             <h2 className="mb-2 font-bold">
-              QRIS DYNAMIC
+              {t("qris.dynamicLabel")}
             </h2>
 
             <textarea
@@ -153,7 +154,7 @@ export default function QRISAnalyzerPage() {
                   event.target.value
                 )
               }
-              placeholder="Paste QRIS Dynamic..."
+              placeholder={t("qris.dynamicPlaceholder")}
               spellCheck={false}
               className="h-64 w-full rounded-xl border border-slate-700 bg-slate-900 p-4 font-mono text-xs text-white outline-none focus:border-blue-500"
             />
@@ -170,8 +171,8 @@ export default function QRISAnalyzerPage() {
             className="rounded-xl bg-blue-600 px-6 py-3 font-bold hover:bg-blue-500 disabled:opacity-50"
           >
             {loading
-              ? "Menganalisis..."
-              : "Analisis QRIS"}
+              ? t("qris.analyzing")
+              : t("qris.analyzeBtn")}
           </button>
 
           <button
@@ -181,14 +182,14 @@ export default function QRISAnalyzerPage() {
             }
             className="rounded-xl border border-slate-700 px-6 py-3 font-bold hover:bg-slate-900"
           >
-            Bersihkan
+            {t("qris.clearBtn")}
           </button>
         </div>
 
         {error && (
           <div className="mb-6 rounded-xl border border-red-800 bg-red-950 p-4 text-red-300">
             <strong>
-              Error:
+              {t("qris.errorLabel")}
             </strong>{" "}
             {error}
           </div>
@@ -198,7 +199,7 @@ export default function QRISAnalyzerPage() {
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold">
-                Hasil Analyzer
+                {t("qris.resultTitle")}
               </h2>
 
               <button
@@ -210,7 +211,7 @@ export default function QRISAnalyzerPage() {
                 }
                 className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
               >
-                Copy JSON
+                {t("qris.copyJson")}
               </button>
             </div>
 

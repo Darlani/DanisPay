@@ -47,7 +47,7 @@ export default function InterfaceEMoney(props: any) {
             <div className="bg-white p-6 rounded-4xl shadow-xl border border-slate-100 sticky top-24">
               <img src={product.img} className="w-56 h-56 rounded-4xl object-cover shadow-2xl border-4 border-white mx-auto mb-4" alt={product.name} />
               <div className="text-center">
-                <span className="bg-blue-600 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase">E-WALLET & SALDO</span>
+                <span className="bg-blue-600 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase">{t("products.minor.ewalletBadge")}</span>
                 <h1 className="text-xl font-black text-slate-800 uppercase mt-2">{product.name}</h1>
               </div>
               <div className="mt-6 pt-4 border-t border-slate-50 space-y-3">
@@ -88,7 +88,7 @@ export default function InterfaceEMoney(props: any) {
               </div>
               <div className="p-8">
                 <input type="text" value={accId} onChange={(e) => { setAccId(e.target.value); if(e.target.value.length >= 12) scrollToNext(step3Ref); }} 
-                  placeholder={t("products.game.enterUid", { label: "Nomor HP Akun (DANA/OVO/Maxim)" })} className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] p-5 rounded-2xl outline-none font-bold text-lg" />
+                  placeholder={t("products.game.enterUid", { label: t("products.minor.emoneyAccountPhoneLabel") })} className="w-full bg-[#F5FBFA] border-2 border-[#E0F2F1] focus:border-[#00796B] p-5 rounded-2xl outline-none font-bold text-lg" />
               </div>
             </section>
           </div>

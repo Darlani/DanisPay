@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Moon, Sun } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 type ThemeToggleProps = {
   isCollapsed?: boolean;
@@ -15,6 +16,7 @@ export default function ThemeToggle({
   className = "",
   showLabel = false,
 }: ThemeToggleProps) {
+  const { t } = useI18n();
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== "undefined") {
       const savedTheme = localStorage.getItem("theme");
@@ -42,8 +44,8 @@ export default function ThemeToggle({
       <button
         type="button"
         onClick={toggleTheme}
-        title={isDark ? "Beralih ke Mode Terang" : "Beralih ke Mode Gelap"}
-        aria-label="Toggle tema"
+        title={isDark ? t("common.switchToLightMode") : t("common.switchToDarkMode")}
+        aria-label={t("common.toggleThemeAria")}
         className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-300 ${
           isDark
             ? "bg-slate-800 text-amber-300 hover:bg-slate-700"
@@ -67,7 +69,7 @@ export default function ThemeToggle({
     <button
       type="button"
       onClick={toggleTheme}
-      aria-label="Toggle mode tema"
+      aria-label={t("common.toggleThemeModeAria")}
       className={`relative h-5 w-10 md:h-6 md:w-12 shrink-0 overflow-hidden rounded-full transition-all duration-500 shadow-inner cursor-pointer ${
         isDark
           ? "bg-linear-to-b from-slate-900 to-slate-700"
@@ -159,7 +161,7 @@ export default function ThemeToggle({
             )}
           </div>
           <span className="truncate text-[9.5px] md:text-xs font-bold text-slate-700">
-            {isDark ? "Mode Gelap" : "Mode Terang"}
+            {isDark ? t("common.darkMode") : t("common.lightMode")}
           </span>
         </div>
 

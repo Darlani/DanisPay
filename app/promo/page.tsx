@@ -171,7 +171,7 @@ export default async function PromoPage({
 
           {/* Promo Grid */}
           {!fetchError && filteredBanners.length > 0 ? (
-            <section aria-label="Daftar Promo Aktif" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+            <section aria-label={t("promo.activePromosList")} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
               {filteredBanners.map((banner) => {
                 const rawDestination =
                   banner.href && banner.href.trim() && banner.href !== "#"
@@ -276,7 +276,7 @@ export default async function PromoPage({
         {/* Global Empty State when zero CMS promos and zero banners exist */}
         {!hasAnyContent && !fetchError && (
           <section
-            aria-label="Promo Kosong"
+            aria-label={t("promo.emptyTitle")}
             className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8 sm:p-12 md:p-16 text-center shadow-xl backdrop-blur-xs"
           >
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-700 bg-slate-800/80 text-slate-400 shadow-md">

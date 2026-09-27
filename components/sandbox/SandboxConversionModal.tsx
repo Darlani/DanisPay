@@ -17,6 +17,8 @@ import {
   setCachedSandboxSession,
   broadcastSandboxSync,
 } from "@/components/sandbox/SandboxSessionControl";
+import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 
 interface SandboxConversionModalProps {
   isOpen: boolean;
@@ -30,6 +32,7 @@ export default function SandboxConversionModal({
   onSuccess,
 }: SandboxConversionModalProps) {
   const router = useRouter();
+  const { locale, t } = useI18n();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
@@ -68,12 +71,12 @@ export default function SandboxConversionModal({
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        let msg = "Gagal memproses konversi ke Member LIVE.";
+        let msg = t("sandbox.conversion.errGeneric");
         if (body.error) {
           if (body.error.includes("MANAGEMENT_PERSONA")) {
-            msg = "Akun Admin/Manager tidak dapat dikonversi ke Member Pelanggan.";
+            msg = t("sandbox.conversion.errManagement");
           } else if (body.error.includes("TESTER_NOT_ELIGIBLE")) {
-            msg = "Akun Anda saat ini bukan akun tester yang memenuhi syarat.";
+            msg = t("sandbox.conversion.errNotEligible");
           } else {
             msg = body.error;
           }
@@ -98,7 +101,7 @@ export default function SandboxConversionModal({
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : "Terjadi kesalahan saat memproses konversi akun. Silakan coba lagi."
+          : t("sandbox.conversion.errTryAgain")
       );
     } finally {
       setIsLoading(false);
@@ -120,13 +123,13 @@ export default function SandboxConversionModal({
             </div>
             <div className="space-y-1.5">
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-800 border border-emerald-300">
-                Konversi Berhasil
+                {t("sandbox.conversion.successBadge")}
               </span>
               <h2 className="text-base sm:text-lg font-black text-slate-950">
-                Selamat Datang di Member LIVE DaPay!
+                {t("sandbox.conversion.successTitle")}
               </h2>
               <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
-                Akun Anda kini resmi aktif sebagai Member LIVE. Sesi Sandbox telah dikunci. Anda dapat mulai melakukan deposit saldo kas nyata dan bertransaksi riil.
+                {t("sandbox.conversion.successDesc")}
               </p>
             </div>
 
@@ -135,12 +138,12 @@ export default function SandboxConversionModal({
                 type="button"
                 onClick={() => {
                   onClose();
-                  router.push("/user");
+                  router.push(localizeHref("/user", locale));
                   router.refresh();
                 }}
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3 text-xs shadow-md shadow-emerald-600/25 transition cursor-pointer"
               >
-                <span>Masuk ke Workspace LIVE</span>
+                <span>{t("sandbox.conversion.enterLiveWorkspace")}</span>
                 <ArrowRight size={14} />
               </button>
             </div>
@@ -152,7 +155,7 @@ export default function SandboxConversionModal({
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              aria-label="Tutup modal konfirmasi"
+              aria-label={t("sandbox.conversion.closeAria")}
               className="absolute right-3.5 top-3.5 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition disabled:opacity-50 cursor-pointer"
             >
               <X size={18} />
@@ -165,16 +168,16 @@ export default function SandboxConversionModal({
           </div>
           <div className="min-w-0 pr-6">
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-900 border border-amber-300 mb-1">
-              Konversi Member
+              {t("sandbox.conversion.badge")}
             </span>
             <h2
               id="conversion-modal-title"
               className="text-sm sm:text-base font-black text-slate-950 leading-tight"
             >
-              Beralih ke Member LIVE DaPay
+              {t("sandbox.conversion.title")}
             </h2>
             <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-              Mulai bertransaksi dengan saldo kas nyata dan raih keuntungan bisnis retail digital.
+              {t("sandbox.conversion.subtitle")}
             </p>
           </div>
         </div>
@@ -190,55 +193,57 @@ export default function SandboxConversionModal({
         {/* 7 Contract Disclosures Checklist */}
         <div className="space-y-2 rounded-2xl bg-slate-50 p-3 sm:p-3.5 border border-slate-200/80 mb-4 text-xs text-slate-700">
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">
-            Ketentuan Transisi Akun (Transparansi Penuh):
+            {t("sandbox.conversion.termsTitle")}
           </p>
 
           <div className="flex items-start gap-2">
             <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Satu Akun:</strong> Akun dan email Anda tetap sama, tanpa perlu registrasi ulang.
+              <strong className="text-slate-900">{t("sandbox.conversion.term1Title")}</strong> {t("sandbox.conversion.term1Desc")}
             </span>
           </div>
 
           <div className="flex items-start gap-2">
             <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Akses LIVE Aktif:</strong> Workspace Member LIVE resmi menjadi lingkungan utama Anda sebagai <strong className="text-slate-900">Member Reguler</strong>. Upgrade ke Member Special dapat dilakukan secara terpisah di akun LIVE.
+              <strong className="text-slate-900">{t("sandbox.conversion.term2Title")}</strong>{" "}
+              {t("sandbox.conversion.term2Desc", { regularMember: t("sandbox.session.memberRegular") })}
             </span>
           </div>
 
           <div className="flex items-start gap-2">
             <ShieldCheck size={14} className="text-amber-600 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-amber-900">Saldo Virtual Tidak Dipindahkan:</strong> Saldo virtual sandbox (Rp 1.000.000) dan Koin Sandbox sepenuhnya virtual dan <span className="underline decoration-amber-400 font-semibold">tidak menjadi saldo riil DaPay</span>.
+              <strong className="text-amber-900">{t("sandbox.conversion.term3Title")}</strong>{" "}
+              {t("sandbox.conversion.term3Desc", { notRealBalance: t("sandbox.conversion.notRealBalanceText") })}
             </span>
           </div>
 
           <div className="flex items-start gap-2">
             <ShieldCheck size={14} className="text-emerald-600 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Riwayat Terpisah:</strong> Riwayat pesanan sandbox tetap tersimpan terisolasi dan tidak menjadi pesanan LIVE.
+              <strong className="text-slate-900">{t("sandbox.conversion.term4Title")}</strong> {t("sandbox.conversion.term4Desc")}
             </span>
           </div>
 
           <div className="flex items-start gap-2">
             <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Afiliasi Terjaga:</strong> Kode referral dan jaringan afiliasi Anda tetap utuh.
+              <strong className="text-slate-900">{t("sandbox.conversion.term5Title")}</strong> {t("sandbox.conversion.term5Desc")}
             </span>
           </div>
 
           <div className="flex items-start gap-2">
             <Lock size={14} className="text-slate-500 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Sandbox Terkunci:</strong> Mode Sandbox akan otomatis terkunci (LOCKED) setelah konversi.
+              <strong className="text-slate-900">{t("sandbox.conversion.term6Title")}</strong> {t("sandbox.conversion.term6Desc")}
             </span>
           </div>
 
           <div className="flex items-start gap-2">
             <Lock size={14} className="text-slate-500 shrink-0 mt-0.5" />
             <span className="leading-snug">
-              <strong className="text-slate-900">Reaktivasi Terbatas:</strong> Masuk kembali ke Sandbox di masa depan memerlukan pengajuan ke Admin.
+              <strong className="text-slate-900">{t("sandbox.conversion.term7Title")}</strong> {t("sandbox.conversion.term7Desc")}
             </span>
           </div>
         </div>
@@ -251,7 +256,7 @@ export default function SandboxConversionModal({
             disabled={isLoading}
             className="w-full xs:flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50 text-center"
           >
-            Nanti Saja
+            {t("sandbox.conversion.btnLater")}
           </button>
 
           <button
@@ -263,11 +268,11 @@ export default function SandboxConversionModal({
             {isLoading ? (
               <>
                 <Loader2 size={14} className="animate-spin text-slate-950" />
-                <span>Memproses...</span>
+                <span>{t("sandbox.conversion.btnProcessing")}</span>
               </>
             ) : (
               <>
-                <span>Beralih ke LIVE</span>
+                <span>{t("sandbox.conversion.btnConvert")}</span>
                 <ArrowRight size={14} />
               </>
             )}

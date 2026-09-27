@@ -8,7 +8,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import Link from "next/link";
-import { type Locale } from "@/lib/i18n/config";
+import { type Locale, localizeHref } from "@/lib/i18n/config";
 import { useI18n } from "@/lib/i18n/context";
 
 const FAQ_ID = [
@@ -141,8 +141,8 @@ export default function AffiliateSection({ locale }: { locale?: Locale }) {
 
           <div className="relative group">
             <div className="absolute -inset-1 bg-blue-600 rounded-3xl blur-xl opacity-20 group-hover:opacity-60 transition duration-1000 group-hover:duration-200" />
-            <Link 
-              href="/register" 
+            <Link
+              href={localizeHref("/register", currentLocale)}
               className="relative inline-flex items-center gap-4 bg-white text-[#0B0E14] px-14 py-7 rounded-[22px] font-black uppercase italic tracking-widest transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/10 overflow-hidden"
             >
               <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-linear-to-r from-transparent via-white/40 to-transparent opacity-40 group-hover:animate-[shine_1.5s_infinite]" />

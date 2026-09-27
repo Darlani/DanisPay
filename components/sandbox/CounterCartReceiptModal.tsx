@@ -14,6 +14,27 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
+import { useI18n } from '@/lib/i18n/context';
+import idMessages from '@/messages/id.json';
+
+type ReceiptTranslateFn = (key: string, values?: Record<string, string | number>) => string;
+
+function defaultReceiptT(key: string, values?: Record<string, string | number>): string {
+  const parts = key.split('.');
+  let current: unknown = idMessages;
+  for (const part of parts) {
+    if (current && typeof current === 'object' && part in (current as Record<string, unknown>)) {
+      current = (current as Record<string, unknown>)[part];
+    } else {
+      return key;
+    }
+  }
+  if (typeof current !== 'string') return key;
+  if (!values) return current;
+  return current.replace(/\{(\w+)\}/g, (_, token: string) =>
+    Object.prototype.hasOwnProperty.call(values, token) ? String(values[token]) : `{${token}}`
+  );
+}
 
 /**
  * Canonical Counter Cart Receipt Data Contracts (Batch B & C2)
@@ -81,26 +102,12 @@ export function resolveLineSns(line: { simulatedSn?: string; simulatedSns?: stri
 
 /**
  * Generates formatted plain text for copying to WhatsApp.
- * Strictly adheres to canonical specs:
- * - Mode 'customer':
- *   • Header: *BUKTI SIMULASI — STRUK PELANGGAN*
- *   • Strictly customer-safe fields only (no modal, margin, cashback, or balance)
- *   • Mandatory simulation disclaimer
- * - Mode 'reseller':
- *   • Header: *REKAP PEMBUKUAN KASIR*
- *   • Internal bookkeeping with modal, margin, and cashback
- * - Multi-unit SN formatting:
- *   • Qty 1: SN: SN...
- *   • Qty > 1:
- *     SN:
- *     • Unit 1: SN...
- *     • Unit 2: SN...
- * - Receives activeLinesOverride to guarantee zero leakage when a subset is selected.
  */
 export function generateWhatsAppReceiptText(
   receipt: CounterCartReceiptData,
   activeLinesOverride?: CounterCartReceiptLine[],
-  mode: ReceiptPresentationMode = 'customer'
+  mode: ReceiptPresentationMode = 'customer',
+  t: ReceiptTranslateFn = defaultReceiptT
 ): string {
   const linesToRender = activeLinesOverride ?? receipt.lines;
   if (linesToRender.length === 0) return '';
@@ -136,27 +143,27 @@ export function generateWhatsAppReceiptText(
       .map((line, idx) => {
         const qtyLine = line.quantity > 1 ? `\nQty: ${line.quantity}` : `\nQty: 1`;
         const sns = resolveLineSns(line);
-        let snSection = 'SN: -';
+        let snSection = `${t('sandbox.receipt.sn')} -`;
         if (sns.length > 1) {
-          snSection = `SN:\n${sns.map((s, i) => `• Unit ${i + 1}: ${s}`).join('\n')}`;
+          snSection = `${t('sandbox.receipt.sn')}\n${sns.map((s, i) => `• ${t('sandbox.receipt.unit', { index: i + 1 })} ${s}`).join('\n')}`;
         } else if (sns.length === 1) {
-          snSection = `SN: ${sns[0]}`;
+          snSection = `${t('sandbox.receipt.sn')} ${sns[0]}`;
         }
 
         return `${idx + 1}. ${line.productName}
-Tujuan: ${line.customerNo}${qtyLine}
+${t('sandbox.receipt.dest')} ${line.customerNo}${qtyLine}
 ${snSection}
-Harga: Rp${line.salesLineTotal.toLocaleString('id-ID')}`;
+${t('sandbox.receipt.price')}: Rp${line.salesLineTotal.toLocaleString('id-ID')}`;
       })
       .join('\n\n────────────────────\n\n');
 
-    return `*BUKTI SIMULASI — STRUK PELANGGAN*
+    return `*${t('sandbox.receipt.customerProofTitle')}*
 
-Status: BERHASIL
-Simulasi Sandbox DaPay — Bukan transaksi riil
+Status: ${t('sandbox.receipt.success')}
+${t('sandbox.receipt.subNotReal')}
 
 Invoice: #${receipt.orderId}
-Waktu: ${timeDisplay}
+${t('sandbox.receipt.txTime')}: ${timeDisplay}
 
 ────────────────────
 
@@ -164,9 +171,9 @@ ${linesFormatted}
 
 ────────────────────
 
-*TOTAL PEMBAYARAN: Rp${totalSales.toLocaleString('id-ID')}*
+*${t('sandbox.receipt.totalPayment')} Rp${totalSales.toLocaleString('id-ID')}*
 
-*Struk simulasi untuk latihan konter/reseller. Bukan bukti pembayaran riil.*`;
+*${t('sandbox.receipt.disclaimerCustomer')}*`;
   }
 
   // Reseller Mode (Internal Cashier Bookkeeping)
@@ -180,33 +187,33 @@ ${linesFormatted}
       const qtyLine = line.quantity > 1 ? `\nQty: ${line.quantity}` : `\nQty: 1`;
 
       const sns = resolveLineSns(line);
-      let snSection = 'SN Simulasi: -';
+      let snSection = `${t('sandbox.receipt.snSim')} -`;
       if (sns.length > 1) {
-        snSection = `SN Simulasi:\n${sns.map((s, i) => `• Unit ${i + 1}: ${s}`).join('\n')}`;
+        snSection = `${t('sandbox.receipt.snSim')}\n${sns.map((s, i) => `• ${t('sandbox.receipt.unit', { index: i + 1 })} ${s}`).join('\n')}`;
       } else if (sns.length === 1) {
-        snSection = `SN Simulasi: ${sns[0]}`;
+        snSection = `${t('sandbox.receipt.snSim')} ${sns[0]}`;
       }
 
       return `${idx + 1}. ${line.productName}
-Tujuan: ${line.customerNo}${qtyLine}
+${t('sandbox.receipt.dest')} ${line.customerNo}${qtyLine}
 ${snSection}
-Modal: Rp${line.modalLineTotal.toLocaleString('id-ID')} | Jual: Rp${line.salesLineTotal.toLocaleString('id-ID')}
+${t('sandbox.receipt.cost')} Rp${line.modalLineTotal.toLocaleString('id-ID')} | ${t('sandbox.receipt.sell')} Rp${line.salesLineTotal.toLocaleString('id-ID')}
 Margin: ${lineFormattedMargin}`;
     })
     .join('\n\n────────────────────\n\n');
 
   const cashbackSection =
     totalCashback > 0
-      ? `\nReward Koin Sandbox: +${totalCashback.toLocaleString('id-ID')} Koin`
+      ? `\n${t('sandbox.receipt.coinReward')} +${totalCashback.toLocaleString('id-ID')} ${t('sandbox.receipt.coinUnit')}`
       : '';
 
-  return `*REKAP PEMBUKUAN KASIR*
+  return `*${t('sandbox.receipt.resellerProofTitle')}*
 
-Status: BERHASIL
-Simulasi Sandbox DaPay — Catatan Usaha
+Status: ${t('sandbox.receipt.success')}
+${t('sandbox.receipt.subResellerNote')}
 
 Invoice: #${receipt.orderId}
-Waktu: ${timeDisplay}
+${t('sandbox.receipt.txTime')}: ${timeDisplay}
 
 ────────────────────
 
@@ -214,11 +221,11 @@ ${linesFormatted}
 
 ────────────────────
 
-Total Modal Simulasi: Rp${totalModal.toLocaleString('id-ID')}
-Total Penjualan Simulasi: Rp${totalSales.toLocaleString('id-ID')}
-Total Perkiraan Margin: ${formattedMargin}${cashbackSection}
+${t('sandbox.receipt.totalCostSim')} Rp${totalModal.toLocaleString('id-ID')}
+${t('sandbox.receipt.totalSalesSim')} Rp${totalSales.toLocaleString('id-ID')}
+${t('sandbox.receipt.totalEstMargin')} ${formattedMargin}${cashbackSection}
 
-Simulasi Sandbox DaPay — Bukan transaksi riil.`;
+${t('sandbox.receipt.subNotReal')}.`;
 }
 
 /**
@@ -255,7 +262,8 @@ function drawRoundRect(
 export async function generateReceiptImageBlob(
   receipt: CounterCartReceiptData,
   linesToRender: CounterCartReceiptLine[],
-  mode: ReceiptPresentationMode
+  mode: ReceiptPresentationMode,
+  t: ReceiptTranslateFn = defaultReceiptT
 ): Promise<Blob> {
   if (typeof document === 'undefined') {
     throw new Error('Canvas image generation is only supported in browser environments.');
@@ -354,7 +362,7 @@ export async function generateReceiptImageBlob(
   ctx.stroke();
   ctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = '#92400e';
-  ctx.fillText('SIMULASI SANDBOX', padding + 14, curY + 15);
+  ctx.fillText(t('sandbox.receipt.sandboxSim'), padding + 14, curY + 15);
 
   // 2. BERHASIL
   ctx.fillStyle = '#d1fae5';
@@ -363,7 +371,7 @@ export async function generateReceiptImageBlob(
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = '#065f46';
-  ctx.fillText('BERHASIL', padding + 156, curY + 15);
+  ctx.fillText(t('sandbox.receipt.success'), padding + 156, curY + 15);
 
   curY += 34;
 
@@ -371,23 +379,23 @@ export async function generateReceiptImageBlob(
   ctx.font = 'bold 20px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = '#0f172a';
   if (mode === 'customer') {
-    ctx.fillText('BUKTI TRANSAKSI SIMULASI', padding, curY + 18);
+    ctx.fillText(t('sandbox.receipt.customerProofShortTitle'), padding, curY + 18);
     curY += 26;
     ctx.font = 'bold 12.5px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#059669';
-    ctx.fillText('STRUK PELANGGAN • DAPAY SANDBOX', padding, curY + 12);
+    ctx.fillText(t('sandbox.receipt.customerReceiptBadge'), padding, curY + 12);
   } else {
-    ctx.fillText('REKAP PEMBUKUAN KASIR', padding, curY + 18);
+    ctx.fillText(t('sandbox.receipt.resellerProofTitle'), padding, curY + 18);
     curY += 26;
     ctx.font = 'bold 12.5px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#475569';
-    ctx.fillText('CATATAN INTERNAL KONTER • DAPAY SANDBOX', padding, curY + 12);
+    ctx.fillText(t('sandbox.receipt.resellerReceiptBadge'), padding, curY + 12);
   }
   curY += 18;
 
   ctx.font = '11px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = '#64748b';
-  ctx.fillText('Simulasi Sandbox DaPay — Bukan transaksi riil', padding, curY + 10);
+  ctx.fillText(t('sandbox.receipt.subNotReal'), padding, curY + 10);
   curY += 22;
 
   // Divider
@@ -421,12 +429,12 @@ export async function generateReceiptImageBlob(
   // Section Header
   ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = '#334155';
-  ctx.fillText(`Rincian Produk (${linesToRender.length} Baris)`, padding, curY);
+  ctx.fillText(t('sandbox.receipt.prodDetails', { count: linesToRender.length }), padding, curY);
 
   ctx.textAlign = 'right';
   ctx.font = '11.5px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = '#64748b';
-  ctx.fillText(`Total ${totalQuantity} Item`, padding + contentWidth, curY);
+  ctx.fillText(t('sandbox.receipt.totalItems', { qty: totalQuantity }), padding + contentWidth, curY);
   ctx.textAlign = 'left';
 
   curY += 12;
@@ -464,7 +472,7 @@ export async function generateReceiptImageBlob(
     // Customer Destination & Qty
     ctx.font = '11.5px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#475569';
-    ctx.fillText(`Tujuan: ${line.customerNo}`, padding + 14, innerY + 11);
+    ctx.fillText(`${t('sandbox.receipt.dest')} ${line.customerNo}`, padding + 14, innerY + 11);
 
     ctx.textAlign = 'right';
     ctx.font = 'bold 11.5px monospace, sans-serif';
@@ -485,7 +493,7 @@ export async function generateReceiptImageBlob(
 
       ctx.font = 'bold 10.5px monospace, sans-serif';
       ctx.fillStyle = '#047857';
-      ctx.fillText(`SN: ${sns[0]}`, padding + 22, innerY + 15);
+      ctx.fillText(`${t('sandbox.receipt.sn')} ${sns[0]}`, padding + 22, innerY + 15);
       innerY += 26;
     } else if (sns.length > 1) {
       const snBoxH = 18 + sns.length * 17;
@@ -497,13 +505,13 @@ export async function generateReceiptImageBlob(
 
       ctx.font = 'bold 10px system-ui, sans-serif';
       ctx.fillStyle = '#475569';
-      ctx.fillText(`SN (${sns.length} Unit):`, padding + 22, innerY + 14);
+      ctx.fillText(t('sandbox.receipt.snUnits', { count: sns.length }), padding + 22, innerY + 14);
 
       sns.forEach((sn, sIdx) => {
         const rowY = innerY + 18 + (sIdx + 1) * 16 - 2;
         ctx.font = '10px monospace, sans-serif';
         ctx.fillStyle = '#64748b';
-        ctx.fillText(`• Unit ${sIdx + 1}:`, padding + 26, rowY);
+        ctx.fillText(`• ${t('sandbox.receipt.unit', { index: sIdx + 1 })}`, padding + 26, rowY);
         ctx.font = 'bold 10.5px monospace, sans-serif';
         ctx.fillStyle = '#0f172a';
         ctx.fillText(sn, padding + 86, rowY);
@@ -526,7 +534,7 @@ export async function generateReceiptImageBlob(
       ctx.fillText(
         line.quantity > 1
           ? `@Rp ${line.sellingPrice.toLocaleString('id-ID')}`
-          : 'Harga Jual',
+          : t('sandbox.receipt.price'),
         padding + 14,
         innerY + 14
       );
@@ -540,7 +548,7 @@ export async function generateReceiptImageBlob(
       ctx.font = '11px monospace, system-ui, sans-serif';
       ctx.fillStyle = '#64748b';
       ctx.fillText(
-        `Modal: Rp ${line.modalLineTotal.toLocaleString('id-ID')} | Jual: Rp ${line.salesLineTotal.toLocaleString('id-ID')}`,
+        `${t('sandbox.receipt.cost')} Rp ${line.modalLineTotal.toLocaleString('id-ID')} | ${t('sandbox.receipt.sell')} Rp ${line.salesLineTotal.toLocaleString('id-ID')}`,
         padding + 14,
         innerY + 14
       );
@@ -573,7 +581,7 @@ export async function generateReceiptImageBlob(
 
     ctx.font = '12px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#475569';
-    ctx.fillText(`Total Tagihan (${linesToRender.length} Transaksi, ${totalQuantity} Item):`, padding + 16, curY + 28);
+    ctx.fillText(t('sandbox.receipt.totalBill', { lines: linesToRender.length, qty: totalQuantity }), padding + 16, curY + 28);
 
     ctx.textAlign = 'right';
     ctx.font = 'bold 13px monospace, system-ui, sans-serif';
@@ -589,7 +597,7 @@ export async function generateReceiptImageBlob(
 
     ctx.font = 'bold 13.5px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#0f172a';
-    ctx.fillText('TOTAL PEMBAYARAN:', padding + 16, curY + 64);
+    ctx.fillText(t('sandbox.receipt.totalPayment'), padding + 16, curY + 64);
 
     ctx.textAlign = 'right';
     ctx.font = 'bold 17px monospace, system-ui, sans-serif';
@@ -608,7 +616,7 @@ export async function generateReceiptImageBlob(
     // Modal
     ctx.font = '12px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#475569';
-    ctx.fillText('Total Modal Simulasi:', padding + 16, sY);
+    ctx.fillText(t('sandbox.receipt.totalCostSim'), padding + 16, sY);
     ctx.textAlign = 'right';
     ctx.font = 'bold 12.5px monospace, system-ui, sans-serif';
     ctx.fillStyle = '#0f172a';
@@ -620,7 +628,7 @@ export async function generateReceiptImageBlob(
     // Sales
     ctx.font = '12px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#475569';
-    ctx.fillText('Total Penjualan Simulasi:', padding + 16, sY);
+    ctx.fillText(t('sandbox.receipt.totalSalesSim'), padding + 16, sY);
     ctx.textAlign = 'right';
     ctx.font = 'bold 12.5px monospace, system-ui, sans-serif';
     ctx.fillStyle = '#0f172a';
@@ -638,7 +646,7 @@ export async function generateReceiptImageBlob(
 
     ctx.font = 'bold 13px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#0f172a';
-    ctx.fillText('Total Perkiraan Margin:', padding + 16, sY);
+    ctx.fillText(t('sandbox.receipt.totalEstMargin'), padding + 16, sY);
     ctx.textAlign = 'right';
     const marginSign = totalMargin > 0 ? '+' : totalMargin < 0 ? '-' : '';
     ctx.font = 'bold 14px monospace, system-ui, sans-serif';
@@ -656,11 +664,11 @@ export async function generateReceiptImageBlob(
 
       ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
       ctx.fillStyle = '#5b21b6';
-      ctx.fillText('Reward Koin Sandbox:', padding + 24, sY + 2);
+      ctx.fillText(t('sandbox.receipt.coinReward'), padding + 24, sY + 2);
       ctx.textAlign = 'right';
       ctx.font = 'bold 12px monospace, system-ui, sans-serif';
       ctx.fillStyle = '#6d28d9';
-      ctx.fillText(`+${totalCashback.toLocaleString('id-ID')} Koin`, padding + contentWidth - 24, sY + 2);
+      ctx.fillText(`+${totalCashback.toLocaleString('id-ID')} ${t('sandbox.receipt.coinUnit')}`, padding + contentWidth - 24, sY + 2);
       ctx.textAlign = 'left';
     }
   }
@@ -673,8 +681,8 @@ export async function generateReceiptImageBlob(
   ctx.fillStyle = '#94a3b8';
   const disclaimer =
     mode === 'customer'
-      ? '*Struk simulasi untuk latihan konter/reseller. Bukan bukti pembayaran riil.'
-      : '*Simulasi Sandbox DaPay — Bukan transaksi riil. Catatan pembukuan internal konter.';
+      ? t('sandbox.receipt.disclaimerCustomer')
+      : t('sandbox.receipt.disclaimerReseller');
   ctx.fillText(disclaimer, canvasWidth / 2, curY);
 
   return new Promise<Blob>((resolve, reject) => {
@@ -701,10 +709,11 @@ export default function CounterCartReceiptModal({
   receipt,
   initialMode = 'reseller',
 }: CounterCartReceiptModalProps) {
+  const { t } = useI18n();
   const [presentationMode, setPresentationMode] = useState<ReceiptPresentationMode>(initialMode);
   const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
   const [isImageShareSuccess, setIsImageShareSuccess] = useState<boolean>(false);
-  const [imageShareSuccessLabel, setImageShareSuccessLabel] = useState<string>('GAMBAR DIUNDUH ✓');
+  const [imageShareSuccessLabel, setImageShareSuccessLabel] = useState<string>(t('sandbox.receipt.imgDownloaded'));
   const [isTextHandoffSuccess, setIsTextHandoffSuccess] = useState<boolean>(false);
   const [shareNotice, setShareNotice] = useState<string | null>(null);
   const [printPaperWidth, setPrintPaperWidth] = useState<PrintPaperWidth>('80mm');
@@ -727,7 +736,7 @@ export default function CounterCartReceiptModal({
       setPresentationMode(initialMode);
       setIsGeneratingImage(false);
       setIsImageShareSuccess(false);
-      setImageShareSuccessLabel('GAMBAR DIUNDUH ✓');
+      setImageShareSuccessLabel(t('sandbox.receipt.imgDownloaded'));
       setIsTextHandoffSuccess(false);
       setShareNotice(null);
       setIsPrintSuccess(false);
@@ -785,10 +794,8 @@ export default function CounterCartReceiptModal({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    setShareNotice(
-      'Browser ini tidak mendukung pengiriman gambar langsung. Gambar sudah diunduh. Silakan lampirkan gambar ke WhatsApp.'
-    );
-    setImageShareSuccessLabel('GAMBAR DIUNDUH ✓');
+    setShareNotice(t('sandbox.receipt.noticeDownloadOnly'));
+    setImageShareSuccessLabel(t('sandbox.receipt.imgDownloaded'));
     setIsImageShareSuccess(true);
     setTimeout(() => {
       setIsImageShareSuccess(false);
@@ -803,7 +810,7 @@ export default function CounterCartReceiptModal({
     setIsGeneratingImage(true);
 
     try {
-      const blob = await generateReceiptImageBlob(receipt, activeLines, mode);
+      const blob = await generateReceiptImageBlob(receipt, activeLines, mode, t);
       const fileName =
         mode === 'customer'
           ? `struk-pelanggan-${receipt.orderId}.png`
@@ -823,10 +830,10 @@ export default function CounterCartReceiptModal({
           if (navigator.canShare({ files: [imageFile] })) {
             await navigator.share({
               files: [imageFile],
-              title: mode === 'customer' ? 'Struk Pelanggan' : 'Rekap Kasir',
+              title: mode === 'customer' ? t('sandbox.receipt.tabCustomer') : t('sandbox.receipt.tabReseller'),
             });
             shared = true;
-            setImageShareSuccessLabel('SIAP DIBAGIKAN ✓');
+            setImageShareSuccessLabel(t('sandbox.receipt.readyToShare'));
             setIsImageShareSuccess(true);
             setTimeout(() => {
               setIsImageShareSuccess(false);
@@ -847,7 +854,7 @@ export default function CounterCartReceiptModal({
       }
     } catch {
       // If canvas generation completely fails, do not silently fallback to text. Set notice.
-      setShareNotice('Gagal menyiapkan gambar struk. Silakan coba lagi atau gunakan kirim teks.');
+      setShareNotice(t('sandbox.receipt.noticeFailedImg'));
     } finally {
       setIsGeneratingImage(false);
     }
@@ -857,7 +864,7 @@ export default function CounterCartReceiptModal({
     if (!receipt || activeLines.length === 0) return;
     if (mode === 'customer' && isMultipleCustomersSelected) return;
 
-    const text = generateWhatsAppReceiptText(receipt, activeLines, mode);
+    const text = generateWhatsAppReceiptText(receipt, activeLines, mode, t);
     const encodedText = encodeURIComponent(text);
     const waUrl = `https://wa.me/?text=${encodedText}`;
 
@@ -983,7 +990,7 @@ export default function CounterCartReceiptModal({
                 textTransform: 'uppercase',
               }}
             >
-              BUKTI TRANSAKSI SIMULASI
+              {t('sandbox.receipt.customerProofShortTitle')}
             </div>
             <div
               style={{
@@ -992,7 +999,7 @@ export default function CounterCartReceiptModal({
                 marginTop: '1px',
               }}
             >
-              STRUK PELANGGAN • DAPAY SANDBOX
+              {t('sandbox.receipt.customerReceiptBadge')}
             </div>
             <div
               style={{
@@ -1001,7 +1008,7 @@ export default function CounterCartReceiptModal({
                 marginTop: '2px',
               }}
             >
-              Simulasi Sandbox DaPay — Bukan transaksi riil
+              {t('sandbox.receipt.subNotReal')}
             </div>
           </div>
 
@@ -1010,16 +1017,16 @@ export default function CounterCartReceiptModal({
           {/* Meta */}
           <div style={{ fontSize: printPaperWidth === '58mm' ? '9.5px' : '11px', margin: '4px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Invoice:</span>
+              <span>{t('sandbox.receipt.invoiceNo')}:</span>
               <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>#{receipt.orderId}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Waktu:</span>
+              <span>{t('sandbox.receipt.txTime')}:</span>
               <span style={{ fontFamily: 'monospace' }}>{formattedDate}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Status:</span>
-              <span style={{ fontWeight: 'bold' }}>BERHASIL</span>
+              <span>{t('dashboard.overview.colStatus')}:</span>
+              <span style={{ fontWeight: 'bold' }}>{t('sandbox.receipt.success')}</span>
             </div>
           </div>
 
@@ -1047,7 +1054,7 @@ export default function CounterCartReceiptModal({
                       fontSize: printPaperWidth === '58mm' ? '9px' : '10px',
                     }}
                   >
-                    <span style={{ wordBreak: 'break-all' }}>Tujuan: {line.customerNo}</span>
+                    <span style={{ wordBreak: 'break-all' }}>{t('sandbox.receipt.dest')} {line.customerNo}</span>
                     <span style={{ fontWeight: 'bold', fontFamily: 'monospace' }}>Qty: {line.quantity}x</span>
                   </div>
 
@@ -1060,7 +1067,7 @@ export default function CounterCartReceiptModal({
                         margin: '2px 0 2px 4px',
                       }}
                     >
-                      <div style={{ fontWeight: 'bold' }}>SN ({sns.length} Unit):</div>
+                      <div style={{ fontWeight: 'bold' }}>{t('sandbox.receipt.snUnits', { count: sns.length })}</div>
                       {sns.map((sn, sIdx) => (
                         <div key={sIdx} style={{ wordBreak: 'break-all' }}>
                           {sIdx + 1}. {sn}
@@ -1076,7 +1083,7 @@ export default function CounterCartReceiptModal({
                         margin: '1px 0',
                       }}
                     >
-                      SN: {sns[0] || '-'}
+                      {t('sandbox.receipt.sn')} {sns[0] || '-'}
                     </div>
                   )}
 
@@ -1090,7 +1097,7 @@ export default function CounterCartReceiptModal({
                     }}
                   >
                     <span>
-                      {line.quantity > 1 ? `@Rp ${line.sellingPrice.toLocaleString('id-ID')}` : 'Harga'}
+                      {line.quantity > 1 ? `@Rp ${line.sellingPrice.toLocaleString('id-ID')}` : t('sandbox.receipt.price')}
                     </span>
                     <span style={{ fontWeight: 'bold', fontFamily: 'monospace' }}>
                       Rp {line.salesLineTotal.toLocaleString('id-ID')}
@@ -1106,7 +1113,7 @@ export default function CounterCartReceiptModal({
           {/* Summary */}
           <div style={{ margin: '4px 0', fontSize: printPaperWidth === '58mm' ? '9.5px' : '11px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Total Item:</span>
+              <span>{t('sandbox.receipt.totalItems', { qty: totalQuantity })}</span>
               <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{totalQuantity}</span>
             </div>
             <div
@@ -1118,7 +1125,7 @@ export default function CounterCartReceiptModal({
                 marginTop: '2px',
               }}
             >
-              <span>TOTAL PEMBAYARAN:</span>
+              <span>{t('sandbox.receipt.totalPayment')}</span>
               <span style={{ fontFamily: 'monospace' }}>Rp {totalSales.toLocaleString('id-ID')}</span>
             </div>
           </div>
@@ -1135,8 +1142,7 @@ export default function CounterCartReceiptModal({
               lineHeight: 1.25,
             }}
           >
-            <div>*Struk simulasi untuk latihan konter/reseller.</div>
-            <div>Bukan bukti pembayaran riil.</div>
+            <div>{t('sandbox.receipt.disclaimerCustomer')}</div>
           </div>
         </div>
       ) : (
@@ -1150,7 +1156,7 @@ export default function CounterCartReceiptModal({
                 textTransform: 'uppercase',
               }}
             >
-              REKAP PEMBUKUAN KASIR
+              {t('sandbox.receipt.resellerProofTitle')}
             </div>
             <div
               style={{
@@ -1159,7 +1165,7 @@ export default function CounterCartReceiptModal({
                 marginTop: '1px',
               }}
             >
-              CATATAN INTERNAL KONTER • DAPAY SANDBOX
+              {t('sandbox.receipt.resellerReceiptBadge')}
             </div>
             <div
               style={{
@@ -1168,7 +1174,7 @@ export default function CounterCartReceiptModal({
                 marginTop: '2px',
               }}
             >
-              Simulasi Sandbox DaPay — Bukan transaksi riil
+              {t('sandbox.receipt.subNotReal')}
             </div>
           </div>
 
@@ -1177,16 +1183,16 @@ export default function CounterCartReceiptModal({
           {/* Meta */}
           <div style={{ fontSize: printPaperWidth === '58mm' ? '9.5px' : '11px', margin: '4px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Invoice:</span>
+              <span>{t('sandbox.receipt.invoiceNo')}:</span>
               <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>#{receipt.orderId}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Waktu:</span>
+              <span>{t('sandbox.receipt.txTime')}:</span>
               <span style={{ fontFamily: 'monospace' }}>{formattedDate}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Status:</span>
-              <span style={{ fontWeight: 'bold' }}>BERHASIL</span>
+              <span>{t('dashboard.overview.colStatus')}:</span>
+              <span style={{ fontWeight: 'bold' }}>{t('sandbox.receipt.success')}</span>
             </div>
           </div>
 
@@ -1215,7 +1221,7 @@ export default function CounterCartReceiptModal({
                       fontSize: printPaperWidth === '58mm' ? '9px' : '10px',
                     }}
                   >
-                    <span style={{ wordBreak: 'break-all' }}>Tujuan: {line.customerNo}</span>
+                    <span style={{ wordBreak: 'break-all' }}>{t('sandbox.receipt.dest')} {line.customerNo}</span>
                     <span style={{ fontWeight: 'bold', fontFamily: 'monospace' }}>Qty: {line.quantity}x</span>
                   </div>
 
@@ -1228,7 +1234,7 @@ export default function CounterCartReceiptModal({
                         margin: '2px 0 2px 4px',
                       }}
                     >
-                      <div style={{ fontWeight: 'bold' }}>SN ({sns.length} Unit):</div>
+                      <div style={{ fontWeight: 'bold' }}>{t('sandbox.receipt.snUnits', { count: sns.length })}</div>
                       {sns.map((sn, sIdx) => (
                         <div key={sIdx} style={{ wordBreak: 'break-all' }}>
                           {sIdx + 1}. {sn}
@@ -1244,7 +1250,7 @@ export default function CounterCartReceiptModal({
                         margin: '1px 0',
                       }}
                     >
-                      SN: {sns[0] || '-'}
+                      {t('sandbox.receipt.sn')} {sns[0] || '-'}
                     </div>
                   )}
 
@@ -1257,11 +1263,11 @@ export default function CounterCartReceiptModal({
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Modal: Rp {line.modalLineTotal.toLocaleString('id-ID')}</span>
-                      <span>Jual: Rp {line.salesLineTotal.toLocaleString('id-ID')}</span>
+                      <span>{t('sandbox.receipt.cost')} Rp {line.modalLineTotal.toLocaleString('id-ID')}</span>
+                      <span>{t('sandbox.receipt.sell')} Rp {line.salesLineTotal.toLocaleString('id-ID')}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                      <span>Margin:</span>
+                      <span>{t('sandbox.receipt.estMargin')}:</span>
                       <span>
                         {marginSign}Rp {line.estimatedMargin.toLocaleString('id-ID')}
                       </span>
@@ -1277,17 +1283,17 @@ export default function CounterCartReceiptModal({
           {/* Summary */}
           <div style={{ margin: '4px 0', fontSize: printPaperWidth === '58mm' ? '9.5px' : '11px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Total Item:</span>
+              <span>{t('sandbox.receipt.totalItems', { qty: totalQuantity })}</span>
               <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{totalQuantity}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Total Modal Simulasi:</span>
+              <span>{t('sandbox.receipt.totalCostSim')}</span>
               <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
                 Rp {totalModal.toLocaleString('id-ID')}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Total Penjualan Simulasi:</span>
+              <span>{t('sandbox.receipt.totalSalesSim')}</span>
               <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
                 Rp {totalSales.toLocaleString('id-ID')}
               </span>
@@ -1301,7 +1307,7 @@ export default function CounterCartReceiptModal({
                 marginTop: '2px',
               }}
             >
-              <span>Total Perkiraan Margin:</span>
+              <span>{t('sandbox.receipt.totalEstMargin')}</span>
               <span style={{ fontFamily: 'monospace' }}>
                 {totalMargin > 0 ? '+' : ''}Rp {totalMargin.toLocaleString('id-ID')}
               </span>
@@ -1316,8 +1322,8 @@ export default function CounterCartReceiptModal({
                   marginTop: '2px',
                 }}
               >
-                <span>Reward Koin Sandbox:</span>
-                <span style={{ fontFamily: 'monospace' }}>+{totalCashback.toLocaleString('id-ID')} Koin</span>
+                <span>{t('sandbox.receipt.coinReward')}</span>
+                <span style={{ fontFamily: 'monospace' }}>+{totalCashback.toLocaleString('id-ID')} {t('sandbox.receipt.coinUnit')}</span>
               </div>
             )}
           </div>
@@ -1334,8 +1340,7 @@ export default function CounterCartReceiptModal({
               lineHeight: 1.25,
             }}
           >
-            <div>*Simulasi Sandbox DaPay — Bukan transaksi riil.</div>
-            <div>Catatan pembukuan internal konter.</div>
+            <div>{t('sandbox.receipt.disclaimerReseller')}</div>
           </div>
         </div>
       )}
@@ -1362,11 +1367,11 @@ export default function CounterCartReceiptModal({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[9.5px] font-black uppercase tracking-wider text-amber-900 border border-amber-300">
                 <FlaskConical size={10} className="text-amber-700" />
-                SIMULASI SANDBOX
+                {t('sandbox.receipt.sandboxSim')}
               </span>
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[9.5px] font-black uppercase tracking-wider text-emerald-900 border border-emerald-300">
                 <CheckCircle2 size={10} className="text-emerald-700" />
-                BERHASIL
+                {t('sandbox.receipt.success')}
               </span>
             </div>
             <h3
@@ -1376,19 +1381,19 @@ export default function CounterCartReceiptModal({
               <Receipt size={20} className="text-amber-600 shrink-0" />
               <span>
                 {presentationMode === 'customer'
-                  ? 'BUKTI TRANSAKSI SIMULASI • STRUK PELANGGAN'
-                  : 'REKAP PEMBUKUAN KASIR'}
+                  ? t('sandbox.receipt.customerProofTitle')
+                  : t('sandbox.receipt.resellerProofTitle')}
               </span>
             </h3>
             <p className="text-xs text-slate-500">
-              Simulasi Sandbox DaPay — Bukan transaksi riil
+              {t('sandbox.receipt.subNotReal')}
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            aria-label="Tutup Struk"
+            aria-label={t('sandbox.receipt.closeAria')}
             className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer shrink-0"
           >
             <X size={18} />
@@ -1412,7 +1417,7 @@ export default function CounterCartReceiptModal({
             }`}
           >
             <Receipt size={14} className={presentationMode === 'customer' ? 'text-amber-600' : 'text-slate-400'} />
-            <span>Struk Pelanggan</span>
+            <span>{t('sandbox.receipt.tabCustomer')}</span>
           </button>
           <button
             type="button"
@@ -1429,7 +1434,7 @@ export default function CounterCartReceiptModal({
             }`}
           >
             <FlaskConical size={14} className={presentationMode === 'reseller' ? 'text-amber-600' : 'text-slate-400'} />
-            <span>Rekap Kasir</span>
+            <span>{t('sandbox.receipt.tabReseller')}</span>
           </button>
         </div>
 
@@ -1437,7 +1442,7 @@ export default function CounterCartReceiptModal({
         <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3.5 py-2 text-xs border border-slate-200/80">
           <div className="space-y-0.5">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              No. Invoice
+              {t('sandbox.receipt.invoiceNo')}
             </span>
             <span className="font-mono font-bold text-slate-800">
               #{receipt.orderId}
@@ -1445,7 +1450,7 @@ export default function CounterCartReceiptModal({
           </div>
           <div className="text-right space-y-0.5">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Waktu Transaksi
+              {t('sandbox.receipt.txTime')}
             </span>
             <span className="font-mono text-slate-700 text-[11px]">
               {formattedDate}
@@ -1458,9 +1463,9 @@ export default function CounterCartReceiptModal({
           <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3 space-y-2.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="font-bold text-slate-700 text-[11px] flex items-center gap-1.5">
-                <span>{presentationMode === 'customer' ? 'Pilih Pelanggan untuk Struk:' : 'Pilih Transaksi:'}</span>
+                <span>{presentationMode === 'customer' ? t('sandbox.receipt.selectCustForReceipt') : t('sandbox.receipt.selectTx')}</span>
                 <span className="font-mono text-[10px] bg-white border border-slate-200 px-1.5 py-0.5 rounded font-bold text-slate-900">
-                  {selectedLineIds.size} dari {receipt.lines.length} terpilih
+                  {t('sandbox.receipt.selectedCount', { selected: selectedLineIds.size, total: receipt.lines.length })}
                 </span>
               </span>
               <div className="flex items-center gap-2 text-[10.5px]">
@@ -1470,7 +1475,7 @@ export default function CounterCartReceiptModal({
                   disabled={selectedLineIds.size === receipt.lines.length}
                   className="font-bold text-blue-600 hover:text-blue-800 disabled:opacity-40 transition cursor-pointer"
                 >
-                  Pilih Semua
+                  {t('sandbox.receipt.selectAll')}
                 </button>
                 <span className="text-slate-300">|</span>
                 <button
@@ -1479,7 +1484,7 @@ export default function CounterCartReceiptModal({
                   disabled={selectedLineIds.size === 0}
                   className="font-bold text-rose-600 hover:text-rose-800 disabled:opacity-40 transition cursor-pointer"
                 >
-                  Hapus Semua
+                  {t('sandbox.receipt.clearAll')}
                 </button>
               </div>
             </div>
@@ -1493,7 +1498,7 @@ export default function CounterCartReceiptModal({
                     key={line.lineId || idx}
                     type="button"
                     onClick={() => handleToggleLine(line.lineId)}
-                    aria-label={`Pilih transaksi ${line.productName} (${line.customerNo})`}
+                    aria-label={t('sandbox.receipt.selectTxAria', { product: line.productName, customer: line.customerNo })}
                     className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] border transition cursor-pointer text-left ${
                       isSelected
                         ? 'bg-amber-100 border-amber-300 text-amber-950 font-bold shadow-2xs'
@@ -1512,7 +1517,7 @@ export default function CounterCartReceiptModal({
                     <div className="flex flex-col min-w-0">
                       <span className="truncate max-w-35 sm:max-w-47.5 font-bold">{line.productName}</span>
                       <span className="text-[10px] font-mono opacity-80 truncate">
-                        Tujuan: {line.customerNo}
+                        {t('sandbox.receipt.dest')} {line.customerNo}
                       </span>
                     </div>
                   </button>
@@ -1525,7 +1530,7 @@ export default function CounterCartReceiptModal({
               <div className="flex items-center gap-2 rounded-xl bg-amber-100/80 p-2.5 text-xs text-amber-950 border border-amber-300/90 animate-in fade-in duration-100">
                 <AlertCircle size={15} className="text-amber-700 shrink-0" />
                 <span className="font-semibold leading-snug">
-                  Untuk struk pelanggan, pilih transaksi dari 1 pelanggan saja.
+                  {t('sandbox.receipt.multiCustAlert')}
                 </span>
               </div>
             )}
@@ -1535,9 +1540,9 @@ export default function CounterCartReceiptModal({
         {/* Itemized Lines Breakdown */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-slate-700 px-0.5">
-            <span>Rincian Produk ({activeLines.length} Baris):</span>
+            <span>{t('sandbox.receipt.prodDetails', { count: activeLines.length })}</span>
             <span className="text-[11px] text-slate-500 font-normal">
-              Total {totalQuantity} Item
+              {t('sandbox.receipt.totalItems', { qty: totalQuantity })}
             </span>
           </div>
 
@@ -1547,9 +1552,9 @@ export default function CounterCartReceiptModal({
                 <Receipt size={18} />
               </div>
               <div className="space-y-1">
-                <h4 className="text-xs font-black text-slate-800">Belum Ada Transaksi Dipilih</h4>
+                <h4 className="text-xs font-black text-slate-800">{t('sandbox.receipt.noTxSelected')}</h4>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Pilih minimal satu transaksi dari bilah pilihan di atas untuk menampilkan rincian struk.
+                  {t('sandbox.receipt.noTxSelectedDesc')}
                 </p>
               </div>
               <button
@@ -1557,7 +1562,7 @@ export default function CounterCartReceiptModal({
                 onClick={() => setSelectedLineIds(new Set(receipt.lines.map((l) => l.lineId)))}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-bold text-slate-950 hover:bg-amber-600 transition cursor-pointer shadow-xs"
               >
-                <span>Pilih Semua Transaksi</span>
+                <span>{t('sandbox.receipt.btnSelectAll')}</span>
               </button>
             </div>
           ) : (
@@ -1587,7 +1592,7 @@ export default function CounterCartReceiptModal({
                             {line.productName}
                           </h4>
                           <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                            Tujuan: <span className="font-bold text-slate-800">{line.customerNo}</span>
+                            {t('sandbox.receipt.dest')} <span className="font-bold text-slate-800">{line.customerNo}</span>
                           </p>
                         </div>
                       </div>
@@ -1601,7 +1606,7 @@ export default function CounterCartReceiptModal({
                     {sns.length > 1 ? (
                       <div className="rounded-xl bg-slate-50 px-2.5 py-2 border border-slate-200/80 space-y-1.5 text-[11px]">
                         <span className="text-slate-500 font-medium block">
-                          SN ({sns.length} Unit):
+                          {t('sandbox.receipt.snUnits', { count: sns.length })}
                         </span>
                         <div className="space-y-1 pl-1 font-mono text-[10.5px]">
                           {sns.map((sn, sIdx) => (
@@ -1609,7 +1614,7 @@ export default function CounterCartReceiptModal({
                               key={sIdx}
                               className="flex items-center justify-between text-slate-800"
                             >
-                              <span className="text-slate-500">Unit {sIdx + 1}:</span>
+                              <span className="text-slate-500">{t('sandbox.receipt.unit', { index: sIdx + 1 })}</span>
                               <span className="font-bold select-all">{sn}</span>
                             </div>
                           ))}
@@ -1617,7 +1622,7 @@ export default function CounterCartReceiptModal({
                       </div>
                     ) : (
                       <div className="rounded-xl bg-slate-50 px-2.5 py-1.5 border border-slate-200/80 flex items-center justify-between gap-2 text-[11px]">
-                        <span className="text-slate-500 font-medium">SN:</span>
+                        <span className="text-slate-500 font-medium">{t('sandbox.receipt.sn')}</span>
                         <span className="font-mono font-bold text-slate-800 select-all truncate text-[10.5px]">
                           {sns[0] || '-'}
                         </span>
@@ -1628,14 +1633,14 @@ export default function CounterCartReceiptModal({
                     {presentationMode === 'customer' ? (
                       <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
                         <div>
-                          <span className="text-[10.5px] text-slate-500 block">Harga</span>
+                          <span className="text-[10.5px] text-slate-500 block">{t('sandbox.receipt.price')}</span>
                           <span className="font-bold text-slate-900 font-mono">
                             Rp {line.salesLineTotal.toLocaleString('id-ID')}
                           </span>
                         </div>
                         {line.quantity > 1 && (
                           <div className="text-right">
-                            <span className="text-[10.5px] text-slate-400 block">Harga Satuan</span>
+                            <span className="text-[10.5px] text-slate-400 block">{t('sandbox.receipt.unitPrice')}</span>
                             <span className="font-mono text-[11px] text-slate-600">
                               @Rp {line.sellingPrice.toLocaleString('id-ID')}
                             </span>
@@ -1646,7 +1651,7 @@ export default function CounterCartReceiptModal({
                       <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
                         <div>
                           <span className="text-[10.5px] text-slate-500 block">
-                            Modal: Rp {line.modalLineTotal.toLocaleString('id-ID')} | Jual: Rp {line.salesLineTotal.toLocaleString('id-ID')}
+                            {t('sandbox.receipt.cost')} Rp {line.modalLineTotal.toLocaleString('id-ID')} | {t('sandbox.receipt.sell')} Rp {line.salesLineTotal.toLocaleString('id-ID')}
                           </span>
                           <span className="font-bold text-slate-900 font-mono">
                             Rp {line.salesLineTotal.toLocaleString('id-ID')}
@@ -1654,7 +1659,7 @@ export default function CounterCartReceiptModal({
                         </div>
 
                         <div className="text-right">
-                          <span className="text-[10.5px] text-slate-500 block">Perkiraan Margin</span>
+                          <span className="text-[10.5px] text-slate-500 block">{t('sandbox.receipt.estMargin')}</span>
                           <span
                             className={`font-black font-mono text-xs ${
                               line.estimatedMargin > 0
@@ -1680,13 +1685,13 @@ export default function CounterCartReceiptModal({
         {presentationMode === 'customer' ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-2 text-xs">
             <div className="flex items-center justify-between text-slate-600">
-              <span>Total Tagihan ({activeLines.length} Transaksi, {totalQuantity} Item):</span>
+              <span>{t('sandbox.receipt.totalBill', { lines: activeLines.length, qty: totalQuantity })}</span>
               <span className="font-mono text-slate-800 font-bold">
                 Rp {totalSales.toLocaleString('id-ID')}
               </span>
             </div>
             <div className="flex items-center justify-between pt-2 border-t border-slate-200 text-sm">
-              <span className="font-bold text-slate-950">TOTAL PEMBAYARAN:</span>
+              <span className="font-bold text-slate-950">{t('sandbox.receipt.totalPayment')}</span>
               <span className="font-mono font-black text-base text-slate-950">
                 Rp {totalSales.toLocaleString('id-ID')}
               </span>
@@ -1695,21 +1700,21 @@ export default function CounterCartReceiptModal({
         ) : (
           <div className="rounded-2xl border border-amber-300/80 bg-linear-to-b from-amber-50/40 via-white to-amber-50/20 p-4 space-y-2 text-xs">
             <div className="flex items-center justify-between text-slate-600">
-              <span>Total Modal Simulasi:</span>
+              <span>{t('sandbox.receipt.totalCostSim')}</span>
               <span className="font-mono font-bold text-slate-900">
                 Rp {totalModal.toLocaleString('id-ID')}
               </span>
             </div>
 
             <div className="flex items-center justify-between text-slate-600">
-              <span>Total Penjualan Simulasi:</span>
+              <span>{t('sandbox.receipt.totalSalesSim')}</span>
               <span className="font-mono font-bold text-slate-900">
                 Rp {totalSales.toLocaleString('id-ID')}
               </span>
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t border-amber-200/80">
-              <span className="font-bold text-slate-900">Total Perkiraan Margin:</span>
+              <span className="font-bold text-slate-900">{t('sandbox.receipt.totalEstMargin')}</span>
               <span
                 className={`font-mono font-black text-sm ${
                   totalMargin > 0
@@ -1728,10 +1733,10 @@ export default function CounterCartReceiptModal({
               <div className="flex items-center justify-between pt-1 text-violet-900 font-bold bg-violet-50/80 -mx-1 px-2.5 py-1.5 rounded-xl border border-violet-200/80">
                 <span className="inline-flex items-center gap-1 text-[11px]">
                   <Sparkles size={12} className="text-violet-600" />
-                  Reward Koin Sandbox:
+                  {t('sandbox.receipt.coinReward')}
                 </span>
                 <span className="font-mono text-xs text-violet-700 font-black">
-                  +{totalCashback.toLocaleString('id-ID')} Koin
+                  +{totalCashback.toLocaleString('id-ID')} {t('sandbox.receipt.coinUnit')}
                 </span>
               </div>
             )}
@@ -1741,8 +1746,8 @@ export default function CounterCartReceiptModal({
         {/* Sandbox Notice */}
         <p className="text-[10.5px] text-slate-400 italic text-center leading-relaxed">
           {presentationMode === 'customer'
-            ? '*Struk simulasi untuk latihan konter/reseller. Bukan bukti pembayaran riil.'
-            : '*Simulasi Sandbox DaPay — Bukan transaksi riil. Catatan pembukuan internal konter.'}
+            ? t('sandbox.receipt.disclaimerCustomer')
+            : t('sandbox.receipt.disclaimerReseller')}
         </p>
 
         {/* Share Notice Banner (e.g. download fallback on desktop) */}
@@ -1757,7 +1762,7 @@ export default function CounterCartReceiptModal({
         <div className="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200/80 px-3 py-1.5 text-xs">
           <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
             <Printer size={13} className="text-slate-500" />
-            <span>Ukuran Cetak:</span>
+            <span>{t('sandbox.receipt.printSize')}</span>
           </span>
           <div className="inline-flex rounded-lg bg-slate-200/70 p-0.5 border border-slate-300/60 text-[11px] font-bold">
             <button
@@ -1799,17 +1804,17 @@ export default function CounterCartReceiptModal({
                 {isPrintSuccess ? (
                   <>
                     <CheckCircle2 size={15} className="text-emerald-400 animate-in zoom-in-50 duration-100" />
-                    <span>Cetak Dibuka ✓</span>
+                    <span>{t('sandbox.receipt.printOpened')}</span>
                   </>
                 ) : (
                   <>
                     <Printer size={15} />
                     <span>
                       {activeLines.length === 0
-                        ? 'Pilih Transaksi untuk Cetak'
+                        ? t('sandbox.receipt.selectTxToPrint')
                         : isMultipleCustomersSelected
-                        ? 'Pilih 1 Pelanggan Saja'
-                        : 'Cetak Struk'}
+                        ? t('sandbox.receipt.select1CustOnly')
+                        : t('sandbox.receipt.printReceipt')}
                     </span>
                   </>
                 )}
@@ -1825,7 +1830,7 @@ export default function CounterCartReceiptModal({
                 {isGeneratingImage ? (
                   <>
                     <Loader2 size={15} className="animate-spin" />
-                    <span>Menyiapkan Gambar...</span>
+                    <span>{t('sandbox.receipt.preparingImage')}</span>
                   </>
                 ) : isImageShareSuccess ? (
                   <>
@@ -1837,10 +1842,10 @@ export default function CounterCartReceiptModal({
                     <ImageIcon size={15} />
                     <span>
                       {activeLines.length === 0
-                        ? 'Pilih Transaksi untuk Kirim Gambar'
+                        ? t('sandbox.receipt.selectTxToSendImg')
                         : isMultipleCustomersSelected
-                        ? 'Pilih 1 Pelanggan Saja'
-                        : 'Kirim Gambar ke WhatsApp'}
+                        ? t('sandbox.receipt.select1CustOnly')
+                        : t('sandbox.receipt.sendImgToWa')}
                     </span>
                   </>
                 )}
@@ -1856,17 +1861,17 @@ export default function CounterCartReceiptModal({
                 {isTextHandoffSuccess ? (
                   <>
                     <CheckCircle2 size={15} className="text-emerald-700 animate-in zoom-in-50 duration-100" />
-                    <span>WhatsApp Dibuka ✓</span>
+                    <span>{t('sandbox.receipt.waOpened')}</span>
                   </>
                 ) : (
                   <>
                     <Send size={14} />
                     <span>
                       {activeLines.length === 0
-                        ? 'Pilih Transaksi'
+                        ? t('sandbox.receipt.selectTxToSendText')
                         : isMultipleCustomersSelected
-                        ? 'Pilih 1 Pelanggan Saja'
-                        : 'Kirim Teks ke WhatsApp'}
+                        ? t('sandbox.receipt.select1CustOnly')
+                        : t('sandbox.receipt.sendTextToWa')}
                     </span>
                   </>
                 )}
@@ -1884,17 +1889,17 @@ export default function CounterCartReceiptModal({
                 {isPrintSuccess ? (
                   <>
                     <CheckCircle2 size={15} className="text-emerald-400 animate-in zoom-in-50 duration-100" />
-                    <span>Cetak Dibuka ✓</span>
+                    <span>{t('sandbox.receipt.printOpened')}</span>
                   </>
                 ) : (
                   <>
                     <Printer size={15} />
                     <span>
                       {activeLines.length === 0
-                        ? 'Pilih Transaksi untuk Cetak'
+                        ? t('sandbox.receipt.selectTxToPrint')
                         : activeLines.length === receipt.lines.length
-                        ? 'Cetak Rekap Kasir'
-                        : `Cetak Rekap Terpilih (${activeLines.length})`}
+                        ? t('sandbox.receipt.printCashierRecap')
+                        : t('sandbox.receipt.printSelectedRecap', { count: activeLines.length })}
                     </span>
                   </>
                 )}
@@ -1910,7 +1915,7 @@ export default function CounterCartReceiptModal({
                 {isGeneratingImage ? (
                   <>
                     <Loader2 size={15} className="animate-spin" />
-                    <span>Menyiapkan Rekap Gambar...</span>
+                    <span>{t('sandbox.receipt.preparingImgRecap')}</span>
                   </>
                 ) : isImageShareSuccess ? (
                   <>
@@ -1922,10 +1927,10 @@ export default function CounterCartReceiptModal({
                     <ImageIcon size={15} />
                     <span>
                       {activeLines.length === 0
-                        ? 'Pilih Transaksi untuk Kirim Rekap'
+                        ? t('sandbox.receipt.selectTxToSendRecap')
                         : activeLines.length === receipt.lines.length
-                        ? 'Kirim Rekap Gambar ke WhatsApp'
-                        : `Kirim Rekap Gambar (${activeLines.length} Transaksi)`}
+                        ? t('sandbox.receipt.sendImgRecap')
+                        : t('sandbox.receipt.sendImgRecapCount', { count: activeLines.length })}
                     </span>
                   </>
                 )}
@@ -1941,17 +1946,17 @@ export default function CounterCartReceiptModal({
                 {isTextHandoffSuccess ? (
                   <>
                     <CheckCircle2 size={15} className="text-emerald-700 animate-in zoom-in-50 duration-100" />
-                    <span>WhatsApp Dibuka ✓</span>
+                    <span>{t('sandbox.receipt.waOpened')}</span>
                   </>
                 ) : (
                   <>
                     <Send size={14} />
                     <span>
                       {activeLines.length === 0
-                        ? 'Pilih Transaksi'
+                        ? t('sandbox.receipt.selectTxToSendText')
                         : activeLines.length === receipt.lines.length
-                        ? 'Kirim Rekap Teks ke WhatsApp'
-                        : `Kirim Rekap Teks (${activeLines.length} Transaksi)`}
+                        ? t('sandbox.receipt.sendTextRecap')
+                        : t('sandbox.receipt.sendTextRecapCount', { count: activeLines.length })}
                     </span>
                   </>
                 )}
@@ -1964,7 +1969,7 @@ export default function CounterCartReceiptModal({
             onClick={onClose}
             className="w-full rounded-xl border border-slate-200 bg-white hover:bg-slate-50 py-2.5 text-xs font-bold text-slate-700 transition cursor-pointer text-center"
           >
-            Selesai & Mulai Transaksi Baru
+            {t('sandbox.receipt.doneAndNewTx')}
           </button>
         </div>
       </div>

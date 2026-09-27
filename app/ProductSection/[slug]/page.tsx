@@ -25,7 +25,7 @@ import InterfaceMarketplace from "@/app/ProductSection/[slug]/components/Interfa
 // 1. KOMPONEN ISI (YANG MEMBACA SEARCH PARAMS)
 // ============================================================================
 function DetailContent({ slug }: { slug: string }) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams(); 
 
@@ -70,8 +70,17 @@ function DetailContent({ slug }: { slug: string }) {
     const target = searchParams.get('target');
     const zone = searchParams.get('zone');
 
-    if (target) setAccId(target);
-    if (zone) setZoneId(zone);
+    if (target) {
+      const trimmedTarget = target.trim();
+      const parenMatch = trimmedTarget.match(/^(.+?)\(([^()]+)\)$/);
+      if (parenMatch && !zone) {
+        setAccId(parenMatch[1].trim());
+        setZoneId(parenMatch[2].trim());
+      } else {
+        setAccId(trimmedTarget);
+      }
+    }
+    if (zone) setZoneId(zone.trim());
 
     // --- CEK ADMIN AMAN TAHAP 1 (LocalStorage) ---
     const localEmail = typeof window !== "undefined" ? localStorage.getItem("userEmail") : null;
@@ -157,6 +166,31 @@ if (!productData && !isLoading) {
     return () => subscription.unsubscribe();
   }, [slug, searchParams]); 
 
+  // --- AUTO-SELECT VARIANT DARI URL PARAMETERS (?sku=... ATAU ?item=...) ---
+  useEffect(() => {
+    if (!productData?.items || !Array.isArray(productData.items)) return;
+    const requestedSku = searchParams.get('sku')?.trim();
+    const requestedItem = searchParams.get('item')?.trim();
+    if (!requestedSku && !requestedItem) return;
+
+    const matchedItem = (
+      productData.items as Array<{ id?: string | number; sku?: string }>
+    ).find((it) => {
+      if (requestedSku && String(it.sku || '').trim().toLowerCase() === requestedSku.toLowerCase()) {
+        return true;
+      }
+      if (requestedItem && String(it.id || '').trim() === requestedItem) {
+        return true;
+      }
+      return false;
+    });
+
+    if (matchedItem) {
+      setSelectedItemId(String(matchedItem.id));
+      setShowAllItems(true);
+    }
+  }, [productData, searchParams]);
+
   // --- FUNGSI TRACKING & LOGIKA HARGA (TETAP SAMA) ---
 const getBrowserData = async () => {
     let ip = "0.0.0.0";
@@ -206,12 +240,12 @@ const getBrowserData = async () => {
 const handlePreCheckout = async () => {
     if (!selectedItemId || !selectedPayment) return;
     if (usedCoinsAmount > 0 || selectedPayment === 'Koin DaPay') {
-      alert("Pembayaran dengan Koin DaPay sedang tidak tersedia.");
+      alert(t("products.common.coinsUnavailableAlert"));
       return;
     }
 
     if (isPromoApplied || discount > 0) {
-      alert("Voucher belum tersedia untuk checkout dengan nominal unik.");
+      alert(t("products.common.voucherUnavailableAlert"));
       return;
     }
     
@@ -245,14 +279,14 @@ try {
         data.uniqueCode < 1 ||
         typeof data.totalAmount !== 'string'
       ) {
-        throw new Error(data.error || "Gagal menyiapkan nominal pembayaran.");
+        throw new Error(data.error || t("products.common.failedPrepareAmount"));
       }
       setUniqueCode(data.uniqueCode);
       setReservationId(data.reservationId);
       setReservedTotalAmount(data.totalAmount);
     } catch (err) {
       setIsModalOpen(false);
-      alert(err instanceof Error ? err.message : "Gagal menyiapkan nominal pembayaran.");
+      alert(err instanceof Error ? err.message : t("products.common.failedPrepareAmount"));
     } finally {
       setIsLoading(false);
     }
@@ -262,7 +296,7 @@ try {
 
   const handleCheckout = async (customPayload?: any) => {
     if (isManagementUser) {
-      alert("Akses Ditolak: Akun Manajemen (Admin/Manager) tidak diperkenankan membuat transaksi pesanan konsumen (LIVE maupun Sandbox). Gunakan Sandbox Test Center untuk pengujian operasional.");
+      alert(t("products.common.managementAccessDeniedAlert"));
       return;
     }
     // 1. Hapus validasi !selectedItem karena pascabayar gak pake pilih item
@@ -272,18 +306,18 @@ try {
       // 2. TANGKAP DATA TITIPAN DARI PASCABAYAR
       const activePrice = customPayload?.override_price !== undefined ? customPayload.override_price : totalPrice;
       const activePayment = customPayload?.override_payment || selectedPayment;
-      const activeLabel = customPayload?.override_label || selectedItem?.label || "Tagihan Pascabayar";
+      const activeLabel = customPayload?.override_label || selectedItem?.label || t("products.ppob.postpaidBillDefaultLabel");
       const activeSku = selectedItem?.sku || productData?.items?.[0]?.sku || "PASCABAYAR";
       
       // 🚀 FIX: Tangkap used_balance lokal dari pascabayar jika ada titipan payload
       const activeUsedBalance = customPayload?.override_used_balance !== undefined ? customPayload.override_used_balance : usedCoinsAmount;
 
       if (activeUsedBalance > 0 || activePayment === 'Koin DaPay') {
-        throw new Error("Pembayaran dengan Koin DaPay sedang tidak tersedia.");
+        throw new Error(t("products.common.coinsUnavailableAlert"));
       }
 
       if (!reservationId || !reservedTotalAmount) {
-        throw new Error("Reservasi nominal pembayaran tidak tersedia. Silakan ulangi checkout.");
+        throw new Error(t("products.common.reservationUnavailableError"));
       }
 
       // Gunakan uniqueCode dari state, bukan diacak lagi di sini
@@ -325,12 +359,12 @@ try {
       });
 
       const resData = await response.json();
-      if (!response.ok) throw new Error(resData.error || "Gagal membuat pesanan.");
+      if (!response.ok) throw new Error(resData.error || t("products.common.failedCreateOrderError"));
 
       const createdOrderId = resData.order_id;
 
       if (!createdOrderId) {
-        throw new Error("Server tidak mengembalikan Order ID.");
+        throw new Error(t("products.common.missingOrderIdError"));
       }
 
       // --- MULAI: UPDATE CACHE GUEST ---
@@ -340,17 +374,19 @@ try {
           const guestCache = localStorage.getItem('dapay_guest_history');
           let history = guestCache ? JSON.parse(guestCache) : [];
           
-          const newOrderToCache = {
+          const newOrderToCache = {
             id: resData.id || createdOrderId,
             order_id: createdOrderId,
-            product_name: productData.name, 
-            customer_no: combinedCustomerNo, 
-            status: 'Pending', 
-            created_at: new Date().toISOString(),
-            payment_method: paymentMethodName,
-            total_amount: totalAmount,
-            category: productData.category || "game"
-          };
+            sku: activeSku,
+            item_label: activeLabel,
+            product_name: productData.name,
+            customer_no: combinedCustomerNo,
+            status: 'Pending',
+            created_at: new Date().toISOString(),
+            payment_method: paymentMethodName,
+            total_amount: totalAmount,
+            category: productData.category || "game"
+          };
 
           history.unshift(newOrderToCache);
           // Batasi simpan 10 data biar memori browser tetap enteng
@@ -363,7 +399,7 @@ try {
 
       router.push(locale === "en" ? `/en/checkout/pay/${createdOrderId}` : `/checkout/pay/${createdOrderId}`);
     } catch (err: any) { 
-      alert("Gagal: " + err.message); 
+      alert(err?.message || t("products.common.failedCreateOrderError"));
     } finally { 
       setIsLoading(false); 
     }
@@ -383,7 +419,7 @@ try {
 
   if (productData?.maintenance) {
     if (isAdmin) {
-       if (!productData.name) return <div className="min-h-screen flex items-center justify-center bg-[#0f172a] text-white font-black uppercase tracking-tighter italic">ADMIN MODE: BYPASSING MAINTENANCE...</div>;
+       if (!productData.name) return <div className="min-h-screen flex items-center justify-center bg-[#0f172a] text-white font-black uppercase tracking-tighter italic">{t("products.common.adminMode")}: {t("products.common.maintenanceBypassed")}</div>;
     } else {
       return <MaintenancePage />;
     }
@@ -424,9 +460,9 @@ const renderInterface = () => {
             <div className="flex items-center gap-3">
               <ShieldAlert className="h-6 w-6 text-amber-600 flex-shrink-0" />
               <div>
-                <p className="font-semibold text-sm">Mode Manajemen Terdeteksi ({userRole?.toUpperCase()})</p>
+                <p className="font-semibold text-sm">{t("products.common.managementModeDetected", { role: userRole?.toUpperCase() || "" })}</p>
                 <p className="text-xs text-amber-800">
-                  Akun manajemen internal tidak diperkenankan melakukan checkout pesanan konsumen (LIVE maupun Sandbox). Gunakan Sandbox Test Center untuk pengujian order.
+                  {t("products.common.managementModeDesc")}
                 </p>
               </div>
             </div>
@@ -434,7 +470,7 @@ const renderInterface = () => {
               href="/admin?tab=test-center"
               className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 whitespace-nowrap"
             >
-              Buka Test Center
+              {t("products.common.openTestCenter")}
             </Link>
           </div>
         </div>
@@ -445,8 +481,8 @@ const renderInterface = () => {
           <div className="bg-rose-600/90 backdrop-blur-md text-white px-4 py-2 rounded-2xl border-2 border-white/20 shadow-2xl flex items-center gap-3 animate-bounce">
             <div className="w-2 h-2 bg-white rounded-full animate-ping" />
             <div className="text-left">
-              <p className="text-[10px] font-black uppercase tracking-widest leading-none">Admin Mode</p>
-              <p className="text-[8px] font-bold opacity-80 uppercase italic">Maintenance Bypassed</p>
+              <p className="text-[10px] font-black uppercase tracking-widest leading-none">{t("products.common.adminMode")}</p>
+              <p className="text-[8px] font-bold opacity-80 uppercase italic">{t("products.common.maintenanceBypassed")}</p>
             </div>
             <ShieldAlert size={18} className="text-white/80" />
           </div>

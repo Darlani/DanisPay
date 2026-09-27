@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,12 +9,13 @@ import {
 import MaintenancePage from "@/utils/MaintenancePage";
 import { Turnstile } from '@marsidev/react-turnstile'; 
 import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 
 // ==========================================================
 // BAGIAN 1: FORM PENDAFTARAN (Logika & Tampilan)
 // ==========================================================
 function RegisterForm() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
@@ -128,17 +129,17 @@ function RegisterForm() {
 
     if (!captchaToken && !isLocal) {
       setLoading(false);
-      return setErrorMsg("Tolong selesaikan verifikasi keamanan (Captcha)!");
+      return setErrorMsg(t("auth.securityVerificationCaptchaAlert"));
     }
     
     if (!isPasswordValid) {
       setLoading(false);
-      return setErrorMsg("Password belum memenuhi syarat keamanan!");
+      return setErrorMsg(t("auth.passwordRequirementsNotMetAlert"));
     }
 
     if (!isPasswordMatch) {
       setLoading(false);
-      return setErrorMsg("Konfirmasi password tidak cocok!");
+      return setErrorMsg(t("auth.passwordMismatch"));
     }
 
     let finalReferral = formData.referralCode.trim().toUpperCase();
@@ -155,14 +156,14 @@ function RegisterForm() {
 
         if (!res.ok || !result.valid) {
           setLoading(false);
-          return setErrorMsg(result.message || "KODE REFERRAL TIDAK VALID!");
+          return setErrorMsg(result.message || t("auth.invalidReferralCode"));
         }
 
         finalReferral = result.referral_code;
       } catch (err: unknown) {
         console.error("[register] referral validation error:", err);
         setLoading(false);
-        return setErrorMsg("Gagal memvalidasi kode referral. Silakan coba lagi.");
+        return setErrorMsg(t("auth.referralValidationFailed"));
       }
     }
 
@@ -182,11 +183,11 @@ function RegisterForm() {
       if (authError) throw authError;
 
       if (authData.user) {
-        setSuccessMsg("Pendaftaran Berhasil! Silakan cek email / langsung login.");
-        setTimeout(() => router.push("/login"), 2000);
+        setSuccessMsg(t("auth.registrationSuccessNotice"));
+        setTimeout(() => router.push(localizeHref("/login", locale)), 2000);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Gagal mendaftar.";
+      const msg = err instanceof Error ? err.message : t("auth.registrationFailed");
       setErrorMsg(msg);
     } finally {
       setLoading(false);
@@ -204,7 +205,7 @@ function RegisterForm() {
       });
       if (error) throw error;
     } catch {
-      setErrorMsg("Gagal login dengan Google.");
+      setErrorMsg(t("auth.googleLoginFailed"));
       setSocialLoading(false);
     }
   };
@@ -233,7 +234,7 @@ function RegisterForm() {
             <Sparkles size={32} className="text-white" />
           </div>
           <h1 className="text-3xl text-white font-black italic tracking-tighter uppercase mb-2">
-            GABUNG <span className="text-emerald-500">SEKARANG</span>
+            {t("auth.registerHeroTitle1")} <span className="text-emerald-500">{t("auth.registerHeroTitle2")}</span>
           </h1>
           <p className="text-slate-400 text-xs font-medium tracking-widest uppercase">
             {t("auth.registerSubtitle")}
@@ -263,7 +264,8 @@ function RegisterForm() {
               type="text"
               required
               className="w-full bg-slate-900/50 border border-white/10 text-white text-sm rounded-2xl pl-12 p-4 outline-none focus:ring-2 focus:ring-emerald-500 font-bold placeholder:text-slate-500 placeholder:uppercase"
-              placeholder="Nama Lengkap"
+              placeholder={t("auth.fullNamePlaceholder")}
+              aria-label={t("auth.fullNameLabel")}
               value={formData.fullName}
               onChange={(e) => setFormData({...formData, fullName: e.target.value})}
             />
@@ -275,7 +277,8 @@ function RegisterForm() {
               type="email"
               required
               className="w-full bg-slate-900/50 border border-white/10 text-white text-sm rounded-2xl pl-12 p-4 outline-none focus:ring-2 focus:ring-emerald-500 font-bold placeholder:text-slate-500 placeholder:uppercase"
-              placeholder="Email Aktif"
+              placeholder={t("auth.activeEmailPlaceholder")}
+              aria-label={t("auth.emailLabel")}
               value={formData.email}
               onChange={(e) => setFormData({...formData, email: e.target.value})}
             />
@@ -291,7 +294,8 @@ function RegisterForm() {
                 onFocus={() => setIsPasswordFocused(true)}  // Muncul pas diklik
                 onBlur={() => setIsPasswordFocused(false)}  // Hilang pas pindah
                 className="w-full bg-slate-900/50 border border-white/10 text-white text-sm rounded-2xl pl-12 pr-12 p-4 outline-none focus:ring-2 focus:ring-emerald-500 font-bold placeholder:text-slate-500 placeholder:uppercase relative z-20"
-                placeholder="Buat Password"
+                placeholder={t("auth.createPasswordPlaceholder")}
+                aria-label={t("auth.passwordLabel")}
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
               />
@@ -300,6 +304,7 @@ function RegisterForm() {
                 type="button"
                 onMouseDown={(e) => e.preventDefault()} // Cegah focus hilang pas klik mata
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors z-30"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -313,11 +318,11 @@ function RegisterForm() {
               }`}
             >
               <div className="bg-slate-900/80 p-4 rounded-xl border border-white/5 space-y-3">
-                <CheckItem isValid={reqLength} text="Minimal 10 Karakter" />
-                <CheckItem isValid={reqUpperLower} text="Huruf Besar & Kecil" />
-                <CheckItem isValid={reqNumber} text="Minimal 1 Angka" />
-                <CheckItem isValid={reqSpecial} text="Karakter Spesial ($, !, @, dll)" />
-                <CheckItem isValid={reqNoSpace} text="Tanpa spasi di awal/akhir" />
+                <CheckItem isValid={reqLength} text={t("auth.passwordReqLength")} />
+                <CheckItem isValid={reqUpperLower} text={t("auth.passwordReqUpperLower")} />
+                <CheckItem isValid={reqNumber} text={t("auth.passwordReqNumber")} />
+                <CheckItem isValid={reqSpecial} text={t("auth.passwordReqSpecial")} />
+                <CheckItem isValid={reqNoSpace} text={t("auth.passwordReqNoSpace")} />
               </div>
             </div>
           </div>
@@ -332,7 +337,8 @@ function RegisterForm() {
                 className={`w-full bg-slate-900/50 border text-white text-sm rounded-2xl pl-12 pr-12 p-4 outline-none focus:ring-2 font-bold placeholder:text-slate-500 placeholder:uppercase transition-all
                   ${formData.confirmPassword && !isPasswordMatch ? 'border-rose-500/50 focus:ring-rose-500' : 
                     formData.confirmPassword && isPasswordMatch ? 'border-emerald-500/50 focus:ring-emerald-500' : 'border-white/10 focus:ring-emerald-500'}`}
-                placeholder="Ulangi Password"
+                placeholder={t("auth.confirmPasswordPlaceholder")}
+                aria-label={t("auth.confirmPasswordLabel")}
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
               />
@@ -340,6 +346,7 @@ function RegisterForm() {
               <button 
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                aria-label={showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
               >
                 {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -365,7 +372,8 @@ function RegisterForm() {
                 formData.referralCode && refFromUrl && refFromUrl !== "undefined" && refFromUrl !== "null"
                 ? "opacity-60 cursor-not-allowed" : ""
               }`}
-              placeholder="KODE REFERRAL (OPSIONAL)"
+              placeholder={t("auth.referralPlaceholder")}
+              aria-label={t("auth.referralPlaceholder")}
               value={formData.referralCode || ""} 
               readOnly={Boolean(refFromUrl && refFromUrl !== "undefined" && refFromUrl !== "null")}
               onChange={(e) => setFormData({...formData, referralCode: e.target.value.toUpperCase()})}
@@ -386,7 +394,7 @@ function RegisterForm() {
             disabled={loading || !formData.email.includes("@") || !isPasswordValid || !isPasswordMatch || (!captchaToken && !(typeof window !== "undefined" && window.location.hostname === "localhost"))}
             className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black italic uppercase py-4 rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
           >
-            {loading ? <Loader2 className="animate-spin" size={18} /> : "DAFTAR SEKARANG"}
+            {loading ? <Loader2 className="animate-spin" size={18} /> : t("auth.registerButton")}
           </button>
         </form>
 
@@ -417,7 +425,7 @@ function RegisterForm() {
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                   </svg>
-                  Lanjutkan dengan Google
+                  {t("auth.continueWithGoogle")}
                 </>
               )}
             </button>
@@ -426,7 +434,10 @@ function RegisterForm() {
 
         <div className="mt-8 text-center border-t border-white/5 pt-6">
           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-            {t("auth.alreadyHaveAccount").toUpperCase()} <a href="/login" className="text-emerald-500 hover:text-emerald-400 hover:underline transition-colors">{t("auth.loginLink").toUpperCase()}</a>
+            {t("auth.alreadyHaveAccount").toUpperCase()}{" "}
+            <a href={localizeHref("/login", locale)} className="text-emerald-500 hover:text-emerald-400 hover:underline transition-colors">
+              {t("auth.loginLink").toUpperCase()}
+            </a>
           </p>
         </div>
       </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { useI18n } from "@/lib/i18n/context";
 
 type GeneratorResult = {
   success: boolean;
@@ -26,6 +27,7 @@ type GeneratorResult = {
 };
 
 export default function QRISGeneratorPage() {
+  const { t } = useI18n();
   const [
     staticQR,
     setStaticQR,
@@ -91,7 +93,7 @@ export default function QRISGeneratorPage() {
       ) {
         throw new Error(
           data.error ||
-            "Gagal membuat QRIS dynamic."
+            t("qris.errGenerateFailed")
         );
       }
 
@@ -100,7 +102,7 @@ export default function QRISGeneratorPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Terjadi kesalahan."
+          : t("qris.errGeneric")
       );
     } finally {
       setLoading(false);
@@ -113,7 +115,7 @@ export default function QRISGeneratorPage() {
 
     if (!qr) {
       alert(
-        "Tidak ada QRIS untuk disalin."
+        t("qris.alertNoQrisToCopy")
       );
       return;
     }
@@ -122,12 +124,12 @@ export default function QRISGeneratorPage() {
       .writeText(qr)
       .then(() => {
         alert(
-          "QRIS berhasil disalin."
+          t("qris.alertQrisCopied")
         );
       })
       .catch(() => {
         alert(
-          "Gagal menyalin QRIS."
+          t("qris.alertQrisCopyFailed")
         );
       });
   }
@@ -160,12 +162,11 @@ export default function QRISGeneratorPage() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            QRIS Dynamic Generator
+            {t("qris.generatorTitle")}
           </h1>
 
           <p className="mt-2 text-gray-600">
-            Generator QRIS Dynamic
-            DANA untuk riset DaPay.
+            {t("qris.generatorSubtitle")}
           </p>
         </div>
 
@@ -173,7 +174,7 @@ export default function QRISGeneratorPage() {
           {/* INPUT */}
           <section className="rounded-xl bg-white p-6 shadow">
             <h2 className="mb-4 text-xl font-semibold">
-              QRIS Static DANA
+              {t("qris.staticDanaLabel")}
             </h2>
 
             <textarea
@@ -183,13 +184,13 @@ export default function QRISGeneratorPage() {
                   e.target.value
                 )
               }
-              placeholder="Tempel QRIS static di sini..."
+              placeholder={t("qris.pasteStaticPlaceholder")}
               spellCheck={false}
               className="h-48 w-full rounded-lg border p-3 font-mono text-sm outline-none focus:ring-2"
             />
 
             <label className="mt-5 block text-sm font-medium text-gray-700">
-              Nominal
+              {t("qris.amountLabel")}
             </label>
 
             <input
@@ -213,8 +214,8 @@ export default function QRISGeneratorPage() {
               className="mt-5 w-full rounded-lg bg-black px-5 py-3 font-semibold text-white disabled:opacity-50"
             >
               {loading
-                ? "Membuat QR..."
-                : "Generate Dynamic QRIS"}
+                ? t("qris.generatingQr")
+                : t("qris.generateBtn")}
             </button>
 
             {error && (
@@ -228,7 +229,7 @@ export default function QRISGeneratorPage() {
           <section className="rounded-xl bg-white p-6 shadow">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-semibold">
-                Hasil
+                {t("qris.resultHeading")}
               </h2>
 
               {generatedQR && (
@@ -239,7 +240,7 @@ export default function QRISGeneratorPage() {
                   }
                   className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-gray-50"
                 >
-                  Copy QRIS
+                  {t("qris.copyQris")}
                 </button>
               )}
             </div>
@@ -247,15 +248,13 @@ export default function QRISGeneratorPage() {
             {!result &&
               !loading && (
                 <div className="rounded-lg border border-dashed p-10 text-center text-gray-500">
-                  Hasil generator
-                  akan muncul di
-                  sini.
+                  {t("qris.emptyResult")}
                 </div>
               )}
 
             {loading && (
               <div className="rounded-lg border border-dashed p-10 text-center text-gray-500">
-                Membuat QRIS...
+                {t("qris.creatingQris")}
               </div>
             )}
 
@@ -281,7 +280,7 @@ export default function QRISGeneratorPage() {
                   {/* NOMINAL */}
                   <div className="mt-6 text-center">
                     <p className="text-sm text-gray-500">
-                      Nominal pembayaran
+                      {t("qris.paymentAmount")}
                     </p>
 
                     <p className="text-3xl font-bold text-gray-900">
@@ -297,7 +296,7 @@ export default function QRISGeneratorPage() {
                   <div className="mt-6 grid grid-cols-2 gap-3">
                     <div className="rounded-lg bg-gray-50 p-4">
                       <p className="text-xs text-gray-500">
-                        CRC
+                        {t("qris.crcLabel")}
                       </p>
 
                       <p className="mt-1 font-mono font-semibold">
@@ -310,7 +309,7 @@ export default function QRISGeneratorPage() {
 
                     <div className="rounded-lg bg-gray-50 p-4">
                       <p className="text-xs text-gray-500">
-                        Panjang QR
+                        {t("qris.qrLengthLabel")}
                       </p>
 
                       <p className="mt-1 font-semibold">
@@ -333,15 +332,15 @@ export default function QRISGeneratorPage() {
                   >
                     {result.output
                       ?.crcValid
-                      ? "✓ CRC Valid"
-                      : "✕ CRC Tidak Valid"}
+                      ? t("qris.crcValid")
+                      : t("qris.crcInvalid")}
                   </div>
 
                   {/* QR STRING */}
                   <div className="mt-6">
                     <div className="mb-2 flex items-center justify-between">
                       <h3 className="text-sm font-semibold">
-                        QRIS String
+                        {t("qris.qrisStringLabel")}
                       </h3>
 
                       <button
@@ -351,7 +350,7 @@ export default function QRISGeneratorPage() {
                         }
                         className="text-sm font-medium underline"
                       >
-                        Copy
+                        {t("qris.copyShort")}
                       </button>
                     </div>
 
@@ -367,8 +366,7 @@ export default function QRISGeneratorPage() {
                   {/* RAW RESPONSE */}
                   <details className="mt-6">
                     <summary className="cursor-pointer text-sm font-medium text-gray-600">
-                      Lihat response
-                      lengkap
+                      {t("qris.viewFullResponse")}
                     </summary>
 
                     <pre className="mt-3 max-h-96 overflow-auto rounded-lg bg-gray-900 p-4 text-xs text-white">
@@ -387,14 +385,11 @@ export default function QRISGeneratorPage() {
         {/* WARNING */}
         <div className="mt-6 rounded-xl border border-yellow-300 bg-yellow-50 p-5">
           <h3 className="font-semibold text-yellow-900">
-            ⚠️ Mode Pengujian
+            {t("qris.testModeTitle")}
           </h3>
 
           <p className="mt-2 text-sm text-yellow-800">
-            QRIS ini masih dalam
-            tahap pengujian. Jangan
-            gunakan untuk transaksi
-            bernilai besar.
+            {t("qris.testModeWarning")}
           </p>
         </div>
       </div>

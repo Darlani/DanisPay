@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Zap, ChevronRight } from "lucide-react";
 import { isPaymentAllowed } from '@/utils/LogicPembayaran';
@@ -85,9 +85,10 @@ export default function PaymentSection(props: PaymentSectionProps) {
             <div className="flex items-center gap-2">
               <p className="text-slate-500 text-[11px] font-bold leading-none truncate" suppressHydrationWarning>
                 {isMounted
-                  ? t("products.payment.remainingCoins")
-                      .replace("{coins}", (currentUser?.id ? userCoins : 0).toLocaleString(locale === "en" ? "en-US" : "id-ID"))
-                      .replace("{rupiah}", formatRupiah(currentUser?.id ? userCoins : 0))
+                  ? t("products.payment.remainingCoins", {
+                      coins: (currentUser?.id ? userCoins : 0).toLocaleString(locale === "en" ? "en-US" : "id-ID"),
+                      rupiah: formatRupiah(currentUser?.id ? userCoins : 0),
+                    })
                   : "0"}
               </p>
               {currentUser?.id && useCoins && usedCoinsAmount > 0 && (
@@ -185,7 +186,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
                   {pay.name.toUpperCase().includes('QRIS') && (
                     <div className="absolute top-0 right-0 h-10 w-10">
                       <div className="absolute top-1.5 -right-4 bg-orange-500 text-white text-[6px] font-black py-0.5 w-16 text-center rotate-45 shadow-sm uppercase tracking-tighter">
-                        Best
+                        {t("products.payment.bestPayment")}
                       </div>
                     </div>
                   )}
@@ -193,7 +194,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
                   <div className="ml-5 text-left flex-1">
                     <p className={`text-sm font-black tracking-tight ${(!isAllowed || isMaintenance) ? 'text-slate-400' : selectedPayment === finalMethodName ? 'text-[#00796B]' : 'text-slate-800'}`}>{pay.name}</p>
                     <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mt-1">
-                      {isMaintenance ? <span className="text-rose-500 font-black">🛠️ MAINTENANCE</span> : !isAllowed ? 'Limit Tercapai' : 'Proses Instan'}
+                      {isMaintenance ? <span className="text-rose-500 font-black">{t("products.payment.maintenance")}</span> : !isAllowed ? t("products.payment.limitReached") : t("products.payment.instantProcessLabel")}
                     </p>
                   </div>
                   <div className="text-right shrink-0"><p className={`text-[11px] sm:text-sm font-black ${(!isAllowed || isMaintenance) ? 'text-slate-300' : 'text-slate-900'}`}>{formatRupiah(totalPrice)}</p></div>
@@ -234,7 +235,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
                       <div className="ml-5 text-left flex-1">
                         <p className={`text-sm font-black tracking-tight ${(!isAllowed || isMaintenance) ? 'text-slate-400' : selectedPayment === pay.name ? 'text-[#00796B]' : 'text-slate-800'}`}>{pay.name}</p>
                         <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mt-1">
-                          {isMaintenance ? <span className="text-rose-500 font-black">🛠️ MAINTENANCE</span> : !isAllowed ? 'Limit Tercapai' : 'Cek Otomatis'}
+                          {isMaintenance ? <span className="text-rose-500 font-black">{t("products.payment.maintenance")}</span> : !isAllowed ? t("products.payment.limitReached") : t("products.payment.autoCheck")}
                         </p>
                       </div>
                       <div className="text-right shrink-0"><p className={`text-[11px] sm:text-sm font-black ${(!isAllowed || isMaintenance) ? 'text-slate-300' : 'text-slate-900'}`}>{formatRupiah(totalPrice)}</p></div>
@@ -261,7 +262,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
                       <div className="ml-5 text-left flex-1">
                         <p className={`text-sm font-black tracking-tight ${(!isAllowed || isMaintenance) ? 'text-slate-400' : selectedPayment === pay.name ? 'text-[#00796B]' : 'text-slate-800'}`}>{pay.name}</p>
                         <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mt-1">
-                          {isMaintenance ? <span className="text-rose-500 font-black">🛠️ MAINTENANCE</span> : !isAllowed ? 'Limit Tercapai' : 'Bayar Kasir'}
+                          {isMaintenance ? <span className="text-rose-500 font-black">{t("products.payment.maintenance")}</span> : !isAllowed ? t("products.payment.limitReached") : t("products.payment.cashierPayment")}
                         </p>
                       </div>
                       <div className="text-right shrink-0"><p className={`text-[11px] sm:text-sm font-black ${(!isAllowed || isMaintenance) ? 'text-slate-300' : 'text-slate-900'}`}>{formatRupiah(totalPrice)}</p></div>
@@ -288,7 +289,7 @@ export default function PaymentSection(props: PaymentSectionProps) {
                       <div className="ml-5 text-left flex-1">
                         <p className={`text-sm font-black tracking-tight ${(!isAllowed || isMaintenance) ? 'text-slate-400' : selectedPayment === pay.name ? 'text-[#00796B]' : 'text-slate-800'}`}>{pay.name}</p>
                         <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mt-1">
-                          {isMaintenance ? <span className="text-rose-500 font-black">🛠️ MAINTENANCE</span> : !isAllowed ? 'Limit Tercapai' : 'Konfirmasi Manual'}
+                          {isMaintenance ? <span className="text-rose-500 font-black">{t("products.payment.maintenance")}</span> : !isAllowed ? t("products.payment.limitReached") : t("products.payment.manualConfirm")}
                         </p>
                       </div>
                       <div className="text-right shrink-0"><p className={`text-[11px] sm:text-sm font-black ${(!isAllowed || isMaintenance) ? 'text-slate-300' : 'text-slate-900'}`}>{formatRupiah(totalPrice)}</p></div>

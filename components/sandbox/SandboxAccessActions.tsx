@@ -24,6 +24,8 @@ import {
   type SandboxSessionData,
 } from "@/components/sandbox/SandboxSessionControl";
 import SandboxReactivationModal from "@/components/sandbox/SandboxReactivationModal";
+import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 
 type ExtendedSandboxSessionData = Omit<SandboxSessionData, "sandboxReactivationState"> & {
   sandboxAccessReason?: string | null;
@@ -49,6 +51,7 @@ function getLockType(reason?: string | null): "conversion" | "inactivity" | "oth
 
 export default function SandboxAccessActions() {
   const router = useRouter();
+  const { locale, t } = useI18n();
   const [data, setData] = useState<ExtendedSandboxSessionData | null>(null);
   const [pending, setPending] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -106,7 +109,7 @@ export default function SandboxAccessActions() {
         // ignore localStorage failure
       }
     }
-    router.push("/user?tab=catalog");
+    router.push(localizeHref("/user?tab=catalog", locale));
   };
 
   const openReactivation = (type: "conversion" | "inactivity" | "other" | "revoked") => {
@@ -131,15 +134,15 @@ export default function SandboxAccessActions() {
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        let msg = body.error || "Gagal mengaktifkan Sandbox.";
+        let msg = body.error || t("sandbox.access.errGeneric");
         if (body.code === "EMAIL_NOT_VERIFIED") {
-          msg = "Email Anda belum diverifikasi. Silakan verifikasi email Anda terlebih dahulu di menu Pengaturan Akun.";
+          msg = t("sandbox.access.errEmailUnverified");
         } else if (body.code === "ACCOUNT_BLOCKED") {
-          msg = "Akun Anda sedang ditangguhkan atau diblokir. Hubungi Pusat Bantuan.";
+          msg = t("sandbox.access.errAccountBlocked");
         } else if (body.code === "MANAGEMENT_PERSONA_NOT_ELIGIBLE") {
-          msg = "Akun Admin/Manager tidak dapat mengakses Sandbox Pelanggan. Gunakan Test Center di Panel Admin.";
+          msg = t("sandbox.access.errManagementPersona");
         } else if (body.code === "SANDBOX_ACCESS_LOCKED_OR_REVOKED") {
-          msg = "Akses Sandbox terkunci atau telah dicabut. Silakan ajukan reaktivasi melalui menu Bantuan.";
+          msg = t("sandbox.access.errAccessLockedOrRevoked");
         }
         throw new Error(msg);
       }
@@ -160,7 +163,7 @@ export default function SandboxAccessActions() {
       setShowOnboarding(true);
       await refresh();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Gagal mengaktifkan Sandbox.");
+      setErrorMessage(error instanceof Error ? error.message : t("sandbox.access.errGeneric"));
     } finally {
       setPending(false);
     }
@@ -187,14 +190,14 @@ export default function SandboxAccessActions() {
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <FlaskConical size={14} className="text-amber-600 shrink-0" />
-                Coba Sandbox
+                {t("sandbox.access.trySandbox")}
               </span>
               <span className="rounded-full bg-amber-200/70 px-1.5 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wide text-amber-800">
-                Simulasi
+                {t("sandbox.access.simulationBadge")}
               </span>
             </div>
             <span className="mt-1 block text-[10px] font-normal text-amber-800/80 leading-tight">
-              Pelajari transaksi digital dengan saldo virtual sandbox.
+              {t("sandbox.access.tryDesc")}
             </span>
           </button>
 
@@ -205,6 +208,7 @@ export default function SandboxAccessActions() {
                   type="button"
                   onClick={() => setShowConfirm(false)}
                   disabled={pending}
+                  aria-label={t("common.close")}
                   className="absolute right-3.5 top-3.5 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
                 >
                   <X size={16} />
@@ -215,23 +219,23 @@ export default function SandboxAccessActions() {
                     <FlaskConical size={18} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-extrabold text-slate-900">Mulai Coba Sandbox</h3>
-                    <p className="text-[11px] text-slate-500">Mode Simulasi Tanpa Risiko</p>
+                    <h3 className="text-sm font-extrabold text-slate-900">{t("sandbox.access.modalTitle")}</h3>
+                    <p className="text-[11px] text-slate-500">{t("sandbox.access.modalSubtitle")}</p>
                   </div>
                 </div>
 
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-700 border border-slate-100 mb-3.5">
                   <div className="flex items-start gap-2">
                     <CheckCircle2 size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Dapatkan Rp 1.000.000 saldo virtual sandbox secara gratis.</span>
+                    <span>{t("sandbox.access.benefit1")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Transaksi simulasi tanpa pernah memotong saldo kas riil.</span>
+                    <span>{t("sandbox.access.benefit2")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Terisolasi dari pembukuan dan pesanan operasional nyata.</span>
+                    <span>{t("sandbox.access.benefit3")}</span>
                   </div>
                 </div>
 
@@ -249,7 +253,7 @@ export default function SandboxAccessActions() {
                     disabled={pending}
                     className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
                   >
-                    Batal
+                    {t("sandbox.access.btnCancel")}
                   </button>
                   <button
                     type="button"
@@ -262,7 +266,7 @@ export default function SandboxAccessActions() {
                     ) : (
                       <FlaskConical size={14} />
                     )}
-                    Aktifkan Sekarang
+                    {t("sandbox.access.btnActivateNow")}
                   </button>
                 </div>
               </div>
@@ -277,18 +281,18 @@ export default function SandboxAccessActions() {
           <div className="flex items-center justify-between gap-1.5 mb-1.5">
             <span className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
               <Clock size={14} className="text-amber-600 shrink-0" />
-              Menunggu Persetujuan
+              {t("sandbox.access.pendingTitle")}
             </span>
             <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-900">
-              Dalam Antrean
+              {t("sandbox.access.inQueueBadge")}
             </span>
           </div>
           <p className="text-[11px] text-amber-900/85 leading-relaxed">
-            Permohonan reaktivasi Sandbox Anda telah terkirim dan sedang ditinjau oleh Admin/Manager.
+            {t("sandbox.access.pendingDesc")}
           </p>
           <div className="mt-2 flex items-center gap-1 text-[10px] text-amber-800/80">
             <ShieldCheck size={12} className="shrink-0 text-amber-600" />
-            <span>Akun & saldo kas riil Anda tetap aman.</span>
+            <span>{t("sandbox.access.safeNotice")}</span>
           </div>
         </div>
       )}
@@ -300,20 +304,20 @@ export default function SandboxAccessActions() {
             <div className="flex items-center justify-between gap-1.5 mb-1.5">
               <span className="flex items-center gap-1.5 text-xs font-bold text-rose-950">
                 <AlertCircle size={14} className="text-rose-600 shrink-0" />
-                Pengajuan Ditolak
+                {t("sandbox.access.rejectedTitle")}
               </span>
               <span className="rounded-full bg-rose-200/80 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-rose-900">
-                Ditolak
+                {t("sandbox.access.rejectedBadge")}
               </span>
             </div>
             <p className="text-[11px] text-rose-900/85 leading-relaxed">
               {data.sandboxReactivationReason ? (
                 <>
-                  <span className="font-semibold text-rose-950">Catatan Manajemen:</span>{" "}
+                  <span className="font-semibold text-rose-950">{t("sandbox.access.managementNotes")}</span>{" "}
                   &ldquo;{data.sandboxReactivationReason}&rdquo;
                 </>
               ) : (
-                "Permohonan reaktivasi sebelumnya belum disetujui oleh manajemen."
+                t("sandbox.access.rejectedDesc")
               )}
             </p>
             <button
@@ -328,7 +332,7 @@ export default function SandboxAccessActions() {
               className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-[11px] font-bold text-white shadow-xs hover:bg-rose-700 transition cursor-pointer"
             >
               <RotateCcw size={12} />
-              Ajukan Ulang Reaktivasi
+              {t("sandbox.access.btnReapply")}
             </button>
           </div>
         )}
@@ -344,14 +348,14 @@ export default function SandboxAccessActions() {
                 <div className="flex items-center justify-between gap-1.5 mb-1.5">
                   <span className="flex items-center gap-1.5 text-xs font-bold text-sky-950">
                     <UserCheck size={14} className="text-sky-600 shrink-0" />
-                    Member LIVE Aktif
+                    {t("sandbox.access.liveActiveTitle")}
                   </span>
                   <span className="rounded-full bg-sky-200/80 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-sky-900">
-                    Graduated
+                    {t("sandbox.access.graduatedBadge")}
                   </span>
                 </div>
                 <p className="text-[11px] text-sky-900/85 leading-relaxed">
-                  Akun Anda telah aktif sebagai Member LIVE. Akses simulasi Sandbox dialihkan, namun Anda dapat mengajukan pembukaan kembali untuk belajar atau simulasi.
+                  {t("sandbox.access.liveActiveDesc")}
                 </p>
                 <button
                   type="button"
@@ -359,7 +363,7 @@ export default function SandboxAccessActions() {
                   className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2 text-[11px] font-bold text-white shadow-xs hover:bg-sky-700 transition cursor-pointer"
                 >
                   <FlaskConical size={12} />
-                  Ajukan Akses Sandbox
+                  {t("sandbox.access.btnRequestAccess")}
                   <ArrowRight size={12} />
                 </button>
               </div>
@@ -371,14 +375,14 @@ export default function SandboxAccessActions() {
                 <div className="flex items-center justify-between gap-1.5 mb-1.5">
                   <span className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
                     <Clock size={14} className="text-amber-600 shrink-0" />
-                    Akses Terkunci
+                    {t("sandbox.access.lockedTitle")}
                   </span>
                   <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-900">
-                    7 Hari Inaktif
+                    {t("sandbox.access.inactive7DaysBadge")}
                   </span>
                 </div>
                 <p className="text-[11px] text-amber-900/85 leading-relaxed">
-                  Akses simulasi Sandbox terkunci otomatis karena tidak ada aktivitas selama 7 hari. Data dan riwayat simulasi Anda tetap tersimpan.
+                  {t("sandbox.access.inactiveDesc")}
                 </p>
                 <button
                   type="button"
@@ -386,7 +390,7 @@ export default function SandboxAccessActions() {
                   className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg bg-linear-to-r from-amber-500 to-orange-500 px-3 py-2 text-[11px] font-bold text-slate-950 shadow-xs hover:from-amber-600 hover:to-orange-600 transition cursor-pointer"
                 >
                   <RotateCcw size={12} />
-                  Buka Kembali Akses
+                  {t("sandbox.access.btnReopenAccess")}
                   <ArrowRight size={12} />
                 </button>
               </div>
@@ -398,14 +402,14 @@ export default function SandboxAccessActions() {
                 <div className="flex items-center justify-between gap-1.5 mb-1.5">
                   <span className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
                     <RotateCcw size={14} className="text-slate-600 shrink-0" />
-                    Akses Terkunci
+                    {t("sandbox.access.lockedTitle")}
                   </span>
                   <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-slate-700">
-                    Terkunci
+                    {t("sandbox.access.lockedBadge")}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  {data.sandboxAccessReason || "Akses lingkungan simulasi Sandbox Anda saat ini terkunci."}
+                  {data.sandboxAccessReason || t("sandbox.access.genericLockedDesc")}
                 </p>
                 <button
                   type="button"
@@ -413,7 +417,7 @@ export default function SandboxAccessActions() {
                   className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-[11px] font-bold text-white shadow-xs hover:bg-slate-900 transition cursor-pointer"
                 >
                   <RotateCcw size={12} />
-                  Minta Reaktivasi Sandbox
+                  {t("sandbox.access.btnRequestReactivation")}
                   <ArrowRight size={12} />
                 </button>
               </div>
@@ -429,19 +433,19 @@ export default function SandboxAccessActions() {
             <div className="flex items-center justify-between gap-1.5 mb-1.5">
               <span className="flex items-center gap-1.5 text-xs font-bold text-rose-950">
                 <ShieldAlert size={14} className="text-rose-600 shrink-0" />
-                Akses Dicabut
+                {t("sandbox.access.revokedTitle")}
               </span>
               <span className="rounded-full bg-rose-200/80 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-rose-900">
-                Revoked
+                {t("sandbox.access.revokedBadge")}
               </span>
             </div>
             <p className="text-[11px] text-rose-900/85 leading-relaxed">
               {data.sandboxAccessReason ? (
                 <>
-                  <span className="font-semibold text-rose-950">Alasan:</span> &ldquo;{data.sandboxAccessReason}&rdquo;
+                  <span className="font-semibold text-rose-950">{t("sandbox.access.reasonLabel")}</span> &ldquo;{data.sandboxAccessReason}&rdquo;
                 </>
               ) : (
-                "Akses Sandbox telah dinonaktifkan secara administratif oleh manajemen DaPay."
+                t("sandbox.access.revokedDesc")
               )}
             </p>
             <button
@@ -450,7 +454,7 @@ export default function SandboxAccessActions() {
               className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-2 text-[11px] font-bold text-rose-800 shadow-2xs hover:bg-rose-50 transition cursor-pointer"
             >
               <RotateCcw size={12} />
-              Ajukan Peninjauan Akses
+              {t("sandbox.access.btnReviewAccess")}
               <ArrowRight size={12} />
             </button>
           </div>
@@ -478,7 +482,7 @@ export default function SandboxAccessActions() {
               type="button"
               onClick={handleDismissOnboarding}
               className="absolute right-3.5 top-3.5 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-400"
-              aria-label="Tutup panduan selamat datang"
+              aria-label={t("sandbox.access.onboardingCloseAria")}
             >
               <X size={18} />
             </button>
@@ -487,15 +491,15 @@ export default function SandboxAccessActions() {
             <div className="mb-3">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-900 border border-amber-300/80 shadow-2xs">
                 <FlaskConical size={13} className="text-amber-600 shrink-0" />
-                SANDBOX SUDAH AKTIF
+                {t("sandbox.access.onboardingBadge")}
               </span>
             </div>
 
             <h2 id="sandbox-welcome-title" className="text-base font-extrabold text-slate-950 tracking-tight">
-              Selamat, Sandbox Anda Sudah Aktif!
+              {t("sandbox.access.onboardingTitle")}
             </h2>
             <p id="sandbox-welcome-desc" className="text-xs text-slate-500 mt-1 leading-normal">
-              Gunakan saldo virtual untuk mencoba simulasi transaksi produk digital.
+              {t("sandbox.access.onboardingDesc")}
             </p>
 
             {/* PART 2 — VIRTUAL BALANCE / SAFETY */}
@@ -503,17 +507,17 @@ export default function SandboxAccessActions() {
               <div className="flex items-center justify-between mb-1">
                 <span className="font-bold text-amber-950 flex items-center gap-1.5">
                   <Sparkles size={13} className="text-amber-600" />
-                  Saldo Virtual
+                  {t("sandbox.access.onboardingBalanceTitle")}
                 </span>
                 <span className="font-extrabold font-mono text-amber-900 text-sm">
                   Rp 1.000.000
                 </span>
               </div>
               <p className="text-[11px] text-amber-900/85 leading-relaxed">
-                Saldo ini hanya untuk latihan. Saldo kas LIVE Anda tidak digunakan dan tidak terpengaruh.
+                {t("sandbox.access.onboardingBalanceDesc")}
               </p>
               <p className="text-[10px] text-amber-800/75 mt-1 font-medium">
-                *Saldo Virtual tidak dapat diuangkan.
+                {t("sandbox.access.onboardingBalanceNote")}
               </p>
             </div>
 
@@ -524,11 +528,11 @@ export default function SandboxAccessActions() {
                   01
                 </span>
                 <h3 className="font-bold text-slate-900 text-xs">
-                  Langkah Pertama: Coba Satu Transaksi Contoh
+                  {t("sandbox.access.onboardingStep1Title")}
                 </h3>
               </div>
               <p className="text-[11.5px] text-slate-600 leading-relaxed">
-                Pilih satu produk di katalog dan lakukan simulasi pertama Anda. Di katalog tersedia panduan <strong>&ldquo;Mulai dari sini&rdquo;</strong>.
+                {t("sandbox.access.onboardingStep1Desc")} <strong>&ldquo;{t("sandbox.access.startHere")}&rdquo;</strong>.
               </p>
             </div>
 
@@ -539,7 +543,7 @@ export default function SandboxAccessActions() {
                 onClick={handleStartExploration}
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 py-3 text-xs font-black uppercase tracking-wider text-slate-950 shadow-md shadow-amber-500/25 hover:from-amber-600 hover:to-orange-600 transition cursor-pointer active:scale-98 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-400"
               >
-                <span>Mulai Coba Produk</span>
+                <span>{t("sandbox.access.btnTryProduct")}</span>
                 <ArrowRight size={14} />
               </button>
               <button
@@ -547,7 +551,7 @@ export default function SandboxAccessActions() {
                 onClick={handleDismissOnboarding}
                 className="w-full py-2 text-[11px] font-semibold text-slate-500 hover:text-slate-700 transition cursor-pointer text-center focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400 rounded-lg"
               >
-                Nanti Saja
+                {t("sandbox.access.btnLater")}
               </button>
             </div>
           </div>

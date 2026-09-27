@@ -2050,3 +2050,35 @@ The following remain untouched unless separately approved:
 ## Current next step
 
 `Continue manual Explore UI refinement before implementation is considered final.`
+
+---
+
+## i18n STATUS — ID ↔ EN
+
+### User-Facing Frontend
+`VERIFIED / CLOSED`
+
+Phase:
+`11G.24 — Browser E2E i18n Final Gate`
+
+Status:
+`PASS — RUNTIME ZERO-GAP VERIFIED`
+
+Scope:
+- Public
+- Auth
+- Product
+- Checkout
+- User Dashboard
+- Sandbox
+- QRIS
+
+### Admin / Manager Dashboard
+`NOT YET IMPLEMENTED / NOT YET AUDITED`
+
+Catatan:
+Localization ID ↔ EN untuk Admin Dashboard dan Manager Dashboard belum dilakukan dan belum diverifikasi.
+
+Do not assume Admin/Manager UI is bilingual until a dedicated Admin/Manager i18n phase is completed.
+Planned:
+`Phase 11G.25 — Admin/Manager ID ↔ EN Zero-Gap Audit & Implementation`

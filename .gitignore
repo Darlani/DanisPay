@@ -76,3 +76,5 @@ repomix-output.txt
 
 # Local snapshot backups
 2026-*/
+
+.gemini/

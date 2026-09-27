@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { useI18n } from "@/lib/i18n/context";
 
 type LogoutDoorButtonProps = {
   onLogout?: () => Promise<void> | void;
@@ -14,6 +15,7 @@ export default function LogoutDoorButton({
   isCollapsed = false,
   className = "",
 }: LogoutDoorButtonProps) {
+  const { t } = useI18n();
   const [loggedOut, setLoggedOut] = useState(false);
   const [opening, setOpening] = useState(false);
 
@@ -40,8 +42,8 @@ export default function LogoutDoorButton({
         whileTap={!loggedOut ? { scale: 0.95 } : {}}
         onClick={handleLogout}
         disabled={loggedOut}
-        title={loggedOut ? "Anda telah keluar" : "Keluar Akun"}
-        aria-label="Keluar Akun"
+        title={loggedOut ? t("common.loggedOutTitle") : t("common.logoutAria")}
+        aria-label={t("common.logoutAria")}
         transition={{ type: "spring", stiffness: 260, damping: 20 }}
         className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl transition-all duration-500 ${
           loggedOut
@@ -214,7 +216,7 @@ export default function LogoutDoorButton({
             transition={{ duration: 0.2 }}
             className="block truncate text-[9.5px] md:text-xs font-bold tracking-tight"
           >
-            {loggedOut ? "Anda telah keluar" : "Keluar Akun"}
+            {loggedOut ? t("common.loggedOutTitle") : t("common.logoutAria")}
           </motion.span>
         </AnimatePresence>
       </div>

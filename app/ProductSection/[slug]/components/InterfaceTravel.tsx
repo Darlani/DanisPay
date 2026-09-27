@@ -29,7 +29,7 @@ export default function InterfaceTravel(props: any) {
             <h1 className="text-xl font-black italic uppercase tracking-tighter text-slate-800">{product.name}</h1>
             <div className="flex items-center gap-2 mt-2 py-1 px-3 bg-blue-50 rounded-full w-fit">
                <ShieldCheck size={12} className="text-blue-600" />
-               <span className="text-[10px] font-bold text-blue-600 uppercase">Official Partner</span>
+               <span className="text-[10px] font-bold text-blue-600 uppercase">{t("products.minor.officialPartner")}</span>
             </div>
           </div>
         </div>

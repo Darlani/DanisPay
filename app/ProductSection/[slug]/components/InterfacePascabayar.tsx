@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRef, useState, useEffect } from "react";
 import { Turnstile } from '@marsidev/react-turnstile';
@@ -105,14 +105,14 @@ export default function InterfacePascabayar(props: any) {
 
   const getDynamicLabel = () => {
     const name = product.name.toLowerCase();
-    if (name.includes('pln') || name.includes('listrik')) return "ID Pelanggan (ID Pel)";
-    if (name.includes('pdam')) return "Nomor Pelanggan PDAM";
-    if (name.includes('bpjs')) return "Nomor Peserta BPJS";
-    return "ID Pelanggan / Nomor Kontrak";
+    if (name.includes('pln') || name.includes('listrik')) return t("products.ppob.plnCustomerIdLabel");
+    if (name.includes('pdam')) return t("products.ppob.pdamCustomerNoLabel");
+    if (name.includes('bpjs')) return t("products.ppob.bpjsParticipantNoLabel");
+    return t("products.ppob.contractOrCustomerIdLabel");
   };
 
   const handleInquiry = async () => {
-    if (isBlocked) { setErrorMsg("Layanan sedang maintenance, Bos."); return; }
+    if (isBlocked) { setErrorMsg(t("products.ppob.serviceUnderMaintenance")); return; }
     if (!accId || accId.length < 5) { setErrorMsg(t("products.ppob.idTooShort")); return; }
 
     setIsChecking(true);
@@ -137,10 +137,10 @@ export default function InterfacePascabayar(props: any) {
         setSelectedItemId("pascabayar-item"); // <--- MOCK ID ini dikirim ke page.tsx agar lolos validasi handlePreCheckout
         scrollToNext(step3Ref);
       } else {
-        setErrorMsg(result.message || "ID Pelanggan tidak ditemukan.");
+        setErrorMsg(result.message || t("products.ppob.customerNotFound"));
       }
     } catch (err) {
-      setErrorMsg("Gagal koneksi ke server, coba lagi nanti.");
+      setErrorMsg(t("products.ppob.serverConnectionFailed"));
     } finally {
       setIsChecking(false);
     }

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
@@ -6,9 +6,10 @@ import { Lock, Mail, ArrowRight, Loader2, AlertCircle, Store, UserPlus, ShieldAl
 import Link from "next/link";
 import { Turnstile } from '@marsidev/react-turnstile'; 
 import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 
 export default function LoginPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,7 +51,7 @@ const [errorMsg, setErrorMsg] = useState("");
 
     // Bypass blokir kalau lagi ngoding di lokal, tapi tetap ketat di server sungguhan
     if (!captchaToken && !isLocal) {
-      setErrorMsg("Tolong selesaikan verifikasi keamanan, Bos!");
+      setErrorMsg(t("auth.securityVerificationCaptchaAlert"));
       return;
     }
 
@@ -95,17 +96,17 @@ const [errorMsg, setErrorMsg] = useState("");
         const errorMessage =
           result?.error ||
           (res.status >= 500
-            ? "Server sedang mengalami kendala. Silakan coba lagi beberapa saat."
-            : "Gagal login. Silakan periksa kembali email dan password Anda.");
+            ? t("auth.serverIssueTryLater")
+            : t("auth.loginFailedCheckCredentials"));
         throw new Error(errorMessage);
       }
 
       if (!result || typeof result !== "object") {
-        throw new Error("Server sedang mengalami kendala. Silakan coba lagi beberapa saat.");
+        throw new Error(t("auth.serverIssueTryLater"));
       }
 
       if (!result.session?.access_token || !result.user) {
-        throw new Error(result.error || "Sesi login tidak valid. Silakan coba lagi.");
+        throw new Error(result.error || t("auth.invalidSessionTryAgain"));
       }
 
       const { error: sessionError } = await supabase.auth.setSession({
@@ -132,7 +133,7 @@ const [errorMsg, setErrorMsg] = useState("");
           // Jika role Admin/Manager tapi belum pasang 2FA, pasang cookie sesi lalu arahkan ke Setup
           const expiresIn = result.session.expires_in;
           document.cookie = `sb-access-token=${result.session.access_token}; path=/; max-age=${expiresIn}; Secure; SameSite=Lax`;
-          router.push("/setup-2fa");
+          router.push(localizeHref("/setup-2fa", locale));
         }
       } else {
         // Jika member biasa, bebas akses tanpa 2FA
@@ -148,10 +149,10 @@ const [errorMsg, setErrorMsg] = useState("");
         // KEMBALIKAN PENANDA LOKAL UNTUK NAVBAR
         localStorage.setItem("isUser", "true");
 
-        router.push("/user");
+        router.push(localizeHref("/user", locale));
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Gagal login. Silakan coba lagi.";
+      const message = err instanceof Error ? err.message : t("auth.loginFailedTryAgain");
       setErrorMsg(message);
     } finally {
       setLoading(false);
@@ -171,28 +172,28 @@ const [errorMsg, setErrorMsg] = useState("");
       });
 
       if (error) {
-        setErrorMsg("KODE SALAH ATAU KADALUARSA! Coba lagi.");
+        setErrorMsg(t("auth.invalidOrExpiredCode"));
         setPin("");
         return;
       }
 
-// Jika berhasil, Supabase otomatis menaikkan sesi ke AAL2
-      localStorage.setItem("userEmail", tempProfile.email);
-      localStorage.setItem("userName", tempProfile.full_name);
-      
-// Ambil session terbaru yang sudah AAL2 setelah verifikasi PIN
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session) {
+      // Jika berhasil, Supabase otomatis menaikkan sesi ke AAL2
+      localStorage.setItem("userEmail", tempProfile.email);
+      localStorage.setItem("userName", tempProfile.full_name);
+
+      // Ambil session terbaru yang sudah AAL2 setelah verifikasi PIN
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session) {
         const expiresInAdmin = sessionData.session.expires_in;
         document.cookie = `sb-access-token=${sessionData.session.access_token}; path=/; max-age=${expiresInAdmin}; Secure; SameSite=Lax`;
-      }
-      
-      // KEMBALIKAN PENANDA LOKAL UNTUK NAVBAR ADMIN
-      localStorage.setItem("isAdmin", "true");
-      
-      router.push("/admin");
+      }
+
+      // KEMBALIKAN PENANDA LOKAL UNTUK NAVBAR ADMIN
+      localStorage.setItem("isAdmin", "true");
+
+      router.push("/admin");
     } catch (err) {
-      setErrorMsg("Gagal terhubung ke server keamanan!");
+      setErrorMsg(t("auth.securityServerConnectionFailed"));
     } finally {
       setLoading(false);
     }
@@ -205,12 +206,12 @@ const [errorMsg, setErrorMsg] = useState("");
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/user`
+          redirectTo: `${window.location.origin}${localizeHref("/user", locale)}`
         }
       });
       if (error) throw error;
     } catch (error: any) {
-      setErrorMsg("Gagal login dengan Google.");
+      setErrorMsg(t("auth.googleLoginFailed"));
       setSocialLoading(false);
     }
   };
@@ -272,7 +273,7 @@ const [errorMsg, setErrorMsg] = useState("");
                 {/* Header Label & Lupa Password */}
                 <div className="flex justify-between items-end px-3">
                   <label className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">{t("auth.passwordLabel")}</label>
-                  <Link href="/forgot-password" className="text-[10px] font-bold tracking-widest uppercase text-slate-500 hover:text-blue-400 transition-colors">
+                  <Link href={localizeHref("/forgot-password", locale)} className="text-[10px] font-bold tracking-widest uppercase text-slate-500 hover:text-blue-400 transition-colors">
                     {t("auth.forgotPasswordLink")}
                   </Link>
                 </div>
@@ -361,7 +362,7 @@ const [errorMsg, setErrorMsg] = useState("");
                         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                       </svg>
-                      Lanjutkan dengan Google
+                      {t("auth.continueWithGoogle")}
                     </>
                   )}
                 </button>
@@ -374,7 +375,7 @@ const [errorMsg, setErrorMsg] = useState("");
             <div className="text-center bg-amber-500/10 border border-amber-500/20 p-4 rounded-[25px]">
               <ShieldAlert className="text-amber-500 mx-auto mb-2" size={28} />
               <p className="text-white text-xs font-black italic uppercase tracking-widest">
-                {tempProfile?.role} Detected
+                {tempProfile?.role} {t("products.ppob.detected")}
               </p>
               <p className="text-slate-400 text-[10px] lowercase font-medium">{t("auth.enterPinPrompt")}</p>
             </div>
@@ -415,7 +416,7 @@ const [errorMsg, setErrorMsg] = useState("");
         {!isPinStage && (
           <div className="mt-8 pt-6 border-t border-white/10 text-center">
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-3">{t("auth.noAccount")}</p>
-              <Link href="/register" className="inline-flex items-center gap-2 text-xs font-black text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-wider group">
+              <Link href={localizeHref("/register", locale)} className="inline-flex items-center gap-2 text-xs font-black text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-wider group">
                   <UserPlus size={14} className="group-hover:scale-110 transition-transform"/> {t("auth.registerLink").toUpperCase()}
               </Link>
           </div>

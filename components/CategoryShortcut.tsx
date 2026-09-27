@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { Smartphone, Gamepad2, Zap, LayoutGrid, ChevronLeft, ChevronRight, Play } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 // 1. Mesin Icon
 const getIconConfig = (slug: string) => {
@@ -65,6 +66,7 @@ interface CategoryShortcutProps {
 }
 
 export default function CategoryShortcut({ categories, availableSectionIds }: CategoryShortcutProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleScroll = (slug: string) => {
@@ -106,12 +108,12 @@ export default function CategoryShortcut({ categories, availableSectionIds }: Ca
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-white text-xs font-bold transition-all border border-blue-500/30 cursor-pointer shadow-xs active:scale-95"
-          title={isOpen ? "Tutup Shortcut" : "Buka Shortcut"}
+          title={isOpen ? t("home.closeShortcut") : t("home.openShortcut")}
         >
           <div className="p-1 rounded-full bg-blue-500 text-white flex items-center justify-center">
             <Play size={11} fill="currentColor" className="ml-0.5" />
           </div>
-          <span>Shortcut</span>
+          <span>{t("home.shortcutLabel")}</span>
           {isOpen ? (
             <ChevronLeft size={14} className="text-slate-400" />
           ) : (
