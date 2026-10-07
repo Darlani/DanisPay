@@ -18,7 +18,11 @@ interface BannerItem {
   is_active?: boolean;
 }
 
-export default function BannerCarousel() {
+export interface BannerCarouselProps {
+  onAutoplayChange?: (isPlaying: boolean) => void;
+}
+
+export default function BannerCarousel({ onAutoplayChange }: BannerCarouselProps = {}) {
   const { locale, t } = useI18n();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [shouldAnimate, setShouldAnimate] = useState(false);
@@ -78,7 +82,21 @@ const fetchBanners = async () => {
     emblaApi.on("select", update);
     emblaApi.on("scroll", update);
     emblaApi.on("reInit", update);
-  }, [emblaApi, onSelect]);
+
+    if (onAutoplayChange) {
+      const handleAutoplayPlay = () => onAutoplayChange(true);
+      const handleAutoplayStop = () => onAutoplayChange(false);
+      emblaApi.on("autoplay:play", handleAutoplayPlay);
+      emblaApi.on("autoplay:stop", handleAutoplayStop);
+      return () => {
+        emblaApi.off("select", update);
+        emblaApi.off("scroll", update);
+        emblaApi.off("reInit", update);
+        emblaApi.off("autoplay:play", handleAutoplayPlay);
+        emblaApi.off("autoplay:stop", handleAutoplayStop);
+      };
+    }
+  }, [emblaApi, onSelect, onAutoplayChange]);
 
 // --- LOADING STATE: LOGO BRANDING (DIPERBESAR) ---
   if (banners.length === 0) {
@@ -108,7 +126,7 @@ const fetchBanners = async () => {
 
   // --- RENDER UTAMA ---
   return (
-    <section className="w-full max-w-full overflow-hidden pt-2 pb-0.5 md:pt-3 md:pb-1">
+    <section className="relative z-30 w-full max-w-full overflow-visible pt-6 pb-0 sm:pt-8 md:pt-10 bg-[#080D1A]">
       <style jsx global>{`
         .embla__container { display: flex; }
         .slide-inner-container { 
@@ -122,36 +140,54 @@ const fetchBanners = async () => {
           100% { transform: translateX(100%); }
         }
 
-        /* Banner Transforms */
+        /* Banner Transforms & Visible Ambient Presentation (Phase 9.7.14) */
         .banner-slide-active {
           transform: scale(1.05);
           opacity: 1;
         }
         .banner-slide-prev {
           transform: scale(0.85) translateX(80%);
-          opacity: 0.6;
+          opacity: 0.9;
+          -webkit-mask-image: linear-gradient(to right,
+            rgba(0,0,0,0.55) 0%,
+            rgba(0,0,0,0.85) 15%,
+            black 35%,
+            black 100%
+          );
+          mask-image: linear-gradient(to right,
+            rgba(0,0,0,0.55) 0%,
+            rgba(0,0,0,0.85) 15%,
+            black 35%,
+            black 100%
+          );
         }
         .banner-slide-next {
           transform: scale(0.85) translateX(-80%);
-          opacity: 0.6;
+          opacity: 0.9;
+          -webkit-mask-image: linear-gradient(to left,
+            rgba(0,0,0,0.55) 0%,
+            rgba(0,0,0,0.85) 15%,
+            black 35%,
+            black 100%
+          );
+          mask-image: linear-gradient(to left,
+            rgba(0,0,0,0.55) 0%,
+            rgba(0,0,0,0.85) 15%,
+            black 35%,
+            black 100%
+          );
         }
         @media (min-width: 768px) {
           .banner-slide-prev {
             transform: translateX(42.5%) scale(0.85);
-            opacity: 0.55;
+            opacity: 0.88;
           }
           .banner-slide-next {
             transform: translateX(-42.5%) scale(0.85);
-            opacity: 0.55;
+            opacity: 0.88;
           }
         }
         @media (min-width: 1920px) {
-          .banner-slide-prev {
-            opacity: 0.5;
-          }
-          .banner-slide-next {
-            opacity: 0.5;
-          }
           .nav-arrow-prev {
             left: calc(50% - 500px) !important;
           }
@@ -165,6 +201,34 @@ const fetchBanners = async () => {
           visibility: hidden !important;
           pointer-events: none !important;
           z-index: 0 !important;
+        }
+
+        /* Floating Dots Navigation centered proportionally between Banner and U-Cradle (Phase 9.7.31) */
+        .banner-u-dock-tab {
+          position: absolute;
+          bottom: -20px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 35;
+          pointer-events: auto;
+        }
+        @media (min-width: 768px) {
+          .banner-u-dock-tab {
+            bottom: -23px;
+          }
+        }
+        @media (min-width: 1024px) {
+          .banner-u-dock-tab {
+            bottom: -24px;
+          }
+        }
+        @media (min-width: 1920px) {
+          .banner-u-dock-tab {
+            bottom: -25px;
+          }
         }
       `}</style>
 
@@ -200,35 +264,59 @@ const fetchBanners = async () => {
 
               const wrapperClasses = `slide-inner-container ${slideTransformClass} block h-full w-full ${isActive ? (isLinkActive ? 'cursor-pointer' : 'cursor-default opacity-80') : 'cursor-default pointer-events-none'}`;
 
-              // Isi Visual Banner (Biar gak ketik ulang)
+              // Isi Visual Banner
               const InnerBannerContent = (
                 <div className={`
-                  zoom-layer relative aspect-3/2 md:aspect-auto md:h-67.5 2xl:h-72.5 w-full rounded-3xl md:rounded-[40px] overflow-hidden transition-transform duration-500
-                  ${isActive ? 'shadow-[0_40px_80px_-15px_rgba(0,0,0,0.8)] ring-2 ring-white/10' : 'shadow-none blur-[2px]'}
+                  zoom-layer relative aspect-3/2 md:aspect-auto md:h-67.5 2xl:h-72.5 w-full rounded-3xl md:rounded-[40px] overflow-visible transition-transform duration-500
+                  ${isActive ? 'shadow-[0_40px_80px_-15px_rgba(0,0,0,0.8)] ring-2 ring-white/10' : 'shadow-none'}
                 `}>
-              <Image
-                src={banner.src}
-                alt={banner.alt || "Banner"}
-                fill
-                // unoptimized dihapus biar Next.js yang kompres gambarnya
-                className="object-cover"
-                priority={isActive || index === initialIndex}
-                // loading jangan pake "eager" kalau sudah pake priority, biar nggak bentrok
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 60vw, 960px"
-              />
-                    
-      {/* Badge cuma muncul kalau kolom promo ADA isinya dan BUKAN bertuliskan "EMPTY" */}
-      {banner.promo && banner.promo !== "EMPTY" && (
-        <div className={`absolute top-4 left-4 md:top-6 md:left-6 z-40 transition-all duration-700 delay-300 ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
-            <div className="bg-blue-600/90 backdrop-blur-md text-white px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[10px] md:text-sm font-bold flex items-center gap-2 shadow-lg border border-white/20">
-                <Tag size={14} className="md:w-4 md:h-4" />
-                {banner.promo}
-            </div>
-        </div>
-      )}
+                  {/* Rounded Clipping Container for Banner Image & Overlays */}
+                  <div className="absolute inset-0 w-full h-full rounded-3xl md:rounded-[40px] overflow-hidden">
+                    {/* Base Image (Sharp on active, atmospheric subtle blur on ambient) */}
+                    <div
+                      className="absolute inset-0 w-full h-full"
+                      style={{
+                        filter: isActive ? 'none' : 'blur(3px) brightness(0.82) contrast(0.92) saturate(0.85)'
+                      }}
+                    >
+                      <Image
+                        src={banner.src}
+                        alt={banner.alt || "Banner"}
+                        fill
+                        className="object-cover"
+                        priority={isActive || index === initialIndex}
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 60vw, 960px"
+                      />
+                    </div>
 
-                    <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent" />
-                    {!isActive && <div className="absolute inset-0 bg-black/60 transition-all duration-700" />}
+                    {/* Badge cuma muncul pada banner aktif kalau kolom promo ADA isinya dan BUKAN "EMPTY" */}
+                    {banner.promo && banner.promo !== "EMPTY" && (
+                      <div className={`absolute top-4 left-4 md:top-6 md:left-6 z-40 transition-all duration-700 delay-300 ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
+                        <div className="bg-blue-600/90 backdrop-blur-md text-white px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[10px] md:text-sm font-bold flex items-center gap-2 shadow-lg border border-white/20">
+                          <Tag size={14} className="md:w-4 md:h-4" />
+                          {banner.promo}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Active bottom gradient */}
+                    {isActive && (
+                      <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                    )}
+
+                    {/* Calibrated Darkness Overlay on visible ambient slides (Phase 9.7.14) */}
+                    {!isActive && !isFar && (
+                      <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                          background: isAdjacentPrev
+                            ? 'linear-gradient(to left, rgba(8, 13, 26, 0.35) 30%, rgba(8, 13, 26, 0.50) 65%, rgba(8, 13, 26, 0.65) 100%)'
+                            : 'linear-gradient(to right, rgba(8, 13, 26, 0.35) 30%, rgba(8, 13, 26, 0.50) 65%, rgba(8, 13, 26, 0.65) 100%)'
+                        }}
+                      />
+                    )}
+                  </div>
+
                 </div>
               );
 
@@ -257,6 +345,31 @@ const fetchBanners = async () => {
           </div>
         </div>
 
+        {/* Stationary Dots Navigation in Divider U-Cradle (Stationary Anchor - Phase 9.7.30) */}
+        {banners.length > 1 && (
+          <div className="banner-u-dock-tab" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-1.5 px-3 py-1">
+              {banners.map((_, dotIdx) => (
+                <button
+                  key={dotIdx}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    emblaApi?.scrollTo(dotIdx);
+                  }}
+                  aria-label={t("common.goToSlide", { index: dotIdx + 1 })}
+                  className={`h-1.5 rounded-full cursor-pointer focus:outline-none transition-all duration-500 ${
+                    dotIdx === selectedIndex
+                      ? "w-7 sm:w-8 bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)]"
+                      : "w-1.5 bg-slate-700 hover:bg-slate-600"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Tombol Navigasi */}
         <button
           onClick={() => emblaApi?.scrollPrev()}
@@ -272,20 +385,6 @@ const fetchBanners = async () => {
         >
           <ChevronRight size={28} className="text-white" />
         </button>
-      </div>
-
-      {/* Dots */}
-      <div className="flex justify-center items-center gap-2 mt-2 md:mt-2.5 w-full">
-        {banners.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => emblaApi?.scrollTo(index)}
-            aria-label={t("common.goToSlide", { index: index + 1 })}
-            className={`h-1.5 rounded-full cursor-pointer focus:outline-none transition-all duration-500 ${
-              index === selectedIndex ? "w-10 bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)]" : "w-2 bg-slate-800"
-            }`}
-          />
-        ))}
       </div>
     </section>
   );

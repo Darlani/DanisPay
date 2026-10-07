@@ -365,7 +365,7 @@ function PendingPaymentBanner({
   if (isExpired || isResolved) return null;
 
   return (
-    <div className="fixed top-18 md:top-20 right-4 sm:right-6 z-50 animate-in fade-in slide-in-from-top-3 duration-300 max-w-[340px] sm:max-w-sm select-none">
+    <div className="fixed top-18 md:top-20 right-4 sm:right-6 z-50 animate-in fade-in slide-in-from-top-3 duration-300 max-w-85 sm:max-w-sm select-none">
       <div className="backdrop-blur-2xl bg-slate-900/95 border border-amber-500/40 rounded-2xl p-2.5 sm:p-3 shadow-2xl shadow-black/80 flex items-center gap-3">
         <div className="relative p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
           <div className="absolute inset-0 bg-amber-500/30 rounded-xl animate-ping" />
@@ -408,6 +408,7 @@ export default function Home() {
   const [toastMsg, setToastMsg] = useState<{title: string, desc: string, type: 'success' | 'error'} | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogSections, setCatalogSections] = useState<CatalogSection[]>([]);
+  const [isBannerRolling, setIsBannerRolling] = useState(true);
 
   const catalogMapsRef = useRef<{
     productBySku: Map<string, ActiveProductRow>;
@@ -744,8 +745,11 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#0f172a]">
-      <BannerCarousel />
-      <BannerPopularDivider />
+      {/* Continuous Dark Hero Stage (Navbar Bottom -> Hero -> Divider) */}
+      <div className="hero-stage-container w-full bg-[#080D1A] relative overflow-hidden">
+        <BannerCarousel onAutoplayChange={setIsBannerRolling} />
+        <BannerPopularDivider isPaused={!isBannerRolling} />
+      </div>
       <CategoryShortcut
         categories={shortcutCategories}
         availableSectionIds={catalogSections.map((s) => s.id)}
@@ -819,7 +823,7 @@ export default function Home() {
                       router.push(targetHref);
                     }
                   }}
-                  className="group shrink-0 w-[232px] min-[360px]:w-[250px] min-[410px]:w-[272px] sm:w-auto bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 snap-start flex flex-col justify-between gap-2.5 shadow-md shadow-black/20 hover:shadow-lg hover:shadow-blue-500/10 cursor-pointer"
+                  className="group shrink-0 w-58 min-[360px]:w-62.5 min-[410px]:w-68 sm:w-auto bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 snap-start flex flex-col justify-between gap-2.5 shadow-md shadow-black/20 hover:shadow-lg hover:shadow-blue-500/10 cursor-pointer"
                 >
                   {/* Top Row: Real Brand Artwork + Brand / Variant / Masked Destination */}
                   <div className="flex items-start gap-3 min-w-0">

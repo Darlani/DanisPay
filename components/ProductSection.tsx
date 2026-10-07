@@ -60,14 +60,54 @@ export default function ProductSection({
       style={{ scrollMarginTop: '120px' }}
     >
       {isPopular ? (
-        /* Dark Premium Surface with Gold/Amber Geometric Decoration */
-        <div className="relative rounded-2xl sm:rounded-3xl bg-slate-900/80 border border-slate-800/90 p-3.5 sm:p-5 md:p-6 overflow-hidden shadow-2xl backdrop-blur-md">
-          {/* Subtle Ambient Glows */}
-          <div className="absolute -top-16 -left-16 w-56 sm:w-80 h-56 sm:h-80 bg-gradient-to-br from-amber-500/15 via-orange-500/8 to-transparent rounded-full blur-3xl pointer-events-none select-none" />
-          <div className="absolute -bottom-16 -right-16 w-56 sm:w-80 h-56 sm:h-80 bg-gradient-to-tl from-amber-500/10 via-yellow-500/5 to-transparent rounded-full blur-3xl pointer-events-none select-none" />
+        /* Dark Premium Surface - Single Seamless Card with Audited Lekukan Top Edge */
+        <div
+          className="relative rounded-b-2xl sm:rounded-b-3xl bg-slate-900/90 border border-slate-800/90 pt-8 sm:pt-9 md:pt-10 pb-4 sm:pb-5 px-3.5 sm:px-5 md:px-6 shadow-2xl backdrop-blur-md overflow-hidden"
+          style={{
+            clipPath: 'polygon(0% 0px, 26.46% 0px, 27.71% 14px, 42.96% 14px, 43.90% 21px, 47.95% 21px, 50.00% 7px, 52.05% 21px, 56.10% 21px, 57.04% 14px, 72.29% 14px, 73.54% 0px, 100% 0px, 100% 100%, 0% 100%)'
+          }}
+        >
+          {/* Integrated Glowing Laser Filament Top Border */}
+          <div className="absolute top-0 inset-x-0 h-8 pointer-events-none select-none z-20">
+            <svg
+              viewBox="0 0 1000 38"
+              preserveAspectRatio="none"
+              className="w-full h-full block"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <linearGradient id="popLaserGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.25" />
+                  <stop offset="26.46%" stopColor="#f59e0b" stopOpacity="0.85" />
+                  <stop offset="50%" stopColor="#fbbf24" stopOpacity="1" />
+                  <stop offset="73.54%" stopColor="#f59e0b" stopOpacity="0.85" />
+                  <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.25" />
+                </linearGradient>
+                <filter id="popLaserGlow" x="-10%" y="-50%" width="120%" height="200%">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" />
+                </filter>
+              </defs>
+              {/* Outer Amber Halo */}
+              <path
+                d="M 0,0 L 264.6,0 L 277.1,14 L 429.6,14 L 439.0,21 L 479.5,21 L 500.0,7 L 520.5,21 L 561.0,21 L 570.4,14 L 722.9,14 L 735.4,0 L 1000,0"
+                stroke="url(#popLaserGrad)"
+                strokeWidth="3.2"
+                filter="url(#popLaserGlow)"
+                opacity="0.65"
+              />
+              {/* Sharp Laser Filament */}
+              <path
+                d="M 0,0 L 264.6,0 L 277.1,14 L 429.6,14 L 439.0,21 L 479.5,21 L 500.0,7 L 520.5,21 L 561.0,21 L 570.4,14 L 722.9,14 L 735.4,0 L 1000,0"
+                stroke="url(#popLaserGrad)"
+                strokeWidth="1.6"
+              />
+            </svg>
+          </div>
 
-          {/* Top Hairline Amber Accent */}
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent pointer-events-none select-none" />
+          {/* Subtle Ambient Glows */}
+          <div className="absolute -top-16 -left-16 w-56 sm:w-80 h-56 sm:h-80 bg-linear-to-br from-amber-500/15 via-orange-500/8 to-transparent rounded-full blur-3xl pointer-events-none select-none" />
+          <div className="absolute -bottom-16 -right-16 w-56 sm:w-80 h-56 sm:h-80 bg-linear-to-tl from-amber-500/10 via-yellow-500/5 to-transparent rounded-full blur-3xl pointer-events-none select-none" />
 
           {/* Top-Left Diagonal Gold/Amber Geometric Decoration */}
           <svg
@@ -131,7 +171,7 @@ export default function ProductSection({
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 sm:gap-4 md:gap-5 justify-items-center items-start">
               {isLoading ? (
                 [...Array(8)].map((_, i) => (
-                  <div key={`skel-pop-${i}`} className="flex flex-col items-center gap-2 animate-pulse w-full max-w-[88px]">
+                  <div key={`skel-pop-${i}`} className="flex flex-col items-center gap-2 animate-pulse w-full max-w-22">
                     <div className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-2xl md:rounded-[22px] bg-slate-800/80 border border-slate-700/60" />
                     <div className="w-14 h-3 bg-slate-800/80 rounded" />
                   </div>
@@ -144,13 +184,13 @@ export default function ProductSection({
                     <Link
                       key={product.id || product.slug}
                       href={locale === "en" ? `/en/${product.slug}` : `/${product.slug}`}
-                      className="group flex flex-col items-center text-center transition-transform duration-300 w-full max-w-[88px] sm:max-w-[100px] outline-none focus-visible:outline-none focus:outline-none"
+                      className="group flex flex-col items-center text-center transition-transform duration-300 w-full max-w-22 sm:max-w-25 outline-none focus-visible:outline-none focus:outline-none"
                     >
                       {/* App-Icon Squircle Wrapper */}
                       <div className="relative w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-2xl md:rounded-[22px] transition-all duration-300 group-hover:shadow-[0_4px_20px_rgba(220,38,38,0.22)] group-focus:shadow-[0_4px_20px_rgba(220,38,38,0.22)] group-focus-within:shadow-[0_4px_20px_rgba(220,38,38,0.22)] group-hover:scale-105 group-focus:scale-105 group-focus-within:scale-105">
                         {/* 2px Shared Gradient Ring Overlay (100% Synced with DaPayHot/DaPayCheck 135deg ribbon gradient) */}
                         <div
-                          className="absolute inset-0 rounded-2xl md:rounded-[22px] p-[2px] pointer-events-none opacity-0 group-hover:opacity-100 group-focus:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300 z-20"
+                          className="absolute inset-0 rounded-2xl md:rounded-[22px] p-0.5 pointer-events-none opacity-0 group-hover:opacity-100 group-focus:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300 z-20"
                           style={{
                             background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 60%, #B91C1C 100%)',
                             WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
