@@ -126,7 +126,7 @@ const fetchBanners = async () => {
 
   // --- RENDER UTAMA ---
   return (
-    <section className="relative z-30 w-full max-w-full overflow-visible pt-6 pb-0 sm:pt-8 md:pt-10 bg-[#080D1A]">
+    <section className="relative z-30 w-full max-w-full overflow-visible pt-3 pb-0 sm:pt-4 md:pt-5 bg-[#080D1A]">
       <style jsx global>{`
         .embla__container { display: flex; }
         .slide-inner-container { 
