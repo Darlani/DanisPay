@@ -662,73 +662,58 @@ export default function UserSidebar({
               </div>
             </section>
           ))}
-        </nav>
 
-        {/* ========================================================== */}
-        {/* BOTTOM AREA (Compact Spacing on Mobile)                     */}
-        {/* ========================================================== */}
-
-        <div className="shrink-0 border-t border-slate-100 px-2.5 py-2.5 md:px-3 md:py-3">
-          {isOpen ? (
-            <>
-              {/* UPGRADE */}
+          {/* ========================================================== */}
+          {/* PROMOTIONAL & STATUS CARDS (Inside Scrollable Stream)      */}
+          {/* ========================================================== */}
+          {isOpen && (
+            <div className="mt-4 pt-3 border-t border-slate-100 space-y-2.5">
+              {/* UPGRADE - Sleek Compact Banner */}
               {memberType !== "Special" && memberType !== "Gold" && !isSandboxMode && (
                 <button
                   type="button"
                   onClick={() =>
                     handleMenuClick("upgrade")
                   }
-                  className="mb-2 md:mb-3 w-full rounded-xl md:rounded-2xl border border-indigo-100 bg-linear-to-br from-violet-500 via-indigo-500 to-blue-600 p-2.5 md:p-3.5 text-left shadow-[0_6px_18px_rgba(79,70,229,0.12)] transition hover:shadow-[0_10px_24px_rgba(79,70,229,0.18)]"
+                  className="w-full flex items-center justify-between gap-2 rounded-xl border border-amber-200/90 bg-linear-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 p-2.5 text-left transition hover:bg-amber-500/15 cursor-pointer"
                 >
-                  <div className="flex items-center gap-2 md:gap-2.5">
-                    <div className="flex h-6.5 w-6.5 md:h-8 md:w-8 shrink-0 items-center justify-center rounded-lg md:rounded-xl bg-white/15 text-white">
-                      <Crown size={13} className="md:h-3.75 md:w-3.75" />
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-amber-500 to-orange-500 text-white shadow-2xs">
+                      <Crown size={14} className="fill-yellow-200 text-yellow-100" />
                     </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[7.5px] md:text-[8px] font-semibold uppercase tracking-[0.15em] text-indigo-100">
-                        {t("dashboard.nav.upgradeTo")}
-                      </p>
-
-                      <h3 className="truncate text-[10.5px] md:text-[12px] font-black leading-none text-white">
+                    <div className="min-w-0">
+                      <p className="text-[10.5px] font-black text-slate-900 leading-tight truncate">
                         Special Member
-                      </h3>
+                      </p>
+                      <p className="text-[8.5px] font-bold text-amber-700 leading-tight">
+                        {t("dashboard.upgradeModal.upgradeHeaderBadge")}
+                      </p>
                     </div>
                   </div>
-
-                  <div className="hidden md:block mt-3 space-y-1">
-                    <Benefit>
-                      {t("dashboard.nav.cashbackBigger")}
-                    </Benefit>
-
-                    <Benefit>
-                      {t("dashboard.nav.commissionHigher")}
-                    </Benefit>
-
-                    <Benefit>
-                      {t("dashboard.nav.exclusivePromo")}
-                    </Benefit>
-
-                    <Benefit>
-                      {t("dashboard.nav.priorityService")}
-                    </Benefit>
-                  </div>
-
-                  <div className="mt-1.5 md:mt-3 flex h-6.5 md:h-8 w-full items-center justify-center gap-1 rounded-lg md:rounded-xl bg-white px-2 md:px-3 text-[8.5px] md:text-[9px] font-black text-indigo-700">
-                    {t("dashboard.overview.specialUpgradeCta")}
-                    <span aria-hidden="true">→</span>
-                  </div>
+                  <span className="flex h-5 items-center rounded-full bg-amber-500 px-2 text-[9px] font-black text-white shadow-2xs shrink-0">
+                    Upgrade →
+                  </span>
                 </button>
               )}
 
               {/* SANDBOX TESTER WIDGET */}
-              <div className="mb-2">
+              <div className="space-y-1.5">
                 <SandboxSessionControl variant="sidebar" />
                 <SandboxAccessActions />
               </div>
+            </div>
+          )}
+        </nav>
 
+        {/* ========================================================== */}
+        {/* BOTTOM UTILITY (Pinned Slim Footer - ~80px)                */}
+        {/* ========================================================== */}
+
+        <div className="shrink-0 border-t border-slate-100 bg-white px-2.5 py-2.5 md:px-3 md:py-3">
+          {isOpen ? (
+            <>
               {/* THEME TOGGLE + LANGUAGE SWITCHER */}
-              <div className="mb-1.5 md:mb-2.5 flex items-center gap-1.5">
+              <div className="mb-2 flex items-center gap-1.5">
                 <div className="flex-1 min-w-0">
                   <ThemeToggle showLabel />
                 </div>

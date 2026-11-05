@@ -1282,12 +1282,17 @@
     },
     "upgradeModal": {
       "membership": "Membership",
+      "badgePromo": "PENAWARAN SPESIAL",
+      "upgradeHeaderBtn": "Upgrade Special",
+      "upgradeHeaderBadge": "VIP Privilege",
       "title": "Upgrade ke Special Member",
-      "desc": "Dapatkan benefit member yang lebih tinggi sesuai program DaPay.",
+      "desc": "Buka akses harga modal termurah se-Indonesia & nikmati komisi referral hingga 2x lipat.",
       "cost": "Biaya Upgrade",
+      "oneTimePayment": "Sekali bayar seumur hidup",
       "processing": "Memproses...",
       "upgradeCta": "Upgrade Sekarang",
       "close": "Tutup",
+      "laterButton": "Nanti Saja",
       "closeAria": "Tutup upgrade",
       "successAlert": "SELAMAT! Anda sekarang adalah SPECIAL MEMBER.",
       "errorAlert": "Gagal proses upgrade."

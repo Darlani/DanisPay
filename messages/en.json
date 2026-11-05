@@ -1282,12 +1282,17 @@
     },
     "upgradeModal": {
       "membership": "Membership",
+      "badgePromo": "SPECIAL OFFER",
+      "upgradeHeaderBtn": "Upgrade Special",
+      "upgradeHeaderBadge": "VIP Privilege",
       "title": "Upgrade to Special Member",
-      "desc": "Get higher member benefits according to DaPay program.",
+      "desc": "Unlock the lowest wholesale prices in Indonesia & enjoy up to 2x higher referral commission.",
       "cost": "Upgrade Fee",
+      "oneTimePayment": "One-time lifetime payment",
       "processing": "Processing...",
       "upgradeCta": "Upgrade Now",
       "close": "Close",
+      "laterButton": "Maybe Later",
       "closeAria": "Close upgrade",
       "successAlert": "CONGRATULATIONS! You are now a SPECIAL MEMBER.",
       "errorAlert": "Failed to process upgrade."

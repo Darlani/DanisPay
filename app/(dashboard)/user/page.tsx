@@ -20,6 +20,7 @@ import {
   Clock,
   Copy,
   CreditCard,
+  Crown,
   FlaskConical,
   Gift,
   History,
@@ -1207,6 +1208,29 @@ function UserDashboardContent() {
   }, []);
 
   /* ================================================================= */
+  /* AUTO-POPUP PROMO FOR REGULAR MEMBERS (ONCE PER SESSION)          */
+  /* ================================================================= */
+  useEffect(() => {
+    if (isInitialLoading || isSandboxMode) return;
+    if (memberType === "Special" || memberType === "Gold") return;
+
+    try {
+      const hasSeenPromo = sessionStorage.getItem(
+        "dapay_special_member_promo_seen",
+      );
+      if (!hasSeenPromo) {
+        setShowUpgradeModal(true);
+        sessionStorage.setItem(
+          "dapay_special_member_promo_seen",
+          "true",
+        );
+      }
+    } catch {
+      // Ignore storage errors in restricted iframe/private mode
+    }
+  }, [isInitialLoading, isSandboxMode, memberType]);
+
+  /* ================================================================= */
   /* NAVIGATION HANDLER                                               */
   /* ================================================================= */
 
@@ -1320,6 +1344,7 @@ function UserDashboardContent() {
       setIsSidebarExpanded={setIsSidebarExpanded}
       avatarUrl={userData.avatarUrl}
       onRefresh={handleRefreshDashboard}
+      onOpenUpgrade={() => setShowUpgradeModal(true)}
     >
       {activeMenu === "overview" && (
         <OverviewContent
@@ -1456,54 +1481,71 @@ function UserDashboardContent() {
       {/* ============================================================ */}
 
       {showUpgradeModal && !isSandboxMode && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-xs">
-          <div className="relative w-full max-w-md rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl sm:p-7">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-amber-200/80 bg-linear-to-b from-white via-amber-50/25 to-white p-6 shadow-2xl sm:p-7">
+            {/* Ambient decorative glow */}
+            <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-linear-to-br from-amber-400/20 via-orange-400/15 to-transparent blur-2xl" />
+            <div className="pointer-events-none absolute -left-12 -bottom-12 h-36 w-36 rounded-full bg-linear-to-tr from-violet-500/10 via-indigo-400/10 to-transparent blur-2xl" />
+
+            {/* Close button X */}
             <button
               type="button"
               onClick={() => setShowUpgradeModal(false)}
               disabled={isUpgrading}
-              className="absolute right-6 top-6 inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 disabled:opacity-50"
+              className="absolute right-5 top-5 inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50 cursor-pointer z-10"
               aria-label={t("dashboard.upgradeModal.closeAria")}
             >
               <X size={18} />
             </button>
 
-            <div className="pr-10">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-600">
-                {t("dashboard.upgradeModal.membership")}
-              </p>
+            {/* Top Badge */}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/80 bg-amber-100/90 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-900 shadow-2xs">
+                <Crown size={12} className="text-amber-600 fill-amber-500" />
+                {t("dashboard.upgradeModal.badgePromo")}
+              </span>
+            </div>
 
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+            <div className="pr-6">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950 leading-tight">
                 {t("dashboard.upgradeModal.title")}
               </h2>
 
-              <p className="mt-1 text-xs leading-5 text-slate-500">
+              <p className="mt-1 text-xs leading-5 text-slate-600 font-medium">
                 {t("dashboard.upgradeModal.desc")}
               </p>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center">
-              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-amber-600">
+            {/* Price Box */}
+            <div className="mt-4.5 rounded-2xl border border-amber-200/90 bg-linear-to-r from-amber-500/10 via-orange-500/10 to-yellow-500/10 p-4 text-center ring-1 ring-amber-300/30">
+              <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] text-amber-700">
                 {t("dashboard.upgradeModal.cost")}
               </p>
 
-              <p className="mt-2 text-3xl font-black text-slate-950">
-                Rp50.000
-              </p>
+              <div className="mt-1 flex items-baseline justify-center gap-1.5">
+                <span className="text-3xl font-black tracking-tight text-slate-950 font-mono">
+                  Rp50.000
+                </span>
+                <span className="text-[11px] font-semibold text-slate-500">
+                  / {t("dashboard.upgradeModal.oneTimePayment")}
+                </span>
+              </div>
             </div>
 
-            <div className="mt-4 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            {/* Benefits List */}
+            <div className="mt-3.5 space-y-2 rounded-2xl border border-slate-100 bg-white/80 p-3.5 shadow-2xs">
               <BenefitRow>{t("dashboard.nav.cashbackBigger")}</BenefitRow>
               <BenefitRow>{t("dashboard.nav.commissionHigher")}</BenefitRow>
               <BenefitRow>{t("dashboard.nav.exclusivePromo")}</BenefitRow>
               <BenefitRow>{t("dashboard.nav.priorityService")}</BenefitRow>
             </div>
 
+            {/* Main Action Buttons */}
             <button
               type="button"
               onClick={handleUpgradeMember}
               disabled={isUpgrading}
-              className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-sm font-black text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-amber-500 via-orange-500 to-amber-600 text-sm font-black text-white shadow-md shadow-amber-500/25 transition hover:brightness-110 active:scale-98 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
             >
               {isUpgrading ? (
                 <>
@@ -1511,7 +1553,10 @@ function UserDashboardContent() {
                   {t("dashboard.upgradeModal.processing")}
                 </>
               ) : (
-                t("dashboard.upgradeModal.upgradeCta")
+                <>
+                  <Crown size={16} className="fill-yellow-200 text-yellow-100" />
+                  <span>{t("dashboard.upgradeModal.upgradeCta")}</span>
+                </>
               )}
             </button>
 
@@ -1519,9 +1564,9 @@ function UserDashboardContent() {
               type="button"
               onClick={() => setShowUpgradeModal(false)}
               disabled={isUpgrading}
-              className="mt-3 w-full py-2 text-xs font-bold text-slate-400"
+              className="mt-2.5 w-full py-1.5 text-center text-xs font-bold text-slate-400 hover:text-slate-600 transition cursor-pointer"
             >
-              {t("dashboard.upgradeModal.close")}
+              {t("dashboard.upgradeModal.laterButton")}
             </button>
           </div>
         </div>
@@ -2635,6 +2680,7 @@ function DashboardShell({
   setIsSidebarExpanded,
   avatarUrl,
   onRefresh,
+  onOpenUpgrade,
 }: {
   children: React.ReactNode;
   isSandboxMode?: boolean;
@@ -2648,6 +2694,7 @@ function DashboardShell({
   setIsSidebarExpanded?: React.Dispatch<React.SetStateAction<boolean>>;
   avatarUrl?: string | null;
   onRefresh?: () => void;
+  onOpenUpgrade?: () => void;
 }) {
   const { t, locale } = useI18n();
   const bottomNavActive =
@@ -2817,6 +2864,19 @@ function DashboardShell({
                   </span>
                 </Link>
 
+                {/* UPGRADE BUTTON FOR MOBILE (TITIK UTAMA) */}
+                {memberType !== "Special" && memberType !== "Gold" && !isSandboxMode && onOpenUpgrade && (
+                  <button
+                    type="button"
+                    onClick={onOpenUpgrade}
+                    className="flex h-9 items-center gap-1 rounded-full border border-amber-300/90 bg-linear-to-r from-amber-500 to-orange-500 px-2.5 text-[10.5px] font-black text-white shadow-2xs transition active:scale-95 cursor-pointer shrink-0"
+                    title={t("dashboard.upgradeModal.upgradeHeaderBtn")}
+                  >
+                    <Crown size={12} className="text-yellow-100 fill-yellow-200" />
+                    <span>Upgrade</span>
+                  </button>
+                )}
+
                 {/* 3. USER PROFILE PILL */}
                 <Link
                   href={`${localizeHref("/user", locale)}?tab=settings-profile`}
@@ -2933,6 +2993,20 @@ function DashboardShell({
 
                 {/* RIGHT CONTROLS */}
                 <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 shrink-0 ml-auto">
+                  {/* UPGRADE BUTTON (TITIK UTAMA - ONLY FOR REGULAR MEMBERS) */}
+                  {memberType !== "Special" && memberType !== "Gold" && !isSandboxMode && onOpenUpgrade && (
+                    <button
+                      type="button"
+                      onClick={onOpenUpgrade}
+                      className="group relative inline-flex items-center gap-1.5 md:gap-2 rounded-full border border-amber-300/80 bg-linear-to-r from-amber-500 via-orange-500 to-amber-600 px-3 md:px-3.5 py-1.5 md:py-2 text-[11px] md:text-xs font-black text-white shadow-xs shadow-amber-500/25 transition-all duration-200 hover:shadow-md hover:shadow-amber-500/35 hover:scale-[1.03] active:scale-95 cursor-pointer"
+                      title={t("dashboard.upgradeModal.upgradeHeaderBtn")}
+                    >
+                      <Crown size={14} className="text-yellow-100 fill-yellow-200 transition-transform duration-300 group-hover:rotate-12" />
+                      <span className="tracking-tight">{t("dashboard.upgradeModal.upgradeHeaderBtn")}</span>
+                      <span className="hidden lg:inline-flex h-1.5 w-1.5 rounded-full bg-yellow-200 animate-ping" />
+                    </button>
+                  )}
+
                   {/* 1. NOTIFICATION BELL */}
                   <Link
                     href={`${localizeHref("/user", locale)}?tab=settings-notifications`}
