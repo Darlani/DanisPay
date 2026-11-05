@@ -11,7 +11,7 @@ export default function PopularFrameSvg({ children, className = '' }: PopularFra
   return (
     <div className={`relative w-full ${className}`}>
       {/* Frame container: adaptive min-height on mobile/tablet, exact 2030/440 aspect-ratio on desktop */}
-      <div className="relative w-full min-h-[220px] sm:min-h-[190px] md:min-h-0 md:aspect-[2030/440]">
+      <div className="relative w-full min-h-[225px] sm:min-h-[190px] md:min-h-[195px] lg:min-h-[210px] xl:min-h-0 xl:aspect-[2030/440]">
         {/* Vector SVG Frame (preserveAspectRatio="none" allows seamless vertical expansion on small screens) */}
         <svg viewBox="0 0 2030 440" preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 w-full h-full overflow-visible pointer-events-none">
       <defs>
@@ -1003,7 +1003,7 @@ export default function PopularFrameSvg({ children, className = '' }: PopularFra
     </svg>
 
         {/* Content Area - strictly aligned to inset with mobile breathing room */}
-        <div className="absolute inset-[6%_4%_11%_4%] sm:inset-[7%_4%_13%_4%] md:inset-[7%_4%_15%_4%] z-10 flex flex-col justify-between">
+        <div className="absolute inset-0 z-10 flex flex-col pt-2.5 sm:pt-3 md:pt-3.5 lg:pt-4 px-3 sm:px-4 md:px-6 lg:px-8 pb-5 sm:pb-6 md:pb-7 lg:pb-8">
           {children}
         </div>
       </div>

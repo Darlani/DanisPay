@@ -409,7 +409,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                 className="flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer"
               >
                  <ReceiptText size={14} className="shrink-0" />
-                 <span className="hidden xl:inline">{t("navigation.trackOrder")}</span>
+                 <span className="hidden lg:inline">{t("navigation.trackOrder")}</span>
               </button>
 
               {/* State Autentikasi / Sandbox */}
