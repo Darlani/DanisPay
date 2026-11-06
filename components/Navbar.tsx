@@ -9,7 +9,7 @@ import {
   Newspaper, Tag, ReceiptText, UserCircle, Menu
 } from "lucide-react";
 import TransactionHistoryModal from "@/components/TransactionHistoryModal";
-import { supabase } from "@/utils/supabaseClient";
+import { supabase, clearSupabaseLocalAuth } from "@/utils/supabaseClient";
 import { Turnstile } from "@marsidev/react-turnstile";
 import SandboxSessionControl from "@/components/sandbox/SandboxSessionControl";
 import { useI18n } from "@/lib/i18n/context";
@@ -62,9 +62,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
 
         const hasCookie = document.cookie.includes("sb-access-token");
         if (!hasCookie) {
-          await supabase.auth.signOut();
-          localStorage.removeItem("isAdmin");
-          localStorage.removeItem("isUser");
+          await clearSupabaseLocalAuth();
           setRole(null);
           setIsCheckingAuth(false);
           return;
@@ -73,8 +71,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
         const { data: { user }, error } = await supabase.auth.getUser();
 
         if (!user || error) {
-          localStorage.removeItem("isAdmin");
-          localStorage.removeItem("isUser");
+          await clearSupabaseLocalAuth();
           setRole(null);
           setIsCheckingAuth(false);
           return;
@@ -93,11 +90,8 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT" || !session) {
-        localStorage.removeItem("isAdmin");
-        localStorage.removeItem("isUser");
+        void clearSupabaseLocalAuth();
         setRole(null);
-        document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-        document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
       } else if (event === "TOKEN_REFRESHED" && session) {
         const refreshExpiresIn = session.expires_in;
         document.cookie = `sb-access-token=${session.access_token}; path=/; max-age=${refreshExpiresIn}; Secure; SameSite=Lax`;
@@ -159,10 +153,12 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
 
   const handleLogout = async () => {
     if (confirm(t("auth.confirmSignOut"))) {
-      await supabase.auth.signOut();
-      document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-      document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-      localStorage.clear();
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // ignore
+      }
+      await clearSupabaseLocalAuth();
       window.location.href = locale === "en" ? "/en" : "/";
     }
   };

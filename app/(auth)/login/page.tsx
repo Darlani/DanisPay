@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { supabase } from "@/utils/supabaseClient";
+import { supabase, clearSupabaseLocalAuth } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, ArrowRight, Loader2, AlertCircle, Store, UserPlus, ShieldAlert, ChevronLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
@@ -15,21 +15,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
 
   // EFEK PEMBUNUH SESI (HARD LOGOUT) JIKA TOKEN HABIS DARI SERVER
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get("session") === "expired") {
-        const killSession = async () => {
-          await supabase.auth.signOut(); // Hapus sesi VIP di server Supabase
-          localStorage.clear(); // Bersihkan sisa data lokal
-          document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-          document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-          // Karena data bersih dan di-signOut, Navbar.tsx PASTI otomatis berubah jadi "Sign In"
-        };
-        killSession();
-      }
-    }
-  }, []);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("session") === "expired") {
+        const killSession = async () => {
+          await clearSupabaseLocalAuth();
+        };
+        void killSession();
+      }
+    }
+  }, []);
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
 const [errorMsg, setErrorMsg] = useState("");

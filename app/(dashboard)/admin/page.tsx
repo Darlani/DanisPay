@@ -32,7 +32,7 @@ import {
 } from "./config/navigation";
 import AdminSkeleton from "./shared/AdminSkeleton";
 import OverviewView from "./domains/overview/OverviewView";
-import { supabase } from "@/utils/supabaseClient";
+import { supabase, clearSupabaseLocalAuth } from "@/utils/supabaseClient";
 import AnalyticsView from "./analytics/AnalyticsView";
 import CategoryManagement from "./categories/CategoryManagement";
 import ProductManagement from "./products/ProductManagement";
@@ -352,6 +352,7 @@ function AdminDashboardContent() {
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
+        await clearSupabaseLocalAuth();
         router.push("/login");
         return;
       }

@@ -53,7 +53,7 @@ import AffiliateViewUser from "./affiliate/AffiliateViewUser";
 import SettingsViewUser from "./settings/SettingsViewUser";
 import HelpViewUser from "./help/HelpViewUser";
 
-import { supabase } from "@/utils/supabaseClient";
+import { supabase, clearSupabaseLocalAuth } from "@/utils/supabaseClient";
 import MaintenancePage from "@/utils/MaintenancePage";
 import { useI18n } from "@/lib/i18n/context";
 import { localizeHref } from "@/lib/i18n/config";
@@ -918,10 +918,11 @@ function UserDashboardContent() {
         try {
           const {
             data: { session },
+            error: sessionError,
           } = await supabase.auth.getSession();
 
-          if (!session?.access_token) {
-            localStorage.clear();
+          if (sessionError || !session?.access_token) {
+            await clearSupabaseLocalAuth();
             window.location.href = localizeHref("/login", localeRef.current);
             return;
           }
@@ -941,7 +942,7 @@ function UserDashboardContent() {
           );
 
           if (response.status === 401) {
-            localStorage.clear();
+            await clearSupabaseLocalAuth();
             window.location.href = localizeHref("/login", localeRef.current);
             return;
           }

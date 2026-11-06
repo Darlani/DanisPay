@@ -22,7 +22,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { supabase } from "@/utils/supabaseClient";
+import { supabase, clearSupabaseLocalAuth } from "@/utils/supabaseClient";
 import LogoutDoorButton from "@/components/UI/logout-door-button";
 import ThemeToggle from "@/components/UI/theme-toggle";
 import SandboxSessionControl from "@/components/sandbox/SandboxSessionControl";
@@ -408,10 +408,12 @@ export default function UserSidebar({
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-    document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-    localStorage.clear();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore
+    }
+    await clearSupabaseLocalAuth();
     window.location.href = localizeHref("/", locale);
   };
 
