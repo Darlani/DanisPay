@@ -39,11 +39,18 @@ export default async function RootLayout({
   const serverLocale = isValidLocale(headerLocale) ? headerLocale : DEFAULT_LOCALE;
 
   return (
-    <html lang={serverLocale} className="bg-[#0f172a]" suppressHydrationWarning>
-      <head />
+    <html lang={serverLocale} className="bg-slate-50 dark:bg-[#0f172a]" suppressHydrationWarning>
+      <head>
+        <script
+          id="theme-initializer"
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}}catch(e){}})();`,
+          }}
+        />
+      </head>
 
       <body
-        className={`${poppins.variable} ${comfortaa.variable} antialiased bg-[#0f172a] text-slate-200`}
+        className={`${poppins.variable} ${comfortaa.variable} antialiased min-h-screen bg-slate-50 text-slate-900 dark:bg-[#0f172a] dark:text-slate-200 transition-colors duration-150`}
         suppressHydrationWarning
       >
         <GlobalErrorTracker />

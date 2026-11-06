@@ -128,7 +128,7 @@ export default function OrderDesktopTable({
                       </span>
                       {order.is_sandbox && (
                         <span className="inline-flex items-center rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-600 border border-amber-500/20">
-                          Sandbox
+                          {t("dashboard.orders.badgeSim")}
                         </span>
                       )}
                       <button

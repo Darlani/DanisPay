@@ -402,6 +402,7 @@ export default function SandboxCatalogView({
 
   // Simulated Persona State (Regular vs Special)
   const [simulatedMemberType, setSimulatedMemberType] = useState<"regular" | "special">("regular");
+  const [isLiveSpecial, setIsLiveSpecial] = useState<boolean>(false);
   const [isSwitchingPersona, setIsSwitchingPersona] = useState<boolean>(false);
 
   // Simulated Transaction States
@@ -596,6 +597,10 @@ export default function SandboxCatalogView({
   // Sync simulated member type and virtual balance from session
   const refreshPersona = useCallback(async () => {
     const session = await fetchTesterSessionDeduplicated(true);
+    if (session?.liveMemberType) {
+      const isSpecial = session.liveMemberType.toLowerCase() === "special" || session.liveMemberType.toLowerCase() === "gold";
+      setIsLiveSpecial(isSpecial);
+    }
     if (session?.simulatedMemberType) {
       setSimulatedMemberType(session.simulatedMemberType === "special" ? "special" : "regular");
     }
@@ -1578,35 +1583,48 @@ export default function SandboxCatalogView({
 
         {/* Persona Simulation Switcher */}
         <div className="mt-3.5 pt-3 border-t border-amber-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-amber-950">{t("sandbox.catalog.accountSimMode")}</span>
-            <div className="inline-flex items-center rounded-xl bg-white/90 p-1 border border-amber-200/90 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => void handleTogglePersona("regular")}
-                disabled={isSwitchingPersona}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  simulatedMemberType === "regular"
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                {t("sandbox.catalog.simRegular")}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleTogglePersona("special")}
-                disabled={isSwitchingPersona}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  simulatedMemberType === "special"
-                    ? "bg-amber-600 text-white shadow-xs"
-                    : "text-amber-900 hover:text-amber-950"
-                }`}
-              >
-                {t("sandbox.catalog.simSpecial")}
-              </button>
+          {isLiveSpecial ? (
+            /* Khusus Member Special: Bisa memilih bebas antara Reguler atau Spesial */
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-amber-950">{t("sandbox.catalog.accountSimMode")}</span>
+              <div className="inline-flex items-center rounded-xl bg-white/90 p-1 border border-amber-200/90 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => void handleTogglePersona("regular")}
+                  disabled={isSwitchingPersona}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    simulatedMemberType === "regular"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  {t("sandbox.catalog.simRegular")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleTogglePersona("special")}
+                  disabled={isSwitchingPersona}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    simulatedMemberType === "special"
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "text-amber-900 hover:text-amber-950"
+                  }`}
+                >
+                  {t("sandbox.catalog.simSpecial")}
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* Member Reguler: Dikhususkan mensimulasikan Member Spesial */
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-amber-950">{t("sandbox.catalog.accountSimMode")}</span>
+              <div className="inline-flex items-center rounded-xl bg-amber-500/15 border border-amber-300/80 px-2.5 py-1 text-xs font-extrabold text-amber-950 gap-1.5 shadow-2xs">
+                <Sparkles size={12} className="text-amber-600" />
+                <span>{t("sandbox.catalog.simSpecial")}</span>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col sm:items-end gap-0.5 text-[11px] text-amber-900/90 font-medium">
             {simulatedMemberType === "special" ? (
               <span className="inline-flex items-center gap-1.5 text-amber-950 font-semibold">

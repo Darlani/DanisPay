@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   X,
@@ -33,9 +34,14 @@ export default function SandboxConversionModal({
 }: SandboxConversionModalProps) {
   const router = useRouter();
   const { locale, t } = useI18n();
+  const [mounted, setMounted] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -45,7 +51,7 @@ export default function SandboxConversionModal({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted || typeof document === "undefined") return null;
 
   const handleConvert = async () => {
     setIsLoading(true);
@@ -108,9 +114,9 @@ export default function SandboxConversionModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-100 flex items-center justify-center p-3.5 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-10000 flex items-center justify-center p-3.5 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
       aria-labelledby="conversion-modal-title"
@@ -281,6 +287,7 @@ export default function SandboxConversionModal({
         </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

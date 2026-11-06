@@ -1001,11 +1001,13 @@ export default function AccountDatabaseManagement() {
   const usersRequestController = useRef<AbortController | null>(null);
   const reactivationRequestController = useRef<AbortController | null>(null);
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (silent = false) => {
     usersRequestController.current?.abort();
     const controller = new AbortController();
     usersRequestController.current = controller;
-    setLoading(true);
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -1021,8 +1023,8 @@ export default function AccountDatabaseManagement() {
     } finally {
       if (usersRequestController.current === controller) {
         usersRequestController.current = null;
-        setLoading(false);
       }
+      setLoading(false);
     }
   }, []);
 
@@ -1056,7 +1058,7 @@ export default function AccountDatabaseManagement() {
       if (!session?.access_token) throw new Error("Sesi admin tidak tersedia.");
       const response = await fetch("/api/admin/sandbox/access", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify({ targetUserId: userId, state }) });
       if (!response.ok) throw new Error("Status Sandbox tidak dapat diperbarui.");
-      await Promise.all([fetchUsers(), fetchReactivationRequests()]);
+      await Promise.all([fetchUsers(true), fetchReactivationRequests()]);
       setAttentionNotice("Status Sandbox berhasil diperbarui.");
       window.setTimeout(() => setAttentionNotice(null), 3500);
     } catch (actionError) {
@@ -1076,16 +1078,28 @@ export default function AccountDatabaseManagement() {
     setReactivationBusyId(request.id);
     setAttentionError(null);
     setAttentionNotice(null);
+
+    // Optimistic UI update: langsung hilangkan dari antrean seketika tanpa jeda
+    setReactivationRequests((current) => current.filter((r) => r.id !== request.id));
+    if (decision === "APPROVED") {
+      setUsers((current) =>
+        current.map((u) => (u.id === request.user_id ? { ...u, sandbox_access_state: "ACTIVE" } : u))
+      );
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Sesi admin tidak tersedia.");
       const response = await fetch("/api/admin/sandbox/reactivation", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify({ requestId: request.id, decision, rejectionReason: decision === "REJECTED" ? rejectionReason : null }) });
       if (!response.ok) throw new Error("Permintaan reaktivasi tidak dapat diproses.");
-      await Promise.all([fetchReactivationRequests(), fetchUsers()]);
+      await Promise.all([fetchReactivationRequests(), fetchUsers(true)]);
       setRejectionReasons((current) => { const next = { ...current }; delete next[request.id]; return next; });
       setAttentionNotice("Permintaan reaktivasi berhasil diproses.");
       window.setTimeout(() => setAttentionNotice(null), 3500);
     } catch (actionError) {
+      // Revert if error occurs
+      void fetchReactivationRequests();
+      void fetchUsers(true);
       setAttentionError(actionError instanceof Error ? actionError.message : "Permintaan reaktivasi tidak dapat diproses.");
     } finally {
       setReactivationBusyId(null);
@@ -1093,6 +1107,40 @@ export default function AccountDatabaseManagement() {
   }, [fetchReactivationRequests, fetchUsers, reactivationBusyId, rejectionReasons]);
 
   useEffect(() => { void fetchUsers(); void fetchReactivationRequests(); }, [fetchUsers, fetchReactivationRequests]);
+
+  // Realtime push listener untuk permintaan reaktivasi Sandbox & perubahan akses anggota
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-sandbox-reactivation-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sandbox_reactivation_requests",
+        },
+        () => {
+          void fetchReactivationRequests();
+          void fetchUsers(true);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sandbox_access",
+        },
+        () => {
+          void fetchUsers(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [fetchReactivationRequests, fetchUsers]);
   useEffect(() => () => {
     usersRequestController.current?.abort();
     reactivationRequestController.current?.abort();

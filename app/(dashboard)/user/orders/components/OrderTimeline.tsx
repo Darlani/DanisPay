@@ -7,7 +7,6 @@ import {
   Clock,
   CreditCard,
   PackageCheck,
-  Server,
   XCircle,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
@@ -92,7 +91,7 @@ export default function OrderTimeline({ order }: OrderTimelineProps) {
           </div>
         </div>
 
-        {/* STEP 3: PROSES PROVIDER */}
+        {/* STEP 3: PENGIRIMAN PRODUK */}
         <div className="relative flex items-start gap-3">
           <div
             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full shadow-xs z-10 ${
@@ -107,7 +106,7 @@ export default function OrderTimeline({ order }: OrderTimelineProps) {
                       : "bg-slate-200 text-slate-400"
             }`}
           >
-            <Server size={14} />
+            <PackageCheck size={14} />
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
             <p className="text-xs font-bold text-slate-900 leading-tight">

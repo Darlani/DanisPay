@@ -20,14 +20,17 @@ export default function ThemeToggle({
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== "undefined") {
       const savedTheme = localStorage.getItem("theme");
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      return savedTheme === "dark" || (!savedTheme && prefersDark);
+      if (savedTheme === "dark") return true;
+      if (savedTheme === "light") return false;
+      return document.documentElement.classList.contains("dark");
     }
     return false;
   });
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
+    if (document.documentElement.classList.contains("dark") !== isDark) {
+      document.documentElement.classList.toggle("dark", isDark);
+    }
   }, [isDark]);
 
   const toggleTheme = () => {
@@ -54,7 +57,7 @@ export default function ThemeToggle({
       >
         <motion.div
           key={isDark ? "moon" : "sun"}
-          initial={{ rotate: -90, scale: 0.6, opacity: 0 }}
+          initial={false}
           animate={{ rotate: 0, scale: 1, opacity: 1 }}
           exit={{ rotate: 90, scale: 0.6, opacity: 0 }}
           transition={{ type: "spring", stiffness: 260, damping: 20 }}
@@ -81,7 +84,7 @@ export default function ThemeToggle({
         {[...Array(3)].map((_, index) => (
           <motion.span
             key={index}
-            initial={{ opacity: 0, scale: 0 }}
+            initial={false}
             animate={
               isDark
                 ? { opacity: 1, scale: 1 }
@@ -99,6 +102,7 @@ export default function ThemeToggle({
 
       {/* Cloud */}
       <motion.div
+        initial={false}
         animate={{
           opacity: isDark ? 0 : 1,
           y: isDark ? 8 : 0,
@@ -112,6 +116,7 @@ export default function ThemeToggle({
 
       {/* Thumb */}
       <motion.div
+        initial={false}
         animate={{ x: isDark ? 20 : 0 }}
         transition={{
           type: "spring",
@@ -122,6 +127,7 @@ export default function ThemeToggle({
       >
         {/* Sun */}
         <motion.div
+          initial={false}
           animate={{
             rotate: isDark ? 180 : 0,
             opacity: isDark ? 0 : 1,
@@ -134,6 +140,7 @@ export default function ThemeToggle({
 
         {/* Moon */}
         <motion.div
+          initial={false}
           animate={{
             rotate: isDark ? 0 : -180,
             opacity: isDark ? 1 : 0,

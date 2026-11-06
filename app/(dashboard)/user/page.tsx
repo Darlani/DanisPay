@@ -566,6 +566,8 @@ const VALID_USER_TABS: Record<string, string> = {
   help: "help",
 };
 
+let cachedUserDashboardData: DashboardData | null = null;
+
 function UserDashboardContent() {
   /* ---------------------------------------------------------------- */
   /* NAVIGATION (URL IS SOURCE OF TRUTH)                              */
@@ -603,47 +605,92 @@ function UserDashboardContent() {
     balance: number;
     coinBalance: number;
     avatarUrl?: string | null;
-  }>({
-    email: "",
-    name: "",
-    refCode: "",
-    balance: 0,
-    coinBalance: 0,
-    avatarUrl: null,
+  }>(() => {
+    const p = cachedUserDashboardData?.profile;
+    const avatarUrl = p?.avatar_url || p?.photo_url || p?.image || null;
+    return {
+      email: p?.email || "",
+      name: p?.full_name || "",
+      refCode: p?.referral_code || "",
+      balance: Number(p?.balance || 0),
+      coinBalance: Number(p?.coin_balance || 0),
+      avatarUrl,
+    };
   });
 
   const [memberType, setMemberType] = useState<
     "Reguler" | "Special" | "Gold" | string
-  >("Reguler");
+  >(() => {
+    return cachedUserDashboardData?.profile?.member_type || "Reguler";
+  });
 
   const [orders, setOrders] = useState<
     DashboardOrder[]
-  >([]);
+  >(() => {
+    return Array.isArray(cachedUserDashboardData?.orders)
+      ? cachedUserDashboardData!.orders!
+      : [];
+  });
 
   const [deposits, setDeposits] = useState<
     DashboardDeposit[]
-  >([]);
+  >(() => {
+    return Array.isArray(cachedUserDashboardData?.deposits)
+      ? cachedUserDashboardData!.deposits!
+      : [];
+  });
 
   const [withdrawals, setWithdrawals] = useState<
     DashboardWithdrawal[]
-  >([]);
+  >(() => {
+    return Array.isArray(cachedUserDashboardData?.withdrawals)
+      ? cachedUserDashboardData!.withdrawals!
+      : [];
+  });
 
   const [balanceLogs, setBalanceLogs] = useState<
     DashboardBalanceLog[]
-  >([]);
+  >(() => {
+    return Array.isArray(cachedUserDashboardData?.balanceLogs)
+      ? cachedUserDashboardData!.balanceLogs!
+      : [];
+  });
 
   const [referrals, setReferrals] = useState<
     DashboardReferral[]
-  >([]);
+  >(() => {
+    return Array.isArray(cachedUserDashboardData?.referrals)
+      ? cachedUserDashboardData!.referrals!
+      : [];
+  });
 
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(() => !cachedUserDashboardData);
   const [isMaintenance, setIsMaintenance] =
     useState(false);
 
   const [currentDomain, setCurrentDomain] =
     useState("");
 
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("dapay_user_sidebar_expanded");
+      if (saved !== null) {
+        return saved === "true";
+      }
+      return window.innerWidth > 884;
+    }
+    return true;
+  });
+
+  const handleSetSidebarExpanded = useCallback((valOrUpdater: React.SetStateAction<boolean>) => {
+    setIsSidebarExpanded((prev) => {
+      const nextVal = typeof valOrUpdater === "function" ? valOrUpdater(prev) : valOrUpdater;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("dapay_user_sidebar_expanded", String(nextVal));
+      }
+      return nextVal;
+    });
+  }, []);
 
   /* ---------------------------------------------------------------- */
   /* SANDBOX WORKSPACE MODE                                           */
@@ -918,6 +965,12 @@ function UserDashboardContent() {
           }
 
           const data = result.data;
+          const inSandbox = isSandboxModeRef.current;
+
+          if (data && !inSandbox) {
+            cachedUserDashboardData = data;
+          }
+
           const profile = data?.profile;
 
           const avatarUrl =
@@ -925,8 +978,6 @@ function UserDashboardContent() {
             profile?.photo_url ||
             profile?.image ||
             null;
-
-          const inSandbox = isSandboxModeRef.current;
 
           setUserData((previous) => ({
             email:
@@ -951,9 +1002,15 @@ function UserDashboardContent() {
               null,
           }));
 
-          setMemberType(
-            profile?.member_type || "Reguler",
-          );
+          const currentMemberType = profile?.member_type || "Reguler";
+          setMemberType(currentMemberType);
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.setItem("dapay_user_member_type", currentMemberType);
+            } catch {
+              // ignore
+            }
+          }
 
           if (inSandbox) {
             setOrders([]);
@@ -1075,7 +1132,7 @@ function UserDashboardContent() {
       } else {
         // Purge sandbox orders when entering LIVE and fetch full LIVE data
         setSandboxOrders([]);
-        void fetchDashboardData(true);
+        void fetchDashboardData(!cachedUserDashboardData);
       }
       return;
     }
@@ -1084,7 +1141,7 @@ function UserDashboardContent() {
     if (isSandboxMode) {
       void fetchDashboardData(true, { profileOnly: true });
     } else {
-      void fetchDashboardData(true);
+      void fetchDashboardData(!cachedUserDashboardData);
     }
   }, [isSandboxInitialized, isSandboxMode, fetchDashboardData, fetchSandboxOrders]);
 
@@ -1195,7 +1252,12 @@ function UserDashboardContent() {
       if (width >= 768 && width <= 884) {
         setIsSidebarExpanded(false);
       } else if (width > 884) {
-        setIsSidebarExpanded(true);
+        const saved = typeof window !== "undefined" ? localStorage.getItem("dapay_user_sidebar_expanded") : null;
+        if (saved !== null) {
+          setIsSidebarExpanded(saved === "true");
+        } else {
+          setIsSidebarExpanded(true);
+        }
       }
     };
 
@@ -1293,6 +1355,13 @@ function UserDashboardContent() {
         );
 
         setMemberType("Special");
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("dapay_user_member_type", "Special");
+          } catch {
+            // ignore
+          }
+        }
 
         setShowUpgradeModal(false);
 
@@ -1341,10 +1410,11 @@ function UserDashboardContent() {
       balance={isSandboxMode ? (sandboxSession?.sandboxBalance ?? 1000000) : Number(userData.balance)}
       setActiveMenu={handleMenuNavigation}
       isSidebarExpanded={isSidebarExpanded}
-      setIsSidebarExpanded={setIsSidebarExpanded}
+      setIsSidebarExpanded={handleSetSidebarExpanded}
       avatarUrl={userData.avatarUrl}
       onRefresh={handleRefreshDashboard}
       onOpenUpgrade={() => setShowUpgradeModal(true)}
+      isInitialLoading={isInitialLoading}
     >
       {activeMenu === "overview" && (
         <OverviewContent
@@ -2681,6 +2751,7 @@ function DashboardShell({
   avatarUrl,
   onRefresh,
   onOpenUpgrade,
+  isInitialLoading = false,
 }: {
   children: React.ReactNode;
   isSandboxMode?: boolean;
@@ -2695,6 +2766,7 @@ function DashboardShell({
   avatarUrl?: string | null;
   onRefresh?: () => void;
   onOpenUpgrade?: () => void;
+  isInitialLoading?: boolean;
 }) {
   const { t, locale } = useI18n();
   const bottomNavActive =
@@ -2800,6 +2872,7 @@ function DashboardShell({
           isSidebarExpanded={isSidebarExpanded}
           setIsSidebarExpanded={setIsSidebarExpanded}
           isSandboxMode={isSandboxMode}
+          isInitialLoading={isInitialLoading}
         />
 
         <main className="min-w-0 flex-1 px-2.5 xs:px-4 pb-28 pt-3 sm:pt-4 sm:px-6 md:pb-8 lg:px-8 xl:px-10">
@@ -2865,7 +2938,7 @@ function DashboardShell({
                 </Link>
 
                 {/* UPGRADE BUTTON FOR MOBILE (TITIK UTAMA) */}
-                {memberType !== "Special" && memberType !== "Gold" && !isSandboxMode && onOpenUpgrade && (
+                {!isInitialLoading && memberType !== "Special" && memberType !== "Gold" && !isSandboxMode && onOpenUpgrade && (
                   <button
                     type="button"
                     onClick={onOpenUpgrade}
@@ -2993,20 +3066,6 @@ function DashboardShell({
 
                 {/* RIGHT CONTROLS */}
                 <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 shrink-0 ml-auto">
-                  {/* UPGRADE BUTTON (TITIK UTAMA - ONLY FOR REGULAR MEMBERS) */}
-                  {memberType !== "Special" && memberType !== "Gold" && !isSandboxMode && onOpenUpgrade && (
-                    <button
-                      type="button"
-                      onClick={onOpenUpgrade}
-                      className="group relative inline-flex items-center gap-1.5 md:gap-2 rounded-full border border-amber-300/80 bg-linear-to-r from-amber-500 via-orange-500 to-amber-600 px-3 md:px-3.5 py-1.5 md:py-2 text-[11px] md:text-xs font-black text-white shadow-xs shadow-amber-500/25 transition-all duration-200 hover:shadow-md hover:shadow-amber-500/35 hover:scale-[1.03] active:scale-95 cursor-pointer"
-                      title={t("dashboard.upgradeModal.upgradeHeaderBtn")}
-                    >
-                      <Crown size={14} className="text-yellow-100 fill-yellow-200 transition-transform duration-300 group-hover:rotate-12" />
-                      <span className="tracking-tight">{t("dashboard.upgradeModal.upgradeHeaderBtn")}</span>
-                      <span className="hidden lg:inline-flex h-1.5 w-1.5 rounded-full bg-yellow-200 animate-ping" />
-                    </button>
-                  )}
-
                   {/* 1. NOTIFICATION BELL */}
                   <Link
                     href={`${localizeHref("/user", locale)}?tab=settings-notifications`}

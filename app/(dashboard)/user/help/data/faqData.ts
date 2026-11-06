@@ -203,7 +203,7 @@ export const FAQ_DATA_EN: FAQItem[] = [
     category: "transaction",
     question: "What does the 'Diproses' (Processing) order status mean?",
     answer:
-      "Diproses indicates that the transaction has been verified and the order is being forwarded to the provider system for instant digital product delivery.",
+      "Diproses indicates that the transaction has been verified and the order is being processed by the DaPay system for instant digital product delivery.",
   },
   {
     id: "transaction-success",
@@ -217,7 +217,7 @@ export const FAQ_DATA_EN: FAQItem[] = [
     category: "transaction",
     question: "What happens if the transaction status is 'Gagal' (Failed)?",
     answer:
-      "If a transaction is Gagal (e.g., incorrect destination number or provider outage), funds are automatically refunded to the original payment source. Check your balance history or contact admin with your Order ID if you need assistance.",
+      "If a transaction is Gagal (e.g., incorrect destination number or operator/network issue), funds are automatically refunded to the original payment source. Check your balance history or contact support with your Order ID if you need assistance.",
   },
   {
     id: "transaction-refund",

@@ -324,14 +324,28 @@ export async function POST(req: Request) {
       if (row.sku) productBySkuMap.set(row.sku, row);
     }
 
-    // 7. Resolve Simulation Persona (Regular vs Special)
-    if (typeof body.simulatedMemberType === 'string') {
-      const requested = body.simulatedMemberType.toLowerCase().trim();
-      if (requested === 'regular' || requested === 'special') {
-        await setSandboxSimulatedMemberType(userId, requested);
+    // 7. Resolve Simulation Persona (Regular live users locked to 'special'; Special live users can choose)
+    const { data: userProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('member_type')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const isLiveSpecial = ((userProfile?.member_type || '').trim().toLowerCase() === 'special') || ((userProfile?.member_type || '').trim().toLowerCase() === 'gold');
+
+    let simMemberType: 'regular' | 'special' = 'special';
+    if (isLiveSpecial) {
+      if (typeof body.simulatedMemberType === 'string') {
+        const requested = body.simulatedMemberType.toLowerCase().trim();
+        if (requested === 'regular' || requested === 'special') {
+          await setSandboxSimulatedMemberType(userId, requested);
+        }
       }
+      simMemberType = await getSandboxSimulatedMemberType(userId);
+    } else {
+      await setSandboxSimulatedMemberType(userId, 'special');
+      simMemberType = 'special';
     }
-    const simMemberType = await getSandboxSimulatedMemberType(userId);
     const isSpecialPersona = simMemberType === 'special';
 
     // 8. Strict Server-Side Pricing & Line Financial Calculations

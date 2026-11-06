@@ -232,14 +232,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // 7. Check user email from profile
+    // 7. Check user email & member type from profile
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('email')
+      .select('email, member_type')
       .eq('id', userId)
       .maybeSingle();
 
     const userEmail = profile?.email || null;
+    const isLiveSpecial = ((profile?.member_type || '').trim().toLowerCase() === 'special') || ((profile?.member_type || '').trim().toLowerCase() === 'gold');
 
     // 8. Duplicate / Rapid Submission Guard (5-second window)
     const fiveSecondsAgo = new Date(Date.now() - 5000).toISOString();
@@ -263,14 +264,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // 9. Optional Sandbox persona switch ('regular' | 'special')
-    if (typeof body.simulatedMemberType === 'string') {
-      const requested = body.simulatedMemberType.toLowerCase().trim();
-      if (requested === 'regular' || requested === 'special') {
-        await setSandboxSimulatedMemberType(userId, requested);
+    // 9. Sandbox persona resolution: Regular live users are locked to 'special' persona in sandbox
+    let simMemberType: 'regular' | 'special' = 'special';
+    if (isLiveSpecial) {
+      if (typeof body.simulatedMemberType === 'string') {
+        const requested = body.simulatedMemberType.toLowerCase().trim();
+        if (requested === 'regular' || requested === 'special') {
+          await setSandboxSimulatedMemberType(userId, requested);
+        }
       }
+      simMemberType = await getSandboxSimulatedMemberType(userId);
+    } else {
+      await setSandboxSimulatedMemberType(userId, 'special');
+      simMemberType = 'special';
     }
-    const simMemberType = await getSandboxSimulatedMemberType(userId);
 
     // Persona Cashback Rule: Special gets catalog cashback, Regular gets 0
     const rawCatalogCashback = Math.max(0, Math.round(Number(matchedProduct.cashback)) || 0);

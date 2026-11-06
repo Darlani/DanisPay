@@ -16,7 +16,7 @@ export const PUBLIC_SANDBOX_FAQS_ID: PublicFaqItem[] = [
     id: "faq-1",
     question: "Apa itu Sandbox DaPay?",
     answer:
-      "DaPay Sandbox adalah ruang simulasi bisnis produk digital untuk mempelajari alur transaksi, mengecek estimasi harga modal grosir, dan memahami kalkulasi margin tanpa menggunakan saldo kas riil.",
+      "DaPay Sandbox adalah ruang simulasi transaksi produk digital untuk mempelajari cara pemesanan, melihat simulasi harga produk, dan mencoba fitur DaPay tanpa menggunakan saldo uang riil.",
   },
   {
     id: "faq-2",
@@ -32,27 +32,27 @@ export const PUBLIC_SANDBOX_FAQS_ID: PublicFaqItem[] = [
   },
   {
     id: "faq-4",
-    question: "Apakah transaksi Sandbox mempengaruhi saldo LIVE?",
+    question: "Apakah transaksi Sandbox mempengaruhi saldo riil?",
     answer:
-      "Sama sekali tidak. Transaksi simulasi hanya menggunakan saldo virtual dan berjalan di sistem simulasi internal yang 100% terisolasi dari saldo kas riil DaPay Anda.",
+      "Sama sekali tidak. Transaksi simulasi hanya menggunakan saldo virtual dan berjalan di sistem simulasi terpisah yang 100% aman dan terisolasi dari saldo riil DaPay Anda.",
   },
   {
     id: "faq-5",
-    question: "Apakah riwayat pesanan Sandbox masuk ke transaksi LIVE?",
+    question: "Apakah riwayat pesanan Sandbox masuk ke riwayat utama?",
     answer:
-      "Tidak. Seluruh pesanan simulasi dicatat khusus pada riwayat pesanan Sandbox dan terpisah sepenuhnya dari pembukuan transaksi operasional LIVE Anda.",
+      "Tidak. Seluruh pesanan simulasi dicatat khusus pada riwayat latihan Sandbox dan terpisah sepenuhnya dari riwayat transaksi utama Anda.",
   },
   {
     id: "faq-6",
     question: "Siapa saja yang dapat mencoba Sandbox?",
     answer:
-      "Seluruh calon reseller, pemilik konter pulsa/HP, pelaku UMKM, dan pengguna DaPay yang memiliki akun terdaftar dengan email terverifikasi, serta bukan merupakan akun manajemen (Admin/Manager).",
+      "Seluruh pengguna DaPay yang memiliki akun terdaftar dengan email terverifikasi dapat mencoba mode simulasi ini secara gratis.",
   },
   {
     id: "faq-7",
     question: "Apakah Sandbox menjamin keuntungan usaha?",
     answer:
-      "Tidak. Sandbox adalah sarana edukasi dan latihan. Estimasi harga modal, harga jual, dan margin yang ditampilkan bersifat simulasi ilustratif untuk pemahaman bisnis, bukan jaminan keuntungan finansial di dunia nyata.",
+      "Tidak. Sandbox adalah sarana latihan dan edukasi. Simulasi harga dan kalkulasi yang ditampilkan bersifat latihan untuk pemahaman alur, bukan jaminan keuntungan finansial di dunia nyata.",
   },
   {
     id: "faq-8",
@@ -62,9 +62,9 @@ export const PUBLIC_SANDBOX_FAQS_ID: PublicFaqItem[] = [
   },
   {
     id: "faq-9",
-    question: "Bagaimana cara beralih ke Member LIVE?",
+    question: "Bagaimana cara kembali ke Akun Utama?",
     answer:
-      "Setelah memahami alur transaksi dan kalkulasi margin di Sandbox, Anda dapat menekan tombol konversi ke Member LIVE atau langsung bertransaksi di workspace LIVE menggunakan saldo DaPay riil Anda.",
+      "Setelah selesai mencoba alur transaksi di Sandbox, Anda dapat langsung kembali ke Akun Utama DaPay Anda kapan saja untuk bertransaksi menggunakan saldo riil Anda.",
   },
 ];
 
@@ -73,7 +73,7 @@ export const PUBLIC_SANDBOX_FAQS_EN: PublicFaqItem[] = [
     id: "faq-1",
     question: "What is DaPay Sandbox?",
     answer:
-      "DaPay Sandbox is a digital product business simulation environment designed to help you explore order workflows, preview wholesale distributor prices, and understand profit margin calculations without using real cash balance.",
+      "DaPay Sandbox is a digital product simulation space designed to help you explore order workflows, preview product prices, and practice transactions safely without using real money.",
   },
   {
     id: "faq-2",
@@ -89,27 +89,27 @@ export const PUBLIC_SANDBOX_FAQS_EN: PublicFaqItem[] = [
   },
   {
     id: "faq-4",
-    question: "Do Sandbox transactions affect my LIVE balance?",
+    question: "Do Sandbox transactions affect my real DaPay balance?",
     answer:
-      "Not at all. Simulated transactions only utilize virtual balance and run within an internal simulation system that is 100% isolated from your real DaPay cash balance.",
+      "Not at all. Simulated transactions only utilize virtual balance and run within an isolated simulation system that is 100% separate from your real DaPay cash balance.",
   },
   {
     id: "faq-5",
-    question: "Do Sandbox orders appear in LIVE transaction history?",
+    question: "Do Sandbox orders appear in my main transaction history?",
     answer:
-      "No. All simulated orders are recorded exclusively in the Sandbox order history and remain entirely separate from your LIVE operational bookkeeping.",
+      "No. All simulated orders are recorded exclusively in the Sandbox practice history and remain entirely separate from your primary transaction records.",
   },
   {
     id: "faq-6",
     question: "Who can try the Sandbox?",
     answer:
-      "Prospective resellers, mobile counter owners, MSME entrepreneurs, and general DaPay users with a registered account and verified email, excluding management accounts (Admin/Manager).",
+      "All registered DaPay users with a verified email can try this simulation mode for free.",
   },
   {
     id: "faq-7",
     question: "Does the Sandbox guarantee business profits?",
     answer:
-      "No. The Sandbox is an educational and training tool. Wholesale cost estimates, selling prices, and margins displayed are illustrative for learning purposes, not a financial guarantee in the real world.",
+      "No. The Sandbox is an educational and practice tool. Simulated prices and calculations are for learning workflows, not a real-world financial guarantee.",
   },
   {
     id: "faq-8",
@@ -119,9 +119,9 @@ export const PUBLIC_SANDBOX_FAQS_EN: PublicFaqItem[] = [
   },
   {
     id: "faq-9",
-    question: "How do I switch to a LIVE Member?",
+    question: "How do I return to my Primary Account?",
     answer:
-      "After understanding order workflows and margin calculations in the Sandbox, you can click the conversion button to become a LIVE Member or begin transacting in the LIVE workspace using your real DaPay balance.",
+      "After exploring order workflows in the Sandbox, you can switch back to your primary DaPay account at any time to transact using your real balance.",
   },
 ];
 
