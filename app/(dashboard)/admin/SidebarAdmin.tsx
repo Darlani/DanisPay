@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase, clearSupabaseLocalAuth } from "@/utils/supabaseClient";
 import ConfirmLogoutModal from "@/components/UI/ConfirmLogoutModal";
 import {
@@ -34,12 +34,17 @@ export default function SidebarAdmin({
   currentRole,
 }: SidebarProps) {
   void setActiveMenu;
+  const router = useRouter();
   const [todayMemo, setTodayMemo] = useState(
     "Tidak ada event khusus hari ini.",
   );
   const [hasUrgentEvent, setHasUrgentEvent] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    router.prefetch("/login");
+  }, [router]);
 
   useEffect(() => {
     let isMounted = true;
@@ -96,16 +101,9 @@ export default function SidebarAdmin({
   };
 
   const handleConfirmLogout = async () => {
-    try {
-      await Promise.race([
-        supabase.auth.signOut(),
-        new Promise((resolve) => setTimeout(resolve, 800)),
-      ]);
-    } catch {
-      // ignore
-    }
+    // Pembersihan auth utama sudah selesai di latar belakang selama animasi modal di ConfirmLogoutModal.
     await clearSupabaseLocalAuth();
-    window.location.replace("/login");
+    router.replace("/login");
   };
 
   return (

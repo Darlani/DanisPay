@@ -6,7 +6,8 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   LogOut, LogIn, Search, Loader2, X,
-  Newspaper, Tag, ReceiptText, UserCircle, Menu
+  Newspaper, Tag, ReceiptText, UserCircle, Menu,
+  Compass, Flame, Gamepad2, Ticket, Tv, Smartphone, Zap, FileText, Wallet
 } from "lucide-react";
 import TransactionHistoryModal from "@/components/TransactionHistoryModal";
 import ConfirmLogoutModal from "@/components/UI/ConfirmLogoutModal";
@@ -27,6 +28,100 @@ interface SearchBrandResult {
   image_url?: string | null;
   active?: boolean;
 }
+
+interface NavbarShortcutCategory {
+  id: string;
+  domId: string;
+  slug: string;
+  name: string;
+  titleKey: string;
+  icon: React.ReactNode;
+  color: string;
+  bg: string;
+}
+
+const NAVBAR_SHORTCUT_CATEGORIES: NavbarShortcutCategory[] = [
+  {
+    id: "popular",
+    domId: "popular",
+    slug: "popular",
+    name: "Populer",
+    titleKey: "home.popularTitleShort",
+    icon: <Flame size={13} className="shrink-0" />,
+    color: "text-amber-400",
+    bg: "bg-amber-500/15",
+  },
+  {
+    id: "game",
+    domId: "game",
+    slug: "game",
+    name: "Top Up Game",
+    titleKey: "categories.game",
+    icon: <Gamepad2 size={13} className="shrink-0" />,
+    color: "text-orange-400",
+    bg: "bg-orange-500/15",
+  },
+  {
+    id: "pulsa",
+    domId: "pulsa",
+    slug: "pulsa",
+    name: "Pulsa & Data",
+    titleKey: "categories.pulsa",
+    icon: <Smartphone size={13} className="shrink-0" />,
+    color: "text-sky-400",
+    bg: "bg-sky-500/15",
+  },
+  {
+    id: "voucher",
+    domId: "voucher",
+    slug: "voucher",
+    name: "Voucher",
+    titleKey: "categories.voucher",
+    icon: <Ticket size={13} className="shrink-0" />,
+    color: "text-pink-400",
+    bg: "bg-pink-500/15",
+  },
+  {
+    id: "entertainment",
+    domId: "entertainment",
+    slug: "entertainment",
+    name: "Hiburan",
+    titleKey: "categories.entertainment",
+    icon: <Tv size={13} className="shrink-0" />,
+    color: "text-purple-400",
+    bg: "bg-purple-500/15",
+  },
+  {
+    id: "prabayar",
+    domId: "prabayar",
+    slug: "prabayar",
+    name: "Tagihan Prabayar",
+    titleKey: "categories.prabayar",
+    icon: <Zap size={13} className="shrink-0" />,
+    color: "text-yellow-400",
+    bg: "bg-yellow-500/15",
+  },
+  {
+    id: "pascabayar",
+    domId: "pascabayar",
+    slug: "pascabayar",
+    name: "Pascabayar",
+    titleKey: "categories.pascabayar",
+    icon: <FileText size={13} className="shrink-0" />,
+    color: "text-emerald-400",
+    bg: "bg-emerald-500/15",
+  },
+  {
+    id: "e-money",
+    domId: "e-money",
+    slug: "e-money",
+    name: "E-Wallet",
+    titleKey: "categories.emoney",
+    icon: <Wallet size={13} className="shrink-0" />,
+    color: "text-cyan-400",
+    bg: "bg-cyan-500/15",
+  },
+];
 
 export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: NavbarProps) {
   const [role, setRole] = useState<"admin" | "user" | null>(null);
@@ -125,16 +220,16 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
 
   // Logika Pencarian
   useEffect(() => {
-    const fetchSearch = async () => {
-      const keyword = searchQuery.trim();
-      if (!keyword) {
-        setSearchResults([]);
-        setShowDropdown(false);
-        return;
-      }
-      setIsSearching(true);
-      setShowDropdown(true);
+    const keyword = searchQuery.trim();
+    if (!keyword) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    setShowDropdown(true);
 
+    const fetchSearch = async () => {
       try {
         const { data } = await supabase
           .from("brands")
@@ -149,7 +244,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
         setIsSearching(false);
       }
     };
-    const timer = setTimeout(fetchSearch, 400);
+    const timer = setTimeout(fetchSearch, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -158,16 +253,20 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
   };
 
   const handleConfirmLogout = async () => {
-    try {
-      await Promise.race([
-        supabase.auth.signOut(),
-        new Promise((resolve) => setTimeout(resolve, 800)),
-      ]);
-    } catch {
-      // ignore
-    }
+    // Pembersihan auth utama sudah selesai di latar belakang selama animasi pintu berjalan di ConfirmLogoutModal.
+    // Pastikan penanda local auth bersih dan role kembali ke Guest
     await clearSupabaseLocalAuth();
-    window.location.replace(locale === "en" ? "/en" : "/");
+    setRole(null);
+
+    const currentNormalized = stripLocaleFromPathname(pathname);
+    // Jika user sedang berada di halaman utama / atau /en:
+    if (currentNormalized === "" || currentNormalized === "/") {
+      // Tidak perlu hard reload (window.location.replace)! Cukup refresh server data tanpa memicu full page spinner
+      router.refresh();
+    } else {
+      // Jika di halaman lain (misal checkout, riwayat pesanan), arahkan mulus ke homepage via router Next.js
+      router.replace(localizeHref("/", locale));
+    }
   };
 
   const isLocal = typeof window !== "undefined" && window.location.hostname === "localhost";
@@ -192,7 +291,25 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
   const handleClearSearch = () => {
     setSearchQuery("");
     setSearchResults([]);
+    setShowDropdown(true);
+  };
+
+  const handleSelectCategory = (domId: string) => {
     setShowDropdown(false);
+    setSearchQuery("");
+
+    const normPath = stripLocaleFromPathname(pathname || "");
+    const isHome = normPath === "" || normPath === "/";
+
+    if (isHome) {
+      const el = document.getElementById(domId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    } else {
+      const target = localizeHref(`/#${domId}`, locale);
+      router.push(target);
+    }
   };
 
   const currentNormalizedPath = stripLocaleFromPathname(pathname);
@@ -251,7 +368,12 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => searchQuery && setShowDropdown(true)}
+                onFocus={() => setShowDropdown(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setShowDropdown(false);
+                  }
+                }}
                 placeholder={t("search.placeholder")}
                 aria-label={t("search.placeholder")}
                 className="h-10 w-full bg-slate-950/60 border border-slate-700/80 text-white text-xs font-medium pl-9 sm:pl-10 pr-9 rounded-xl placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 transition-all"
@@ -275,64 +397,111 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
               </div>
             </div>
 
-            {/* DROPDOWN HASIL */}
+            {/* DROPDOWN (PINTASAN KATEGORI & HASIL CARI) */}
             {showDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/90 overflow-hidden z-50">
-                <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
-                  {isSearching ? (
-                    <div className="p-4 text-center text-slate-400 text-xs font-medium flex items-center justify-center gap-2">
-                      <Loader2 size={14} className="animate-spin text-blue-400" />
-                      <span>{t("search.searching")}</span>
-                    </div>
-                  ) : searchResults.length > 0 ? (
-                    <div className="py-2">
-                      {searchResults.map((item, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            router.push(locale === "en" ? `/en/${item.slug}` : `/${item.slug}`);
-                            setShowDropdown(false);
-                            setSearchQuery("");
-                          }}
-                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/80 cursor-pointer transition-colors border-b border-slate-800/50 last:border-0"
-                        >
-                          <div className="w-10 h-10 relative rounded-xl overflow-hidden bg-slate-800 border border-slate-700 shrink-0">
-                            {item.image_url ? (
-                              <Image
-                                src={item.image_url}
-                                alt={item.name}
-                                fill
-                                sizes="40px"
-                                className="object-cover"
-                                priority={idx < 4}
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-blue-950 text-blue-400 font-bold text-xs">
-                                {item.name?.charAt(0)}
-                              </div>
-                            )}
-                          </div>
-                          <p className="text-xs font-semibold text-slate-200 hover:text-white truncate">
-                            {item.name}
-                          </p>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 w-[90vw] max-w-sm sm:w-full sm:left-0 sm:right-0 sm:translate-x-0 mt-2 bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/90 overflow-hidden z-50">
+                <div className="max-h-[68vh] overflow-y-auto custom-scrollbar">
+                  {!searchQuery.trim() ? (
+                    /* KONDISI A: Input Kosong -> Pintasan Kategori */
+                    <div>
+                      <div className="px-3.5 pt-3 pb-2 flex items-center justify-between border-b border-slate-800/80 bg-slate-900/50">
+                        <div className="flex items-center gap-1.5 text-slate-300">
+                          <Compass size={14} className="text-blue-400" />
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                            {t("search.categoriesTitle")}
+                          </span>
                         </div>
-                      ))}
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          {t("search.quickJumpHint")}
+                        </span>
+                      </div>
+
+                      <div className="p-2 grid grid-cols-2 gap-1.5">
+                        {NAVBAR_SHORTCUT_CATEGORIES.map((cat) => {
+                          const label = t(cat.titleKey, cat.name);
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => handleSelectCategory(cat.domId)}
+                              className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-slate-800/40 hover:bg-slate-800/90 border border-slate-800/70 hover:border-slate-700 text-left transition-all duration-150 group cursor-pointer active:scale-[0.98]"
+                            >
+                              <div
+                                className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${cat.bg} ${cat.color} transition-transform group-hover:scale-110`}
+                              >
+                                {cat.icon}
+                              </div>
+                              <span className="text-xs font-semibold text-slate-300 group-hover:text-white truncate">
+                                {label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="px-3.5 py-2 bg-slate-950/40 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-500">
+                        <span>{t("search.typeToSearchHint")}</span>
+                      </div>
                     </div>
                   ) : (
-                    <div className="p-6 text-center">
-                      <p className="text-slate-400 text-xs font-medium leading-relaxed">
-                        {t("search.notFound")}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsSuggestionOpen(true);
-                          setShowDropdown(false);
-                        }}
-                        className="text-blue-400 text-xs font-semibold hover:text-blue-300 hover:underline mt-2 inline-block transition-colors"
-                      >
-                        {t("search.suggestProduct")}
-                      </button>
+                    /* KONDISI B: Ada Teks Input -> Hasil Pencarian */
+                    <div>
+                      {isSearching ? (
+                        <div className="p-4 text-center text-slate-400 text-xs font-medium flex items-center justify-center gap-2">
+                          <Loader2 size={14} className="animate-spin text-blue-400" />
+                          <span>{t("search.searching")}</span>
+                        </div>
+                      ) : searchResults.length > 0 ? (
+                        <div className="py-2">
+                          {searchResults.map((item, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => {
+                                router.push(locale === "en" ? `/en/${item.slug}` : `/${item.slug}`);
+                                setShowDropdown(false);
+                                setSearchQuery("");
+                              }}
+                              className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/80 cursor-pointer transition-colors border-b border-slate-800/50 last:border-0"
+                            >
+                              <div className="w-10 h-10 relative rounded-xl overflow-hidden bg-slate-800 border border-slate-700 shrink-0">
+                                {item.image_url ? (
+                                  <Image
+                                    src={item.image_url}
+                                    alt={item.name}
+                                    fill
+                                    sizes="40px"
+                                    className="object-cover"
+                                    priority={idx < 4}
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-blue-950 text-blue-400 font-bold text-xs">
+                                    {item.name?.charAt(0)}
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-xs font-semibold text-slate-200 hover:text-white truncate">
+                                {item.name}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-6 text-center">
+                          <p className="text-slate-400 text-xs font-medium leading-relaxed">
+                            {t("search.notFound")}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsSuggestionOpen(true);
+                              setShowDropdown(false);
+                            }}
+                            className="text-blue-400 text-xs font-semibold hover:text-blue-300 hover:underline mt-2 inline-block transition-colors"
+                          >
+                            {t("search.suggestProduct")}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

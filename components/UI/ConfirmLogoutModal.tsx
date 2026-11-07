@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useSyncExternalStore } from "r
 import { createPortal } from "react-dom";
 import { X, Loader2 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
+import { supabase, clearSupabaseLocalAuth } from "@/utils/supabaseClient";
 
 const emptySubscribe = () => () => {};
 
@@ -93,6 +94,21 @@ export default function ConfirmLogoutModal({
     setIsHoveringCancel(false);
     setStageClasses(["clicked"]);
 
+    // 1. Eksekusi pembersihan auth Supabase di latar belakang detik ini juga (0ms).
+    // Proses jaringan/token berjalan paralel selama animasi pintu 2.6s, sehingga
+    // saat animasi selesai, auth sudah 100% bersih tanpa menambah loading halaman kedua.
+    const purgeAuthPromise = (async () => {
+      try {
+        await Promise.race([
+          supabase.auth.signOut(),
+          new Promise((resolve) => setTimeout(resolve, 800)),
+        ]);
+      } catch {
+        // ignore
+      }
+      await clearSupabaseLocalAuth();
+    })();
+
     // Tahap 1 -> Anim1 (300ms): Pintu mulai jeda menutup (delay 0.25s, durasi 0.1s -> pintu tertutup rapat di 650ms)
     setTimeout(() => {
       setStageClasses((prev) => [...prev, "anim1"]);
@@ -115,16 +131,25 @@ export default function ConfirmLogoutModal({
       setStageClasses((prev) => [...prev, "logged-out"]);
     }, 2600);
 
-    // Tahap Akhir (2800ms): Eksekusi pembersihan auth & redirect
+    // Tahap 4 -> Modal Fade Out (2750ms): Modal mulai memudar halus
+    setTimeout(() => {
+      setStageClasses((prev) => [...prev, "cancel-fadeout"]);
+    }, 2750);
+
+    // Tahap Akhir (2950ms): Tunggu pembersihan auth selesai lalu panggil onConfirm()
     setTimeout(async () => {
       try {
+        await purgeAuthPromise;
         await onConfirm();
-      } catch {
-        setIsSigningOut(false);
+      } catch (err) {
+        console.error("Logout confirm error:", err);
+      } finally {
+        onClose();
         setStageClasses([]);
+        setIsSigningOut(false);
         setIsCardShaking(false);
       }
-    }, 2800);
+    }, 2950);
   };
 
   const stageClassNames = [
@@ -168,7 +193,7 @@ export default function ConfirmLogoutModal({
         <div className="flex flex-col items-center text-center">
           {/* TIVOTAL ANIMATION STAGE (PERSIS REFERENSI & MASKING LANTAI CELAH PINTU) */}
           <div
-            className="relative w-full mb-2 flex items-center justify-center overflow-hidden"
+            className="relative w-full mb-2 flex items-center justify-center"
             style={{ height: "82px" }}
           >
             <div className={stageClassNames}>
@@ -247,10 +272,10 @@ export default function ConfirmLogoutModal({
             </div>
           </div>
 
-          {/* Judul */}
+          {/* Judul (Layer z-10 di depan orang yang jatuh) */}
           <h2
             id="confirm-logout-title"
-            className={`text-base sm:text-lg font-bold tracking-tight leading-snug mb-5 transition-colors duration-300 ${
+            className={`relative z-10 text-base sm:text-lg font-bold tracking-tight leading-snug mb-5 transition-colors duration-300 ${
               isCancelLaptop ? "text-sky-400" : "text-white"
             }`}
           >
@@ -259,8 +284,8 @@ export default function ConfirmLogoutModal({
               : t("auth.confirmSignOutTitle")}
           </h2>
 
-          {/* Tombol Aksi */}
-          <div className="grid grid-cols-2 gap-3 w-full">
+          {/* Tombol Aksi (Layer z-10 di depan orang yang jatuh) */}
+          <div className="relative z-10 grid grid-cols-2 gap-3 w-full">
             <button
               type="button"
               onClick={handleClose}
@@ -491,7 +516,7 @@ export default function ConfirmLogoutModal({
         /* 3. STATE CLICKED (Saat tombol "Ya, Keluar" diklik: Pintu membuka 45deg, orang sprint lari masuk) */
         .tivotal-stage.clicked {
           --door-transform: rotateY(45deg);
-          --person-transform: translateX(38px);
+          --person-transform: translateX(35px);
           --person-duration: 0.3s;
           --body-duration: 0.3s;
 
@@ -514,10 +539,10 @@ export default function ConfirmLogoutModal({
           --leg2-transform: rotate(10deg);
         }
 
-        /* 5. STATE ANIM2 (900ms: Pintu tertutup rapat, hentakan shake, flash menyala, orang spin & terjun bebas) */
+        /* 5. STATE ANIM2 (1000ms: Pintu tertutup rapat, hentakan shake, flash menyala, orang terjun lurus & berputar di udara) */
         .tivotal-stage.anim2 {
           animation: shake 0.2s linear;
-          --person-duration: 1.6s;
+          --person-duration: 1.4s;
           --body-duration: 0.4s;
 
           --arm1-transform: rotate(-60deg);
@@ -531,12 +556,9 @@ export default function ConfirmLogoutModal({
         }
 
         .tivotal-stage.anim2 :global(.person) {
-          animation: spin 1.2s infinite linear;
-          bottom: -900px;
-          left: 74px;
-          transition: transform var(--person-duration) linear,
-            bottom var(--person-duration) cubic-bezier(0.7, 0.1, 1, 1) 0.1s;
+          /* Tetap di sumbu X pintu (tanpa geser ke kanan), jatuh lurus ke bawah dulu, baru muter 360deg di udara */
           z-index: 1;
+          animation: plungeAndSpin 1.4s cubic-bezier(0.5, 0.05, 0.8, 1) forwards;
         }
 
         /* 6. STATE LOGGED-OUT (2400ms: Pintu & kusen menciut lenyap) */
@@ -637,12 +659,25 @@ export default function ConfirmLogoutModal({
           }
         }
 
-        @keyframes spin {
-          from {
-            transform: rotate(0deg) scale(1.3);
+        @keyframes plungeAndSpin {
+          0% {
+            transform: translateX(35px) translateY(0px) rotate(0deg) scale(1);
           }
-          to {
-            transform: rotate(359deg) scale(1.3);
+          18% {
+            /* Sudah turun keluar dari dasar pintu, baru mulai miring terlempar */
+            transform: translateX(35px) translateY(55px) rotate(15deg) scale(1.1);
+          }
+          45% {
+            /* Melayang melintasi belakang teks judul: berputar 180deg */
+            transform: translateX(35px) translateY(130px) rotate(180deg) scale(1.2);
+          }
+          75% {
+            /* Melayang melintasi belakang tombol CTA: berputar 360deg */
+            transform: translateX(35px) translateY(220px) rotate(360deg) scale(1.2);
+          }
+          100% {
+            /* Meluncur ke dasar kartu modal: berputar 540deg */
+            transform: translateX(35px) translateY(320px) rotate(540deg) scale(1.1);
           }
         }
       `}</style>

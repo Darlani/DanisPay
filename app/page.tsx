@@ -7,7 +7,6 @@ import { supabase } from "@/utils/supabaseClient";
 import BannerCarousel from '@/components/BannerCarousel';
 import BannerPopularDivider from '@/components/dapay/BannerPopularDivider';
 import ProductSection, { BrandItem } from '@/components/ProductSection';
-import CategoryShortcut from '../components/CategoryShortcut';
 import { useI18n } from "@/lib/i18n/context";
 import { localizeHref } from "@/lib/i18n/config";
 import { CURATED_SANDBOX_BRANDS } from "@/lib/sandbox/curated-catalog";
@@ -715,8 +714,35 @@ export default function Home() {
 
     checkMaintenanceAndData();
 
+    const {
+      data: { subscription: authListener },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        setPendingOrder(null);
+        const guestCache = typeof window !== "undefined" ? localStorage.getItem("dapay_guest_history") : null;
+        if (guestCache && catalogMapsRef.current) {
+          try {
+            const parsed = JSON.parse(guestCache);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              resolveRepeatAndPendingOrders(
+                parsed,
+                false,
+                catalogMapsRef.current.productBySku,
+                catalogMapsRef.current.brandById
+              );
+              return;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        setRecentOrders([]);
+      }
+    });
+
     return () => {
       isCancelled = true;
+      authListener.unsubscribe();
     };
   }, [resolveRepeatAndPendingOrders]);
 
@@ -750,10 +776,6 @@ export default function Home() {
         <BannerCarousel onAutoplayChange={setIsBannerRolling} />
         <BannerPopularDivider isPaused={!isBannerRolling} />
       </div>
-      <CategoryShortcut
-        categories={shortcutCategories}
-        availableSectionIds={catalogSections.map((s) => s.id)}
-      />
 
       {/* --- BANNER PENGINGAT PEMBAYARAN PENDING --- */}
       {pendingOrder && (
