@@ -149,7 +149,7 @@ export default function ConfirmLogoutModal({
       }}
     >
       <div
-        className={`relative w-full max-w-sm rounded-2xl sm:rounded-3xl bg-slate-900 border border-slate-800 text-white p-5 sm:p-6 shadow-2xl shadow-red-950/30 animate-in zoom-in-95 duration-200 overflow-hidden transition-all duration-300 ${
+        className={`relative w-full max-w-sm rounded-2xl sm:rounded-3xl bg-slate-900 border border-slate-800 text-white p-5 sm:p-6 shadow-2xl shadow-red-950/30 animate-in zoom-in-95 overflow-hidden transition-all duration-300 ${
           isCardShaking ? "modal-card-shake" : ""
         } ${stageClasses.includes("cancel-fadeout") ? "opacity-0 scale-95" : ""}`}
       >
@@ -301,7 +301,7 @@ export default function ConfirmLogoutModal({
                 setIsHoveringConfirm(false);
               }}
               disabled={isBusy}
-              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-xs font-bold shadow-md shadow-red-600/25 flex items-center justify-center gap-1.5 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+              className="w-full py-2.5 px-4 rounded-xl bg-linear-to-r from-red-600 via-rose-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-xs font-bold shadow-md shadow-red-600/25 flex items-center justify-center gap-1.5 transition active:scale-95 disabled:opacity-50 cursor-pointer"
             >
               {isSigningOut ? (
                 <>

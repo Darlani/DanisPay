@@ -77,7 +77,7 @@ export default function ProductSection({
               {isLoading ? (
                 [...Array(8)].map((_, i) => (
                   <div key={`skel-pop-${i}`} className="flex flex-col items-center gap-1 sm:gap-1.5 animate-pulse w-full max-w-18 sm:max-w-19 md:max-w-20 lg:max-w-22 xl:max-w-24">
-                    <div className="w-11 h-11 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 xl:w-[68px] xl:h-[68px] rounded-xl sm:rounded-2xl md:rounded-[20px] lg:rounded-[22px] bg-slate-800/80 border border-slate-700/60" />
+                    <div className="w-11 h-11 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 xl:w-17 xl:h-17 rounded-xl sm:rounded-2xl md:rounded-[20px] lg:rounded-[22px] bg-slate-800/80 border border-slate-700/60" />
                     <div className="w-10 sm:w-12 md:w-14 h-2.5 sm:h-3 bg-slate-800/80 rounded" />
                   </div>
                 ))
@@ -92,7 +92,7 @@ export default function ProductSection({
                       className="group flex flex-col items-center text-center transition-transform duration-300 w-full max-w-18 sm:max-w-19 md:max-w-20 lg:max-w-22 xl:max-w-24 outline-none focus-visible:outline-none focus:outline-none"
                     >
                       {/* App-Icon Squircle Wrapper */}
-                      <div className="relative w-11 h-11 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 xl:w-[68px] xl:h-[68px] rounded-xl sm:rounded-2xl md:rounded-[20px] lg:rounded-[22px] transition-all duration-300 group-hover:shadow-[0_4px_20px_rgba(220,38,38,0.22)] group-focus:shadow-[0_4px_20px_rgba(220,38,38,0.22)] group-focus-within:shadow-[0_4px_20px_rgba(220,38,38,0.22)] group-hover:scale-105 group-focus:scale-105 group-focus-within:scale-105">
+                      <div className="relative w-11 h-11 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 xl:w-17 xl:h-17 rounded-xl sm:rounded-2xl md:rounded-[20px] lg:rounded-[22px] transition-all duration-300 group-hover:shadow-[0_4px_20px_rgba(220,38,38,0.22)] group-focus:shadow-[0_4px_20px_rgba(220,38,38,0.22)] group-focus-within:shadow-[0_4px_20px_rgba(220,38,38,0.22)] group-hover:scale-105 group-focus:scale-105 group-focus-within:scale-105">
                         {/* 2px Shared Gradient Ring Overlay (100% Synced with DaPayHot/DaPayCheck 135deg ribbon gradient) */}
                         <div
                           className="absolute inset-0 rounded-xl sm:rounded-2xl md:rounded-[20px] lg:rounded-[22px] p-0.5 pointer-events-none opacity-0 group-hover:opacity-100 group-focus:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300 z-20"
