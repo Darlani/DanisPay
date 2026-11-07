@@ -1885,7 +1885,7 @@ function OverviewContent({
             <div className="relative z-10 flex h-full flex-col justify-between">
               <div className="flex items-start justify-between gap-1 xs:gap-1.5 md:gap-3">
                 <div className="flex items-center gap-1.5 xs:gap-2 md:gap-3 min-w-0">
-                  <div className="flex h-7 w-7 xs:h-8 xs:w-8 md:h-10 md:h-10 lg:h-11 lg:w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl md:rounded-2xl border border-white/25 bg-white/15 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_20px_rgba(0,0,0,0.15)] backdrop-blur-md">
+                  <div className="flex h-7 w-7 xs:h-8 xs:w-8 md:h-10 md:w-10 lg:h-11 lg:w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl md:rounded-2xl border border-white/25 bg-white/15 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_20px_rgba(0,0,0,0.15)] backdrop-blur-md">
                     <FlaskConical size={14} className="xs:h-4 xs:w-4 md:h-4.5 md:w-4.5 text-amber-300" strokeWidth={2.2} />
                   </div>
                   <div className="min-w-0">
