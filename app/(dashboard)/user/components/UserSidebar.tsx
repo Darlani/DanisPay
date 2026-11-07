@@ -409,12 +409,15 @@ export default function UserSidebar({
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 800)),
+      ]);
     } catch {
       // ignore
     }
     await clearSupabaseLocalAuth();
-    window.location.href = localizeHref("/", locale);
+    window.location.replace(localizeHref("/", locale));
   };
 
   useEffect(() => {

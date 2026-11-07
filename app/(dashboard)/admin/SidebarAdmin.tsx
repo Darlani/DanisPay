@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { supabase } from "@/utils/supabaseClient";
+import { supabase, clearSupabaseLocalAuth } from "@/utils/supabaseClient";
+import ConfirmLogoutModal from "@/components/UI/ConfirmLogoutModal";
 import {
   Calendar,
   ChevronLeft,
@@ -37,6 +38,7 @@ export default function SidebarAdmin({
     "Tidak ada event khusus hari ini.",
   );
   const [hasUrgentEvent, setHasUrgentEvent] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -90,8 +92,20 @@ export default function SidebarAdmin({
   // ---------------------------------------------------------------------------
 
   const handleLogout = () => {
-    localStorage.clear();
-    window.location.href = "/login";
+    setIsLogoutModalOpen(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    try {
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 800)),
+      ]);
+    } catch {
+      // ignore
+    }
+    await clearSupabaseLocalAuth();
+    window.location.replace("/login");
   };
 
   return (
@@ -314,6 +328,13 @@ export default function SidebarAdmin({
           </button>
         </div>
       </aside>
+
+      {/* MODAL KONFIRMASI LOGOUT */}
+      <ConfirmLogoutModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleConfirmLogout}
+      />
     </>
   );
 }

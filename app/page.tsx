@@ -797,7 +797,7 @@ export default function Home() {
       {recentOrders.length > 0 && (
         <section
           aria-label={t("home.buyAgainTitle")}
-          className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-20 pt-0 sm:pt-0.5 pb-2 sm:pb-3 relative z-20"
+          className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-20 pt-1 sm:pt-1.5 pb-2 sm:pb-3 relative z-20"
         >
           {/* Section Header */}
           <div className="mb-3 sm:mb-3.5 flex items-center justify-between gap-3">

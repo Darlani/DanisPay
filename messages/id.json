@@ -79,6 +79,13 @@
   },
   "auth": {
     "confirmSignOut": "Yakin ingin keluar?",
+    "confirmSignOutTitle": "Yakin Ingin Keluar?",
+    "confirmSignOutDesc": "Sesi aktif Anda akan diakhiri dan data tersimpan dengan aman. Anda dapat masuk kembali kapan saja.",
+    "cancelSignOut": "Batal",
+    "stayActiveTitle": "Tetap Lanjut di DaPay ✨",
+    "backToShopping": "Kembali Berbelanja...",
+    "proceedSignOut": "Ya, Keluar",
+    "signingOutProgress": "Mengeluarkan...",
     "loginSubtitle": "Masuk ke Akun Anda",
     "emailLabel": "Email Akses",
     "emailPlaceholder": "email@anda.com",

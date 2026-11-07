@@ -32,7 +32,7 @@ export default function BannerPopularDivider({ className = "", isPaused = false 
       role="presentation"
       aria-hidden="true"
       data-testid="banner-popular-divider"
-      className={`relative w-full max-w-full overflow-hidden select-none pointer-events-none -mt-1 sm:-mt-1.5 md:-mt-2 lg:-mt-2.5 mb-0.5 sm:mb-1 z-20 ${isPaused ? "divider-paused" : ""} ${className}`}
+      className={`relative w-full max-w-full overflow-hidden select-none pointer-events-none -mt-1 sm:-mt-1.5 md:-mt-2 lg:-mt-2.5 mb-0 z-20 ${isPaused ? "divider-paused" : ""} ${className}`}
     >
       <style jsx>{`
         /* DaPay Full-Bleed HUD Stage */

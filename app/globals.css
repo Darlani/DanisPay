@@ -108,3 +108,179 @@ html, body {
     font-size: clamp(9px, calc(6.6px + 1.8cqi), 12px) !important;
   }
 }
+
+/* ========================================================================== */
+/* HERO STAGE SEAMLESS CONTOURED BOUNDARY (VARIAN A2 - EXACT HUGGED MECHA)    */
+/* Memotong tepi bawah hero stage persis memeluk rel emas divider tanpa gap   */
+/* ========================================================================== */
+.hero-stage-container {
+  clip-path: polygon(
+    0% 0px, 100% 0px,
+    100% calc(100% - 38px),
+    73.54% calc(100% - 38px),
+    72.29% calc(100% - 18px),
+    57.04% calc(100% - 18px),
+    56.10% calc(100% - 11px),
+    52.05% calc(100% - 11px),
+    50.00% calc(100% - 25px),
+    47.95% calc(100% - 11px),
+    43.90% calc(100% - 11px),
+    42.96% calc(100% - 18px),
+    27.71% calc(100% - 18px),
+    26.46% calc(100% - 38px),
+    0% calc(100% - 38px)
+  ) !important;
+  margin-bottom: -24px !important;
+}
+
+@media (max-width: 1535px) and (min-width: 1024px) {
+  .hero-stage-container {
+    clip-path: polygon(
+      0% 0px, 100% 0px,
+      100% calc(100% - 36px),
+      78.25% calc(100% - 36px),
+      76.75% calc(100% - 17px),
+      58.45% calc(100% - 17px),
+      57.32% calc(100% - 10px),
+      52.46% calc(100% - 10px),
+      50.00% calc(100% - 24px),
+      47.54% calc(100% - 10px),
+      42.68% calc(100% - 10px),
+      41.55% calc(100% - 17px),
+      23.25% calc(100% - 17px),
+      21.75% calc(100% - 36px),
+      0% calc(100% - 36px)
+    ) !important;
+    margin-bottom: -22px !important;
+  }
+}
+
+@media (max-width: 1023px) and (min-width: 640px) {
+  .hero-stage-container {
+    clip-path: polygon(
+      0% 0px, 100% 0px,
+      100% calc(100% - 30px),
+      78.25% calc(100% - 30px),
+      76.75% calc(100% - 14px),
+      58.45% calc(100% - 14px),
+      57.32% calc(100% - 8px),
+      52.46% calc(100% - 8px),
+      50.00% calc(100% - 20px),
+      47.54% calc(100% - 8px),
+      42.68% calc(100% - 8px),
+      41.55% calc(100% - 14px),
+      23.25% calc(100% - 14px),
+      21.75% calc(100% - 30px),
+      0% calc(100% - 30px)
+    ) !important;
+    margin-bottom: -18px !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .hero-stage-container {
+    clip-path: polygon(
+      0% 0px, 100% 0px,
+      100% calc(100% - 12px),
+      98.14% calc(100% - 12px),
+      65.20% calc(100% - 12px),
+      63.18% calc(100% - 4px),
+      54.43% calc(100% - 4px),
+      50.00% calc(100% - 14px),
+      45.57% calc(100% - 4px),
+      36.82% calc(100% - 4px),
+      34.80% calc(100% - 12px),
+      1.86% calc(100% - 12px),
+      0% calc(100% - 12px)
+    ) !important;
+    margin-bottom: -12px !important;
+  }
+}
+
+/* ========================================================================== */
+/* HERO STAGE SEAMLESS CONTOURED BOUNDARY (VARIAN A2 - EXACT HUGGED MECHA)    */
+/* Memotong tepi bawah hero stage persis memeluk rel emas divider tanpa gap   */
+/* ========================================================================== */
+.hero-stage-container {
+  clip-path: polygon(
+    0% 0px, 100% 0px,
+    100% calc(100% - 38px),
+    73.54% calc(100% - 38px),
+    72.29% calc(100% - 18px),
+    57.04% calc(100% - 18px),
+    56.10% calc(100% - 11px),
+    52.05% calc(100% - 11px),
+    50.00% calc(100% - 25px),
+    47.95% calc(100% - 11px),
+    43.90% calc(100% - 11px),
+    42.96% calc(100% - 18px),
+    27.71% calc(100% - 18px),
+    26.46% calc(100% - 38px),
+    0% calc(100% - 38px)
+  ) !important;
+  margin-bottom: -24px !important;
+}
+
+@media (max-width: 1535px) and (min-width: 1024px) {
+  .hero-stage-container {
+    clip-path: polygon(
+      0% 0px, 100% 0px,
+      100% calc(100% - 36px),
+      78.25% calc(100% - 36px),
+      76.75% calc(100% - 17px),
+      58.45% calc(100% - 17px),
+      57.32% calc(100% - 10px),
+      52.46% calc(100% - 10px),
+      50.00% calc(100% - 24px),
+      47.54% calc(100% - 10px),
+      42.68% calc(100% - 10px),
+      41.55% calc(100% - 17px),
+      23.25% calc(100% - 17px),
+      21.75% calc(100% - 36px),
+      0% calc(100% - 36px)
+    ) !important;
+    margin-bottom: -22px !important;
+  }
+}
+
+@media (max-width: 1023px) and (min-width: 640px) {
+  .hero-stage-container {
+    clip-path: polygon(
+      0% 0px, 100% 0px,
+      100% calc(100% - 30px),
+      78.25% calc(100% - 30px),
+      76.75% calc(100% - 14px),
+      58.45% calc(100% - 14px),
+      57.32% calc(100% - 8px),
+      52.46% calc(100% - 8px),
+      50.00% calc(100% - 20px),
+      47.54% calc(100% - 8px),
+      42.68% calc(100% - 8px),
+      41.55% calc(100% - 14px),
+      23.25% calc(100% - 14px),
+      21.75% calc(100% - 30px),
+      0% calc(100% - 30px)
+    ) !important;
+    margin-bottom: -18px !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .hero-stage-container {
+    clip-path: polygon(
+      0% 0px, 100% 0px,
+      100% calc(100% - 12px),
+      98.14% calc(100% - 12px),
+      65.20% calc(100% - 12px),
+      63.18% calc(100% - 4px),
+      54.43% calc(100% - 4px),
+      50.00% calc(100% - 14px),
+      45.57% calc(100% - 4px),
+      36.82% calc(100% - 4px),
+      34.80% calc(100% - 12px),
+      1.86% calc(100% - 12px),
+      0% calc(100% - 12px)
+    ) !important;
+    margin-bottom: -12px !important;
+  }
+}

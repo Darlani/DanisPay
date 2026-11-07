@@ -9,6 +9,7 @@ import {
   Newspaper, Tag, ReceiptText, UserCircle, Menu
 } from "lucide-react";
 import TransactionHistoryModal from "@/components/TransactionHistoryModal";
+import ConfirmLogoutModal from "@/components/UI/ConfirmLogoutModal";
 import { supabase, clearSupabaseLocalAuth } from "@/utils/supabaseClient";
 import { Turnstile } from "@marsidev/react-turnstile";
 import SandboxSessionControl from "@/components/sandbox/SandboxSessionControl";
@@ -31,6 +32,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
   const [role, setRole] = useState<"admin" | "user" | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -151,16 +153,21 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const handleLogout = async () => {
-    if (confirm(t("auth.confirmSignOut"))) {
-      try {
-        await supabase.auth.signOut();
-      } catch {
-        // ignore
-      }
-      await clearSupabaseLocalAuth();
-      window.location.href = locale === "en" ? "/en" : "/";
+  const handleLogout = () => {
+    setIsLogoutModalOpen(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    try {
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 800)),
+      ]);
+    } catch {
+      // ignore
     }
+    await clearSupabaseLocalAuth();
+    window.location.replace(locale === "en" ? "/en" : "/");
   };
 
   const isLocal = typeof window !== "undefined" && window.location.hostname === "localhost";
@@ -513,6 +520,13 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
 
       {/* MODAL RIWAYAT / LACAK PESANAN */}
       <TransactionHistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
+
+      {/* MODAL KONFIRMASI LOGOUT */}
+      <ConfirmLogoutModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleConfirmLogout}
+      />
     </>
   );
 }

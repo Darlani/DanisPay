@@ -79,6 +79,13 @@
   },
   "auth": {
     "confirmSignOut": "Are you sure you want to sign out?",
+    "confirmSignOutTitle": "Are you sure you want to sign out?",
+    "confirmSignOutDesc": "Your active session will be securely ended. You can sign in again at any time.",
+    "cancelSignOut": "Cancel",
+    "stayActiveTitle": "Staying Active on DaPay ✨",
+    "backToShopping": "Back to Shopping...",
+    "proceedSignOut": "Yes, Sign Out",
+    "signingOutProgress": "Signing out...",
     "loginSubtitle": "Sign in to your account",
     "emailLabel": "Access Email",
     "emailPlaceholder": "email@you.com",

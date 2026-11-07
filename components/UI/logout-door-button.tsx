@@ -30,7 +30,13 @@ export default function LogoutDoorButton({
 
       // Jalankan logout asli (Supabase / NextAuth / dll)
       if (onLogout) {
-        await onLogout();
+        try {
+          await onLogout();
+        } catch {
+          if (typeof window !== "undefined") {
+            window.location.replace("/");
+          }
+        }
       }
     }, 650);
   };

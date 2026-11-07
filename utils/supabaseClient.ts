@@ -20,12 +20,6 @@ export async function clearSupabaseLocalAuth(): Promise<void> {
   if (typeof window === "undefined") return;
 
   try {
-    await supabase.auth.signOut({ scope: "local" });
-  } catch {
-    // ignore
-  }
-
-  try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
       if (key && (key.startsWith("sb-") && key.endsWith("-auth-token"))) {
