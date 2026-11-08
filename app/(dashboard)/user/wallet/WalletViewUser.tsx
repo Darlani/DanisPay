@@ -325,6 +325,25 @@ export default function WalletViewUser({
     }
   }, [fetchWalletData, fetchSandboxWallet, initialLogs, isSandboxMode]);
 
+  // Synchronize when parent passes updated props from Realtime
+  useEffect(() => {
+    if (initialLogs) {
+      setLocalLogs(null);
+    }
+  }, [initialLogs]);
+
+  useEffect(() => {
+    if (initialBalance !== undefined) {
+      setLocalBalance(null);
+    }
+  }, [initialBalance]);
+
+  useEffect(() => {
+    if (initialCoinBalance !== undefined) {
+      setLocalCoinBalance(null);
+    }
+  }, [initialCoinBalance]);
+
   // Mode-change synchronization (e.g. session activated / deactivated)
   useEffect(() => {
     if (prevSandboxModeRef.current !== isSandboxMode) {

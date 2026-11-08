@@ -1,4 +1,4 @@
-export const revalidate = 0; // Memaksa ambil data terbaru setiap klik
+export const revalidate = 60;
 
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -91,45 +91,73 @@ export default async function PromoDetailPage({ params, locale = "id" }: PromoPa
   const isAffiliate = banner.category === "affiliate";
 
   return (
-    <main className="min-h-screen bg-[#0B0E14] text-white pb-20 animate-in fade-in duration-500">
+    <main className="min-h-screen bg-slate-950 text-white pb-20 animate-in fade-in duration-500">
 
-      {/* HEADER GAMBAR */}
-      <div className="relative w-full h-[35vh] md:h-[50vh]">
-        <Image src={banner.src} alt={banner.alt} fill className="object-cover" priority />
-        <div className="absolute inset-0 bg-linear-to-t from-[#0B0E14] via-[#0B0E14]/60 to-transparent" />
-        <Link
-          href={localizeHref("/", locale)}
-          className="absolute top-6 left-6 p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-white/20 z-20 border border-white/10 group transition-colors"
-          aria-label={t("promo.detail.backToHome")}
-        >
-          <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
-        </Link>
-      </div>
+      {/* HEADER GAMBAR: Hanya dirender untuk non-affiliate */}
+      {!isAffiliate && (
+        <div className="relative w-full h-[30vh] sm:h-[38vh] md:h-[48vh]">
+          <Image src={banner.src} alt={banner.alt} fill className="object-cover" priority />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
+          <Link
+            href={localizeHref("/", locale)}
+            className="absolute top-6 left-6 p-2.5 sm:p-3 bg-black/50 backdrop-blur-md rounded-full hover:bg-white/20 z-20 border border-white/10 group transition-colors"
+            aria-label={t("promo.detail.backToHome")}
+          >
+            <ChevronLeft size={22} className="group-hover:-translate-x-1 transition-transform text-white" />
+          </Link>
+        </div>
+      )}
 
-      {/* KONTEN UTAMA - Lebar dinamis berdasarkan kategori */}
-      <div className={`${isAffiliate ? "max-w-7xl" : "max-w-5xl"} mx-auto px-6 -mt-24 relative z-10`}>
+      {/* HEADER BREADCRUMB ELEGAN: Khusus rute affiliate (menggantikan gambar header statis) */}
+      {isAffiliate && (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-3">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-slate-400 font-medium">
+            <Link
+              href={localizeHref("/", locale)}
+              className="hover:text-white transition-colors flex items-center gap-1 text-slate-400"
+            >
+              <ChevronLeft size={16} />
+              <span>{locale === "en" ? "Home" : "Beranda"}</span>
+            </Link>
+            <span className="text-slate-600">/</span>
+            <Link
+              href={localizeHref("/promo", locale)}
+              className="hover:text-white transition-colors"
+            >
+              {locale === "en" ? "Promotions" : "Promo"}
+            </Link>
+            <span className="text-slate-600">/</span>
+            <span className="text-blue-400 font-semibold">
+              {locale === "en" ? "Affiliate Partner Program" : "Program Kemitraan Afiliasi"}
+            </span>
+          </nav>
+        </div>
+      )}
 
-        {/* BADGE & JUDUL */}
-        <div className="flex flex-col gap-4 mb-8">
-          {!isAffiliate && (
-            <div className="flex gap-3">
+      {/* KONTEN UTAMA - Lebar dinamis & penyesuaian jarak vertikal */}
+      <div className={`${isAffiliate ? "max-w-6xl pt-1 sm:pt-2" : "max-w-5xl -mt-16 sm:-mt-24"} mx-auto px-4 sm:px-6 relative z-10`}>
+
+        {/* BADGE & JUDUL: Hanya dirender untuk non-affiliate agar tidak terjadi Double-Hero bertumpuk */}
+        {!isAffiliate && (
+          <div className="flex flex-col gap-4 mb-8">
+            <div className="flex gap-2.5">
               {banner.promo && (
-                <span className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/40">
+                <span className="bg-blue-600 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md shadow-blue-500/30">
                   {banner.promo}
                 </span>
               )}
-              <span className="bg-[#1F2937] text-slate-400 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-white/10">
+              <span className="bg-slate-800 text-slate-300 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-700">
                 {banner.category}
               </span>
             </div>
-          )}
 
-          <h1 className={`${isAffiliate ? "text-4xl md:text-7xl text-center md:text-left" : "text-3xl md:text-6xl"} font-black italic uppercase tracking-tighter leading-none drop-shadow-2xl`}>
-            {banner.alt}
-          </h1>
-        </div>
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight drop-shadow-xl text-white">
+              {banner.alt}
+            </h1>
+          </div>
+        )}
 
-        {/* LOGIKA GRID: Full Page untuk Affiliate, Grid untuk Lainnya */}
+        {/* LOGIKA GRID: Full Width untuk Affiliate, 2 Kolom untuk Lainnya */}
         {isAffiliate ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <AffiliateCard locale={locale} />
@@ -137,21 +165,21 @@ export default async function PromoDetailPage({ params, locale = "id" }: PromoPa
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-[#131823] p-8 rounded-[35px] border border-white/5 shadow-2xl">
-                <h3 className="text-sm font-black italic uppercase text-slate-500 mb-6 tracking-[0.2em] flex items-center gap-2">
-                  <span className="w-8 h-0.5 bg-blue-600 inline-block"></span> {t("promo.detail.promoDesc")}
+              <div className="bg-slate-900/90 p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl">
+                <h3 className="text-xs font-bold uppercase text-slate-400 mb-6 tracking-wider flex items-center gap-2">
+                  <span className="w-6 h-0.5 bg-blue-500 inline-block rounded-full"></span> {t("promo.detail.promoDesc")}
                 </h3>
 
                 <div className="prose prose-invert mb-10 text-slate-300">
                   {banner.description ? (
-                    <p className="whitespace-pre-wrap leading-relaxed text-lg">{banner.description}</p>
+                    <p className="whitespace-pre-wrap leading-relaxed text-base">{banner.description}</p>
                   ) : (
-                    <p className="italic text-slate-500">{t("promo.detail.emptyDesc")}</p>
+                    <p className="italic text-slate-500 text-sm">{t("promo.detail.emptyDesc")}</p>
                   )}
                 </div>
 
                 {/* KOMPONEN DINAMIS BERDASARKAN KATEGORI */}
-                <div className="pt-4 border-t border-white/5 mt-10">
+                <div className="pt-4 border-t border-slate-800 mt-8">
                   {banner.category === "game" && <Game title={banner.alt} locale={locale} />}
                   {banner.category === "ppob" && <PPOB title={banner.alt} locale={locale} />}
                   {banner.category === "entertainment" && <Entertainment title={banner.alt} locale={locale} />}
@@ -161,19 +189,19 @@ export default async function PromoDetailPage({ params, locale = "id" }: PromoPa
 
             {/* SIDEBAR - Hanya muncul jika bukan afiliasi */}
             <div className="space-y-4">
-              <div className="bg-blue-600/10 border border-blue-500/30 p-6 rounded-[30px]">
-                <div className="flex items-center gap-3 text-blue-400 mb-3 font-black text-xs uppercase tracking-widest">
-                  <Clock size={20} /> {t("promo.detail.limitedTime")}
+              <div className="bg-blue-600/10 border border-blue-500/20 p-5 sm:p-6 rounded-2xl">
+                <div className="flex items-center gap-2.5 text-blue-400 mb-2 font-bold text-xs uppercase tracking-wider">
+                  <Clock size={18} /> {t("promo.detail.limitedTime")}
                 </div>
-                <p className="text-sm text-blue-200/80 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
                   {t("promo.detail.limitedTimeDesc")}
                 </p>
               </div>
-              <div className="bg-[#131823] border border-white/5 p-6 rounded-[30px]">
-                <div className="flex items-center gap-3 text-emerald-500 mb-3 font-black text-xs uppercase tracking-widest">
-                  <ShieldCheck size={20} /> {t("promo.detail.officialStore")}
+              <div className="bg-slate-900/90 border border-slate-800 p-5 sm:p-6 rounded-2xl">
+                <div className="flex items-center gap-2.5 text-emerald-400 mb-2 font-bold text-xs uppercase tracking-wider">
+                  <ShieldCheck size={18} /> {t("promo.detail.officialStore")}
                 </div>
-                <p className="text-sm text-slate-400 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
                   {t("promo.detail.officialStoreDesc")}
                 </p>
               </div>

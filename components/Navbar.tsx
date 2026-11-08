@@ -344,7 +344,7 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
             <Link href={locale === "en" ? "/en" : "/"} className="flex items-center shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-lg">
               <Image
                 src="/images/DaPay.svg"
-                alt="DanisPay Logo"
+                alt="DaPay Logo"
                 width={1269}
                 height={313}
                 priority
@@ -447,9 +447,19 @@ export default function Navbar({ isSidebarOpen = false, setIsSidebarOpen }: Navb
                     /* KONDISI B: Ada Teks Input -> Hasil Pencarian */
                     <div>
                       {isSearching ? (
-                        <div className="p-4 text-center text-slate-400 text-xs font-medium flex items-center justify-center gap-2">
-                          <Loader2 size={14} className="animate-spin text-blue-400" />
-                          <span>{t("search.searching")}</span>
+                        <div className="p-2 space-y-1.5 animate-pulse">
+                          {Array.from({ length: 3 }).map((_, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-800/40 border border-slate-800/60"
+                            >
+                              <div className="w-9 h-9 rounded-xl bg-slate-800 shrink-0" />
+                              <div className="space-y-1.5 flex-1 min-w-0">
+                                <div className="h-3.5 w-3/5 rounded bg-slate-800" />
+                                <div className="h-2.5 w-2/5 rounded bg-slate-800/60" />
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       ) : searchResults.length > 0 ? (
                         <div className="py-2">

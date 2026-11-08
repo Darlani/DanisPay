@@ -67,14 +67,18 @@ export class SandboxExecutionSimulator {
     user_id?: string | null;
     user_email?: string | null;
     used_balance?: number | null;
+    force_fail?: boolean;
   }): Promise<{ resolved: boolean; finalStatus: string; sn?: string }> {
     const custNo = (order.customer_no || '').trim();
 
     // 1. Skenario deterministik pengujian:
-    // Akhiran '99' disimulasikan GAGAL (untuk menguji alur penanganan error & refund sandbox)
-    const shouldFail = custNo.endsWith('99');
+    // Akhiran '99' atau force_fail disimulasikan GAGAL (untuk menguji alur penanganan error & refund sandbox)
+    const shouldFail = order.force_fail === true || custNo.endsWith('99');
     const targetStatus = shouldFail ? 'Gagal' : 'Berhasil';
     const simulatedSn = shouldFail ? null : `SIM-${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const simulatedNotes = shouldFail
+      ? 'Pengiriman Gagal: Kendala teknis sistem DaPay (Simulasi Gagal Sandbox)'
+      : null;
 
     // 2. Atomic Conditional Update
     const { data: updated, error: updateErr } = await supabaseAdmin
@@ -82,6 +86,7 @@ export class SandboxExecutionSimulator {
       .update({
         status: targetStatus,
         sn: simulatedSn,
+        notes: simulatedNotes,
         updated_at: new Date().toISOString()
       })
       .eq('id', order.id)

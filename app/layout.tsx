@@ -25,7 +25,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "DanisPay - Top Up Game & Digital",
+  title: "DaPay - Top Up Game & Digital",
   description: "Layanan Top Up Tercepat dan Terpercaya",
 };
 

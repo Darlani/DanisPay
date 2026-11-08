@@ -50,6 +50,7 @@ export interface SandboxSessionData {
   liveBalance?: number;
   liveCoinBalance?: number;
   liveMemberType?: string;
+  isStoreLive?: boolean;
 }
 
 function getLockType(reason?: string | null): "conversion" | "inactivity" | "other" {
@@ -244,6 +245,19 @@ export default function SandboxSessionControl({
         },
         async (payload) => {
           console.log("[Supabase Realtime] sandbox_reactivation_requests event diterima:", payload);
+          await fetchSession(true);
+          window.dispatchEvent(new Event("sandboxSessionChanged"));
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "store_settings",
+        },
+        async (payload) => {
+          console.log("[Supabase Realtime] store_settings event diterima:", payload);
           await fetchSession(true);
           window.dispatchEvent(new Event("sandboxSessionChanged"));
         }

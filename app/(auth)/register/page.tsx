@@ -10,6 +10,7 @@ import MaintenancePage from "@/utils/MaintenancePage";
 import { Turnstile } from '@marsidev/react-turnstile'; 
 import { useI18n } from "@/lib/i18n/context";
 import { localizeHref } from "@/lib/i18n/config";
+import RegisterFormSkeleton from "@/components/skeletons/RegisterFormSkeleton";
 
 // ==========================================================
 // BAGIAN 1: FORM PENDAFTARAN (Logika & Tampilan)
@@ -108,11 +109,7 @@ function RegisterForm() {
   const isPasswordMatch = pass === formData.confirmPassword && formData.confirmPassword.length > 0;
 
   if (checkingMaintenance) {
-    return (
-      <div className="min-h-screen bg-[#0B0E14] flex items-center justify-center">
-        <Loader2 className="animate-spin text-emerald-500" size={40} />
-      </div>
-    );
+    return <RegisterFormSkeleton />;
   }
 
   if (isMaintenance) {
@@ -447,11 +444,7 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#0B0E14] flex items-center justify-center">
-        <Loader2 className="animate-spin text-emerald-500" size={40} />
-      </div>
-    }>
+    <Suspense fallback={<RegisterFormSkeleton />}>
       <RegisterForm />
     </Suspense>
   );

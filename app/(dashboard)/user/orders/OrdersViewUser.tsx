@@ -5,7 +5,6 @@ import {
   Check,
   FlaskConical,
   History,
-  Loader2,
   Package,
   RefreshCw,
 } from "lucide-react";
@@ -380,6 +379,50 @@ export default function OrdersViewUser({
     };
   }, [isWorkspaceResolved, isSandboxMode, hasInitialData, fetchOrders, filters]);
 
+  // Supabase Realtime: dengarkan perubahan dan pesanan baru secara instan
+  useEffect(() => {
+    if (!isWorkspaceResolved) return;
+
+    let activeChannel: ReturnType<typeof supabase.channel> | null = null;
+    let isMounted = true;
+
+    const setupRealtime = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.user?.id || !isMounted) return;
+
+      const tableName = isSandboxMode ? "sandbox_orders" : "orders";
+      const channelName = `user-orders-realtime-${isSandboxMode ? "sandbox" : "live"}-${session.user.id}`;
+
+      activeChannel = supabase
+        .channel(channelName)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: tableName,
+            filter: `user_id=eq.${session.user.id}`,
+          },
+          () => {
+            // Otomatis sinkronisasi daftar pesanan & KPI saat status berubah atau transaksi baru masuk
+            void fetchOrders(filters, false);
+          }
+        )
+        .subscribe();
+    };
+
+    void setupRealtime();
+
+    return () => {
+      isMounted = false;
+      if (activeChannel) {
+        void supabase.removeChannel(activeChannel);
+      }
+    };
+  }, [isWorkspaceResolved, isSandboxMode, fetchOrders, filters]);
+
   // Handle filter changes (with debounce for search)
   const handleFilterChange = (updates: Partial<OrderFilters>) => {
     const updatedFilters = { ...filters, ...updates };
@@ -480,11 +523,25 @@ export default function OrdersViewUser({
 
         {/* LOADING SKELETON (Only on pure zero-data initial load) */}
         {loading ? (
-          <div className="p-8 sm:p-12 text-center flex flex-col items-center justify-center gap-3">
-            <Loader2 size={28} className="animate-spin text-blue-600" />
-            <p className="text-xs sm:text-sm font-semibold text-slate-500">
-              {t("dashboard.orders.loading")}
-            </p>
+          <div className="p-4 sm:p-6 space-y-3 animate-pulse">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-4 space-y-3"
+              >
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <div className="h-4 w-32 rounded bg-slate-200 dark:bg-slate-800" />
+                  <div className="h-4 w-20 rounded-full bg-slate-100 dark:bg-slate-800" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1.5">
+                    <div className="h-4 w-44 rounded bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-3 w-28 rounded bg-slate-100 dark:bg-slate-800/60" />
+                  </div>
+                  <div className="h-5 w-24 rounded bg-slate-200 dark:bg-slate-800" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : orders.length === 0 ? (
           /* EMPTY STATE */

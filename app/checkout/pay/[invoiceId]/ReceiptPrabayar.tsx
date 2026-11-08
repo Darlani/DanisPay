@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRef, useState } from "react";
 import { Download, Printer, CheckCircle2, Gamepad2, Smartphone, Zap, Copy } from "lucide-react";
@@ -24,7 +24,7 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
       try {
         const dataUrl = await toPng(receiptRef.current, { cacheBust: true, backgroundColor: "#ffffff", pixelRatio: 3 });
         const link = document.createElement("a");
-        link.download = `DanisPay-${order.order_id}.png`;
+        link.download = `DaPay-${order.order_id}.png`;
         link.href = dataUrl;
         link.click();
       } catch (err) { alert(t("receipt.saveImageFailed")); }
@@ -80,7 +80,7 @@ export default function ReceiptPrabayar({ order }: { order: any }) {
         {/* HEADER */}
         <div className="text-center border-b border-dashed border-slate-200 pb-3 mb-3 sm:pb-4 sm:mb-4">
           <h2 className="text-base sm:text-xl font-black tracking-tighter italic uppercase leading-none">
-            DANISPAY <span className={theme.color}>STORE</span>
+            DAPAY <span className={theme.color}>DIGITAL</span>
           </h2>
           <div className={`flex items-center justify-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase mt-1 ${theme.color}`}>
             {theme.icon} {isPln ? t("receipt.tokenElectricity") : isGame ? t("receipt.topupGame") : t("receipt.pulsaData")}

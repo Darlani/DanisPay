@@ -182,7 +182,9 @@ export default async function NewsDetailPage({ params, locale = "id" }: PageProp
   );
 
   const hasValidCta = Boolean(content.cta_label?.trim() && content.cta_url?.trim());
-  const localizedCtaUrl = content.cta_url ? localizeHref(content.cta_url, locale) : "#";
+  const rawCtaUrl = (content.cta_url || "").trim();
+  const isInternalCta = rawCtaUrl.startsWith("/");
+  const localizedCtaUrl = rawCtaUrl ? (isInternalCta ? localizeHref(rawCtaUrl, locale) : rawCtaUrl) : "#";
 
   return (
     <main className="min-h-screen bg-[#0f172a] text-slate-200 py-8 md:py-12">
@@ -270,19 +272,25 @@ export default async function NewsDetailPage({ params, locale = "id" }: PageProp
                     {t("news.relatedActionDesc")}
                   </p>
                 </div>
-                <a
-                  href={localizedCtaUrl}
-                  target={content.cta_target || "_self"}
-                  rel={content.cta_target === "_blank" ? "noopener noreferrer" : undefined}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all shrink-0"
-                >
-                  <span>{content.cta_label}</span>
-                  {content.cta_target === "_blank" ? (
-                    <ExternalLink size={14} />
-                  ) : (
+                {isInternalCta ? (
+                  <Link
+                    href={localizedCtaUrl}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all shrink-0 active:scale-98"
+                  >
+                    <span>{content.cta_label}</span>
                     <ArrowLeft size={14} className="rotate-180" />
-                  )}
-                </a>
+                  </Link>
+                ) : (
+                  <a
+                    href={localizedCtaUrl}
+                    target={content.cta_target || "_blank"}
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all shrink-0 active:scale-98"
+                  >
+                    <span>{content.cta_label}</span>
+                    <ExternalLink size={14} />
+                  </a>
+                )}
               </div>
             )}
           </article>

@@ -111,8 +111,9 @@ interface ShortcutCategoryItem {
 }
 
 import MaintenancePage from "@/utils/MaintenancePage";
-import { Loader2, Clock, Headset, CheckCircle2, XCircle } from "lucide-react";
+import { Clock, Headset, CheckCircle2, XCircle } from "lucide-react";
 import ContactModal from "@/components/ContactModal";
+import HomeSkeleton from "@/components/skeletons/HomeSkeleton";
 import { getWhatsAppUrl } from "@/utils/storeConfig";
 
 function parseCustomerDestination(rawCustomerNo: unknown): {
@@ -746,11 +747,7 @@ export default function Home() {
     };
   }, [resolveRepeatAndPendingOrders]);
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
-      <Loader2 className="animate-spin text-blue-500" size={40} />
-    </div>
-  );
+  if (loading) return <HomeSkeleton />;
 
   if (isMaintenance) {
     const userEmail = typeof window !== "undefined" ? localStorage.getItem("userEmail") : null;

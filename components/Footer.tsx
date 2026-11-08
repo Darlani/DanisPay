@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Search,
+  ReceiptText,
   MessageCircle,
   Send,
   Instagram,
@@ -227,7 +227,7 @@ export default function Footer() {
                           onClick={handleOpenHistoryModal}
                           className="hover:text-blue-400 transition-colors inline-flex items-center gap-1.5 py-0.5 text-left cursor-pointer"
                         >
-                          <Search size={13} className="text-blue-400" />
+                          <ReceiptText size={13} className="text-blue-400" />
                           <span>{t("footer.trackOrder")}</span>
                         </button>
                       </li>

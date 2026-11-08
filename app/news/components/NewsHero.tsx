@@ -84,7 +84,11 @@ export default function NewsHero({ content, locale: propLocale }: NewsHeroProps)
         </div>
 
         {/* Right Column: Cover Image */}
-        <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 lg:col-span-5">
+        <Link
+          href={detailHref}
+          className="relative aspect-video w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 lg:col-span-5 block cursor-pointer transition-transform duration-300 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          aria-label={content.title}
+        >
           {content.cover_image_url ? (
             <Image
               src={content.cover_image_url}
@@ -101,7 +105,7 @@ export default function NewsHero({ content, locale: propLocale }: NewsHeroProps)
               </span>
             </div>
           )}
-        </div>
+        </Link>
       </div>
     </article>
   );

@@ -15,14 +15,14 @@ export async function POST(req: Request) {
     const { data, error } = await supabaseAdmin
       .from("orders")
       .select(
-        "order_id, status, product_name, item_label, customer_no, price, total_amount, created_at, sn, notes"
+        "order_id, status, product_name, item_label, customer_no, price, total_amount, created_at, updated_at, sn, notes, payment_method, category"
       )
       .eq("order_id", order_id)
-      .single();
+      .maybeSingle();
 
     if (error || !data) {
       return NextResponse.json(
-        { error: "Invoice tidak ditemukan, Bos!" },
+        { error: "Nomor invoice tidak ditemukan. Pastikan format nomor invoice sudah benar." },
         { status: 404 }
       );
     }
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       data,
     });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("🔥 TRACK FATAL:", err);
 
     return NextResponse.json(

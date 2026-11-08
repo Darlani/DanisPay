@@ -40,15 +40,43 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Pesanan tidak ditemukan.' }, { status: 404 });
     }
 
-    // 2. Status Guard: Hanya pesanan Pending yang boleh disimulasikan pembayarannya
-    if (order.status !== 'Pending') {
+    // 2. Status Guard: Izinkan pesanan 'Pending' (untuk dispatch ke Diproses) dan 'Diproses' (untuk resolve)
+    if (order.status !== 'Pending' && order.status !== 'Diproses') {
       return NextResponse.json(
-        { error: `Pesanan sudah dalam status '${order.status}' dan tidak dapat disimulasikan bayar.` },
+        { error: `Pesanan sudah dalam status '${order.status}' dan tidak dapat disimulasikan lagi.` },
         { status: 400 }
       );
     }
 
-    // 4. Dispatch ke Sandbox Simulator (Ubah status ke 'Diproses')
+    // Kasus A: Jika pesanan sudah berada di 'Diproses', langsung eksekusi penyelesaian pesanan
+    if (order.status === 'Diproses') {
+      const resolution = await sandboxExecutionSimulator.resolveSandboxOrder({
+        id: order.id,
+        order_id: order.order_id,
+        customer_no: order.customer_no,
+        user_id: order.user_id,
+        user_email: order.email,
+        used_balance: order.used_balance,
+        force_fail: body.force_fail === true,
+      });
+
+      if (!resolution.resolved) {
+        return NextResponse.json(
+          { error: 'Pesanan tidak dapat diselesaikan atau sudah diproses worker lain.' },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        order_id: order.order_id,
+        status: resolution.finalStatus,
+        sn: resolution.sn || null,
+        message: `Pesanan berhasil diselesaikan (Status: ${resolution.finalStatus}).`,
+      });
+    }
+
+    // Kasus B: Pesanan masih 'Pending' -> Dispatch ke Sandbox Simulator (Ubah status ke 'Diproses')
     const dispatchResult = await sandboxExecutionSimulator.dispatchSandboxOrder({
       id: order.id,
       order_id: order.order_id,
@@ -63,7 +91,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // 5. Opsi autoResolve (default: true untuk kenyamanan instan tester di halaman invoice)
+    // 5. Opsi autoResolve:
+    // Jika body.auto_resolve === false, berhenti di 'Diproses' agar tester bisa melihat tampilan Diproses!
     const autoResolve = body.auto_resolve !== false;
     let finalOutcome = { status: 'Diproses', sn: null as string | null };
 
@@ -75,6 +104,7 @@ export async function POST(req: Request) {
         user_id: order.user_id,
         user_email: order.email,
         used_balance: order.used_balance,
+        force_fail: body.force_fail === true,
       });
 
       if (resolution.resolved) {

@@ -33,8 +33,12 @@ export default function NewsCard({ content, layout = "grid", locale: propLocale 
 
   if (layout === "list") {
     return (
-      <article className="group flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 transition-all duration-200 hover:border-slate-700 sm:flex-row sm:items-center">
-        <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-slate-800 sm:w-48">
+      <article className="group flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 transition-all duration-200 hover:border-slate-700 active:scale-[0.99] sm:flex-row sm:items-center">
+        <Link
+          href={detailHref}
+          className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-slate-800 sm:w-48 block cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          aria-label={content.title}
+        >
           {content.cover_image_url ? (
             <Image
               src={content.cover_image_url}
@@ -48,7 +52,7 @@ export default function NewsCard({ content, layout = "grid", locale: propLocale 
               DaPay
             </div>
           )}
-        </div>
+        </Link>
 
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-center gap-2 text-xs">
@@ -82,9 +86,13 @@ export default function NewsCard({ content, layout = "grid", locale: propLocale 
   }
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-slate-700 hover:shadow-2xl">
+    <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-slate-700 hover:shadow-2xl active:scale-[0.99]">
       {/* Cover Image */}
-      <div className="relative aspect-video w-full overflow-hidden bg-slate-800">
+      <Link
+        href={detailHref}
+        className="relative aspect-video w-full overflow-hidden bg-slate-800 block cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        aria-label={content.title}
+      >
         {content.cover_image_url ? (
           <Image
             src={content.cover_image_url}
@@ -105,7 +113,7 @@ export default function NewsCard({ content, layout = "grid", locale: propLocale 
             {content.category || content.type}
           </span>
         </div>
-      </div>
+      </Link>
 
       {/* Content */}
       <div className="flex flex-1 flex-col justify-between p-5 space-y-4">

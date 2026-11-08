@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useI18n } from "@/lib/i18n/context";
 import {
@@ -98,6 +98,108 @@ export function useDepositData({
     },
     [t],
   );
+
+  // Synchronize when initial props change
+  useEffect(() => {
+    if (initialDeposits) {
+      setLocalDeposits(null);
+    }
+  }, [initialDeposits]);
+
+  useEffect(() => {
+    if (initialBalance !== undefined) {
+      setLocalBalance(null);
+    }
+  }, [initialBalance]);
+
+  useEffect(() => {
+    if (initialCoinBalance !== undefined) {
+      setLocalCoinBalance(null);
+    }
+  }, [initialCoinBalance]);
+
+  // Supabase Realtime: dengarkan perubahan deposit & saldo secara langsung
+  useEffect(() => {
+    let activeChannel: ReturnType<typeof supabase.channel> | null = null;
+    let isMounted = true;
+
+    const setupRealtime = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.user?.id || !isMounted) return;
+
+      const userEmail = session.user.email || "";
+      const channelName = `user-deposits-realtime-${session.user.id}`;
+
+      const channelBuilder = supabase.channel(channelName);
+
+      if (userEmail) {
+        channelBuilder
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "deposits",
+              filter: `user_email=eq.${userEmail}`,
+            },
+            () => {
+              void revalidate(false);
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "profiles",
+              filter: `email=eq.${userEmail}`,
+            },
+            () => {
+              void revalidate(false);
+            }
+          );
+      } else {
+        channelBuilder
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "deposits",
+              filter: `user_id=eq.${session.user.id}`,
+            },
+            () => {
+              void revalidate(false);
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "profiles",
+              filter: `id=eq.${session.user.id}`,
+            },
+            () => {
+              void revalidate(false);
+            }
+          );
+      }
+
+      activeChannel = channelBuilder.subscribe();
+    };
+
+    void setupRealtime();
+
+    return () => {
+      isMounted = false;
+      if (activeChannel) {
+        void supabase.removeChannel(activeChannel);
+      }
+    };
+  }, [revalidate]);
 
   // Extract unique payment method options
   const paymentOptions = useMemo(() => {

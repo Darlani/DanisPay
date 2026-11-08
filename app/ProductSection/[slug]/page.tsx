@@ -2,11 +2,12 @@
 import { use, useState, useMemo, useEffect, Suspense } from "react"; 
 import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2, ShieldAlert } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import FingerprintJS from '@fingerprintjs/fingerprintjs'; 
 import { supabase } from "@/utils/supabaseClient";
 import MaintenancePage from "@/utils/MaintenancePage";
 import { useI18n } from "@/lib/i18n/context";
+import ProductDetailSkeleton from "@/components/skeletons/ProductDetailSkeleton";
 
 // --- IMPORT KOMPONEN UI ---
 import InterfaceGame from "@/app/ProductSection/[slug]/components/InterfaceGame";
@@ -414,7 +415,7 @@ try {
     isAdmin, dbPayments, onPreCheckout: handlePreCheckout, isLoading: isLoading
   };
 
-  if (isFetchingDB && !productData) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (isFetchingDB && !productData) return <ProductDetailSkeleton />;
   if (!productData) return notFound();
 
   if (productData?.maintenance) {
@@ -499,11 +500,7 @@ export default function DetailPage({ params }: { params: Promise<{ slug: string 
   const { slug } = use(params);
 
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
-        <Loader2 className="animate-spin text-blue-500" size={40} />
-      </div>
-    }>
+    <Suspense fallback={<ProductDetailSkeleton />}>
       <DetailContent slug={slug} />
     </Suspense>
   );

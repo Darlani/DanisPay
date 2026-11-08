@@ -57,6 +57,7 @@ import { supabase, clearSupabaseLocalAuth } from "@/utils/supabaseClient";
 import MaintenancePage from "@/utils/MaintenancePage";
 import { useI18n } from "@/lib/i18n/context";
 import { localizeHref } from "@/lib/i18n/config";
+import UserDashboardSkeleton from "@/components/skeletons/UserDashboardSkeleton";
 
 /* ================================================================== */
 /* TYPES                                                              */
@@ -3303,13 +3304,8 @@ export default function UserDashboard() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-slate-50">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <Loader2
-              size={22}
-              className="animate-spin text-blue-600"
-            />
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+          <UserDashboardSkeleton />
         </div>
       }
     >

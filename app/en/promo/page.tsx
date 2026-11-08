@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import PromoPage from "@/app/promo/page";
 
-export const revalidate = 0;
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Promotions & Special Deals - DaPay",

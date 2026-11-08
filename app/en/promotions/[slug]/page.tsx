@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import PromoDetailPage, { generatePromoMetadata } from "@/app/promotions/[slug]/page";
 
-export const revalidate = 0;
+export const revalidate = 60;
 
 interface PageProps {
   params: Promise<{ slug: string }>;

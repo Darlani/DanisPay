@@ -1,57 +1,94 @@
 "use client";
+
 import { useState, useEffect, Suspense, useRef } from "react";
 import {
-  Clock,
-  Copy,
   CheckCircle,
-  Landmark,
-  AlertTriangle,
   Loader2,
-  Check,
-  XCircle,
-  Download,
-  Zap
+  X,
+  Zap,
+  Shield,
+  Lock,
+  Info,
+  CreditCard,
+  ChevronLeft,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeSVG } from "qrcode.react";
 import ReceiptPascabayar from "./ReceiptPascabayar";
 import ReceiptPrabayar from "./ReceiptPrabayar";
+import CheckoutStepper from "@/components/checkout/CheckoutStepper";
+import PaymentInstructionsModal from "@/components/checkout/PaymentInstructionsModal";
 import { useI18n } from "@/lib/i18n/context";
+import InvoiceReceiptSkeleton from "@/components/skeletons/InvoiceReceiptSkeleton";
+import { getWhatsAppUrl } from "@/utils/storeConfig";
 
-// Komponen Branding DaPay
-const DaPayText = () => (
-  <span className="font-black italic ml-1">
-    <span className="text-[#FFC107]">Da</span><span className="text-[#2962FF]">Pay</span>
-  </span>
-);
+interface PaymentAccount {
+  name: string;
+  account_no: string;
+  account_name: string;
+  logo_url: string | null;
+  is_qr: boolean;
+  method_key: string;
+}
 
-import { useRouter } from "next/navigation"; // 🚀 Pastikan router terimport di atas
+interface OrderData {
+  id?: string;
+  order_id: string;
+  product_name: string;
+  brand_name?: string | null;
+  clean_product_name?: string | null;
+  item_label?: string;
+  sku?: string;
+  customer_no: string;
+  total_amount: number;
+  payment_method: string;
+  status: string;
+  created_at: string;
+  sn?: string | null;
+  is_sandbox?: boolean;
+  user_id?: string | null;
+  category?: string;
+  payment_code?: string;
+  product_logo?: string | null;
+  notes?: string | null;
+  used_balance?: number;
+}
 
 function InvoiceContent() {
   const { t, locale } = useI18n();
   const params = useParams();
-  const router = useRouter(); // 🚀 Inisialisasi router untuk mengusir user saat lunas
+  const router = useRouter();
   const invoiceId = params.invoiceId as string;
 
-  const [trx, setTrx] = useState<any>(null);
+  const [trx, setTrx] = useState<OrderData | null>(null);
   const [dbStatus, setDbStatus] = useState("Pending");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [paymentAccounts, setPaymentAccounts] = useState<any[]>([]);
+  const [targetExpiryTime, setTargetExpiryTime] = useState<number | null>(null);
+  const [paymentAccounts, setPaymentAccounts] = useState<PaymentAccount[]>([]);
   const [qrisString, setQrisString] = useState<string>("");
   const [isTimeCalculated, setIsTimeCalculated] = useState(false);
   const [simulating, setSimulating] = useState(false);
+  const [isInstructionModalOpen, setIsInstructionModalOpen] = useState(false);
 
-  const handleSimulatePayment = async () => {
+  const handleSimulatePayment = async (options?: {
+    auto_resolve?: boolean;
+    force_fail?: boolean;
+  }) => {
     if (simulating || !trx?.order_id) return;
     setSimulating(true);
     try {
-      const res = await fetch('/api/tester/simulate-pay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order_id: trx.order_id, auto_resolve: true })
+      const res = await fetch("/api/tester/simulate-pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: trx.order_id,
+          auto_resolve: options?.auto_resolve ?? true,
+          force_fail: options?.force_fail ?? false,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -59,7 +96,19 @@ function InvoiceContent() {
         return;
       }
       setDbStatus(data.status || "Berhasil");
-      setTrx((prev: Record<string, unknown> | null) => prev ? { ...prev, status: data.status || "Berhasil", sn: data.sn } : prev);
+      setTrx((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: data.status || "Berhasil",
+              sn: data.sn,
+              notes:
+                data.status === "Gagal"
+                  ? (prev.notes || "Pengiriman Gagal: Kendala teknis sistem DaPay (Simulasi Gagal Sandbox)")
+                  : prev.notes,
+            }
+          : prev
+      );
     } catch (e) {
       console.error("Simulate pay error:", e);
       alert(t("checkout.simulatePayError"));
@@ -68,98 +117,104 @@ function InvoiceContent() {
     }
   };
 
-  // --- FUNGSI SINKRONISASI CACHE GUEST LOKAL ---
-  const updateGuestCacheStatus = (orderId: string, newStatus: string) => {
-    const guestCache = localStorage.getItem('dapay_guest_history');
-    if (guestCache) {
-      try {
-        let history = JSON.parse(guestCache);
-        const orderIndex = history.findIndex((o: any) => o.order_id === orderId);
-       
-        // Jika pesanan ketemu dan statusnya beda, timpa dengan status baru
-        if (orderIndex !== -1 && history[orderIndex].status !== newStatus) {
-          history[orderIndex].status = newStatus;
-          localStorage.setItem('dapay_guest_history', JSON.stringify(history));
-        }
-      } catch (e) {
-        console.error("Gagal update status cache lokal", e);
-      }
-    }
-  };
+  // --- SINKRONISASI CACHE GUEST LOKAL ---
+  const updateGuestCacheStatus = (orderId: string, newStatus: string) => {
+    const guestCache = localStorage.getItem("dapay_guest_history");
+    if (guestCache) {
+      try {
+        const history: Array<{ order_id: string; status: string }> = JSON.parse(guestCache);
+        const orderIndex = history.findIndex((o) => o.order_id === orderId);
+        if (orderIndex !== -1 && history[orderIndex].status !== newStatus) {
+          history[orderIndex].status = newStatus;
+          localStorage.setItem("dapay_guest_history", JSON.stringify(history));
+        }
+      } catch (e) {
+        console.error("Gagal update status cache lokal", e);
+      }
+    }
+  };
 
-  // Pantau terus perubahan dbStatus. Kalau berubah (misal lunas/gagal), update cache!
-  useEffect(() => {
-    if (invoiceId && dbStatus) {
-      updateGuestCacheStatus(invoiceId, dbStatus);
-    }
-  }, [dbStatus, invoiceId]);
+  useEffect(() => {
+    if (invoiceId && dbStatus) {
+      updateGuestCacheStatus(invoiceId, dbStatus);
+    }
+  }, [dbStatus, invoiceId]);
 
-  // --- 1. DATA FETCHING & REALTIME ---
+  // --- 1. DATA FETCHING & REALTIME ---
   useEffect(() => {
     if (!invoiceId) return;
 
-  const fetchTransaction = async () => {
+    const fetchTransaction = async () => {
       try {
-        // Panggil API Backend (Tembus RLS)
-        const invoiceRes = await fetch('/api/orders/invoice', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order_id: invoiceId })
+        const invoiceRes = await fetch("/api/orders/invoice", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order_id: invoiceId }),
         });
 
         const invoiceJson = await invoiceRes.json();
-        const orderData = invoiceRes.ok ? invoiceJson.data : null;
+        const orderData: OrderData | null = invoiceRes.ok ? invoiceJson.data : null;
 
-        // Ambil info akun pembayaran secara spesifik
         const { data: accounts } = await supabase
           .from("payment_accounts")
           .select("name, account_no, account_name, logo_url, is_qr, method_key");
 
         if (accounts) setPaymentAccounts(accounts);
 
-        const serverTimeRes = await fetch('/api/system/time');
-        if (!serverTimeRes.ok) throw new Error("Gagal ambil jam server");
-
-        const { serverNow } = await serverTimeRes.json();
-        const nowTs = new Date(serverNow).getTime();
+        let nowTs = Date.now();
+        try {
+          const serverTimeRes = await fetch("/api/system/time");
+          if (serverTimeRes.ok) {
+            const { serverNow } = await serverTimeRes.json();
+            if (serverNow) {
+              const parsed = new Date(serverNow).getTime();
+              if (!Number.isNaN(parsed)) nowTs = parsed;
+            }
+          }
+        } catch {
+          nowTs = Date.now();
+        }
 
         if (orderData) {
           const totalAmount = Number(orderData.total_amount || 0);
           const currentStatus = orderData.status?.toLowerCase();
 
-          // 🚀 GERBANG SENSOR: Jika tagihan bank 0 ATAU statusnya sudah sukses/diproses akibat lunas koin,
-          // langsung selamatkan user, jangan panggil API QRIS, usir ke struk sukses!
-          if (totalAmount === 0 || currentStatus === 'berhasil' || currentStatus === 'diproses' || currentStatus === 'selesai') {
-            console.log("🪙 Transaksi lunas koin / sudah diproses. Auto-bypass halaman payment gateway...");
+          if (
+            totalAmount === 0 ||
+            currentStatus === "berhasil" ||
+            currentStatus === "diproses" ||
+            currentStatus === "selesai"
+          ) {
             setTrx(orderData);
             setDbStatus(orderData.status || "Berhasil");
             setIsTimeCalculated(true);
-            return; // ✋ STOP! Jangan biarkan kode di bawahnya mengeksekusi request QRIS vendor
+            return;
           }
 
           setTrx(orderData);
-          setDbStatus(orderData.status);
 
-          // PANGGIL API QRIS JIKA METODE PEMBAYARAN ADALAH QRIS DAN STATUS BENAR-BENAR PENDING
-          if (orderData.payment_method?.toLowerCase().includes('qris') && orderData.status === 'Pending') {
+          if (
+            orderData.payment_method?.toLowerCase().includes("qris") &&
+            orderData.status === "Pending"
+          ) {
             if (orderData.is_sandbox === true) {
-              // Sandbox Mock QRIS string (aman dari pemanggilan gateway pihak ketiga)
-              setQrisString(`https://dapay.id/sandbox-mock-qris?order_id=${encodeURIComponent(orderData.order_id)}&amount=${orderData.total_amount}`);
+              setQrisString(
+                `https://dapay.id/sandbox-mock-qris?order_id=${encodeURIComponent(
+                  orderData.order_id
+                )}&amount=${orderData.total_amount}`
+              );
             } else {
               try {
-                const qrisRes = await fetch('/api/orders/qris', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ orderId: orderData.order_id })
+                const qrisRes = await fetch("/api/orders/qris", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ orderId: orderData.order_id }),
                 });
                 if (qrisRes.ok) {
                   const qrisData = await qrisRes.json();
                   if (qrisData.success) {
                     setQrisString(qrisData.qrisString);
                   }
-                } else {
-                  const errData = await qrisRes.json();
-                  console.error("Gagal get QRIS:", errData.error);
                 }
               } catch (qrisErr) {
                 console.error("Gagal fetch API QRIS:", qrisErr);
@@ -169,12 +224,30 @@ function InvoiceContent() {
 
           if (orderData.status === "Pending") {
             const createdAt = new Date(orderData.created_at).getTime();
-            const expiredTime = createdAt + 2 * 60 * 60 * 1000;
-            const secondsLeft = Math.floor((expiredTime - nowTs) / 1000);
+            const validCreatedAt = !Number.isNaN(createdAt) ? createdAt : nowTs;
+            const expiredTime = validCreatedAt + 2 * 60 * 60 * 1000;
+            const initialSecondsLeft = Math.max(0, Math.floor((expiredTime - nowTs) / 1000));
 
-            setTimeLeft(secondsLeft > 0 ? secondsLeft : 0);
-            setIsTimeCalculated(true);
+            if (initialSecondsLeft <= 0) {
+              setDbStatus("Gagal");
+              setTimeLeft(0);
+              setIsTimeCalculated(true);
+              if (orderData.order_id) {
+                fetch("/api/orders/expire", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ order_id: orderData.order_id }),
+                }).catch(() => {});
+              }
+            } else {
+              setDbStatus("Pending");
+              const targetTs = Date.now() + initialSecondsLeft * 1000;
+              setTargetExpiryTime(targetTs);
+              setTimeLeft(initialSecondsLeft);
+              setIsTimeCalculated(true);
+            }
           } else {
+            setDbStatus(orderData.status || "Gagal");
             setIsTimeCalculated(true);
           }
         }
@@ -183,110 +256,154 @@ function InvoiceContent() {
       }
     };
 
-fetchTransaction();
+    fetchTransaction();
 
-// --- PENGGANTI SATPAM POLLING (SUPABASE REALTIME) ---
-    // Ini menghemat server dari tembakan API bertubi-tubi
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    if (dbStatus === "Pending" || dbStatus === "Diproses") {
-      channel = supabase
-        .channel(`order-status-${invoiceId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'orders',
-            filter: `order_id=eq.${invoiceId}`
-          },
-          (payload) => {
-            const newStatus = payload.new.status;
-            const newSn = payload.new.sn;
-
-            // Jika statusnya berubah dari yang di state
-            if (newStatus && newStatus !== dbStatus) {
-              setDbStatus(newStatus);
-              setTrx((prev: any) => {
-                if (!prev) return prev;
-                return { ...prev, status: newStatus, sn: newSn };
-              });
-            }
+    channel = supabase
+      .channel(`order-status-${invoiceId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+          filter: `order_id=eq.${invoiceId}`,
+        },
+        (payload) => {
+          const newStatus = payload.new.status;
+          const newSn = payload.new.sn;
+          const newNotes = payload.new.notes;
+          if (newStatus) {
+            setDbStatus(newStatus);
+            setTrx((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    status: newStatus,
+                    sn: newSn,
+                    notes: newNotes !== undefined ? newNotes : prev.notes,
+                  }
+                : prev
+            );
           }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'sandbox_orders',
-            filter: `order_id=eq.${invoiceId}`
-          },
-          (payload) => {
-            const newStatus = payload.new.status;
-            const newSn = payload.new.sn;
-
-            // Jika statusnya berubah dari yang di state
-            if (newStatus && newStatus !== dbStatus) {
-              setDbStatus(newStatus);
-              setTrx((prev: any) => {
-                if (!prev) return prev;
-                return { ...prev, status: newStatus, sn: newSn };
-              });
-            }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "sandbox_orders",
+          filter: `order_id=eq.${invoiceId}`,
+        },
+        (payload) => {
+          const newStatus = payload.new.status;
+          const newSn = payload.new.sn;
+          const newNotes = payload.new.notes;
+          if (newStatus) {
+            setDbStatus(newStatus);
+            setTrx((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    status: newStatus,
+                    sn: newSn,
+                    notes: newNotes !== undefined ? newNotes : prev.notes,
+                  }
+                : prev
+            );
           }
-        )
-        .subscribe();
-    }
+        }
+      )
+      .subscribe();
 
-    // Bersihkan listener saat halaman ditutup atau dependensi berubah
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [invoiceId, dbStatus]); // <-- Pastikan dbStatus masuk array agar dia tahu kapan harus berhenti dengar
+  }, [invoiceId]);
 
-  // --- 2. TIMER LOGIC ---
+  // --- 2. TIMER LOGIC (TARGET TIMESTAMP ABSOLUT) ---
   useEffect(() => {
-    if (dbStatus !== "Pending") return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 0) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [dbStatus]);
-
-  useEffect(() => {
-    if (trx && timeLeft === 0 && dbStatus === "Pending" && isTimeCalculated) {
-      setDbStatus("Gagal");
+    if (dbStatus !== "Pending" || !targetExpiryTime || !isTimeCalculated) {
+      return;
     }
-  }, [timeLeft, dbStatus, trx, isTimeCalculated]);
 
-  // --- 3. NOTIFIKASI SUARA (SINGLE TRIGGER) ---
+    let intervalId: NodeJS.Timeout | null = null;
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const secondsRemaining = Math.max(0, Math.floor((targetExpiryTime - now) / 1000));
+      setTimeLeft(secondsRemaining);
+
+      if (secondsRemaining <= 0) {
+        if (intervalId) clearInterval(intervalId);
+        setDbStatus("Gagal");
+
+        if (invoiceId) {
+          fetch("/api/orders/expire", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ order_id: invoiceId }),
+          }).catch((err) => {
+            console.error("Gagal sinkron status kedaluwarsa ke database:", err);
+          });
+        }
+      }
+    };
+
+    updateTimer();
+    intervalId = setInterval(updateTimer, 1000);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [dbStatus, targetExpiryTime, isTimeCalculated, invoiceId]);
+
+  // --- 3. NOTIFIKASI SUARA ---
   const soundPlayed = useRef(false);
 
   useEffect(() => {
     if (dbStatus === "Berhasil" && !soundPlayed.current) {
-      const audio = new Audio('/sound/ting.mp3');
+      const audio = new Audio("/sound/ting.mp3");
       const timer = setTimeout(() => {
-        audio.play()
-          .then(() => { soundPlayed.current = true; })
-          .catch((err) => { console.log("Browser blokir suara:", err); });
+        audio
+          .play()
+          .then(() => {
+            soundPlayed.current = true;
+          })
+          .catch((err) => {
+            console.log("Browser blokir suara:", err);
+          });
       }, 300);
       return () => clearTimeout(timer);
     }
   }, [dbStatus]);
 
   // --- 4. HELPERS ---
-  const isPending = dbStatus === "Pending";
-  const isGagal = dbStatus === "Gagal";
-  const isProcessing = dbStatus === "Diproses"; // Status transisi nunggu Digiflazz
+  const isGagal =
+    dbStatus === "Gagal" || dbStatus === "Expired" || dbStatus === "Batal";
+  const isProcessing = dbStatus === "Diproses";
+  const isBerhasil = dbStatus === "Berhasil";
+
+  const isNotesExpired = Boolean(
+    trx?.notes &&
+      (trx.notes.toLowerCase().includes("batal otomatis") ||
+        trx.notes.toLowerCase().includes("batas waktu") ||
+        trx.notes.toLowerCase().includes("kadaluarsa") ||
+        trx.notes.toLowerCase().includes("kedaluwarsa") ||
+        trx.notes.toLowerCase().includes("expired"))
+  );
+
+  const isProviderFailure =
+    isGagal &&
+    !isNotesExpired &&
+    Boolean(
+      (trx?.notes && trx.notes.trim() !== "") ||
+        (trx?.used_balance && Number(trx.used_balance) > 0)
+    );
+
+  const isExpiredFailure = isGagal && !isProviderFailure;
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -294,24 +411,67 @@ fetchTransaction();
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const getIdentityLabel = (category: string) => {
-    const cat = category?.toLowerCase();
-    if (cat === 'travel') return "No Tiket";
-    if (['ppob', 'pulsa', 'data', 'e-money'].includes(cat)) return "No Telepon";
-    if (cat === 'pln' || cat === 'listrik') return "ID Pelanggan";
-    return "ID Pengguna";
+  const formatTimeLeft = (seconds: number) => {
+    const safeSeconds = Math.max(0, Number.isFinite(seconds) ? seconds : 0);
+    const h = Math.floor(safeSeconds / 3600);
+    const m = Math.floor((safeSeconds % 3600) / 60);
+    const s = safeSeconds % 60;
+    return `${h.toString().padStart(2, "0")}:${m
+      .toString()
+      .padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const formatTimeLeft = (seconds: number) => {
-    const h = Math.floor(seconds / 3600).toString().padStart(2, "0");
-    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, "0");
-    const s = (seconds % 60).toString().padStart(2, "0");
-    return `${h}:${m}:${s}`;
+  const formatTransactionDate = (dateStr: string) => {
+    if (!dateStr) return "-";
+    const d = new Date(dateStr);
+    const monthsId = [
+      "Januari",
+      "Februari",
+      "Maret",
+      "April",
+      "Mei",
+      "Juni",
+      "Juli",
+      "Agustus",
+      "September",
+      "Oktober",
+      "November",
+      "Desember",
+    ];
+    const monthsEn = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    const months = locale === "en" ? monthsEn : monthsId;
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    return `${day} ${month} ${year} - ${hours}:${minutes}`;
   };
 
   const getPaymentDetails = (method: string) => {
-    const p = method?.toLowerCase() || "";
-    const account = paymentAccounts.find(acc => p.includes(acc.method_key.toLowerCase()));
+    const p = method?.toLowerCase().trim() || "";
+    const account = paymentAccounts.find((acc) => {
+      const mk = (acc.method_key || "").toLowerCase().trim();
+      const nm = (acc.name || "").toLowerCase().trim();
+      return (
+        (mk && p.includes(mk)) ||
+        (nm && p.includes(nm)) ||
+        (nm && nm.includes(p))
+      );
+    });
 
     if (account) {
       return {
@@ -319,312 +479,962 @@ fetchTransaction();
         no: account.account_no,
         an: account.account_name,
         logo: account.logo_url || "/payment/default.png",
-        isQR: account.is_qr
+        isQR: account.is_qr,
       };
     }
-    return { name: method || "Transfer", no: "-", an: "-", logo: "/payment/default.png", isQR: false };
+    return {
+      name: method || "Transfer",
+      no: "-",
+      an: "-",
+      logo: "/payment/default.png",
+      isQR: false,
+    };
   };
 
-  if (!trx) return (
-    <div className="min-h-screen flex items-center justify-center font-bold text-slate-500 bg-slate-50 uppercase italic tracking-widest">
-      <Loader2 className="mr-2 h-6 w-6 animate-spin text-blue-600" />
-      {t("checkout.loadingInvoice")}
-    </div>
-  );
+  if (!trx) return <InvoiceReceiptSkeleton />;
 
-  const nominalString = trx.total_amount?.toString() || "0";
-  const formattedTotal = new Intl.NumberFormat(locale === "en" ? "en-US" : "id-ID").format(trx.total_amount || 0);
+  const displayProductName =
+    trx.brand_name ||
+    trx.clean_product_name ||
+    (trx.product_name
+      ? trx.product_name
+          .replace(
+            /\s+\d+([.,]\d+)*\s*(diamonds?|dm|uc|cp|koin|coins?|rb|k|vip|pass)?$/i,
+            ""
+          )
+          .trim()
+      : "") ||
+    trx.product_name;
 
-  // 💡 LOGIKA AMAN: Cek apakah ini tamu atau member
-  const hasUniqueCode = (trx.unique_code || 0) > 0;
-
-  // Jika tamu, kita warnai 3 digit terakhir dari TOTAL bayar.
-  // Jika member, kita biarkan utuh tanpa warna biru (uniqueCodePart kosong).
-  const mainNominalPart = hasUniqueCode ? formattedTotal.slice(0, -3) : formattedTotal;
-  const uniqueCodePart = hasUniqueCode ? formattedTotal.slice(-3) : "";
+  const formattedTotal = new Intl.NumberFormat(
+    locale === "en" ? "en-US" : "id-ID"
+  ).format(trx.total_amount || 0);
 
   const payDetail = getPaymentDetails(trx.payment_method);
+  const paymentMethodUpper = (trx.payment_method || "").toUpperCase();
+  const isQris = payDetail.isQR || paymentMethodUpper.includes("QRIS");
+  const isEwallet = [
+    "DANA",
+    "OVO",
+    "GOPAY",
+    "SHOPEEPAY",
+    "LINKAJA",
+    "ISAKU",
+  ].some((ew) => paymentMethodUpper.includes(ew));
 
+  // Bedakan secara tegas antara VIRTUAL ACCOUNT (otomatis) vs TRANSFER MANUAL (ke rekening toko)
+  const isVa =
+    paymentMethodUpper.includes("VA") ||
+    paymentMethodUpper.includes("VIRTUAL ACCOUNT");
+
+  const isManualTransfer = !isQris && !isEwallet && !isVa;
+
+  // --- JIKA BERHASIL (LUNAS): TAMPILKAN STRUK RESMI DAPAY DIGITAL ---
+  if (isBerhasil) {
+    return (
+      <div className="min-h-screen bg-slate-50 py-8 px-4 font-sans tracking-tight">
+        <div className="max-w-2xl mx-auto space-y-5">
+          {/* Breadcrumb */}
+          <div className="text-xs font-semibold text-blue-600 flex items-center gap-1.5">
+            <Link
+              href={locale === "en" ? "/en" : "/"}
+              className="hover:underline flex items-center gap-1"
+            >
+              <ChevronLeft size={14} />
+              {t("checkout.back")}
+            </Link>
+            <span className="text-slate-400">/</span>
+            <span className="text-slate-500">#{trx.order_id}</span>
+          </div>
+
+          {/* Header Sukses & Struk Resmi Digital */}
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 sm:p-8 space-y-4 text-center">
+            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto shadow-inner ring-4 ring-emerald-50">
+              <CheckCircle size={32} className="text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight uppercase">
+                {t("checkout.paymentSuccess")}
+              </h2>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                {t("checkout.transactionSuccessProcessed")}
+              </p>
+            </div>
+
+            {/* Struk Digital */}
+            <div className="pt-2">
+              {trx.category?.toLowerCase().includes("pascabayar") ||
+              trx.sku?.toLowerCase() === "pln" ? (
+                <ReceiptPascabayar order={trx} />
+              ) : (
+                <ReceiptPrabayar order={trx} />
+              )}
+            </div>
+
+            {/* Tombol Belanja Lagi */}
+            <div className="pt-4 border-t border-slate-100 space-y-2">
+              <Link
+                href={locale === "en" ? "/en" : "/"}
+                className="block w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs uppercase transition-all shadow-md text-center tracking-wider active:scale-98"
+              >
+                {t("checkout.shopAgain")}
+              </Link>
+              <p className="text-[9px] text-slate-400 font-medium">
+                {t("checkout.autoSavedHistory")}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+  // --- HALAMAN UTAMA INVOICE PEMBAYARAN (2 KOLOM: LAPAKGAMING STYLE) ---
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-3 sm:p-6 font-sans tracking-tight">
-      <div className="bg-white w-full max-w-md mx-auto rounded-4xl shadow-xl p-6 sm:p-8 space-y-5 text-center relative overflow-hidden border border-slate-100">
+    <div className="min-h-screen bg-slate-50 py-6 px-3 sm:px-6 font-sans tracking-tight">
+      <div className="max-w-6xl mx-auto space-y-4">
+        {/* Breadcrumb Navigasi Atas */}
+        <div className="text-xs font-semibold text-blue-600 flex items-center gap-1.5 pl-1">
+          <button
+            onClick={() => router.back()}
+            className="hover:underline flex items-center gap-0.5 cursor-pointer text-blue-600"
+          >
+            <ChevronLeft size={14} />
+            {t("checkout.back")}
+          </button>
+          <span className="text-slate-300">/</span>
+          <span className="text-slate-500 font-mono">#{trx.order_id}</span>
+        </div>
 
-        {isPending ? (
-          <>
-            {trx.total_amount <= 0 ? (
-              <div className="space-y-5 py-4 animate-in zoom-in duration-500">
-                <div className="space-y-3 text-center">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto shadow-inner ring-4 ring-blue-50">
-                    <Loader2 size={32} className="text-blue-600 animate-spin" />
+        {/* Layout 2 Kolom Responsif */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* ========================================================
+              KOLOM KIRI (UTAMA) - 8 Kolom Desktop
+             ======================================================== */}
+          <div className="lg:col-span-8 space-y-4">
+            {/* KARTU 1: KOTAK PEMBAYARAN UTAMA */}
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-5 sm:p-7 space-y-5">
+              {/* Stepper 3 Tahap */}
+              <CheckoutStepper
+                status={dbStatus}
+                failureStep={isProviderFailure ? "processing" : "payment"}
+              />
+
+              {/* KASUS 1: GAGAL KEDALUWARSA (BELUM BAYAR & WAKTU HABIS) */}
+              {isExpiredFailure && (
+                <>
+                  {/* Banner Merah Muda: Udah lewat batas waktu bayar */}
+                  <div className="bg-[#fee2e2]/70 border border-[#fecaca] rounded-2xl p-4 sm:p-5 flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#dc2626] text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <X size={20} strokeWidth={3} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-900 leading-tight">
+                        {t("checkout.expiredBannerTitle")}
+                      </span>
+                      <span className="text-xs font-medium text-slate-600 mt-0.5">
+                        {t("checkout.expiredBannerDesc")}
+                      </span>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <h2 className="text-sm font-bold text-blue-600 flex items-center justify-center gap-1">
-                      {t("checkout.processingDaPay")} <DaPayText />
-                    </h2>
-                    <p className="text-xl font-bold text-slate-900 tracking-tight">{t("checkout.waitAMoment")}</p>
+
+                  {/* Tombol Biru Tua Solid: Beli lagi */}
+                  <Link
+                    href={locale === "en" ? "/en" : "/"}
+                    className="block w-full py-3.5 bg-[#102a83] hover:bg-[#0c2064] text-white rounded-xl font-bold text-xs uppercase transition-all shadow-md text-center tracking-wider active:scale-98"
+                  >
+                    {t("checkout.buyAgainBtn")}
+                  </Link>
+
+                  {/* Info No. Transaksi & Waktu Transaksi di dalam Kartu 1 */}
+                  <div className="pt-2 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400 font-medium">
+                        {t("checkout.transactionNo")}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-800 font-mono">
+                          #{trx.order_id}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyToClipboard(trx.order_id, "transaksi_no_expired")
+                          }
+                          className="text-blue-600 font-bold hover:underline cursor-pointer"
+                        >
+                          {copiedId === "transaksi_no_expired"
+                            ? t("checkout.copied")
+                            : t("checkout.copy")}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400 font-medium">
+                        {t("checkout.transactionTime")}
+                      </span>
+                      <span className="font-semibold text-slate-800">
+                        {formatTransactionDate(trx.created_at)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* KASUS 2: GAGAL PENGIRIMAN SISTEM SETELAH PEMBAYARAN */}
+              {isProviderFailure && (
+                <>
+                  {/* Banner Merah Muda / Rose: Pengiriman Gagal */}
+                  <div className="bg-[#fee2e2]/70 border border-[#fecaca] rounded-2xl p-4 sm:p-5 flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#dc2626] text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                      <X size={20} strokeWidth={3} />
+                    </div>
+                    <div className="flex flex-col space-y-1">
+                      <span className="text-sm font-bold text-slate-900 leading-tight">
+                        {trx.user_id
+                          ? t("checkout.memberRefundFailedTitle")
+                          : t("checkout.guestRefundFailedTitle")}
+                      </span>
+                      <span className="text-xs font-medium text-slate-600 leading-relaxed">
+                        {trx.user_id
+                          ? t("checkout.memberRefundFailedDesc", {
+                              amount: formattedTotal,
+                            })
+                          : t("checkout.guestRefundFailedDesc", {
+                              amount: formattedTotal,
+                            })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tombol Aksi: Member (Cek Saldo) vs Guest (WhatsApp Refund) */}
+                  {trx.user_id ? (
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                      <Link
+                        href={
+                          locale === "en"
+                            ? "/en/dashboard/saldo"
+                            : "/dashboard/saldo"
+                        }
+                        className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase transition-all shadow-md text-center tracking-wider active:scale-98"
+                      >
+                        {t("checkout.checkBalanceBtn")}
+                      </Link>
+                      <Link
+                        href={locale === "en" ? "/en" : "/"}
+                        className="flex-1 py-3.5 bg-[#102a83] hover:bg-[#0c2064] text-white rounded-xl font-bold text-xs uppercase transition-all shadow-md text-center tracking-wider active:scale-98"
+                      >
+                        {t("checkout.buyAgainBtn")}
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                      <a
+                        href={getWhatsAppUrl(
+                          t("checkout.whatsappGuestRefundMsg", {
+                            orderId: trx.order_id,
+                            product: `${displayProductName} - ${
+                              trx.item_label || trx.sku || ""
+                            }`,
+                            amount: formattedTotal,
+                            customerNo: trx.customer_no,
+                          })
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase transition-all shadow-md text-center tracking-wider active:scale-98 flex items-center justify-center gap-2"
+                      >
+                        {t("checkout.claimRefundWaBtn")}
+                      </a>
+                      <Link
+                        href={locale === "en" ? "/en" : "/"}
+                        className="flex-1 py-3.5 bg-[#102a83] hover:bg-[#0c2064] text-white rounded-xl font-bold text-xs uppercase transition-all shadow-md text-center tracking-wider active:scale-98"
+                      >
+                        {t("checkout.buyAgainBtn")}
+                      </Link>
+                    </div>
+                  )}
+
+                  {/* Info No. Transaksi & Waktu Transaksi di dalam Kartu 1 */}
+                  <div className="pt-2 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400 font-medium">
+                        {t("checkout.transactionNo")}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-800 font-mono">
+                          #{trx.order_id}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyToClipboard(trx.order_id, "transaksi_no_failed")
+                          }
+                          className="text-blue-600 font-bold hover:underline cursor-pointer"
+                        >
+                          {copiedId === "transaksi_no_failed"
+                            ? t("checkout.copied")
+                            : t("checkout.copy")}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400 font-medium">
+                        {t("checkout.transactionTime")}
+                      </span>
+                      <span className="font-semibold text-slate-800">
+                        {formatTransactionDate(trx.created_at)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* KASUS 3: SEDANG DIPROSES (PEMBAYARAN DITERIMA, SISTEM MENGIRIM PRODUK) */}
+              {isProcessing && (
+                <>
+                  {/* Banner Biru: Sedang Diproses */}
+                  <div className="bg-blue-50/80 border border-blue-200/80 rounded-2xl p-4 sm:p-5 space-y-3.5">
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                        <Loader2 size={20} className="animate-spin text-white" />
+                      </div>
+                      <div className="flex flex-col space-y-1">
+                        <span className="text-sm font-bold text-slate-900 leading-tight">
+                          {t("checkout.processingBannerTitle")}
+                        </span>
+                        <span className="text-xs font-medium text-slate-600 leading-relaxed">
+                          {t("checkout.processingBannerDesc")}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/90 rounded-xl p-3 border border-blue-100/80 flex items-center gap-2.5 text-xs text-blue-900 font-medium">
+                      <Clock size={16} className="text-blue-600 shrink-0" />
+                      <span>{t("checkout.processingEtaNotice")}</span>
+                    </div>
+                  </div>
+
+                  {/* Baris Ringkasan Produk & Status Lunas */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 p-1.5 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={trx.product_logo || "/default-logo.png"}
+                          alt={displayProductName}
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span className="bg-[#059669] text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                            {t("checkout.topUpBadge")}
+                          </span>
+                          <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+                            {trx.item_label || trx.sku}
+                          </h4>
+                        </div>
+                        <span className="text-xs text-slate-400 font-medium mt-0.5">
+                          {displayProductName}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-left sm:text-right shrink-0">
+                      <span className="text-xs text-slate-400 font-medium block">
+                        {t("checkout.totalPayment")}
+                      </span>
+                      <div className="flex items-center gap-2 sm:justify-end">
+                        <span className="text-sm sm:text-base font-bold text-slate-900 font-mono">
+                          Rp{formattedTotal}
+                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase tracking-wide">
+                          {t("checkout.paidBadge")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sandbox Testing Banner (jika tester di Sandbox sedang proses) */}
+                  {trx.is_sandbox && (
+                    <div className="rounded-2xl border border-amber-300/80 bg-amber-50/90 p-4 space-y-2 mt-2">
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                          🧪 {t("checkout.sandboxMode")}
+                        </span>
+                        <span className="text-[10px] font-semibold text-amber-600">
+                          {t("checkout.simulationTesting")}
+                        </span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-amber-700">
+                        {t("checkout.simulateTestingProcessingHint")}
+                      </p>
+                      <div className="pt-1 flex flex-col sm:flex-row gap-2">
+                        <button
+                          type="button"
+                          disabled={simulating}
+                          onClick={() => handleSimulatePayment({ force_fail: false })}
+                          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3 py-2 text-xs font-bold text-white shadow-xs transition active:scale-98 disabled:opacity-50 cursor-pointer"
+                        >
+                          {simulating ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" />
+                              {t("checkout.processingSimulation")}
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle size={14} />
+                              {t("checkout.simulateSuccessDelivery")}
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={simulating}
+                          onClick={() => handleSimulatePayment({ force_fail: true })}
+                          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 px-3 py-2 text-xs font-bold text-white shadow-xs transition active:scale-98 disabled:opacity-50 cursor-pointer"
+                        >
+                          {simulating ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" />
+                              {t("checkout.processingSimulation")}
+                            </>
+                          ) : (
+                            <>
+                              <X size={14} />
+                              {t("checkout.simulateFailedDelivery")}
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* KASUS 4: PENDING (BELUM BAYAR) */}
+              {!isGagal && !isProcessing && (
+                <>
+                  {/* Banner Orange Countdown Batas Waktu */}
+              <div className="bg-[#fff7ed] border border-[#ffedd5] rounded-2xl p-4 sm:p-4.5 flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-full bg-[#f97316] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <CreditCard size={18} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-slate-800 leading-tight">
+                    {t("checkout.payBannerTitle")}
+                  </span>
+                  <span className="text-xs font-medium text-slate-500 mt-0.5">
+                    {t("checkout.payTimeLimit", { time: "" })}
+                    <strong className="text-[#dc2626] font-bold ml-1 font-mono">
+                      {formatTimeLeft(timeLeft)}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* Baris Ringkasan Produk & Total Pembayaran */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 p-1.5 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={trx.product_logo || "/default-logo.png"}
+                      alt={displayProductName}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-[#059669] text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        {t("checkout.topUpBadge")}
+                      </span>
+                      <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+                        {trx.item_label || trx.sku}
+                      </h4>
+                    </div>
+                    <span className="text-xs text-slate-400 font-medium mt-0.5">
+                      {displayProductName}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-left sm:text-right shrink-0">
+                  <span className="text-xs text-slate-400 font-medium block">
+                    {t("checkout.totalPayment")}
+                  </span>
+                  <div className="flex items-center gap-2 sm:justify-end">
+                    <span className="text-sm sm:text-base font-bold text-slate-900 font-mono">
+                      Rp{formattedTotal}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        copyToClipboard(
+                          String(trx.total_amount || 0),
+                          "total_payment_header"
+                        )
+                      }
+                      className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+                    >
+                      {copiedId === "total_payment_header"
+                        ? t("checkout.copied")
+                        : t("checkout.copy")}
+                    </button>
                   </div>
                 </div>
               </div>
-            ) : (
-              <>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <Clock className="text-blue-600 animate-pulse" size={20} />
-                    <h1 className="text-lg font-bold text-slate-900">{t("checkout.waitingPayment")}</h1>
+
+              {/* Kotak Metode Pembayaran Spesifik */}
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <span>{t("checkout.payWith")}</span>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={payDetail.logo}
+                      alt={trx.payment_method}
+                      className="h-4 w-auto object-contain"
+                    />
+                    <span className="font-bold text-slate-800 text-xs">
+                      {trx.payment_method}
+                    </span>
                   </div>
-                  <p className="text-xs font-medium text-slate-400">ID: {trx.order_id}</p>
                 </div>
 
-                {trx.is_sandbox && (
-                  <div className="rounded-2xl border border-amber-300/80 bg-amber-50/90 p-3.5 text-left space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
-                        🧪 {t("checkout.sandboxMode")}
+                {/* --- METODE VIRTUAL ACCOUNT (VA) --- */}
+                {isVa && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
+                    {/* Kotak Biru Nomor VA */}
+                    <div className="flex-1 bg-[#e0edff] rounded-2xl px-4 py-3 flex items-center justify-between sm:justify-start gap-4 sm:gap-6 border border-[#bfdbfe]/70">
+                      <span className="text-xs text-slate-700 font-medium whitespace-nowrap">
+                        {t("checkout.virtualAccountNo")}
                       </span>
-                      <span className="text-[10px] font-semibold text-amber-600">{t("checkout.simulationTesting")}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm sm:text-base font-bold text-slate-900 font-mono tracking-wide">
+                          {payDetail.no !== "-" ? payDetail.no : (trx.payment_code || trx.order_id)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyToClipboard(
+                              payDetail.no !== "-" ? payDetail.no : (trx.payment_code || trx.order_id),
+                              "va_no"
+                            )
+                          }
+                          className="text-xs font-bold text-[#1e40af] hover:text-[#1d4ed8] cursor-pointer active:scale-95 transition-transform"
+                        >
+                          {copiedId === "va_no"
+                            ? t("checkout.copied")
+                            : t("checkout.copy")}
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-[11px] leading-relaxed text-amber-700">
-                      {t("checkout.sandboxNotice")}
-                    </p>
+
+                    {/* Tombol Lihat Cara Bayar VA */}
                     <button
                       type="button"
-                      disabled={simulating}
-                      onClick={handleSimulatePayment}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-amber-700 active:scale-98 disabled:opacity-50 cursor-pointer"
+                      onClick={() => setIsInstructionModalOpen(true)}
+                      className="px-5 py-3 rounded-2xl border-2 border-[#1e40af] text-[#1e40af] bg-white hover:bg-blue-50/50 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap text-center shrink-0"
                     >
-                      {simulating ? (
-                        <>
-                          <Loader2 size={14} className="animate-spin" />
-                          {t("checkout.processingSimulation")}
-                        </>
-                      ) : (
-                        <>
-                          <Zap size={14} />
-                          {t("checkout.instantSimulationPay")}
-                        </>
-                      )}
+                      {t("checkout.viewPaymentInstructions")}
                     </button>
                   </div>
                 )}
 
-                {!isTimeCalculated ? (
-                  <div className="py-12 flex flex-col items-center justify-center space-y-3">
-                    <Loader2 className="animate-spin text-blue-600" size={32} />
-                    <p className="text-xs text-slate-500 font-medium animate-pulse">{t("checkout.preparingPayment")}</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className={`${timeLeft > 0 ? 'bg-blue-50 border-blue-100' : 'bg-rose-50 border-rose-100'} rounded-2xl p-3 border transition-colors`}>
-                      <p className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${timeLeft > 0 ? 'text-blue-600' : 'text-rose-600'}`}>
-                        {timeLeft > 0 ? t("checkout.completeWithin") : t("checkout.timeExpired")}
-                      </p>
-                      <p className={`text-2xl font-extrabold ${timeLeft > 0 ? 'text-blue-700' : 'text-rose-700'}`}>
-                        {timeLeft > 0 ? formatTimeLeft(timeLeft) : t("checkout.expiredBadge")}
-                      </p>
+                {/* --- METODE TRANSFER BANK MANUAL (ATURAN TRANSFER MANUAL) --- */}
+                {isManualTransfer && (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      {/* Kotak Biru Nomor Rekening Manual (Bukan VA) */}
+                      <div className="flex-1 bg-[#eff6ff] rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-6 border border-[#dbeafe]">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xs text-slate-600 font-medium whitespace-nowrap">
+                            No. rekening:
+                          </span>
+                          <span className="text-sm sm:text-base font-bold text-slate-900 font-mono tracking-wide">
+                            {payDetail.no !== "-" ? payDetail.no : trx.order_id}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              copyToClipboard(
+                                payDetail.no !== "-" ? payDetail.no : trx.order_id,
+                                "transfer_no"
+                              )
+                            }
+                            className="text-xs font-bold text-[#1e40af] hover:text-[#1d4ed8] cursor-pointer active:scale-95 transition-transform ml-1"
+                          >
+                            {copiedId === "transfer_no"
+                              ? t("checkout.copied")
+                              : t("checkout.copy")}
+                          </button>
+                        </div>
+
+                        {payDetail.an && payDetail.an !== "-" && (
+                          <div className="text-[11px] text-slate-500 font-medium">
+                            <span>a.n. </span>
+                            <strong className="text-slate-800 font-semibold">{payDetail.an}</strong>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Tombol Lihat Cara Bayar Transfer Manual */}
+                      <button
+                        type="button"
+                        onClick={() => setIsInstructionModalOpen(true)}
+                        className="px-5 py-3 rounded-2xl border-2 border-[#1e40af] text-[#1e40af] bg-white hover:bg-blue-50/50 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap text-center shrink-0"
+                      >
+                        {t("checkout.viewPaymentInstructions")}
+                      </button>
                     </div>
 
-                    {timeLeft > 0 ? (
-                      <div className="space-y-5 animate-in fade-in duration-500">
-                        {payDetail.isQR ? (
-                          <div className="space-y-3 animate-in zoom-in duration-500">
-                            <div className="bg-white p-4 rounded-3xl border-2 border-dashed border-blue-200 flex flex-col items-center shadow-sm relative">
-                              <div id="qris-export-area" className="bg-white p-2 rounded-xl">
-                                {qrisString ? (
-                                  <QRCodeSVG
+                    {/* Informasi Penting Aturan Transfer Manual */}
+                    <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-3 text-[11px] text-amber-800 leading-relaxed">
+                      💡 <strong>Aturan Transfer Manual:</strong> Pastikan Anda mentransfer nominal tepat sebesar{" "}
+                      <strong className="font-mono text-amber-900 font-bold">
+                        Rp {formattedTotal}
+                      </strong>{" "}
+                      ke nomor rekening di atas agar pesanan dapat diverifikasi dan diproses secara otomatis oleh sistem.
+                    </div>
+                  </div>
+                )}
+
+                {/* --- METODE QRIS --- */}
+                {isQris && (
+                  <div className="bg-white border-2 border-dashed border-blue-200 rounded-3xl p-5 flex flex-col items-center justify-center space-y-3">
+                    <div className="bg-white p-3 rounded-2xl shadow-xs border border-slate-100">
+                      {qrisString ? (
+                        <QRCodeSVG
                           value={qrisString}
-                          size={200}
-                          level="H" // Ubah ke High biar logo nggak ganggu scan
+                          size={220}
+                          level="H"
                           includeMargin={true}
                           className="rounded-xl"
                         />
-                                ) : (
-                                  <div className="w-50 h-50 flex items-center justify-center bg-slate-50 rounded-xl border border-slate-100">
-                                     <Loader2 className="animate-spin text-slate-300" size={32} />
-                                  </div>
-                                )}
-                              </div>
-                              <p className="text-[10px] font-black text-slate-400 mt-3 uppercase tracking-widest text-center">
-                                {t("checkout.scanAndPay", { amount: `Rp ${mainNominalPart}` })}<span className="text-blue-600">{uniqueCodePart}</span>
-                              </p>
-                              {qrisString && (
-                                <button
-                                  onClick={() => {
-                                    const svg = document.querySelector('#qris-export-area svg') as SVGElement;
-                                    if (svg) {
-                                      const svgData = new XMLSerializer().serializeToString(svg);
-                                      const canvas = document.createElement("canvas");
-                                      const ctx = canvas.getContext("2d");
-                                      const img = new Image();
-                                      img.onload = () => {
-                                        canvas.width = img.width;
-                                        canvas.height = img.height;
-                                        ctx?.drawImage(img, 0, 0);
-                                        const pngFile = canvas.toDataURL("image/png");
-                                        const downloadLink = document.createElement("a");
-                                        downloadLink.download = `QRIS-${trx.order_id}.png`;
-                                        downloadLink.href = pngFile;
-                                        downloadLink.click();
-                                      };
-                                      img.src = "data:image/svg+xml;base64," + btoa(svgData);
-                                    }
-                                  }}
-                                  className="mt-3 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-blue-700 active:scale-95 transition-all shadow-md"
-                                >
-                                  <Download size={14} /> {t("checkout.downloadQris")}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">{t("checkout.totalTransfer")}</p>
-                            <div className="flex items-center justify-center gap-2">
-                          <h2 className="text-3xl font-bold text-slate-900 tracking-tighter">
-                            Rp {mainNominalPart}
-                            {/* Hanya beri warna biru jika memang ada kode unik (Tamu) */}
-                            <span className={hasUniqueCode ? "text-blue-600" : ""}>
-                              {uniqueCodePart}
-                            </span>
-                          </h2>
-                              <button onClick={() => copyToClipboard(nominalString, "nominal")} aria-label={copiedId === "nominal" ? t("checkout.copied") : t("checkout.copy")} title={copiedId === "nominal" ? t("checkout.copied") : t("checkout.copy")} className="bg-slate-100 p-2 rounded-xl active:scale-95 transition-all">
-                                {copiedId === "nominal" ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {payDetail.isQR ? (
-                          <div className="flex items-start gap-3 bg-blue-50 p-4 rounded-2xl text-left border border-blue-100">
-                            <div className="bg-blue-600 text-white p-1 rounded-lg shrink-0 mt-0.5"><Check size={14} /></div>
-                            <div className="space-y-1">
-                              <p className="text-[11px] font-bold text-blue-900 uppercase leading-none">{t("checkout.qrisTutorial")}</p>
-                              <ol className="text-[10px] font-medium text-blue-800 list-decimal ml-3 leading-relaxed">
-                                <li>{t("checkout.qrisStep1")}</li>
-                                <li>{t("checkout.qrisStep2")}</li>
-                                <li>{t("checkout.qrisStep3")}</li>
-                                <li>{t("checkout.qrisStep4")}</li>
-                                <li>{t("checkout.qrisStep5")}</li>
-                              </ol>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-start gap-2 bg-orange-50 p-3 rounded-xl text-left border border-orange-100">
-                            <AlertTriangle size={18} className="text-orange-500 shrink-0 mt-0.5" />
-                            <p className="text-[11px] font-medium text-orange-700 leading-tight">
-                              <strong>{t("checkout.transferWarningPrefix")}</strong> {t("checkout.transferWarningText")}
-                            </p>
-                          </div>
-                        )}
-
-                        {!payDetail.isQR && (
-                          <div className="bg-blue-50 rounded-2xl p-4 space-y-3 text-left border border-blue-100">
-                            <div className="flex items-center gap-2 text-blue-800"><Landmark size={18} /><h3 className="text-sm font-bold">{t("checkout.transferDestination")}</h3></div>
-                            <div className="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm border border-blue-50">
-                              <div className="flex items-center gap-3">
-                                <div className="w-12 h-8 bg-slate-50 rounded-md border border-slate-100 flex items-center justify-center p-1 shrink-0 overflow-hidden">
-                                  <img src={payDetail.logo} alt={payDetail.name} className="max-w-full max-h-full object-contain" />
-                                </div>
-                                <div>
-                                  <p className="text-[10px] font-semibold text-slate-400 uppercase">{payDetail.name}</p>
-                                  <p className="text-lg font-bold text-slate-900 tracking-wider leading-none mt-0.5">{payDetail.no}</p>
-                                  <p className="text-[9px] font-medium text-slate-500 uppercase mt-1">{t("checkout.accountName")} {payDetail.an}</p>
-                                </div>
-                              </div>
-                              <button onClick={() => copyToClipboard(payDetail.no, "rekening")} aria-label={copiedId === "rekening" ? t("checkout.copied") : t("checkout.copy")} title={copiedId === "rekening" ? t("checkout.copied") : t("checkout.copy")} className="bg-slate-100 p-2.5 rounded-xl active:scale-95 transition-all">
-                                {copiedId === "rekening" ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} className="text-slate-500" />}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="py-6 space-y-4 animate-in zoom-in text-center">
-                        <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto text-rose-600"><AlertTriangle size={32} /></div>
-                        <h3 className="text-lg font-bold text-slate-800">{t("checkout.timeExpired")}</h3>
-                        <Link href={locale === "en" ? "/en" : "/"} className="block w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold text-[11px] uppercase shadow-lg">{t("checkout.createNewOrder")}</Link>
-                      </div>
-                    )}
-                  </>
+                      ) : (
+                        <div className="w-52 h-52 flex flex-col items-center justify-center bg-slate-50 rounded-xl">
+                          <Loader2
+                            size={28}
+                            className="animate-spin text-blue-600"
+                          />
+                          <span className="text-xs text-slate-400 mt-2 font-medium">
+                            {t("checkout.preparingPayment")}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium text-center max-w-sm">
+                      {t("checkout.scanAndPay", {
+                        amount: `Rp ${formattedTotal}`,
+                      })}
+                    </p>
+                  </div>
                 )}
-              </>
+
+                {/* --- METODE E-WALLET (DANA, OVO, GOPAY, DLL) --- */}
+                {isEwallet && (
+                  <div className="bg-slate-50 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-slate-200/80">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1.5">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={payDetail.logo}
+                          alt={trx.payment_method}
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">
+                          {trx.payment_method}
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          {t("checkout.accountName")} {payDetail.an || "DaPay"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (trx.is_sandbox) {
+                          handleSimulatePayment();
+                        } else {
+                          alert(
+                            t("checkout.transferWarningText") ||
+                              "Silakan buka aplikasi e-wallet Anda untuk menyelesaikan pembayaran."
+                          );
+                        }
+                      }}
+                      className="px-6 py-2.5 bg-[#1e40af] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold shadow-md transition-all active:scale-95 cursor-pointer text-center"
+                    >
+                      {t("checkout.payNow")}
+                    </button>
+                  </div>
+                )}
+
+                {/* Sandbox Testing Banner (Khusus Environment Sandbox) */}
+                {trx.is_sandbox && (
+                  <div className="rounded-2xl border border-amber-300/80 bg-amber-50/90 p-4 space-y-2 mt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                        🧪 {t("checkout.sandboxMode")}
+                      </span>
+                      <span className="text-[10px] font-semibold text-amber-600">
+                        {t("checkout.simulationTesting")}
+                      </span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-amber-700">
+                      {t("checkout.sandboxNotice")}
+                    </p>
+                    <div className="pt-1 flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        disabled={simulating}
+                        onClick={() => handleSimulatePayment({ auto_resolve: false })}
+                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 px-3 py-2 text-xs font-bold text-white shadow-xs transition active:scale-98 disabled:opacity-50 cursor-pointer"
+                      >
+                        {simulating ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            {t("checkout.processingSimulation")}
+                          </>
+                        ) : (
+                          <>
+                            <Clock size={14} />
+                            {t("checkout.simulatePayToProcessing")}
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={simulating}
+                        onClick={() => handleSimulatePayment({ auto_resolve: true })}
+                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-700 px-3 py-2 text-xs font-bold text-white shadow-xs transition active:scale-98 disabled:opacity-50 cursor-pointer"
+                      >
+                        {simulating ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            {t("checkout.processingSimulation")}
+                          </>
+                        ) : (
+                          <>
+                            <Zap size={14} />
+                            {t("checkout.instantSimulationPay")}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+                </>
+              )}
+            </div>
+
+            {/* KARTU 2: STATUS TRANSAKSI (Hanya ditampilkan jika belum kedaluwarsa atau bukan gagal) */}
+            {!isGagal && (
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-3">
+                <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100">
+                  <span className="text-slate-500 font-medium">
+                    {t("checkout.statusTransaction")}
+                  </span>
+                  {isProcessing ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full border border-blue-500 text-blue-600 text-xs font-bold uppercase tracking-wider bg-blue-50">
+                      <Loader2 size={12} className="animate-spin" />
+                      {t("checkout.stepperProcessing")}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-3 py-0.5 rounded-full border border-orange-500 text-orange-600 text-xs font-bold uppercase tracking-wider bg-orange-50/50">
+                      {t("checkout.notYetProcessed")}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100">
+                  <span className="text-slate-500 font-medium">
+                    {t("checkout.transactionNo")}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-800 font-mono">
+                      #{trx.order_id}
+                    </span>
+                    <button
+                      onClick={() =>
+                        copyToClipboard(trx.order_id, "transaksi_no")
+                      }
+                      className="text-blue-600 font-bold hover:underline cursor-pointer"
+                    >
+                      {copiedId === "transaksi_no"
+                        ? t("checkout.copied")
+                        : t("checkout.copy")}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs py-1">
+                  <span className="text-slate-500 font-medium">
+                    {t("checkout.transactionTime")}
+                  </span>
+                  <span className="font-semibold text-slate-800">
+                    {formatTransactionDate(trx.created_at)}
+                  </span>
+                </div>
+              </div>
             )}
-          </>
-        ) : isProcessing ? (
-          <div className="space-y-6 py-8 animate-in zoom-in duration-500 text-center w-full">
-            <div className="relative w-20 h-20 mx-auto">
-              <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-20"></div>
-              <div className="relative w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center shadow-inner border-4 border-blue-100">
-                <Loader2 size={36} className="text-blue-600 animate-spin" />
+
+            {/* KARTU 3: DETAIL PRODUK */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-3">
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight pb-1 border-b border-slate-100">
+                {t("checkout.productDetails")}
+              </h3>
+
+              <div className="flex items-center justify-between text-xs py-1 border-b border-slate-50">
+                <span className="text-slate-500 font-medium">
+                  {t("checkout.productName")}
+                </span>
+                <span className="font-bold text-slate-800">
+                  {displayProductName}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs py-1 border-b border-slate-50">
+                <span className="text-slate-500 font-medium">
+                  {t("checkout.itemNominal")}
+                </span>
+                <span className="font-bold text-slate-800">
+                  {trx.item_label || trx.sku}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs py-1 border-b border-slate-50">
+                <span className="text-slate-500 font-medium">
+                  {t("checkout.userId")}
+                </span>
+                <span className="font-bold text-slate-800 font-mono">
+                  {trx.customer_no}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs py-1">
+                <span className="text-slate-500 font-medium">
+                  {t("checkout.quantity")}
+                </span>
+                <span className="font-bold text-slate-800">1</span>
               </div>
             </div>
-            <div className="space-y-2">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase italic">{t("checkout.paymentReceived")}</h2>
-              <p className="text-[11px] text-slate-500 font-medium px-4 leading-relaxed">
-                {t("checkout.moneySafeProcessing")}
-              </p>
-            </div>
-            <div className="bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-widest py-2 px-4 rounded-xl inline-block mt-2 animate-pulse">
-              {t("checkout.pleaseWait")}
+
+            {/* KARTU 4: DETAIL PEMBAYARAN */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-3">
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight pb-1 border-b border-slate-100">
+                {t("checkout.paymentDetails")}
+              </h3>
+
+              <div className="flex items-center justify-between text-xs py-1 border-b border-slate-50">
+                <span className="text-slate-500 font-medium">
+                  {t("checkout.totalTransaction")}
+                </span>
+                <span className="font-semibold text-slate-800">
+                  Rp{formattedTotal}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs py-1">
+                <span className="text-slate-500 font-medium">
+                  {t("checkout.totalPayment")}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm sm:text-base font-bold text-slate-900 font-mono">
+                    Rp{formattedTotal}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      copyToClipboard(
+                        String(trx.total_amount || 0),
+                        "total_payment_detail"
+                      )
+                    }
+                    className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+                  >
+                    {copiedId === "total_payment_detail"
+                      ? t("checkout.copied")
+                      : t("checkout.copy")}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        ) : isGagal ? (
-          <div className="space-y-5 py-6 animate-in zoom-in text-center">
-            <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto shadow-inner"><XCircle size={32} className="text-rose-600" /></div>
-        <div className="space-y-1.5">
-              <h2 className="text-2xl font-bold text-rose-600">{t("checkout.transactionFailed")}</h2>
-              <p className="text-[11px] text-slate-500 font-medium px-6">
-                {trx.user_id
-                  ? t("checkout.coinRefundNotice")
-                  : t("checkout.manualRefundNotice")}
-              </p>
-            </div>
-            {!trx.user_id && (
-              <a
-                href={`https://wa.me/6285545213952?text=${encodeURIComponent(t("checkout.whatsappRefundMsg", { orderId: trx.order_id }))}`}
-                className="block w-full py-3.5 bg-emerald-500 text-white rounded-xl font-bold text-[11px] uppercase shadow-lg shadow-emerald-200"
+
+          {/* ========================================================
+              KOLOM KANAN (SIDEBAR EDUKASI & KEAMANAN) - 4 Kolom Desktop
+             ======================================================== */}
+          <div className="lg:col-span-4 space-y-4">
+            {/* SIDEBAR CARD 1: GARANSI UANG KEMBALI */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                  <Shield size={20} className="fill-blue-100" />
+                </div>
+                <span className="text-xs font-semibold text-slate-700 leading-snug">
+                  {t("checkout.moneyBackGuarantee")}
+                </span>
+              </div>
+              <div
+                className="text-blue-600 shrink-0 cursor-pointer"
+                title={t("checkout.moneyBackGuarantee")}
               >
-                {t("checkout.contactAdminRefund")}
-              </a>
-            )}
-            <Link href={locale === "en" ? "/en" : "/"} className="block w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold text-[11px] uppercase shadow-lg">{t("checkout.backToHome")}</Link>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4 animate-in zoom-in duration-500 w-full">
-            {/* 1. ICON & HEADER SUKSES */}
-            <div className="space-y-2 text-center">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto shadow-inner ring-4 ring-emerald-50">
-                <CheckCircle size={32} className="text-emerald-600" />
-              </div>
-              <div className="space-y-0.5">
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight uppercase italic">{t("checkout.paymentSuccess")}</h2>
-                <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">{t("checkout.transactionSuccessProcessed")}</p>
+                <Info size={18} />
               </div>
             </div>
 
-            {/* 2. KOMPONEN STRUK DIGITAL */}
-            <div className="w-full">
-               {trx.category?.toLowerCase().includes('pascabayar') || trx.sku?.toLowerCase() === 'pln' ? (
-                 <ReceiptPascabayar order={trx} />
-               ) : (
-                 <ReceiptPrabayar order={trx} />
-               )}
+            {/* SIDEBAR CARD 2: CATATAN (7 POIN PANDUAN RESMI) */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-3">
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                {t("checkout.notesTitle")}
+              </h3>
+              <ol className="list-decimal list-outside pl-4 space-y-2 text-xs text-slate-600 leading-relaxed">
+                <li>{t("checkout.note1")}</li>
+                <li>{t("checkout.note2")}</li>
+                <li>{t("checkout.note3")}</li>
+                <li>{t("checkout.note4")}</li>
+                <li>{t("checkout.note5")}</li>
+                <li>{t("checkout.note6")}</li>
+                <li>{t("checkout.note7")}</li>
+              </ol>
             </div>
 
-            {/* 3. TOMBOL AKSI BAWAH */}
-            <div className="pt-2 border-t border-slate-100 space-y-2 w-full max-w-md mx-auto">
-               <Link
-                 href={locale === "en" ? "/en" : "/"}
-                 className="block w-full py-3 bg-slate-900 text-white rounded-xl font-black italic text-[11px] uppercase transition-all shadow-md hover:bg-blue-600 text-center tracking-widest active:scale-95"
-               >
-                 {t("checkout.shopAgain")}
-               </Link>
-               <p className="text-[8px] text-slate-400 font-bold text-center uppercase tracking-widest italic">
-                 {t("checkout.autoSavedHistory")}
-               </p>
+            {/* SIDEBAR CARD 3: JAGA KEAMANAN DATAMU */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0 shadow-2xs">
+                <Lock size={20} className="fill-amber-100" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                  {t("checkout.keepDataSafeTitle")}
+                </h4>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  {t("checkout.keepDataSafeDesc")}
+                </p>
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Pop-up Modal Cara Pembayaran VA / Transfer Manual */}
+      <PaymentInstructionsModal
+        isOpen={isInstructionModalOpen}
+        onClose={() => setIsInstructionModalOpen(false)}
+        bankName={trx.payment_method || "Virtual Account"}
+        isManual={isManualTransfer}
+        accountNo={payDetail.no !== "-" ? payDetail.no : (trx.payment_code || trx.order_id)}
+        accountName={payDetail.an}
+      />
     </div>
   );
 }
@@ -632,7 +1442,13 @@ fetchTransaction();
 export default function InvoicePage() {
   const { t } = useI18n();
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-500 italic uppercase">{t("common.loading")}</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-500 italic uppercase">
+          {t("common.loading")}
+        </div>
+      }
+    >
       <InvoiceContent />
     </Suspense>
   );

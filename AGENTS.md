@@ -1,4 +1,4 @@
-﻿# DAPAY PROJECT — AGENT POLICY
+# DAPAY PROJECT — AGENT POLICY
 
 This repository is connected to a real Supabase production environment.
 
@@ -298,6 +298,18 @@ For all NEW public user-facing features:
 - Correct: `t("common.buyNow")` with matching entries in `id.json` and `en.json`.
 - Do NOT require Admin/internal-only dashboards to become bilingual yet (Admin stays Indonesian initially).
 - CMS editorial content (`public_contents`) is distinct from UI dictionary keys and will be localized in a separate dedicated phase.
+
+## UI LOADING STANDARD — SKELETON STREAMING ONLY
+
+Untuk seluruh halaman publik dan modul pengguna di DaPay:
+- **Wajib menggunakan Pola Skeleton Streaming**:
+  - Setiap rute publik/pengguna utama wajib memiliki berkas Next.js `loading.tsx` yang merender skeleton layout shimmer.
+  - State `loading` awal pada komponen/halaman harus merender cetak biru skeleton (`*Skeleton.tsx`), bukan layar kosong atau spinner berputar.
+  - Dropdown pencarian dan daftar item dinamis wajib menampilkan shimmer placeholder saat data sedang diambil.
+- **DILARANG (FORBIDDEN)**:
+  - Menggunakan layar kosong gelap/putih dengan ikon muter berputar (`Loader2`, `animate-spin`) sebagai loading penuh halaman (misal: `if (loading) return <div ...><Loader2 className="animate-spin" /></div>`).
+- **Pengecualian yang Diizinkan**:
+  - *Micro-spinner* di dalam tombol aksi (submit button) saat proses mutasi/pembayaran sedang berlangsung (`isSubmitting && <Loader2 size={14} className="animate-spin" />`) tetap dipertahankan untuk memberikan feedback proses aktif dan mencegah klik ganda (*double submission*).
 
 ## FINAL REPORT
 

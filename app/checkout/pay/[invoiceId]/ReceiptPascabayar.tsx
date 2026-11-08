@@ -29,7 +29,7 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
         });
 
         const link = document.createElement("a");
-        link.download = `DanisPay-${order.order_id}.png`;
+        link.download = `DaPay-${order.order_id}.png`;
         link.href = dataUrl;
         link.click();
       } catch (err) {
@@ -92,7 +92,7 @@ export default function ReceiptPascabayar({ order }: { order: any }) {
 
         <div className="text-center border-b border-dashed border-slate-200 pb-2 mb-2 sm:pb-4 sm:mb-4">
           <h2 className="text-base sm:text-xl font-black tracking-tighter italic uppercase leading-none">
-            DANISPAY <span className="text-blue-600">STORE</span>
+            DAPAY <span className="text-blue-600">DIGITAL</span>
           </h2>
           <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase mt-0.5">
             {t("receipt.digitalReceiptProof")}

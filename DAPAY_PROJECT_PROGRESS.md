@@ -45,6 +45,42 @@ Deployment runtime aplikasi: **BELUM DIDEploy KE VPS** karena langganan VPS seda
 - Runtime SQLSTATE `42702` pada allocator member deposit sudah diperbaiki oleh `190800`; retry sukses tanpa partial mutation dari percobaan gagal.
 - **DEPOSIT REJECT — VERIFIED / CLOSED** untuk scope Pending → Rejected tanpa credit saldo.
 - **MACRODROID PAYMENT RESOLVER — VERIFIED / CLOSED** untuk exact match, replay, manual-bank fail-closed, dan ambiguity fail-closed.
+- **UI LOADING STANDARD — SKELETON STREAMING ONLY (VERIFIED / CLOSED)**:
+  - Seluruh blocking loading spinner (`Loader2`, `animate-spin` full-screen/container blockers) telah dieliminasi dari seluruh aplikasi publik DaPay.
+  - Berkas streaming `loading.tsx` Next.js telah dipasang di seluruh rute utama: `/`, `/ProductSection/[slug]`, `/checkout/pay/[invoiceId]`, `/(dashboard)/user`, `/promo`, `/news`, `/promotions/[slug]`, `/news/[slug]`.
+  - Komponen skeleton presisi dengan animasi shimmer beroperasi di `components/skeletons/`: `HomeSkeleton`, `ProductDetailSkeleton`, `InvoiceReceiptSkeleton`, `UserDashboardSkeleton`, `RegisterFormSkeleton`.
+  - Dropdown pencarian Navbar menggunakan shimmer items 3 baris.
+  - Tab kategori Promo beroperasi instan di sisi klien (0ms) tanpa roundtrip server.
+  - Kaidah wajib Skeleton Streaming dicatat secara permanen di `AGENTS.md`.
+- **AFFILIATE PROGRAM MARKETING-GRADE REWORK (VERIFIED / CLOSED)**:
+  - Branding usang (DanisPay/DanishPay) dibersihkan secara komprehensif dari seluruh program kemitraan dan promosi afiliasi di `messages/id.json`, `messages/en.json`, dan fallback strings.
+  - Audit mendalam & eliminasi duplikasi layout: menghilangkan "Double-Hero" rendering di `app/promotions/[slug]/page.tsx` sehingga halaman memiliki satu hierarki judul H1 terintegrasi yang proporsional.
+  - Penyelarasan Sistem Teknis Referral DaPay (Anti-Miskomunikasi):
+    - Seluruh klaim jadwal pencairan manual tanggal 15 / H-15 dieliminasi total; diselaraskan dengan sistem aktual DaPay di mana komisi masuk **otomatis & real-time** ke Saldo DaPay detik itu juga saat pesanan sukses dan bebas ditarik kapan saja.
+    - Struktur bagi hasil diselaraskan dengan parameter riil `store_settings`: 7% transaksi perdana (`first_referral_percent`) dan 5% transaksi berikutnya (`next_referral_percent`).
+    - Special Member diselaraskan dengan rute `/api/member/upgrade` (upgrade instan via dashboard) dan keunggulan utamanya: **Cashback Eksklusif Belanja Pribadi** di samping komisi referral jaringan.
+  - Simulator Komisi Interaktif (`AffiliateCalculator.tsx`): diselaraskan dengan mekanisme riil (Komisi Referral Jaringan + Proyeksi Cashback Belanja Pribadi untuk Special Member), dilengkapi dual-mode toggle, custom dynamic gradient track, bilingual currency formatting (`id-ID` & `en-US`), dan rincian matematis formula transparan.
+  - Standardisasi Tipografi & Token Desain: mengeliminasi font raksasa non-standar (`text-9xl`) dan sudut melengkung liar (`rounded-[60px]`); distandarkan ke skala tipografi resmi DaPay (`text-3xl sm:text-4xl lg:text-5xl font-black`), token Tailwind baku (`rounded-2xl`, `rounded-3xl`, `rounded-xl`), dan palet Slate (`slate-950`, `slate-900`, `slate-800`).
+  - Aksesibilitas Accordion FAQ: arsitektur transisi CSS Grid (`grid-rows-[1fr]` / `grid-rows-[0fr]`) dengan zero text-clipping di viewport mobile, serta semantik WAI-ARIA lengkap (`aria-controls`, `aria-expanded`, `role="region"`).
+  - Eliminasi Gambar Header Statis & Penerapan Opsi 1 (Tech Grid Canvas & Breadcrumb Navigasi):
+    - Gambar banner bitmap statis atas dihilangkan khusus rute afiliasi di `app/promotions/[slug]/page.tsx` (memangkas LCP load delay 0ms dan scroll fatigue).
+    - Digantikan dengan navigasi breadcrumb bersih (`Home / Promo / Program Kemitraan DaPay`).
+    - Hero Section di `Affiliate.tsx` diperkuat dengan **Tech Grid Pattern** geometris transparan, denyut aurora glow ambient, serta trio chip kepercayaan (*Real-Time Auto-Payout, 100% Free Registration, Lifetime Passive Income*).
+  - Banner Komunitas Resmi WhatsApp terstandar dengan token visual Slate-Emerald.
+  - Seluruh verifikasi statis lulus: `npx tsc --noEmit` (0 error), `git diff --check` (clean), `npx eslint` (clean).
+- **LACAK PESANAN (ORDER TRACKING) REWORK — ENTERPRISE FINTECH & NEW TAB ALIGNMENT (VERIFIED / CLOSED)**:
+  - **Arsitektur Sederhana di Popup Modal (`components/TransactionHistoryModal.tsx`)**:
+    - Popup dibuat ringkas, bersih, dan elegan (`max-w-md`), tidak lagi dijejali tabel panjang atau komponen berlebihan yang memadati viewport mobile/laptop.
+    - Menampilkan form nomor invoice dengan perlindungan bot aman, shimmer streaming loader, dan chip 5 riwayat pesanan terakhir (`localStorage: dapay_guest_history`).
+    - Saat dilacak, modal menampilkan **Quick Status Card** ringkas (Nomor Invoice dengan salin 1-klik, nama produk, status transaksi, dan total biaya) didampingi tombol utama *"Buka di Tab Baru"* serta navigasi *"Lacak Pesanan Lain"*.
+    - Dilengkapi sinkronisasi jendela awal agar pembukaan tab baru tidak terblokir oleh *popup blocker* browser modern.
+  - **Pusat Rincian Transaksi Penuh di Tab Baru (`/checkout/pay/[invoiceId]`)**:
+    - Halaman tab baru menjadi pusat transaksi yang bersih, fokus, dan nyaman tanpa distraksi stepper/alur bertingkat sesuai kenyamanan pengguna.
+    - Merender Struk Digital Resmi DaPay Digital (`ReceiptPrabayar` & `ReceiptPascabayar`), Callout Box Token Listrik PLN/SN, timer pembayaran real-time, QRIS dinamis, hingga tombol unduh struk gambar (`DaPay-{orderId}.png`).
+  - **Pembersihan Total Branding Sisa (DanisPay Artifacts)**:
+    - Seluruh kamus i18n (`safeFastTx`, `shopAgain`, `thankYouStore`, `secureByDanisPay`) dan metadata halaman distandarkan ke **DaPay**.
+    - Tombol Lacak Pesanan pada Footer distandarkan ke ikon `ReceiptText` menyatu dengan Navbar dan BottomNav.
+  - **Seluruh verifikasi statis lulus**: `npx tsc --noEmit` (0 error), `git diff --check` (clean), `npx eslint` (clean).
 
 ## Masih terbuka / backlog
 

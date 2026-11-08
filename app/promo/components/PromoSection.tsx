@@ -72,28 +72,57 @@ export default function PromoSection({ section, items, locale: propLocale }: Pro
               ? localizeHref(item.cta_url, currentLocale)
               : item.cta_url
             : "#";
+          const isInternalCta = hasCta && !isBlank && ctaHref.startsWith("/");
+
+          const CoverImageContent = (
+            <>
+              {item.cover_image_url ? (
+                <Image
+                  src={item.cover_image_url}
+                  alt={item.title}
+                  fill
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  sizes={section.layout === "list" ? "230px" : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-slate-800 text-xs font-bold uppercase text-slate-500">
+                  DaPay Promo
+                </div>
+              )}
+            </>
+          );
 
           if (section.layout === "list") {
             return (
               <article
                 key={item.id}
-                className="group flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 transition-all duration-200 hover:border-slate-700 sm:flex-row sm:items-center"
+                className="group flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 transition-all duration-200 hover:border-slate-700 active:scale-[0.99] sm:flex-row sm:items-center"
               >
-                <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-slate-800 sm:w-56">
-                  {item.cover_image_url ? (
-                    <Image
-                      src={item.cover_image_url}
-                      alt={item.title}
-                      fill
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      sizes="230px"
-                    />
+                {hasCta ? (
+                  isInternalCta ? (
+                    <Link
+                      href={ctaHref}
+                      className="block relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-slate-800 sm:w-56 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      aria-label={item.title}
+                    >
+                      {CoverImageContent}
+                    </Link>
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-slate-800 text-xs font-bold uppercase text-slate-500">
-                      DaPay Promo
-                    </div>
-                  )}
-                </div>
+                    <a
+                      href={ctaHref}
+                      target={ctaTarget}
+                      rel={isBlank ? "noopener noreferrer" : undefined}
+                      className="block relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-slate-800 sm:w-56 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      aria-label={item.title}
+                    >
+                      {CoverImageContent}
+                    </a>
+                  )
+                ) : (
+                  <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-slate-800 sm:w-56">
+                    {CoverImageContent}
+                  </div>
+                )}
 
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -109,7 +138,19 @@ export default function PromoSection({ section, items, locale: propLocale }: Pro
                   </div>
 
                   <h3 className="text-base font-bold text-white transition-colors group-hover:text-blue-400 line-clamp-1">
-                    {item.title}
+                    {hasCta ? (
+                      isInternalCta ? (
+                        <Link href={ctaHref} className="hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">
+                          {item.title}
+                        </Link>
+                      ) : (
+                        <a href={ctaHref} target={ctaTarget} rel={isBlank ? "noopener noreferrer" : undefined} className="hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">
+                          {item.title}
+                        </a>
+                      )
+                    ) : (
+                      item.title
+                    )}
                   </h3>
 
                   {item.excerpt && (
@@ -120,15 +161,25 @@ export default function PromoSection({ section, items, locale: propLocale }: Pro
 
                   {hasCta && (
                     <div>
-                      <a
-                        href={ctaHref}
-                        target={ctaTarget}
-                        rel={isBlank ? "noopener noreferrer" : undefined}
-                        className="inline-flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300"
-                      >
-                        <span>{item.cta_label || t("promo.claimPromo")}</span>
-                        {isBlank ? <ExternalLink size={12} /> : <ArrowUpRight size={13} />}
-                      </a>
+                      {isInternalCta ? (
+                        <Link
+                          href={ctaHref}
+                          className="inline-flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300"
+                        >
+                          <span>{item.cta_label || t("promo.claimPromo")}</span>
+                          <ArrowUpRight size={13} />
+                        </Link>
+                      ) : (
+                        <a
+                          href={ctaHref}
+                          target={ctaTarget}
+                          rel={isBlank ? "noopener noreferrer" : undefined}
+                          className="inline-flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300"
+                        >
+                          <span>{item.cta_label || t("promo.claimPromo")}</span>
+                          {isBlank ? <ExternalLink size={12} /> : <ArrowUpRight size={13} />}
+                        </a>
+                      )}
                     </div>
                   )}
                 </div>
@@ -140,36 +191,64 @@ export default function PromoSection({ section, items, locale: propLocale }: Pro
           return (
             <article
               key={item.id}
-              className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-slate-700 hover:shadow-2xl"
+              className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-slate-700 hover:shadow-2xl active:scale-[0.99]"
             >
               {/* Cover Image */}
-              <div className="relative aspect-video w-full overflow-hidden bg-slate-800">
-                {item.cover_image_url ? (
-                  <Image
-                    src={item.cover_image_url}
-                    alt={item.title}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  />
+              {hasCta ? (
+                isInternalCta ? (
+                  <Link
+                    href={ctaHref}
+                    className="relative aspect-video w-full overflow-hidden bg-slate-800 block cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    aria-label={item.title}
+                  >
+                    {CoverImageContent}
+                    <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                      <span className="inline-flex rounded-md border border-white/10 bg-black/60 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 backdrop-blur-xs">
+                        {item.category || item.type}
+                      </span>
+                      {item.is_featured && (
+                        <span className="inline-flex rounded-md border border-amber-500/30 bg-amber-500/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950">
+                          {t("promo.featured")}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-slate-900 to-slate-950 p-4 text-center">
-                    <span className="font-mono text-xs font-bold uppercase tracking-widest text-slate-600">
-                      {item.category || "DaPay Promo"}
+                  <a
+                    href={ctaHref}
+                    target={ctaTarget}
+                    rel={isBlank ? "noopener noreferrer" : undefined}
+                    className="relative aspect-video w-full overflow-hidden bg-slate-800 block cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    aria-label={item.title}
+                  >
+                    {CoverImageContent}
+                    <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                      <span className="inline-flex rounded-md border border-white/10 bg-black/60 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 backdrop-blur-xs">
+                        {item.category || item.type}
+                      </span>
+                      {item.is_featured && (
+                        <span className="inline-flex rounded-md border border-amber-500/30 bg-amber-500/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950">
+                          {t("promo.featured")}
+                        </span>
+                      )}
+                    </div>
+                  </a>
+                )
+              ) : (
+                <div className="relative aspect-video w-full overflow-hidden bg-slate-800">
+                  {CoverImageContent}
+                  <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                    <span className="inline-flex rounded-md border border-white/10 bg-black/60 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 backdrop-blur-xs">
+                      {item.category || item.type}
                     </span>
+                    {item.is_featured && (
+                      <span className="inline-flex rounded-md border border-amber-500/30 bg-amber-500/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950">
+                        {t("promo.featured")}
+                      </span>
+                    )}
                   </div>
-                )}
-                <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                  <span className="inline-flex rounded-md border border-white/10 bg-black/60 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 backdrop-blur-xs">
-                    {item.category || item.type}
-                  </span>
-                  {item.is_featured && (
-                    <span className="inline-flex rounded-md border border-amber-500/30 bg-amber-500/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950">
-                      {t("promo.featured")}
-                    </span>
-                  )}
                 </div>
-              </div>
+              )}
 
               {/* Card Body */}
               <div className="flex flex-1 flex-col justify-between p-5 space-y-4">
@@ -184,7 +263,19 @@ export default function PromoSection({ section, items, locale: propLocale }: Pro
                   </div>
 
                   <h3 className="line-clamp-2 text-base font-bold tracking-tight text-white transition-colors group-hover:text-blue-400">
-                    {item.title}
+                    {hasCta ? (
+                      isInternalCta ? (
+                        <Link href={ctaHref} className="hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">
+                          {item.title}
+                        </Link>
+                      ) : (
+                        <a href={ctaHref} target={ctaTarget} rel={isBlank ? "noopener noreferrer" : undefined} className="hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">
+                          {item.title}
+                        </a>
+                      )
+                    ) : (
+                      item.title
+                    )}
                   </h3>
 
                   {item.excerpt && (
@@ -211,15 +302,25 @@ export default function PromoSection({ section, items, locale: propLocale }: Pro
                 {/* CTA Action */}
                 <div className="pt-2 border-t border-slate-800/80">
                   {hasCta ? (
-                    <a
-                      href={ctaHref}
-                      target={ctaTarget}
-                      rel={isBlank ? "noopener noreferrer" : undefined}
-                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2.5 text-xs font-bold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    >
-                      <span>{item.cta_label || t("promo.takePromo")}</span>
-                      {isBlank ? <ExternalLink size={13} /> : <ArrowUpRight size={14} />}
-                    </a>
+                    isInternalCta ? (
+                      <Link
+                        href={ctaHref}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2.5 text-xs font-bold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        <span>{item.cta_label || t("promo.takePromo")}</span>
+                        <ArrowUpRight size={14} />
+                      </Link>
+                    ) : (
+                      <a
+                        href={ctaHref}
+                        target={ctaTarget}
+                        rel={isBlank ? "noopener noreferrer" : undefined}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2.5 text-xs font-bold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
+                        <span>{item.cta_label || t("promo.takePromo")}</span>
+                        {isBlank ? <ExternalLink size={13} /> : <ArrowUpRight size={14} />}
+                      </a>
+                    )
                   ) : (
                     <Link
                       href={localizeHref("/", currentLocale)}

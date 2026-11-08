@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/utils/supabaseClient";
 import { useI18n } from "@/lib/i18n/context";
 import {
   Withdrawal,
@@ -75,6 +76,89 @@ export function useWithdrawData({
       setRefreshing(false);
     }
   }, [t]);
+
+  // Supabase Realtime: dengarkan perubahan penarikan dana & saldo secara langsung
+  useEffect(() => {
+    let activeChannel: ReturnType<typeof supabase.channel> | null = null;
+    let isMounted = true;
+
+    const setupRealtime = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.user?.id || !isMounted) return;
+
+      const userEmail = session.user.email || "";
+      const channelName = `user-withdrawals-realtime-${session.user.id}`;
+
+      const channelBuilder = supabase.channel(channelName);
+
+      if (userEmail) {
+        channelBuilder
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "withdrawals",
+              filter: `user_email=eq.${userEmail}`,
+            },
+            () => {
+              void refetch(true);
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "profiles",
+              filter: `email=eq.${userEmail}`,
+            },
+            () => {
+              void refetch(true);
+            }
+          );
+      } else {
+        channelBuilder
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "withdrawals",
+              filter: `user_id=eq.${session.user.id}`,
+            },
+            () => {
+              void refetch(true);
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "profiles",
+              filter: `id=eq.${session.user.id}`,
+            },
+            () => {
+              void refetch(true);
+            }
+          );
+      }
+
+      activeChannel = channelBuilder.subscribe();
+    };
+
+    void setupRealtime();
+
+    return () => {
+      isMounted = false;
+      if (activeChannel) {
+        void supabase.removeChannel(activeChannel);
+      }
+    };
+  }, [refetch]);
 
   // 3. STATUS COUNTS PER CATEGORY
   const statusCounts = useMemo<WithdrawalStatusCounts>(() => {

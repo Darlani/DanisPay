@@ -309,6 +309,22 @@ export async function resolveOrderEnvironment(
     if (isManagementRole(profile.role)) return { isSandbox: false, reason: 'MANAGEMENT_PERSONA_NON_CUSTOMER' };
 
     const hasActiveSandboxAccess = (await getSandboxAccessState(userId)) === 'ACTIVE';
+
+    // 1. If no request headers or user does not have active sandbox rights, order is strictly LIVE
+    if (!req || !hasActiveSandboxAccess) {
+      return { isSandbox: false, reason: hasActiveSandboxAccess ? 'LIVE_DEFAULT' : 'UNAUTHORIZED_FORCED_LIVE' };
+    }
+
+    // 2. An order is ONLY sandbox if the user EXPLICITLY has an active sandbox session cookie
+    const hasSandboxCookie = (req.headers.get('cookie') || '')
+      .split(';')
+      .some((cookie) => cookie.trim().startsWith(`${SANDBOX_SESSION_COOKIE}=active`));
+
+    if (!hasSandboxCookie) {
+      return { isSandbox: false, reason: 'LIVE_DEFAULT' };
+    }
+
+    // 3. User explicitly activated sandbox mode, verify store environment
     const { data: storeSettings, error: storeSettingsError } = await supabaseAdmin
       .from('store_settings')
       .select('is_live_mode')
@@ -316,22 +332,7 @@ export async function resolveOrderEnvironment(
       .single();
     if (storeSettingsError || !storeSettings) throw new OrderEnvironmentResolutionError('Unable to verify store environment.');
 
-    if (storeSettings.is_live_mode === false) {
-      return hasActiveSandboxAccess
-        ? { isSandbox: true, reason: 'GLOBAL_STORE_SANDBOX' }
-        : { isSandbox: false, reason: 'UNAUTHORIZED_FORCED_LIVE' };
-    }
-
-    if (!req || !hasActiveSandboxAccess) {
-      return { isSandbox: false, reason: hasActiveSandboxAccess ? 'LIVE_DEFAULT' : 'UNAUTHORIZED_FORCED_LIVE' };
-    }
-
-    const hasSandboxCookie = (req.headers.get('cookie') || '')
-      .split(';')
-      .some((cookie) => cookie.trim().startsWith(`${SANDBOX_SESSION_COOKIE}=active`));
-    return hasSandboxCookie
-      ? { isSandbox: true, reason: 'AUTHORIZED_TESTER_SANDBOX' }
-      : { isSandbox: false, reason: 'LIVE_DEFAULT' };
+    return { isSandbox: true, reason: 'AUTHORIZED_TESTER_SANDBOX' };
   } catch (error) {
     console.error('❌ [RESOLVE_ENV] Error resolving order environment:', error);
     if (error instanceof OrderEnvironmentResolutionError) throw error;
