@@ -1,0 +1,263 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { Download, Printer, CheckCircle2, Copy } from "lucide-react";
+import { toPng } from "html-to-image";
+import { useI18n } from "@/lib/i18n/context";
+import { formatRupiah } from "@/lib/i18n/formatters";
+
+export default function ReceiptPascabayar({ order }: { order: any }) {
+  const { t, locale } = useI18n();
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyInvoice = () => {
+    if (order?.order_id) {
+      navigator.clipboard.writeText(order.order_id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleDownloadImage = async () => {
+    if (receiptRef.current && order) {
+      try {
+        const dataUrl = await toPng(receiptRef.current, {
+          cacheBust: true,
+          backgroundColor: "#ffffff",
+          pixelRatio: 3,
+        });
+
+        const link = document.createElement("a");
+        link.download = `DaPay-${order.order_id}.png`;
+        link.href = dataUrl;
+        link.click();
+      } catch (err) {
+        console.error("Gagal simpan gambar:", err);
+        alert(t("receipt.saveImageFailed"));
+      }
+    }
+  };
+
+  if (!order || order.status !== "Berhasil") return null;
+
+  // --- LOGIKA HITUNGAN REAL DARI DATABASE ---
+  const totalBayar = (order.total_amount || 0) + (order.used_balance || 0);
+  const biayaLayanan = order.unique_code || 0;
+
+  // Ekstrak langsung dari JSON
+  let tagihanPLN = order.raw_tagihan || 0;
+  let dendaPLN = 0;
+  let adminPLN = 0;
+  let periode = "";
+
+  try {
+    if (order.desc) {
+      const parsedDesc = typeof order.desc === 'string' ? JSON.parse(order.desc) : order.desc;
+      if (parsedDesc?.detail && parsedDesc.detail.length > 0) {
+        const detailJson = parsedDesc.detail[0];
+
+        // Ambil nilai sesuai request Bos
+        tagihanPLN = parseInt(detailJson.nilai_tagihan) || tagihanPLN;
+        dendaPLN = parseInt(detailJson.denda) || 0;
+        adminPLN = parseInt(detailJson.admin) || 0;
+
+        // Format periode otomatis (202604 -> April 2026 / April 2026)
+        const rawPeriode = detailJson.periode;
+        if (rawPeriode && rawPeriode.length === 6) {
+          const year = parseInt(rawPeriode.substring(0, 4), 10);
+          const month = parseInt(rawPeriode.substring(4, 6), 10) - 1;
+          const d = new Date(year, month, 1);
+          periode = d.toLocaleDateString(locale === "en" ? "en-US" : "id-ID", { month: "long", year: "numeric" });
+        } else {
+          periode = rawPeriode || "";
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Gagal parse desc:", e);
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-1 sm:gap-3 w-full animate-in fade-in zoom-in duration-500">
+
+      {/* --- AREA STRUK YANG DI-DOWNLOAD --- */}
+      <div
+        ref={receiptRef}
+        className="w-full max-w-md mx-auto bg-white text-slate-800 p-3 sm:p-6 shadow-2xl border-t-8 border-blue-600 rounded-b-2xl font-mono text-sm relative overflow-hidden"
+      >
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.02] rotate-[-35deg] pointer-events-none">
+          <CheckCircle2 size={250} />
+        </div>
+
+        <div className="text-center border-b border-dashed border-slate-200 pb-2 mb-2 sm:pb-4 sm:mb-4">
+          <h2 className="text-base sm:text-xl font-black tracking-tighter italic uppercase leading-none">
+            DAPAY <span className="text-blue-600">DIGITAL</span>
+          </h2>
+          <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase mt-0.5">
+            {t("receipt.digitalReceiptProof")}
+          </p>
+        </div>
+
+        {/* --- KONTEN INFORMASI --- */}
+        <div className="w-full text-left">
+
+          {/* INFO HEADER */}
+          <div className="space-y-0.5 sm:space-y-1.5">
+            <div className="flex justify-between items-center w-full">
+              <span className="text-slate-500 uppercase block text-[7.5px] sm:text-[9px] tracking-widest">{t("receipt.date")}</span>
+              <span className="font-bold text-slate-800 text-right block text-[10px] sm:text-[13px]">{new Date(order.updated_at || order.created_at).toLocaleString(locale === "en" ? "en-US" : "id-ID")}</span>
+            </div>
+
+            <div
+              onClick={handleCopyInvoice}
+              className="flex justify-between items-center w-full cursor-pointer group py-0 sm:py-1 transition-all active:scale-95"
+            >
+              <span className="text-slate-500 uppercase block text-[7.5px] sm:text-[9px] tracking-widest">{t("receipt.invoiceNo")}</span>
+              <span className="font-bold text-blue-600 flex items-center justify-end gap-1 text-[10px] sm:text-[13px]">
+                {copied ? (
+                  <CheckCircle2 size={11} className="text-emerald-500" />
+                ) : (
+                  <Copy size={11} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
+                #{order.order_id}
+                {order.is_sandbox && (
+                  <span className="ml-1 rounded bg-amber-100 px-1 py-0.2 text-[8px] font-bold uppercase text-amber-700">
+                    Sandbox
+                  </span>
+                )}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center w-full">
+              <span className="text-slate-500 uppercase block text-[7.5px] sm:text-[9px] tracking-widest">{t("receipt.method")}</span>
+              <span className="font-bold text-slate-800 text-right uppercase block text-[10px] sm:text-[13px]">{order.payment_method}</span>
+            </div>
+          </div>
+
+          <div className="border-t border-dashed border-slate-200 my-2 sm:my-4"></div>
+
+          {/* --- INFO PRODUK & PELANGGAN --- */}
+          <div className="space-y-1.5 sm:space-y-3">
+            <div className="text-center w-full">
+              <span className="text-slate-500 uppercase block text-[7.5px] sm:text-[9px] tracking-widest leading-none">{t("receipt.product")}</span>
+              <span className="font-bold text-slate-800 uppercase block leading-tight text-[11px] sm:text-[12px] mt-0.5">
+                {order.product_name}
+              </span>
+            </div>
+
+            {order.customer_name && (
+              <div className="text-center w-full">
+                <span className="text-slate-500 uppercase block text-[7.5px] sm:text-[9px] tracking-widest leading-none">{t("receipt.customerName")}</span>
+                <span className="font-bold text-slate-800 uppercase block text-[11px] sm:text-[13px] mt-0.5">{order.customer_name}</span>
+              </div>
+            )}
+
+            <div className="text-center w-full">
+              <span className="text-slate-500 uppercase block text-[7.5px] sm:text-[9px] tracking-widest leading-none">{t("receipt.targetNumberOrId")}</span>
+              <span className="font-black text-slate-900 block text-[12px] sm:text-[15px] tracking-widest mt-0.5">{order.customer_no}</span>
+            </div>
+          </div>
+
+          {/* KOTAK DETAIL TAGIHAN */}
+          <div className="bg-slate-50 p-2 sm:p-4 rounded-xl border border-slate-100 mt-2 w-full text-left">
+            <p className="text-[8px] sm:text-[10px] text-slate-500 font-black uppercase text-center border-b border-slate-200 border-opacity-50 pb-1 mb-1.5 sm:mb-3">{t("receipt.billingDetails")}</p>
+
+            <div className="space-y-1 sm:space-y-2.5">
+              <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
+                <span className="text-slate-500 uppercase">{t("receipt.tariffPower")}</span>
+                <span className="font-bold text-slate-800 text-right text-[10px] sm:text-[12px]">{order.segment_power || "-"}</span>
+              </div>
+
+              {periode && (
+                <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
+                  <span className="text-slate-500 uppercase">{t("receipt.monthYear")}</span>
+                  <span className="font-bold text-slate-800 uppercase text-right text-[10px] sm:text-[12px]">{periode}</span>
+                </div>
+              )}
+
+              {order.stand_meter && (
+                <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
+                  <span className="text-slate-500 uppercase">{t("receipt.standMeter")}</span>
+                  <span className="font-bold text-slate-800 text-right text-[10px] sm:text-[12px]">{order.stand_meter}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-slate-200 border-opacity-50 mt-1.5 sm:mt-3 pt-1.5 sm:pt-3 space-y-1 sm:space-y-2.5">
+              <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
+                <span className="text-slate-500 uppercase">{t("receipt.tagihanPln")}</span>
+                <span className="font-bold text-slate-800 text-right text-[10px] sm:text-[12px]">{formatRupiah(tagihanPLN, locale)}</span>
+              </div>
+
+              {dendaPLN > 0 && (
+                <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
+                  <span className="text-rose-500 font-bold uppercase">{t("receipt.penalty")}</span>
+                  <span className="font-bold text-rose-600 text-right text-[10px] sm:text-[12px]">{formatRupiah(dendaPLN, locale)}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
+                <span className="text-slate-500 uppercase">{t("receipt.adminFee")}</span>
+                <span className="font-bold text-slate-800 text-right text-[10px] sm:text-[12px]">{formatRupiah(adminPLN, locale)}</span>
+              </div>
+
+              {biayaLayanan > 0 && (
+                <div className="flex items-center justify-between w-full text-[9px] sm:text-[10px]">
+                  <span className="text-slate-500 uppercase">{t("receipt.serviceFee")}</span>
+                  <span className="font-bold text-slate-800 text-right text-[10px] sm:text-[12px]">{formatRupiah(biayaLayanan, locale)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* SERIAL NUMBER */}
+          {order.sn && (
+            <div className="bg-slate-50 p-1.5 sm:p-3 rounded-lg border border-slate-100 text-center mt-2 w-full">
+              <p className="text-[7.5px] sm:text-[9px] text-slate-400 uppercase mb-0.5 leading-none">{t("receipt.serialNumberReference")}</p>
+              <p className="font-bold break-all text-emerald-600 tracking-tight text-[10px] sm:text-[13px]">{order.sn}</p>
+            </div>
+          )}
+        </div>
+
+        {/* TOTAL LUNAS */}
+        <div className="border-t border-dashed border-slate-200 mt-3 sm:mt-4 pt-2 sm:pt-4">
+          <div className="flex justify-between items-center bg-blue-600 text-white p-2 sm:p-3 rounded-lg shadow-lg">
+            <span className="font-bold italic uppercase block text-[10px] sm:text-[13px]">{t("receipt.totalPaid")}</span>
+            <span className="text-sm sm:text-[20px] font-black italic block">
+              {formatRupiah(totalBayar, locale)}
+            </span>
+          </div>
+        </div>
+
+        <div className="text-center mt-3 sm:mt-6 pt-2 sm:pt-4 border-t border-dashed border-slate-200 text-[7px] sm:text-[9px] text-slate-400 leading-relaxed uppercase font-bold italic">
+          <p>{t("receipt.thankYouStore")}</p>
+          <p className="text-blue-600">{t("receipt.saveProofNotice")}</p>
+        </div>
+      </div>
+
+      {/* ACTION BUTTONS */}
+      <div className="flex flex-row gap-2 w-full max-w-md mx-auto no-print px-1">
+        <button
+          onClick={() => window.print()}
+          className="flex-1 bg-slate-900 text-white py-2 sm:py-2.5 rounded-xl font-black italic uppercase text-[9px] sm:text-xs flex items-center justify-center gap-1.5 hover:bg-blue-600 transition-all active:scale-95 shadow-md"
+        >
+          <Printer size={12} /> {t("receipt.print")}
+        </button>
+        <button
+          onClick={handleDownloadImage}
+          className="flex-1 bg-emerald-600 text-white py-2 sm:py-2.5 rounded-xl font-black italic uppercase text-[9px] sm:text-xs flex items-center justify-center gap-1.5 hover:bg-emerald-500 transition-all active:scale-95 shadow-md"
+        >
+          <Download size={12} /> {t("receipt.save")}
+        </button>
+      </div>
+
+      <style jsx global>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: white !important; }
+        }
+      `}</style>
+    </div>
+  );
+}

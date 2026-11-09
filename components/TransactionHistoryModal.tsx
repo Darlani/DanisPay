@@ -196,7 +196,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: Transaction
 
   const openInvoiceInNewTab = (orderId: string) => {
     const cleanId = orderId.trim().toUpperCase();
-    const targetUrl = locale === "en" ? `/en/checkout/pay/${cleanId}` : `/checkout/pay/${cleanId}`;
+    const targetUrl = locale === "en" ? `/en/invoice/${cleanId}` : `/invoice/${cleanId}`;
     if (typeof window !== "undefined") {
       window.open(targetUrl, "_blank", "noopener,noreferrer");
     }
@@ -240,7 +240,7 @@ export default function TransactionHistoryModal({ isOpen, onClose }: Transaction
         setOrder(orderData);
 
         // Arahkan tab yang sudah dibuka ke target URL struk resmi lengkap
-        const targetUrl = locale === "en" ? `/en/checkout/pay/${cleanInvoice}` : `/checkout/pay/${cleanInvoice}`;
+        const targetUrl = locale === "en" ? `/en/invoice/${cleanInvoice}` : `/invoice/${cleanInvoice}`;
         if (preOpenedTab && !preOpenedTab.closed) {
           preOpenedTab.location.href = targetUrl;
         } else if (typeof window !== "undefined") {

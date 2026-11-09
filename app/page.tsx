@@ -385,7 +385,7 @@ function PendingPaymentBanner({
           </p>
         </div>
         <button
-          onClick={() => router.push(localizeHref(`/checkout/pay/${order.order_id}`, locale))}
+          onClick={() => router.push(localizeHref(`/invoice/${order.order_id}`, locale))}
           className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] sm:text-xs px-3 py-1.5 rounded-lg shrink-0 transition-all active:scale-95 shadow-md shadow-amber-500/20 cursor-pointer"
         >
           {t("home.payNow")}

@@ -7,6 +7,7 @@ import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { supabase } from "@/utils/supabaseClient";
 import MaintenancePage from "@/utils/MaintenancePage";
 import { useI18n } from "@/lib/i18n/context";
+import { localizeHref } from "@/lib/i18n/config";
 import ProductDetailSkeleton from "@/components/skeletons/ProductDetailSkeleton";
 
 // --- IMPORT KOMPONEN UI ---
@@ -398,7 +399,7 @@ try {
       }
       // --- SELESAI: UPDATE CACHE GUEST ---
 
-      router.push(locale === "en" ? `/en/checkout/pay/${createdOrderId}` : `/checkout/pay/${createdOrderId}`);
+      router.push(localizeHref(`/invoice/${createdOrderId}`, locale));
     } catch (err: any) { 
       alert(err?.message || t("products.common.failedCreateOrderError"));
     } finally { 

@@ -12,7 +12,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data: liveData, error: liveError } = await supabaseAdmin
       .from("orders")
       .select(
         "order_id, status, product_name, item_label, customer_no, price, total_amount, created_at, updated_at, sn, notes, payment_method, category"
@@ -20,7 +20,27 @@ export async function POST(req: Request) {
       .eq("order_id", order_id)
       .maybeSingle();
 
-    if (error || !data) {
+    let data = liveData;
+    let fetchError = liveError;
+
+    if (!data) {
+      const { data: sbData, error: sbError } = await supabaseAdmin
+        .from("sandbox_orders")
+        .select(
+          "order_id, status, product_name, item_label, customer_no, price, total_amount, created_at, updated_at, sn, notes, payment_method, category"
+        )
+        .eq("order_id", order_id)
+        .maybeSingle();
+
+      if (sbData) {
+        data = sbData;
+        fetchError = null;
+      } else if (sbError) {
+        fetchError = sbError;
+      }
+    }
+
+    if (fetchError || !data) {
       return NextResponse.json(
         { error: "Nomor invoice tidak ditemukan. Pastikan format nomor invoice sudah benar." },
         { status: 404 }

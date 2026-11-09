@@ -81,6 +81,51 @@ Deployment runtime aplikasi: **BELUM DIDEploy KE VPS** karena langganan VPS seda
     - Seluruh kamus i18n (`safeFastTx`, `shopAgain`, `thankYouStore`, `secureByDanisPay`) dan metadata halaman distandarkan ke **DaPay**.
     - Tombol Lacak Pesanan pada Footer distandarkan ke ikon `ReceiptText` menyatu dengan Navbar dan BottomNav.
   - **Seluruh verifikasi statis lulus**: `npx tsc --noEmit` (0 error), `git diff --check` (clean), `npx eslint` (clean).
+- **STANDARISASI & ALUR SIKLUS INVOICE PEMBAYARAN DAPAY (VERIFIED / CLOSED)**:
+  - **Arsitektur Halaman Invoice 2-Kolom Terpadu (Lapakgaming Standard)**:
+    - Rute `/checkout/pay/[invoiceId]` dan rute localized `/en/checkout/pay/[invoiceId]`.
+    - Tata letak responsif 2 kolom: Kolom utama (Kartu 1 Pembayaran + Stepper, Kartu 2 Status Transaksi, Kartu 3 Detail Produk, Kartu 4 Detail Pembayaran) dan Kolom Kanan (Garansi Uang Kembali, 7 Poin Catatan Resmi, Jaga Keamanan Datamu).
+  - **Pembakuan 4 Siklus Status Invoice (SOP Resmi DaPay)**:
+    - **1. Status `Pending` (Menunggu Pembayaran)**:
+      - Hitung mundur batas transfer 2 jam berbasis server timestamp absolut (`targetExpiryTime`).
+      - Kotak instruksi pembayaran spesifik: Virtual Account (VA), Transfer Bank Manual (dengan nomor rekening toko, nama pemilik rekening, dan instruksi nominal pas), QRIS dinamis (`qrcode.react`), dan E-Wallet.
+      - Stepper 3 Tahap: Tahap 1 (Bayar) oranye aktif dengan ikon CreditCard, Tahap 2 & 3 abu-abu.
+      - Kotak pengujian Sandbox: Tombol *"Simulasi Bayar (Masuk ke Diproses)"* dan *"Simulasi Bayar Instan"*.
+    - **2. Status `Diproses` (Pembayaran Diterima, Sistem Mengirim Produk)**:
+      - Hitung mundur batas transfer **disembunyikan** otomatis.
+      - Nomor rekening transfer / VA / QRIS / tombol bayar **disembunyikan** total untuk melindungi pelanggan dari transfer ganda (*double payment*).
+      - Banner pemrosesan biru menenangkan: *"Pembayaran Diterima, Pesanan Sedang Diproses! Sistem DaPay sedang memproses dan mengirimkan produk langsung ke akun kamu. Mohon tunggu 1–5 menit."*
+      - Stepper: Tahap 1 (Bayar) hijau centang (✅), Tahap 2 (Diproses) biru aktif dengan animasi denyut ikon Jam (`Clock`), Tahap 3 abu-abu.
+      - Ringkasan total pembayaran menampilkan badge hijau **LUNAS**.
+      - White-label penuh: Nol penyebutan vendor, suplier, provider, atau Digiflazz.
+    - **3. Status `Gagal` (Diferensiasi Presisi 2 Skenario)**:
+      - **Skenario A: Gagal Kedaluwarsa (Expired / Belum Bayar)**:
+        - Terdeteksi otomatis jika pesanan melewati batas waktu 2 jam (via database `pg_cron` dan lazy auto-reconciliation).
+        - Stepper: Tahap 1 (Bayar) silang merah (❌), tahap 2 & 3 abu-abu.
+        - Banner: Merah muda *"Udah lewat batas waktu bayar"* + tombol solid biru tua *"Beli lagi"* (ke `/`).
+        - Detail produk dan rincian transaksi tetap utuh di Kartu 3 & Kartu 4.
+      - **Skenario B: Gagal Pengiriman Sistem Pasca Pembayaran (Failed Fulfillment)**:
+        - Terdeteksi jika pesanan gagal setelah pembayaran diterima (catatan `notes` berisi refund / kegagalan sistem pengiriman).
+        - Stepper Visual: Tahap 1 (Bayar) hijau centang (✅) membuktikan pembayaran sah diterima, Tahap 2 (Diproses) silang merah (❌) mendiagnosa titik kendala pada pengiriman produk.
+        - **Penanganan Member Terdaftar (`user_id` ada)**:
+          - Banner: *"Pengiriman Gagal — Saldo Dikembalikan"*.
+          - Pesan: Saldo sebesar nominal total telah otomatis dikembalikan 100% ke dompet akun DaPay pelanggan via fungsi atomik database (`refund_failed_order_atomic`).
+          - Tombol Aksi: **[Cek Saldo Akun]** (ke `/dashboard/saldo`) dan **[Beli lagi]** (ke `/`).
+        - **Penanganan Pengguna Tamu (`!user_id`)**:
+          - Banner: *"Pengiriman Gagal — Dana Anda Aman"*.
+          - Pesan: Dana pelanggan aman 100%, panduan klaim pengembalian dana via Customer Care DaPay.
+          - Tombol Aksi: **[Klaim Pengembalian Dana (WhatsApp)]** (membuka chat WhatsApp Customer Service dengan template teks otomatis berisi nomor invoice, nama produk, nominal, dan nomor tujuan) dan **[Beli lagi]** (ke `/`).
+    - **4. Status `Berhasil` (Transaksi Lunas & Sukses)**:
+      - Menampilkan lembar **Struk Digital Resmi DaPay (Digital Receipt)** penuh (`ReceiptPrabayar` / `ReceiptPascabayar`).
+      - Informasi Token Listrik PLN / Serial Number (SN) dengan tombol salin 1-klik.
+      - Notifikasi audio sukses ("ting.mp3").
+      - Tombol aksi: *"Belanja Lagi di DaPay"* dan opsi unduh struk gambar.
+  - **Penyelarasan Integrasi Global (Zero Broken Link)**:
+    - Riwayat Pesanan Pengguna (`/user/orders`), Modal Detail Pesanan (`OrderDetailModal`), Modal Lacak Pesanan Tamu (`TransactionHistoryModal`), dan Floating Bar Pengingat Beranda (`app/page.tsx`) semuanya terpusat membuka rute terpadu `/checkout/pay/[invoiceId]`.
+    - Endpoint `/api/orders/track` dan `/api/orders/invoice` sinkron mendukung pembacaan data Live (`orders`) maupun Sandbox (`sandbox_orders`).
+  - **Pembersihan Kamus Terjemahan Warisan (Pruned Legacy Keys)**:
+    - Seluruh kunci terjemahan lama yang usang (`transactionFailed`, `coinRefundNotice`, `manualRefundNotice`, `contactAdminRefund`, `paymentReceived`, `moneySafeProcessing`, `pleaseWait`, `createNewOrder`, `whatsappRefundMsg`) telah dihapus secara bersih dari `messages/id.json` dan `messages/en.json`.
+  - **Seluruh verifikasi statis lulus**: `npx tsc --noEmit` (0 error), `git diff --check` (clean), `npx eslint` (clean).
 
 ## Masih terbuka / backlog
 
@@ -1420,3 +1465,33 @@ Localization ID ↔ EN untuk Admin Dashboard dan Manager Dashboard belum dilakuk
 Do not assume Admin/Manager UI is bilingual until a dedicated Admin/Manager i18n phase is completed.
 Planned:
 `Phase 11G.25 — Admin/Manager ID ↔ EN Zero-Gap Audit & Implementation`
+
+---
+
+# 21. MILESTONE — CANONICAL INVOICE ROUTING & UNIFIED 2-COLUMN LIFECYCLE
+
+Tanggal checkpoint: **2026-11-09**
+Status: **SELESAI / VERIFIED / CLOSED**
+
+### 21.1 Canonical RESTful Route
+- Rute Kanonikal Utama: `/invoice/[invoiceId]`
+- Rute Kanonikal English: `/en/invoice/[invoiceId]`
+- Skeleton Streaming: `InvoiceReceiptSkeleton` disematkan di level rute Next.js `loading.tsx`.
+- Backward Compatibility: Rute lama `/checkout/pay/[invoiceId]` dan `/en/checkout/pay/[invoiceId]` secara otomatis melakukan server-side HTTP 307 redirect ke `/invoice/[invoiceId]` dan `/en/invoice/[invoiceId]`.
+
+### 21.2 Unified 2-Column Lifecycle
+- Menghapus layout collapse anti-pattern pada status `Berhasil`.
+- Stepper 3-tahap (`Bayar` ➔ `Diproses` ➔ `Selesai`), Kartu 2 (Status), Kartu 3 (Detail Produk), Kartu 4 (Detail Pembayaran), dan Sidebar Kanan tetap utuh di seluruh status:
+  1. **Pending**: Stepper Step 1 aktif + Kotak Bayar (QRIS/VA/E-wallet) + Countdown Timer.
+  2. **Diproses**: Stepper Step 2 aktif (spinning) + Banner biru pemrosesan otomatis sistem.
+  3. **Berhasil**: Stepper Step 3 aktif (hijau ceklis) + Banner hijau sukses + Kotak Serial Number (SN) / Token PLN monospace dengan tombol Salin + Tombol [Lihat/Unduh Struk Digital] + Tombol [Beli lagi].
+  4. **Gagal (Kedaluwarsa)**: Stepper Step 1 silang merah + Banner batas waktu habis + Tombol [Beli lagi].
+  5. **Gagal (Sistem/Refund)**: Stepper Step 2 silang merah + Banner pengembalian dana (Member otomatis ke dompet, Tamu via CS WhatsApp).
+- Modal Pop-up Struk Digital: Tersedia tombol buka modal struk kasir thermal tanpa merusak atau meninggalkan layout utama.
+
+### 21.3 Callers Re-wired
+Seluruh pemanggil internal telah diselaraskan ke rute kanonikal:
+- `app/ProductSection/[slug]/page.tsx`
+- `app/page.tsx`
+- `components/TransactionHistoryModal.tsx`
+- `app/(dashboard)/user/orders/components/OrderDetailModal.tsx`

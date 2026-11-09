@@ -280,7 +280,7 @@ export default function OrderDetailModal({
       return;
     }
     if (!order.order_id) return;
-    window.open(localizeHref(`/checkout/pay/${encodeURIComponent(order.order_id)}`, locale), "_blank");
+    window.open(localizeHref(`/invoice/${encodeURIComponent(order.order_id)}`, locale), "_blank");
   };
 
   return (
@@ -583,6 +583,19 @@ export default function OrderDetailModal({
                 >
                   <Receipt size={14} className="text-amber-700" />
                   <span>{isCounterCart ? t("dashboard.orders.openCashierReceipt") : t("dashboard.orders.openSimReceipt")}</span>
+                </button>
+
+                {/* Buka Halaman Invoice / Pembayaran */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!order.order_id) return;
+                    window.open(localizeHref(`/invoice/${encodeURIComponent(order.order_id)}`, locale), "_blank");
+                  }}
+                  className="inline-flex h-9 sm:h-10 items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-white px-3 sm:px-4 text-xs font-bold text-amber-900 hover:bg-amber-50 transition active:scale-95 cursor-pointer shadow-2xs"
+                >
+                  <Download size={14} />
+                  <span>{t("dashboard.orders.viewInvoice")}</span>
                 </button>
 
                 {/* Simulasi Lagi CTA */}
