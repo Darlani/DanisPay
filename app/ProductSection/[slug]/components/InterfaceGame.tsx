@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect, useMemo } from "react";
 import {
   Info, ChevronRight, CheckCircle2, ShoppingCart,
-  ShieldCheck, CircleDollarSign, Zap, Loader2
+  ShieldCheck, CircleDollarSign, Zap, Loader2, Award
 } from "lucide-react";
 
 // IMPORT KOMPONEN SHARED
@@ -475,62 +475,87 @@ export default function InterfaceGame(props: InterfaceGameProps) {
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 pt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-          {/* KOLOM KIRI (INFO PRODUK) */}
+          {/* KOLOM KIRI (INFO PRODUK & PANDUAN INTERAKTIF RESMI) */}
           <div className="lg:col-span-1 lg:sticky lg:top-24 lg:self-start z-20 space-y-4 relative">
-            <div className="bg-white p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-900/10 border border-slate-100">
-              <div className="flex flex-col items-center text-center lg:items-start lg:text-left gap-4 mb-10">
-                <div className="relative w-full lg:w-fit flex justify-center">
-                  <div className="absolute inset-0 bg-blue-500/10 blur-3xl rounded-full lg:block hidden" />
+            <div className="bg-white p-5 sm:p-6 rounded-3xl sm:rounded-4xl shadow-xl shadow-slate-200/50 border border-slate-100 space-y-5">
+              {/* Header: Logo Game (Kiri) + Info Judul & Badge (Kanan) */}
+              <div className="flex items-center gap-3.5">
+                <div className="relative shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={product.img}
-                    className="relative w-full aspect-square sm:w-70 sm:h-70 lg:w-70 lg:h-70 rounded-3xl sm:rounded-4xl object-cover shadow-2xl border-4 border-white transition-all duration-500"
                     alt={product.name}
+                    className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl sm:rounded-3xl object-cover shadow-sm border border-slate-100"
                   />
                 </div>
-                <div className="flex flex-col items-center lg:items-start gap-2 min-w-0">
-                  <div className="flex justify-center lg:justify-start">
-                    <span className="bg-[#4ADE80] text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm">TOP UP</span>
+                <div className="flex flex-col items-start gap-1 min-w-0">
+                  <span className="bg-[#15803d] text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    TOP UP
+                  </span>
+                  <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-tight line-clamp-2">
+                    {product.name}
+                  </h1>
+                </div>
+              </div>
+
+              {/* Trust Badges: Official Supply & Safe + Money Back Guaranteed */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                <div className="bg-slate-100/90 rounded-full px-3 py-2 flex items-center gap-2 border border-slate-200/40">
+                  <div className="w-5 h-5 rounded-full bg-slate-600 text-white flex items-center justify-center shrink-0">
+                    <ShieldCheck size={12} strokeWidth={2.5} />
                   </div>
-                  <h1 className="text-lg font-black leading-tight text-slate-800 tracking-tight uppercase wrap-break-word italic">{product.name}</h1>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic">{t("products.common.instantAndVerified")}</p>
+                  <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap truncate">
+                    {t("products.common.officialSupplySafe")}
+                  </span>
+                </div>
+
+                <div className="bg-slate-100/90 rounded-full px-3 py-2 flex items-center gap-2 border border-slate-200/40">
+                  <div className="w-5 h-5 rounded-full bg-slate-600 text-white flex items-center justify-center shrink-0">
+                    <Award size={12} strokeWidth={2.5} />
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap truncate">
+                    {t("products.common.moneyBackGuaranteed")}
+                  </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mb-8">
-                <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-full border border-slate-100">
-                  <div className="bg-slate-200 p-1 rounded-full text-slate-600 shrink-0"><ShieldCheck size={14} /></div>
-                  <span className="text-[10px] font-bold text-slate-600 leading-tight italic">{t("products.common.officialSupply")}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-full border border-slate-100">
-                  <div className="bg-slate-200 p-1 rounded-full text-slate-600 shrink-0"><CircleDollarSign size={14} /></div>
-                  <span className="text-[10px] font-bold text-slate-600 leading-tight italic">{t("products.common.moneyBack")}</span>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="font-bold text-lg text-slate-800 border-b border-slate-50 pb-2 italic text-center lg:text-left">{t("products.common.guideTopup")}</h3>
+              {/* Panduan Top Up Interaktif (5 Step Checklist) */}
+              <div className="space-y-3 pt-1">
+                <h3 className="font-extrabold text-sm sm:text-base text-slate-900 tracking-tight border-b border-slate-100 pb-2.5">
+                  {t("products.common.guideTopup")}
+                </h3>
                 <ul className="space-y-3">
                   {steps.map((step) => (
                     <li key={step.id} className="flex items-start gap-3">
-                      <span className={`text-sm font-medium mt-0.5 ${step.completed ? 'text-green-500 font-bold' : 'text-slate-400'}`}>{step.id}.</span>
+                      <span className={`text-sm font-medium mt-0.5 ${step.completed ? 'text-green-500 font-bold' : 'text-slate-400'}`}>
+                        {step.id}.
+                      </span>
                       <div className="w-full">
                         <div className="flex items-center justify-between gap-2">
-                          <p className={`text-sm leading-snug transition-all ${step.completed ? 'text-green-600 font-bold' : 'text-slate-500 font-medium'}`}>{step.label}</p>
-                          {step.completed && <CheckCircle2 size={16} className="text-green-500 shrink-0 animate-in zoom-in" />}
+                          <p className={`text-sm leading-snug transition-all ${step.completed ? 'text-green-600 font-bold' : 'text-slate-500 font-medium'}`}>
+                            {step.label}
+                          </p>
+                          {step.completed && (
+                            <CheckCircle2 size={16} className="text-green-500 shrink-0 animate-in zoom-in" />
+                          )}
                         </div>
                       </div>
                     </li>
                   ))}
 
                   {isReadyToCheckout && (
-                    <li className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-2xl animate-in fade-in shadow-sm list-none shadow-blue-100">
+                    <li className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-2xl animate-in fade-in shadow-sm list-none shadow-blue-100">
                       <div className="flex items-center gap-3">
                         <div className="bg-blue-600 p-2 rounded-xl text-white shadow-lg shadow-blue-200">
                           <ShoppingCart size={18} className="animate-bounce" />
                         </div>
                         <div>
-                          <p className="text-[10px] font-black text-blue-700 uppercase leading-none mb-1">{t("products.common.readyToTransact")}</p>
-                          <p className="text-[11px] font-bold text-blue-600 italic leading-none">{t("products.common.buyNowHint")}</p>
+                          <p className="text-[10px] font-black text-blue-700 uppercase leading-none mb-1">
+                            {t("products.common.readyToTransact")}
+                          </p>
+                          <p className="text-[11px] font-bold text-blue-600 italic leading-none">
+                            {t("products.common.buyNowHint")}
+                          </p>
                         </div>
                         <ChevronRight size={16} className="ml-auto text-blue-400 animate-pulse" />
                       </div>

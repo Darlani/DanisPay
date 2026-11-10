@@ -33,16 +33,16 @@ export default function CheckoutStepper({
   const isStep3Success = isSuccess;
 
   return (
-    <div className="w-full flex items-center justify-between px-4 sm:px-8 py-3">
+    <div className="w-full flex items-center justify-between px-4 sm:px-8 py-3 select-none">
       {/* Step 1: Bayar */}
       <div className="flex flex-col items-center">
         <div
-          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-xs transition-colors ${
+          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-md transition-colors ${
             isStep1Failed
-              ? "bg-[#dc2626] text-white"
+              ? "bg-[#dc2626] text-white ring-4 ring-rose-500/20"
               : isStep1Success
-              ? "bg-emerald-500 text-white"
-              : "bg-[#f97316] text-white"
+              ? "bg-emerald-500 text-white shadow-emerald-500/20"
+              : "bg-[#f97316] text-white shadow-orange-500/20 ring-4 ring-orange-500/20"
           }`}
         >
           {isStep1Failed ? (
@@ -56,8 +56,10 @@ export default function CheckoutStepper({
         <span
           className={`text-xs mt-2 font-medium ${
             isStep1Failed
-              ? "text-[#dc2626] font-semibold"
-              : "text-slate-800 font-semibold"
+              ? "text-[#ef4444] font-semibold"
+              : isStep1Success
+              ? "text-slate-200 font-semibold"
+              : "text-amber-400 font-bold"
           }`}
         >
           {t("checkout.stepperPay")}
@@ -67,21 +69,21 @@ export default function CheckoutStepper({
       {/* Line 1 */}
       <div
         className={`flex-1 h-0.5 mx-2 sm:mx-4 -mt-5 transition-colors ${
-          isStep1Success ? "bg-emerald-500" : "bg-slate-200"
+          isStep1Success ? "bg-emerald-500" : "bg-slate-800"
         }`}
       />
 
       {/* Step 2: Diproses */}
       <div className="flex flex-col items-center">
         <div
-          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-xs transition-colors ${
+          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-md transition-colors ${
             isStep2Failed
-              ? "bg-[#dc2626] text-white"
+              ? "bg-[#dc2626] text-white ring-4 ring-rose-500/20"
               : isStep2Success
-              ? "bg-emerald-500 text-white"
+              ? "bg-emerald-500 text-white shadow-emerald-500/20"
               : isStep2Active
-              ? "bg-blue-600 text-white ring-4 ring-blue-100"
-              : "bg-slate-300 text-white"
+              ? "bg-blue-600 text-white ring-4 ring-blue-500/25 shadow-blue-500/20"
+              : "bg-slate-800 text-slate-500 border border-slate-700/60"
           }`}
         >
           {isStep2Failed ? (
@@ -95,12 +97,12 @@ export default function CheckoutStepper({
         <span
           className={`text-xs mt-2 font-medium ${
             isStep2Failed
-              ? "text-[#dc2626] font-semibold"
+              ? "text-[#ef4444] font-semibold"
               : isStep2Success
-              ? "text-slate-800 font-semibold"
+              ? "text-slate-200 font-semibold"
               : isStep2Active
-              ? "text-blue-600 font-bold"
-              : "text-slate-400"
+              ? "text-blue-400 font-bold"
+              : "text-slate-500"
           }`}
         >
           {t("checkout.stepperProcessing")}
@@ -110,24 +112,24 @@ export default function CheckoutStepper({
       {/* Line 2 */}
       <div
         className={`flex-1 h-0.5 mx-2 sm:mx-4 -mt-5 transition-colors ${
-          isStep3Success ? "bg-emerald-500" : "bg-slate-200"
+          isStep3Success ? "bg-emerald-500" : "bg-slate-800"
         }`}
       />
 
       {/* Step 3: Selesai */}
       <div className="flex flex-col items-center">
         <div
-          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-xs transition-colors ${
+          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-md transition-colors ${
             isStep3Success
-              ? "bg-emerald-500 text-white"
-              : "bg-slate-300 text-white"
+              ? "bg-emerald-500 text-white shadow-emerald-500/20"
+              : "bg-slate-800 text-slate-500 border border-slate-700/60"
           }`}
         >
           <Check size={18} strokeWidth={2.5} />
         </div>
         <span
           className={`text-xs mt-2 font-medium ${
-            isStep3Success ? "text-emerald-600 font-bold" : "text-slate-400"
+            isStep3Success ? "text-emerald-400 font-bold" : "text-slate-500"
           }`}
         >
           {t("checkout.stepperDone")}

@@ -67,7 +67,6 @@ export default function ProductSection({
           <div className="flex items-center justify-between text-white shrink-0 px-1 sm:px-1.5 md:px-2">
             <h3 className="text-xs sm:text-sm md:text-base lg:text-lg font-bold tracking-tight text-white flex items-center gap-1.5 sm:gap-2">
               {isPopular ? (locale === 'en' ? 'Popular' : 'Populer') : title}
-              {isLoading && <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" />}
             </h3>
           </div>
 
@@ -152,7 +151,6 @@ export default function ProductSection({
               </div>
               <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
                 {title}
-                {isLoading && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />}
               </h3>
             </div>
           </div>
@@ -160,7 +158,17 @@ export default function ProductSection({
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
             {isLoading ? (
               [...Array(6)].map((_, i) => (
-                <div key={`skel-${i}`} className="aspect-3/4 bg-slate-800 rounded-xl animate-pulse border border-slate-700" />
+                <div
+                  key={`skel-${i}`}
+                  className="flex flex-col rounded-xl overflow-hidden border border-slate-700/80 bg-slate-900 shadow-lg animate-pulse"
+                >
+                  {/* Bagian Gambar (Atas) - Shimmer Aspect Square */}
+                  <div className="relative aspect-square w-full bg-slate-800/90" />
+                  {/* Bagian Teks (Bawah) - Shimmer Label Kotak */}
+                  <div className="p-2.5 sm:p-3 flex-1 flex flex-col justify-center items-center bg-slate-800/70 border-t border-slate-700/70">
+                    <div className="h-3 w-3/4 rounded bg-slate-700/80" />
+                  </div>
+                </div>
               ))
             ) : (
               visibleProducts.map((product, index) => (

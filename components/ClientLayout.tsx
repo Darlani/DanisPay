@@ -1,12 +1,16 @@
 "use client";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic"; // Pakai dynamic import biar enteng
+import NavbarSkeleton from "@/components/skeletons/NavbarSkeleton";
 import { STORE_CONFIG } from "@/utils/storeConfig";
 import { I18nProvider } from "@/lib/i18n/context";
 import { stripLocaleFromPathname } from "@/lib/i18n/config";
 
-// Load Navbar, Footer, dan BottomNav cuma pas dibutuhin (Lazy Load)
-const Navbar = dynamic(() => import("./Navbar"), { ssr: false });
+// Load Navbar, Footer, dan BottomNav cuma pas dibutuhin (Lazy Load dengan Skeleton Mirror)
+const Navbar = dynamic(() => import("./Navbar"), {
+  ssr: false,
+  loading: () => <NavbarSkeleton />
+});
 const Footer = dynamic(() => import("./Footer"), { ssr: false });
 const BottomNav = dynamic(() => import("./BottomNav"), { ssr: false });
 const MaintenancePage = dynamic(() => import("./MaintenancePage"));

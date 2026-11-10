@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/utils/supabaseClient";
-import BannerCarousel from '@/components/BannerCarousel';
+import BannerCarousel, { BannerItem, setGlobalMemoryBanners } from '@/components/BannerCarousel';
 import BannerPopularDivider from '@/components/dapay/BannerPopularDivider';
 import ProductSection, { BrandItem } from '@/components/ProductSection';
 import { useI18n } from "@/lib/i18n/context";
@@ -398,27 +398,40 @@ function PendingPaymentBanner({
   );
 }
 
+// In-Memory Module Singleton Cache (Persists across client-side page navigations!)
+let memoryCatalogSections: CatalogSection[] | null = null;
+let memoryCatalogMaps: {
+  productBySku: Map<string, ActiveProductRow>;
+  brandById: Map<string, ValidBrandInfo>;
+} | null = null;
+let memoryShortcutCategories: ShortcutCategoryItem[] = [];
+let memoryIsMaintenance = false;
+let lastMemoryCatalogFetchTime = 0;
+const CATALOG_REVALIDATE_TTL_MS = 180000; // 3 menit cache segar
+
 export default function Home() {
   const { t, locale } = useI18n();
   const router = useRouter();
-  const [isMaintenance, setIsMaintenance] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [shortcutCategories, setShortcutCategories] = useState<ShortcutCategoryItem[]>([]);
+  const hasCachedCatalog = Boolean(memoryCatalogSections && memoryCatalogSections.length > 0);
+
+  const [isMaintenance, setIsMaintenance] = useState(memoryIsMaintenance);
+  const [loading, setLoading] = useState(!hasCachedCatalog);
+  const [, setShortcutCategories] = useState<ShortcutCategoryItem[]>(memoryShortcutCategories);
   const [recentOrders, setRecentOrders] = useState<RepeatPurchaseItem[]>([]);
   const [pendingOrder, setPendingOrder] = useState<RawHistoricalOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSupportMenuOpen, setIsSupportMenuOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState<{title: string, desc: string, type: 'success' | 'error'} | null>(null);
-  const [catalogLoading, setCatalogLoading] = useState(true);
-  const [catalogSections, setCatalogSections] = useState<CatalogSection[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(!hasCachedCatalog);
+  const [catalogSections, setCatalogSections] = useState<CatalogSection[]>(memoryCatalogSections || []);
   const [isBannerRolling, setIsBannerRolling] = useState(true);
 
   const catalogMapsRef = useRef<{
     productBySku: Map<string, ActiveProductRow>;
     brandById: Map<string, ValidBrandInfo>;
-  } | null>(null);
+  } | null>(memoryCatalogMaps);
   const isCatalogFetchingRef = useRef(false);
-  const lastCatalogFetchTimeRef = useRef(0);
+  const lastCatalogFetchTimeRef = useRef(lastMemoryCatalogFetchTime);
   const lastResolvedOrdersRef = useRef<RawHistoricalOrder[]>([]);
   const isStaffRef = useRef(false);
   const lastOrdersFetchTimeRef = useRef(0);
@@ -558,16 +571,22 @@ export default function Home() {
     let isCancelled = false;
 
     const checkMaintenanceAndData = async (isSilentRevalidation = false) => {
+      const now = Date.now();
+      if (!isSilentRevalidation && memoryCatalogSections && now - lastMemoryCatalogFetchTime < CATALOG_REVALIDATE_TTL_MS) {
+        return;
+      }
+
       if (isCatalogFetchingRef.current) return;
       isCatalogFetchingRef.current = true;
 
-      if (!isSilentRevalidation) {
+      if (!memoryCatalogSections && !isSilentRevalidation) {
         setCatalogLoading(true);
+        setLoading(true);
       }
 
       try {
-        // 1. Consolidated Fetch: Maintenance, Shortcuts, Active Brands, Active Storefront Products
-        const [settingsRes, shortcutCatsRes, brandsRes, activeProdsRes] = await Promise.all([
+        // 1. Consolidated Parallel Fetch: Maintenance, Shortcuts, Active Brands, Storefront Products, and Banners
+        const [settingsRes, shortcutCatsRes, brandsRes, activeProdsRes, bannersRes] = await Promise.all([
           supabase.from('store_settings').select('is_maintenance').single(),
           supabase.from('categories').select('id, name, slug, is_shortcut').eq('is_shortcut', true).order('name', { ascending: true }),
           supabase.from('brands').select('id, name, slug, image_url, categories!inner(slug, name)').eq('active', true).order('name', { ascending: true }),
@@ -575,10 +594,19 @@ export default function Home() {
             .from('product_unified_view')
             .select('id, sku, name, price, discount, brand_id, promo_label')
             .eq('is_active', true)
-            .eq('is_storefront_eligible', true)
+            .eq('is_storefront_eligible', true),
+          supabase.from('banners').select('*').order('id', { ascending: true })
         ]);
 
         if (isCancelled) return;
+
+        if (bannersRes.data) {
+          const sortedBanners = [...(bannersRes.data as BannerItem[])].sort((a, b) => {
+            if (a.is_active === b.is_active) return 0;
+            return a.is_active ? -1 : 1;
+          });
+          setGlobalMemoryBanners(sortedBanners);
+        }
 
         if (settingsRes.data) setIsMaintenance(settingsRes.data.is_maintenance);
         if (shortcutCatsRes.data) setShortcutCategories(shortcutCatsRes.data);
@@ -660,6 +688,12 @@ export default function Home() {
           }
         }
 
+        memoryCatalogSections = builtSections;
+        memoryCatalogMaps = { productBySku, brandById };
+        memoryShortcutCategories = (shortcutCatsRes.data as ShortcutCategoryItem[] | null) || [];
+        memoryIsMaintenance = settingsRes.data?.is_maintenance || false;
+        lastMemoryCatalogFetchTime = Date.now();
+
         setCatalogSections(builtSections);
         setCatalogLoading(false);
         // Lepas spinner utama segera setelah katalog siap (Non-Blocking Homepage Render)
@@ -678,6 +712,7 @@ export default function Home() {
         console.error("Load error", err);
       } finally {
         lastCatalogFetchTimeRef.current = Date.now();
+        lastMemoryCatalogFetchTime = Date.now();
         isCatalogFetchingRef.current = false;
         if (!isCancelled) {
           setLoading(false);

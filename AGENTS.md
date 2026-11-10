@@ -306,6 +306,9 @@ Untuk seluruh halaman publik dan modul pengguna di DaPay:
   - Setiap rute publik/pengguna utama wajib memiliki berkas Next.js `loading.tsx` yang merender skeleton layout shimmer.
   - State `loading` awal pada komponen/halaman harus merender cetak biru skeleton (`*Skeleton.tsx`), bukan layar kosong atau spinner berputar.
   - Dropdown pencarian dan daftar item dinamis wajib menampilkan shimmer placeholder saat data sedang diambil.
+  - **Prinsip 1:1 Layout Mirroring (Wajib Identik)**:
+    - Seluruh berkas skeleton (`*Skeleton.tsx`) WAJIB IDENTIK 1:1 dengan tata letak, proporsi kolom, kontur frame, dan palet warna halaman aslinya.
+    - Dilarang membuat skeleton sembarangan atau berbeda struktur dari komponen tujuan. Skeleton harus menjadi cetak biru struktural (*structural wireframe*) sehingga pengguna merasa sudah berada di halaman asli dan terbebas dari loncatan elemen (*zero Cumulative Layout Shift / CLS*) serta terhindar dari benturan warna (*zero flashbang effect*).
 - **DILARANG (FORBIDDEN)**:
   - Menggunakan layar kosong gelap/putih dengan ikon muter berputar (`Loader2`, `animate-spin`) sebagai loading penuh halaman (misal: `if (loading) return <div ...><Loader2 className="animate-spin" /></div>`).
 - **Pengecualian yang Diizinkan**:

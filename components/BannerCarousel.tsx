@@ -9,7 +9,7 @@ import { supabase } from "@/utils/supabaseClient";
 import { useI18n } from "@/lib/i18n/context";
 import { localizeHref } from "@/lib/i18n/config";
 
-interface BannerItem {
+export interface BannerItem {
   id: number | string;
   src: string;
   alt?: string | null;
@@ -22,11 +22,20 @@ export interface BannerCarouselProps {
   onAutoplayChange?: (isPlaying: boolean) => void;
 }
 
+let memoryBanners: BannerItem[] | null = null;
+let lastBannersFetchTime = 0;
+const BANNERS_CACHE_TTL_MS = 180000; // 3 menit cache
+
+export function setGlobalMemoryBanners(newBanners: BannerItem[]) {
+  memoryBanners = newBanners;
+  lastBannersFetchTime = Date.now();
+}
+
 export default function BannerCarousel({ onAutoplayChange }: BannerCarouselProps = {}) {
   const { locale, t } = useI18n();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [shouldAnimate, setShouldAnimate] = useState(false);
-  const [banners, setBanners] = useState<BannerItem[]>([]);
+  const [banners, setBanners] = useState<BannerItem[]>(memoryBanners || []);
   const [initialIndex, setInitialIndex] = useState(0);
 
   // 1. FETCH DATA & AMBIL POSISI TERAKHIR
@@ -34,7 +43,12 @@ export default function BannerCarousel({ onAutoplayChange }: BannerCarouselProps
     const saved = localStorage.getItem("lastBannerIndex");
     if (saved) setInitialIndex(parseInt(saved));
 
-const fetchBanners = async () => {
+    const now = Date.now();
+    if (memoryBanners && memoryBanners.length > 0 && now - lastBannersFetchTime < BANNERS_CACHE_TTL_MS) {
+      return;
+    }
+
+    const fetchBanners = async () => {
       const { data } = await supabase.from('banners').select('*').order('id', { ascending: true });
       
       if (data) {
@@ -44,6 +58,8 @@ const fetchBanners = async () => {
           return a.is_active ? -1 : 1; // Jika a aktif, dia duluan (-1)
         });
         
+        memoryBanners = sortedBanners;
+        lastBannersFetchTime = Date.now();
         setBanners(sortedBanners);
       }
     };
@@ -98,27 +114,37 @@ const fetchBanners = async () => {
     }
   }, [emblaApi, onSelect, onAutoplayChange]);
 
-// --- LOADING STATE: LOGO BRANDING (DIPERBESAR) ---
+// --- LOADING STATE: 1:1 ZERO-CLS MIRRORING FALLBACK ---
   if (banners.length === 0) {
     return (
-      <section className="w-full max-w-full overflow-hidden py-4 md:py-6">
-        <div className="aspect-3/2 md:aspect-auto md:h-67.5 max-w-156.25 mx-auto w-full flex flex-col items-center justify-center rounded-3xl md:rounded-[40px] border border-white/5 bg-[#0B0E14]/50">
-           
-           {/* Container Logo: Ukuran ditingkatkan ke w-64 md:w-96 */}
-           <div className="relative w-48 h-24 md:w-72 md:h-36 animate-pulse">
-             <Image
-               src="/images/logo-danish.png"
-               alt={t("common.loadingBrandAlt")}
-               fill
-               className="object-contain drop-shadow-[0_0_25px_rgba(59,130,246,0.5)]"
-               priority
-               sizes="(max-width: 768px) 256px, 384px" 
-             />
-           </div>
+      <section className="relative z-30 w-full max-w-full overflow-hidden pt-3 pb-0 sm:pt-4 md:pt-5 bg-[#080D1A]">
+        <div className="relative flex flex-col items-center w-full">
+          <div className="overflow-hidden w-full flex items-center justify-center relative px-2 sm:px-4">
+            {/* Ambient Left */}
+            <div
+              aria-hidden="true"
+              className="hidden md:block absolute left-[-15%] lg:left-[-10%] top-1/2 -translate-y-1/2 w-[42%] h-[75%] rounded-3xl md:rounded-[40px] bg-slate-900/60 border border-slate-800/40 blur-[2px] opacity-40 pointer-events-none"
+            />
 
-           <p className="mt-4 md:mt-6 text-slate-500 text-[10px] md:text-xs font-black uppercase tracking-[0.4em] animate-pulse">
-             {t("common.secureByDanisPay")}
-           </p>
+            {/* Central Banner Container (Pure Monochromatic Shimmer) */}
+            <div className="relative aspect-3/2 md:aspect-auto md:h-67.5 2xl:h-72.5 max-w-156.25 mx-auto w-full rounded-3xl md:rounded-[40px] overflow-hidden border border-slate-800 bg-slate-900/90 shadow-2xl animate-pulse">
+              <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent" />
+            </div>
+
+            {/* Ambient Right */}
+            <div
+              aria-hidden="true"
+              className="hidden md:block absolute right-[-15%] lg:right-[-10%] top-1/2 -translate-y-1/2 w-[42%] h-[75%] rounded-3xl md:rounded-[40px] bg-slate-900/60 border border-slate-800/40 blur-[2px] opacity-40 pointer-events-none"
+            />
+          </div>
+
+          {/* Dots Shimmer Placeholder */}
+          <div className="flex items-center justify-center gap-1.5 pt-3 pb-1" aria-hidden="true">
+            <div className="h-1.5 w-6 rounded-full bg-slate-700/80 animate-pulse" />
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-800" />
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-800" />
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-800" />
+          </div>
         </div>
       </section>
     );
