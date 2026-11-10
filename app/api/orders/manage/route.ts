@@ -276,6 +276,22 @@ export async function PATCH(req: Request) {
       status: currentStatus,
       updated_at: new Date().toISOString(),
     };
+
+    if (currentStatus === 'Gagal') {
+      const explicitNotes =
+        typeof body.notes === 'string' && body.notes.trim()
+          ? body.notes.trim()
+          : null;
+
+      if (oldStatusRaw === 'Diproses') {
+        updatePayload.notes =
+          explicitNotes || 'Pesanan dibatalkan/gagal saat proses pengiriman.';
+      } else if (oldStatusRaw === 'Pending') {
+        updatePayload.notes =
+          explicitNotes || 'Pesanan dibatalkan sebelum pembayaran.';
+      }
+    }
+
     if (isSandbox && currentStatus === 'Berhasil') {
       updatePayload.sn = `SIM-DANISH-${Math.floor(10000000 + Math.random() * 90000000)}`;
     }

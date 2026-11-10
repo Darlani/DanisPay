@@ -16,6 +16,31 @@ export async function GET(req: Request) {
     const userId = authentication.user.id;
     const { searchParams } = new URL(req.url);
 
+    // MODE CEPAT & HEMAT BANDWIDTH UNTUK BERANDA (COMPACT MODE)
+    // Tidak menjalankan hitung total scan database, hanya mengambil 9 kolom esensial untuk Beranda
+    const isCompact = searchParams.get("compact") === "true";
+    if (isCompact) {
+      const compactLimit = Math.min(20, Math.max(1, parseInt(searchParams.get("limit") || "6", 10)));
+      const { data: compactOrders, error: compactErr } = await supabaseAdmin
+        .from("orders")
+        .select("id, order_id, sku, customer_no, price, raw_tagihan, payment_method, status, desc, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(compactLimit);
+
+      if (compactErr) {
+        console.error("Compact Orders API Error:", compactErr);
+        return NextResponse.json({ error: "Gagal memuat transaksi." }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          orders: compactOrders || [],
+        },
+      });
+    }
+
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "10", 10)));
     const statusFilter = searchParams.get("status")?.trim() || "Semua";

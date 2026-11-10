@@ -362,6 +362,75 @@ function InvoiceContent() {
     };
   }, [dbStatus, targetExpiryTime, isTimeCalculated, invoiceId]);
 
+  // --- 2B. SMART HYBRID POLLING (HEARTBEAT FALLBACK) ---
+  const isPollingRef = useRef(false);
+
+  useEffect(() => {
+    // Hanya aktif jika status masih non-final ("Pending" atau "Diproses")
+    const isNonFinal = dbStatus === "Pending" || dbStatus === "Diproses";
+    if (!invoiceId || !isNonFinal) return;
+
+    let timer: NodeJS.Timeout | null = null;
+    let isMounted = true;
+
+    const pollStatus = async () => {
+      // Hindari request tumpang tindih atau tab tidak terlihat
+      if (isPollingRef.current || document.hidden) return;
+      isPollingRef.current = true;
+
+      try {
+        const res = await fetch("/api/orders/invoice", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order_id: invoiceId }),
+        });
+
+        if (!res.ok || !isMounted) return;
+        const json = await res.json();
+        const latestData: OrderData | null = json.data;
+
+        if (latestData && latestData.status && isMounted) {
+          const newStatus = latestData.status;
+          if (newStatus !== dbStatus) {
+            setDbStatus(newStatus);
+            setTrx((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    status: newStatus,
+                    sn: latestData.sn || prev.sn,
+                    notes: latestData.notes !== undefined ? latestData.notes : prev.notes,
+                  }
+                : latestData
+            );
+          }
+        }
+      } catch {
+        // Abaikan kegagalan jaringan sesaat
+      } finally {
+        isPollingRef.current = false;
+      }
+    };
+
+    // Jadwalkan interval setiap 6 detik
+    timer = setInterval(pollStatus, 6000);
+
+    // Saat tab kembali dibuka setelah user bayar di m-banking / e-wallet, cek instan!
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void pollStatus();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      if (timer) clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [invoiceId, dbStatus]);
+
   // --- 3. NOTIFIKASI SUARA ---
   const soundPlayed = useRef(false);
 
@@ -388,6 +457,13 @@ function InvoiceContent() {
   const isProcessing = dbStatus === "Diproses";
   const isBerhasil = dbStatus === "Berhasil";
 
+  // Lacak apakah order pernah berada di tahap "Diproses" selama sesi atau dari data transaksi
+  const hasBeenProcessingRef = useRef(false);
+  if (dbStatus === "Diproses" || trx?.status === "Diproses") {
+    hasBeenProcessingRef.current = true;
+  }
+
+  // Deteksi catatan eksplisit jika pesanan kedaluwarsa waktu bayar
   const isNotesExpired = Boolean(
     trx?.notes &&
       (trx.notes.toLowerCase().includes("batal otomatis") ||
@@ -397,15 +473,15 @@ function InvoiceContent() {
         trx.notes.toLowerCase().includes("expired"))
   );
 
-  const isProviderFailure =
-    isGagal &&
-    !isNotesExpired &&
-    Boolean(
-      (trx?.notes && trx.notes.trim() !== "") ||
-        (trx?.used_balance && Number(trx.used_balance) > 0)
-    );
+  // Status Expired murni (Tahap 1): Hanya jika status Expired atau ada catatan expired DAN belum pernah masuk "Diproses"
+  const isExplicitExpired =
+    (dbStatus === "Expired" || isNotesExpired) && !hasBeenProcessingRef.current;
 
-  const isExpiredFailure = isGagal && !isProviderFailure;
+  // Kegagalan Pengiriman (Tahap 2): Terjadi jika pesanan gagal namun bukan kedaluwarsa bayar
+  const isProviderFailure = isGagal && !isExplicitExpired;
+
+  // Kegagalan Pembayaran (Tahap 1): Waktu habis / belum bayar
+  const isExpiredFailure = isGagal && isExplicitExpired;
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -647,6 +723,11 @@ function InvoiceContent() {
                               amount: formattedTotal,
                             })}
                       </span>
+                      {trx.notes && !isNotesExpired && (
+                        <span className="text-[11px] font-medium text-rose-700 bg-white/60 border border-red-200/80 px-2.5 py-1 rounded-lg mt-1 w-fit">
+                          {trx.notes}
+                        </span>
+                      )}
                     </div>
                   </div>
 

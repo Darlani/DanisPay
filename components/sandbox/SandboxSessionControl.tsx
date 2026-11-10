@@ -72,7 +72,7 @@ const CACHE_KEY = "dapay_tester_session_cache";
 let memoryCache: SandboxSessionData | null = null;
 let inFlightPromise: Promise<SandboxSessionData | null> | null = null;
 let lastFetchTime = 0;
-const FETCH_COOLDOWN_MS = 2500;
+const FETCH_COOLDOWN_MS = 60000;
 
 export async function fetchTesterSessionDeduplicated(force = false): Promise<SandboxSessionData | null> {
   const now = Date.now();
@@ -85,6 +85,20 @@ export async function fetchTesterSessionDeduplicated(force = false): Promise<San
   inFlightPromise = (async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      // Tamu / Belum Login: tidak perlu memanggil server karena akun Sandbox khusus member terotentikasi
+      if (!session) {
+        const guestData: SandboxSessionData = {
+          authenticated: false,
+          isTester: false,
+          sandboxAccessState: null,
+          isSandboxActive: false,
+          sandboxBalance: 0,
+        };
+        setCachedSandboxSession(guestData);
+        lastFetchTime = Date.now();
+        return guestData;
+      }
+
       const headers: Record<string, string> = {};
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
@@ -196,25 +210,7 @@ export default function SandboxSessionControl({
     }
   }, [isModalOpen, fetchSession]);
 
-  // 2. Re-fetch kilat saat pengguna kembali membuka tab browser (tab active / window focus)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        void fetchSession(true);
-      }
-    };
-    const handleFocus = () => {
-      void fetchSession(true);
-    };
-    window.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleFocus);
-    return () => {
-      window.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, [fetchSession]);
-
-  // 3. Supabase Realtime Push Murni (WebSocket): deteksi instan saat Admin melakukan Setuju/Tolak/Kunci/Revoke
+  // 2. Supabase Realtime Push Murni (WebSocket): deteksi instan saat Admin melakukan Setuju/Tolak/Kunci/Revoke
   useEffect(() => {
     const userId = data?.userId;
     if (!userId) return;

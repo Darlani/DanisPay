@@ -213,6 +213,26 @@ export async function PATCH(req: Request, { params }: PatchProviderParams) {
       );
     }
 
+    // Broadcast realtime event to storefront clients (non-blocking)
+    try {
+      const syncCh = supabaseAdmin.channel('storefront-catalog-sync');
+      syncCh.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          syncCh
+            .send({
+              type: 'broadcast',
+              event: 'catalog-updated',
+              payload: { provider: code, updated_at: updated.updated_at },
+            })
+            .finally(() => {
+              void supabaseAdmin.removeChannel(syncCh);
+            });
+        }
+      });
+    } catch {
+      // Non-blocking broadcast
+    }
+
     return NextResponse.json({
       success: true,
       data: {

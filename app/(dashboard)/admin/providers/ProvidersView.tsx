@@ -218,6 +218,48 @@ export default function ProvidersView() {
       }
 
       await fetchProviders(true);
+
+      // Dual-Sync: Broadcast real-time catalog update to any open storefront tabs
+      // 1. Native BroadcastChannel (Instan 0ms untuk tab lain di browser/laptop yang sama)
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        try {
+          const bc = new BroadcastChannel("dapay-catalog-sync");
+          bc.postMessage({ type: "catalog-updated", code, field, timestamp: Date.now() });
+          setTimeout(() => {
+            try {
+              bc.close();
+            } catch {
+              // ignore
+            }
+          }, 500);
+        } catch {
+          // Non-blocking fallback
+        }
+      }
+
+      // 2. Supabase Realtime Broadcast (Untuk pengunjung di HP / browser / perangkat berbeda)
+      try {
+        const syncChannel = supabase.channel("storefront-catalog-sync", {
+          config: { broadcast: { self: true } },
+        });
+        syncChannel.subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            syncChannel
+              .send({
+                type: "broadcast",
+                event: "catalog-updated",
+                payload: { code, field, timestamp: Date.now() },
+              })
+              .finally(() => {
+                setTimeout(() => {
+                  void supabase.removeChannel(syncChannel);
+                }, 1500);
+              });
+          }
+        });
+      } catch {
+        // Non-blocking
+      }
     } catch (err: unknown) {
       // Revert optimistic mutation on error
       setProviders((prev) =>

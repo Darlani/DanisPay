@@ -319,6 +319,9 @@ function PendingPaymentBanner({
     if (!order?.order_id || isExpired || isResolved) return;
 
     const checkPaymentStatus = async () => {
+      // Hemat kuota & CPU: jangan panggil API saat tab sedang tidak dilihat / diminimize
+      if (typeof document !== "undefined" && document.hidden) return;
+
       try {
         // Minta bantuan API Invoice agar aman dari blokir keamanan Supabase
         const res = await fetch('/api/orders/invoice', {
@@ -414,6 +417,11 @@ export default function Home() {
     productBySku: Map<string, ActiveProductRow>;
     brandById: Map<string, ValidBrandInfo>;
   } | null>(null);
+  const isCatalogFetchingRef = useRef(false);
+  const lastCatalogFetchTimeRef = useRef(0);
+  const lastResolvedOrdersRef = useRef<RawHistoricalOrder[]>([]);
+  const isStaffRef = useRef(false);
+  const lastOrdersFetchTimeRef = useRef(0);
 
   const resolveRepeatAndPendingOrders = useCallback(
     (
@@ -549,7 +557,14 @@ export default function Home() {
   useEffect(() => {
     let isCancelled = false;
 
-    const checkMaintenanceAndData = async () => {
+    const checkMaintenanceAndData = async (isSilentRevalidation = false) => {
+      if (isCatalogFetchingRef.current) return;
+      isCatalogFetchingRef.current = true;
+
+      if (!isSilentRevalidation) {
+        setCatalogLoading(true);
+      }
+
       try {
         // 1. Consolidated Fetch: Maintenance, Shortcuts, Active Brands, Active Storefront Products
         const [settingsRes, shortcutCatsRes, brandsRes, activeProdsRes] = await Promise.all([
@@ -650,7 +665,71 @@ export default function Home() {
         // Lepas spinner utama segera setelah katalog siap (Non-Blocking Homepage Render)
         setLoading(false);
 
-        // 2. Resolusi Transaksi Terakhir secara non-blocking
+        // 2. Hubungkan data pesanan yang sudah ada dengan katalog produk terbaru tanpa panggil API ulang
+        if (lastResolvedOrdersRef.current.length > 0) {
+          resolveRepeatAndPendingOrders(
+            lastResolvedOrdersRef.current,
+            isStaffRef.current,
+            productBySku,
+            brandById
+          );
+        }
+      } catch (err) {
+        console.error("Load error", err);
+      } finally {
+        lastCatalogFetchTimeRef.current = Date.now();
+        isCatalogFetchingRef.current = false;
+        if (!isCancelled) {
+          setLoading(false);
+          setCatalogLoading(false);
+        }
+      }
+    };
+
+    // Fungsi terpisah khusus transaksi pengguna (Hemat Bandwidth & Cache 5 Menit)
+    const fetchUserOrders = async () => {
+      const now = Date.now();
+      const MEMBER_ORDERS_CACHE_MS = 300000; // 5 Menit Cache
+
+      // 1. Cek in-memory cache
+      if (now - lastOrdersFetchTimeRef.current < MEMBER_ORDERS_CACHE_MS && lastResolvedOrdersRef.current.length > 0) {
+        if (catalogMapsRef.current) {
+          resolveRepeatAndPendingOrders(
+            lastResolvedOrdersRef.current,
+            isStaffRef.current,
+            catalogMapsRef.current.productBySku,
+            catalogMapsRef.current.brandById
+          );
+        }
+        return;
+      }
+
+      // 2. Cek sessionStorage cache
+      if (typeof window !== "undefined") {
+        try {
+          const cached = sessionStorage.getItem("dapay_member_orders_cache");
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && Array.isArray(parsed.orders) && now - Number(parsed.ts || 0) < MEMBER_ORDERS_CACHE_MS) {
+              lastOrdersFetchTimeRef.current = Number(parsed.ts);
+              lastResolvedOrdersRef.current = parsed.orders;
+              if (catalogMapsRef.current) {
+                resolveRepeatAndPendingOrders(
+                  parsed.orders,
+                  isStaffRef.current,
+                  catalogMapsRef.current.productBySku,
+                  catalogMapsRef.current.brandById
+                );
+              }
+              return;
+            }
+          }
+        } catch {
+          // ignore cache read error
+        }
+      }
+
+      try {
         const { data: { session } } = await supabase.auth.getSession();
         if (isCancelled) return;
 
@@ -666,14 +745,19 @@ export default function Home() {
             isStaff = true;
           }
         }
+        isStaffRef.current = isStaff;
 
         if (isCancelled) return;
 
         if (session?.user && session?.access_token) {
           if (isStaff) {
-            resolveRepeatAndPendingOrders([], true, productBySku, brandById);
+            lastResolvedOrdersRef.current = [];
+            if (catalogMapsRef.current) {
+              resolveRepeatAndPendingOrders([], true, catalogMapsRef.current.productBySku, catalogMapsRef.current.brandById);
+            }
           } else {
-            const res = await fetch('/api/user/orders?page=1&limit=20&sort=newest', {
+            // Mode Ringan: compact=true & limit=6 (menghemat 90% bandwidth & menonaktifkan scan database berat)
+            const res = await fetch('/api/user/orders?compact=true&limit=6&sort=newest', {
               headers: {
                 Authorization: `Bearer ${session.access_token}`,
               },
@@ -686,17 +770,39 @@ export default function Home() {
                   : Array.isArray(json?.orders)
                     ? json.orders
                     : [];
-              resolveRepeatAndPendingOrders(ordersArray, false, productBySku, brandById);
+
+              lastResolvedOrdersRef.current = ordersArray;
+              lastOrdersFetchTimeRef.current = Date.now();
+              if (typeof window !== "undefined") {
+                try {
+                  sessionStorage.setItem(
+                    "dapay_member_orders_cache",
+                    JSON.stringify({ orders: ordersArray, ts: Date.now() })
+                  );
+                } catch {
+                  // ignore
+                }
+              }
+
+              if (catalogMapsRef.current) {
+                resolveRepeatAndPendingOrders(
+                  ordersArray,
+                  false,
+                  catalogMapsRef.current.productBySku,
+                  catalogMapsRef.current.brandById
+                );
+              }
             }
           }
         } else {
           // GUEST LOGIC: Baca riwayat lokal yang aman (tanpa query Supabase device_id)
-          const guestCache = localStorage.getItem('dapay_guest_history');
-          if (guestCache) {
+          const guestCache = typeof window !== "undefined" ? localStorage.getItem('dapay_guest_history') : null;
+          if (guestCache && catalogMapsRef.current) {
             try {
               const parsedCache = JSON.parse(guestCache);
               if (Array.isArray(parsedCache) && parsedCache.length > 0) {
-                resolveRepeatAndPendingOrders(parsedCache, false, productBySku, brandById);
+                lastResolvedOrdersRef.current = parsedCache;
+                resolveRepeatAndPendingOrders(parsedCache, false, catalogMapsRef.current.productBySku, catalogMapsRef.current.brandById);
               }
             } catch (e) {
               console.error("Gagal baca cache lokal Guest", e);
@@ -704,22 +810,66 @@ export default function Home() {
           }
         }
       } catch (err) {
-        console.error("Load error", err);
-      } finally {
-        if (!isCancelled) {
-          setLoading(false);
-          setCatalogLoading(false);
-        }
+        console.error("Gagal memuat pesanan user:", err);
       }
     };
 
-    checkMaintenanceAndData();
+    // Panggilan inisial saat halaman dimuat
+    void checkMaintenanceAndData(false).then(() => {
+      if (!isCancelled) {
+        void fetchUserOrders();
+      }
+    });
+
+    // 1. SWR Revalidation saat tab kembali aktif (dengan jeda waktu pintar 60 detik agar tidak membebani server)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        const elapsed = Date.now() - lastCatalogFetchTimeRef.current;
+        if (elapsed >= 60000) {
+          void checkMaintenanceAndData(true);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // 2. Realtime Broadcast Listener (sinkronisasi instan saat Admin mengubah saklar provider / etalase)
+    const realtimeChannel = supabase
+      .channel("storefront-catalog-sync", {
+        config: { broadcast: { self: true } },
+      })
+      .on("broadcast", { event: "catalog-updated" }, () => {
+        void checkMaintenanceAndData(true);
+      })
+      .subscribe();
+
+    // 3. Native Browser BroadcastChannel (Sinkronisasi instan 0ms antar-tab di browser yang sama)
+    let nativeCatalogChannel: BroadcastChannel | null = null;
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      try {
+        nativeCatalogChannel = new BroadcastChannel("dapay-catalog-sync");
+        nativeCatalogChannel.onmessage = (event) => {
+          if (event.data?.type === "catalog-updated") {
+            void checkMaintenanceAndData(true);
+          }
+        };
+      } catch {
+        // Fallback jika lingkungan webview tidak mendukung BroadcastChannel
+      }
+    }
 
     const {
       data: { subscription: authListener },
     } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
         setPendingOrder(null);
+        lastResolvedOrdersRef.current = [];
+        if (typeof window !== "undefined") {
+          try {
+            sessionStorage.removeItem("dapay_member_orders_cache");
+          } catch {
+            // ignore
+          }
+        }
         const guestCache = typeof window !== "undefined" ? localStorage.getItem("dapay_guest_history") : null;
         if (guestCache && catalogMapsRef.current) {
           try {
@@ -744,6 +894,15 @@ export default function Home() {
     return () => {
       isCancelled = true;
       authListener.unsubscribe();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (nativeCatalogChannel) {
+        try {
+          nativeCatalogChannel.close();
+        } catch {
+          // Non-blocking cleanup
+        }
+      }
+      void supabase.removeChannel(realtimeChannel);
     };
   }, [resolveRepeatAndPendingOrders]);
 

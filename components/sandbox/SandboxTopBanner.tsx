@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { FlaskConical } from "lucide-react";
-import { supabase } from "@/utils/supabaseClient";
-import { fetchTesterSessionDeduplicated } from "./SandboxSessionControl";
+import { fetchTesterSessionDeduplicated, getCachedSandboxSession } from "./SandboxSessionControl";
 import { useI18n } from "@/lib/i18n/context";
 import { stripLocaleFromPathname } from "@/lib/i18n/config";
 
@@ -12,32 +11,69 @@ export default function SandboxTopBanner() {
   const pathname = usePathname();
   const { t } = useI18n();
   const mounted = typeof window !== "undefined";
-  const [isActive, setIsActive] = useState<boolean>(false);
+  const initialCached = getCachedSandboxSession();
+  const [isActive, setIsActive] = useState<boolean>(
+    Boolean(initialCached?.sandboxAccessState === "ACTIVE" && initialCached?.isSandboxActive)
+  );
 
   useEffect(() => {
     let isSubscribed = true;
 
-    const loadSession = async () => {
-      const data = await fetchTesterSessionDeduplicated(true);
+    const syncFromData = (data: ReturnType<typeof getCachedSandboxSession>) => {
       if (isSubscribed && data) {
         setIsActive(data.sandboxAccessState === "ACTIVE" && data.isSandboxActive);
+      } else if (isSubscribed) {
+        setIsActive(false);
       }
     };
 
+    const loadSession = async () => {
+      const data = await fetchTesterSessionDeduplicated(false);
+      syncFromData(data);
+    };
+
+    // Ambil data awal secara dedup & non-blocking (menghormati cache 60 detik)
     void loadSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    // Filter ketat: Hanya bereaksi pada event storage khusus sandbox
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "dapay_tester_realtime_event" && e.newValue) {
+        try {
+          const payload = JSON.parse(e.newValue);
+          syncFromData(payload);
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    // Sinkronisasi antar-tab instan via BroadcastChannel
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      try {
+        bc = new BroadcastChannel("dapay_tester_sync");
+        bc.onmessage = (event) => {
+          if (event.data) {
+            syncFromData(event.data);
+          }
+        };
+      } catch {
+        // ignore
+      }
+    }
+
+    const handleSessionChanged = () => {
       void loadSession();
-    });
-    const refreshFromServer = () => { void loadSession(); };
-    window.addEventListener("storage", refreshFromServer);
-    window.addEventListener("sandboxSessionChanged", refreshFromServer);
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("sandboxSessionChanged", handleSessionChanged);
 
     return () => {
       isSubscribed = false;
-      subscription.unsubscribe();
-      window.removeEventListener("storage", refreshFromServer);
-      window.removeEventListener("sandboxSessionChanged", refreshFromServer);
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("sandboxSessionChanged", handleSessionChanged);
     };
   }, []);
 
